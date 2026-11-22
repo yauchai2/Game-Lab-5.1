@@ -263,3 +263,62 @@ export function showWeapon(model, style) {
   for(const [id,form] of Object.entries(model.weaponForms)) form.visible=id===style;
   model.offhand.visible=style==='blades';
 }
+
+// 3D 外觀造型系統（帽子、背飾、提燈光效）
+export function applyCosmetics(model, cos = {}) {
+  if (!model || !model.head || !model.body) return;
+  if (!model.cosGroup) {
+    model.cosGroup = { head: new THREE.Group(), back: new THREE.Group() };
+    model.head.add(model.cosGroup.head);
+    model.body.add(model.cosGroup.back);
+  }
+  const hg = model.cosGroup.head, bg = model.cosGroup.back;
+  while (hg.children.length) hg.remove(hg.children[0]);
+  while (bg.children.length) bg.remove(bg.children[0]);
+  const hat = cos.hat || 'hood';
+  if (hat === 'straw') {
+    hg.add(mesh(mergeGeometries([
+      part(new THREE.CylinderGeometry(0.46, 0.48, 0.06, 10), 0xebd07a, 0, 0.25, 0),
+      part(new THREE.CylinderGeometry(0.26, 0.3, 0.2, 10), 0xebd07a, 0, 0.36, 0),
+      part(new THREE.CylinderGeometry(0.28, 0.29, 0.05, 10), 0xd94f42, 0, 0.3, 0),
+    ])));
+  } else if (hat === 'crown') {
+    hg.add(mesh(mergeGeometries([
+      part(new THREE.CylinderGeometry(0.24, 0.22, 0.14, 6), 0xffd24a, 0, 0.32, 0),
+      part(new THREE.OctahedronGeometry(0.08, 0), 0x6ee8ff, 0, 0.44, 0.12),
+    ])));
+  } else if (hat === 'frog') {
+    hg.add(mesh(mergeGeometries([
+      part(new THREE.SphereGeometry(0.32, 8, 5, 0, Math.PI * 2, 0, Math.PI * 0.55), 0x62b85a, 0, 0.1, 0),
+      part(new THREE.SphereGeometry(0.09, 6, 5), 0xffffff, -0.15, 0.34, 0.12),
+      part(new THREE.SphereGeometry(0.09, 6, 5), 0xffffff, 0.15, 0.34, 0.12),
+      part(new THREE.BoxGeometry(0.04, 0.04, 0.04), 0x1d1626, -0.15, 0.35, 0.2),
+      part(new THREE.BoxGeometry(0.04, 0.04, 0.04), 0x1d1626, 0.15, 0.35, 0.2),
+    ])));
+  } else if (hat === 'beanie') {
+    hg.add(mesh(mergeGeometries([
+      part(new THREE.SphereGeometry(0.31, 8, 5, 0, Math.PI * 2, 0, Math.PI * 0.6), 0xd96459, 0, 0.12, 0),
+      part(new THREE.SphereGeometry(0.1, 6, 5), 0xfff5e0, 0, 0.44, 0),
+    ])));
+  }
+  const back = cos.back || 'none';
+  if (back === 'pack') {
+    bg.add(mesh(mergeGeometries([
+      part(new THREE.BoxGeometry(0.38, 0.44, 0.24), 0x7b563c, 0, 0.48, -0.32),
+      part(new THREE.CylinderGeometry(0.09, 0.09, 0.42, 6), 0x456b78, 0, 0.74, -0.32, 0, 0, Math.PI / 2),
+    ])));
+  } else if (back === 'wings') {
+    bg.add(mesh(mergeGeometries([
+      part(new THREE.BoxGeometry(0.42, 0.24, 0.05), 0xfff4d4, -0.34, 0.58, -0.28, 0, 0.3, 0.28),
+      part(new THREE.BoxGeometry(0.42, 0.24, 0.05), 0xfff4d4, 0.34, 0.58, -0.28, 0, -0.3, -0.28),
+    ])));
+  } else if (back === 'lanterns') {
+    bg.add(mesh(mergeGeometries([
+      part(new THREE.BoxGeometry(0.55, 0.06, 0.06), 0x6b4530, 0, 0.75, -0.28),
+      part(new THREE.BoxGeometry(0.14, 0.18, 0.14), 0xffd86b, -0.26, 0.62, -0.28),
+      part(new THREE.BoxGeometry(0.14, 0.18, 0.14), 0x7ae8ff, 0.26, 0.62, -0.28),
+    ])));
+  }
+  const auraCols = { none: 0xffd36e, gold: 0xffe26a, ocean: 0x6ee8ff, sakura: 0xffa6c9, violet: 0xc88cff };
+  if (model.lantern?.material) model.lantern.material.color.setHex(auraCols[cos.aura] || 0xffd36e);
+}

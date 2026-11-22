@@ -9,8 +9,8 @@ const createGuild = require('../server/guild.cjs');
   const frontier = await import(src('frontier.js'));
   const lodge = await import(src('lodge.js'));
 
-  // 1. Six persistent regions configured with expected sizes & levels
-  assert.equal(frontier.FIELDS.length, 7);
+  // 1. Nine persistent regions configured with expected sizes & levels (incl. 3 creative sea/sky zones)
+  assert.equal(frontier.FIELDS.length, 10);
   assert.deepEqual(
     frontier.FIELDS.slice(1).map(f => [f.name, f.level, f.size]),
     [
@@ -20,6 +20,9 @@ const createGuild = require('../server/guild.cjs');
       ['霜冬雪原', 15, 100],
       ['燼煙火岩區', 20, 60],
       ['古樹林', 25, 100],
+      ['浮空遺跡群', 12, 76],
+      ['珊瑚潮汐灣', 18, 76],
+      ['沉沒電光都', 24, 76],
     ],
   );
 
@@ -148,5 +151,34 @@ const createGuild = require('../server/guild.cjs');
     assert.ok(puzzle.ACTIVE_GEMS[id], `Flashy creative skill ${id} registered in puzzle gems`);
   }
 
-  console.log('ALL LOGIC, PUZZLE, CLASS, WORLD-ALIVE & GUILD SERVER CHECKS PASSED');
+  // 9. i18n, Physics Backpack/Stash, Cosmetics, Harbor & Custom Keybinds
+  const i18n = await import(src('i18n.js'));
+  assert.equal(i18n.LANGS.length, 3, 'Three languages supported (zh-TW, en, ja)');
+  assert.equal(i18n.t('en', 'bag'), 'Physics Bag');
+  assert.equal(i18n.t('ja', 'stash'), '倉庫');
+
+  const physbag = await import(src('physbag.js'));
+  const bagProfile = {};
+  const store = physbag.ensurePhysicsStorage(bagProfile);
+  assert.ok(store.bag.length >= 3, 'Starter supplies populated in physics backpack');
+  assert.ok(store.stash.length >= 2, 'Starter items populated in physics stash');
+  const fakeCanvas = { width: 320, height: 240, getContext: () => ({}), addEventListener: () => {} };
+  const pc = new physbag.PhysicsContainer(fakeCanvas);
+  pc.sync(store.bag);
+  const y0 = pc.bodies[0].y;
+  for (let i = 0; i < 40; i++) pc.step(1 / 60);
+  assert.ok(pc.bodies[0].y > y0, 'Gravity pulls physics backpack items downward');
+  pc.shake();
+  assert.ok(pc.bodies[0].vy < 0, 'Shake launches physics items upward for reorganizing');
+
+  const harbor = await import(src('harbor.js'));
+  assert.equal(harbor.COSMETICS.hats.length, 5, 'Five 3D hat cosmetics defined');
+  assert.equal(harbor.COSMETICS.backs.length, 4, 'Four 3D back cosmetics defined');
+  assert.equal(harbor.COSMETICS.auras.length, 5, 'Five weapon/lantern aura cosmetics defined');
+
+  const settings = await import(src('settings.js'));
+  assert.deepEqual(Object.keys(settings.KEY_PRESETS), ['arpg', 'poe', 'mmo']);
+  assert.equal(settings.KEY_PRESETS.arpg.recall, 'h', 'Default recall hotkey is H');
+
+  console.log('ALL LOGIC, PUZZLE, CLASS, WORLD-ALIVE, PHYSBAG, HARBOR & GUILD SERVER CHECKS PASSED');
 })();

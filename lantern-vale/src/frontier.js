@@ -3,6 +3,7 @@ import { BIOMES, mulberry32 } from './util.js';
 import { makeItem, serializeItem, deserializeItem } from './loot.js';
 import { ALL_GEMS, addGemToBag } from './puzzle.js';
 import { spawnSkyFeatures, startGatherMini, openHighChest, FIELD_NPCS } from './world_alive.js';
+import { buildZoneLandmarks } from './harbor.js';
 
 export const GOODS = { wood: '香杉木', ore: '星紋礦', fish: '溪銀魚' };
 export const FIELDS = [
@@ -13,6 +14,9 @@ export const FIELDS = [
   { name: '霜冬雪原', level: 15, biome: 2, size: 100, beast: 'boar', dungeon: '寒霜冰窟', fog: 0xdde8f4 },
   { name: '燼煙火岩區', level: 20, biome: 3, size: 60, beast: 'boar', dungeon: '燼岩熔爐', grass: 0xad7153 },
   { name: '古樹林', level: 25, biome: 1, size: 100, beast: 'thorn', dungeon: '鹿王樹心', grass: 0x477252 },
+  { name: '浮空遺跡群', level: 12, biome: 0, size: 76, beast: 'moth', dungeon: '星穹古塔', grass: 0x7bc87a },
+  { name: '珊瑚潮汐灣', level: 18, biome: 0, size: 76, beast: 'slime', dungeon: '潮汐海蝕洞', grass: 0xe8d089 },
+  { name: '沉沒電光都', level: 24, biome: 2, size: 76, beast: 'thorn', dungeon: '水沒變電塔', grass: 0x5c9ab0, fog: 0x7eb8d4 },
 ];
 export const progressDefaults = {
   level: 1, xp: 0, coins: 15, keys: 1, goods: { wood: 0, ore: 0, fish: 0 }, graves: {}, timers: {},
@@ -101,6 +105,7 @@ export function setupField(g) {
   const grave = g.meta.p.graves[g.field];
   if (grave) addSpot(g,'grave','取回墓碑素材',grave.x,grave.z);
   spawnSkyFeatures(g);
+  buildZoneLandmarks(g);
   g.fieldClock = 0; g.dueling = false;
   g.ui.banner(f.name,'【常駐普通地圖】等級 ' + f.level + ' 起 · 免清怪自由探索');
 }

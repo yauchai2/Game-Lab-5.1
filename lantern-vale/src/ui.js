@@ -3,9 +3,13 @@ import { bindTouch } from './touch.js';
 import { bindWorldMap } from './worldmap.js';
 import { bindCharacters } from './characters.js';
 import { buildPanels } from './panels.js';
-import { loadSettings, applySettings, buildSettingsUI } from './settings.js';
+import { loadSettings, applySettings, buildSettingsUI, syncHotbarKeyLabels } from './settings.js';
 import { CLASSES, bindPuzzleUI } from './puzzle.js';
 import { dayInfo, findSecondClass, drawRegionMap } from './world_alive.js';
+import { COSMETICS } from './harbor.js';
+import { applyCosmetics } from './models.js';
+import { PhysicsContainer, ensurePhysicsStorage, useBagItem, transferBagItem } from './physbag.js';
+import { t } from './i18n.js';
 import * as THREE from 'three';
 import { RARITY, SLOTS, itemLines, itemScore, BOONS } from './loot.js';
 
@@ -16,6 +20,7 @@ export class UI {
   constructor() {
     this.nums = [];
     this.invOpen = false;
+    this.invTab = 'bag';
     this.boonChoices = null;
   }
   bind(game) {
@@ -25,8 +30,11 @@ export class UI {
     $('btnMute').textContent = game.audio.muted ? '🔇' : '🔊';
     bindWorldMap(game); bindTouch(game); bindPuzzleUI(game);
     const pzBtn = $('sk-puzzle'); if (pzBtn) pzBtn.onclick = () => { if (this.puzzleOpen) this.closePuzzle(); else this.openPuzzle(); };
+    const bagBtn = $('sk-bag'); if (bagBtn) bagBtn.onclick = () => this.toggleInv(game, 'bag');
+    const recBtn = $('sk-recall'); if (recBtn) recBtn.onclick = () => game.startRecall?.();
     const dayBtn = $('dayInfo'); if (dayBtn) dayBtn.onclick = () => { game.dayTime = ((game.dayTime || 0) + 0.25) % 1; const d = dayInfo(game.dayTime); game.ui.toast(`時間推進至 ${d.icon} ${d.label}`, '#ffe9a0'); };
     for (let i = 0; i < 4; i++) { const el = $('sk-s' + i); if (el) el.onclick = () => game.castHotbar(i); }
+    this._bindInvTabs(game);
     const enterCharacter = bindCharacters(game);
     $('btnTown2').onclick = () => { $('dead').classList.add('hide'); game.party = ''; game.enterTown(); };
     $('btnTown3').onclick = () => { $('win').classList.add('hide'); game.enterTown(); };
@@ -36,12 +44,86 @@ export class UI {
       enterCharacter();
       game.net.connect(game.playerName, game.hoodIdx);
       $('title').classList.add('hide'); $('hud').classList.remove('hide'); game.enterTown();
+      syncHotbarKeyLabels(game);
     };
     $('btnRetry').onclick = () => { $('dead').classList.add('hide'); game.startRun(); };
     $('btnAgain').onclick = () => { $('win').classList.add('hide'); game.startRun(); };
     document.querySelectorAll('[data-scale]').forEach(b => b.onclick = () => {
       game.pipe.setPixelScale(+b.dataset.scale);
       document.querySelectorAll('[data-scale]').forEach(x => x.classList.toggle('on', x === b));
+    });
+  }
+  _bindInvTabs(game) {
+    const bagCv = $('bagCanvas'), stashCv = $('stashCanvas');
+    const showSel = (boxId, btnsId, item, fromKey) => {
+      const info = $(boxId), btns = $(btnsId);
+      if (!info || !btns) return;
+      const lang = game.settings?.lang || 'zh-TW';
+      if (!item) { info.textContent = t(lang, 'bagEmpty'); btns.innerHTML = ''; return; }
+      info.innerHTML = `<b>${item.icon || ''} ${item.name}</b><br><small>${item.desc || (item.kind === 'gear' ? '點擊裝備即可穿戴至對應欄位' : '物理背包物品')}</small>`;
+      btns.innerHTML = '';
+      const act = document.createElement('button'); act.className = 'btn small';
+      act.textContent = item.kind === 'gear' ? t(lang, 'equipItem') : t(lang, 'useItem');
+      act.onclick = () => { useBagItem(game, item, fromKey); this.syncPhysBags(game); this.renderInv(game, true); };
+      btns.appendChild(act);
+      const otherKey = fromKey === 'bagItems' ? 'stashItems' : 'bagItems';
+      const mv = document.createElement('button'); mv.className = 'btn small'; mv.style.background = 'var(--teal)';
+      mv.textContent = otherKey === 'stashItems' ? t(lang, 'toStash') : t(lang, 'toBag');
+      mv.onclick = () => { transferBagItem(game, item, fromKey, otherKey); this.syncPhysBags(game); showSel(boxId, btnsId, null, fromKey); };
+      btns.appendChild(mv);
+    };
+    if (bagCv) {
+      this.bagPhys = new PhysicsContainer(bagCv, {
+        theme: 'bag',
+        onSelect: it => showSel('bagSelInfo', 'bagBtns', it, 'bagItems'),
+        onDoubleClick: it => { useBagItem(game, it, 'bagItems'); this.syncPhysBags(game); this.renderInv(game, true); },
+      });
+    }
+    if (stashCv) {
+      this.stashPhys = new PhysicsContainer(stashCv, {
+        theme: 'stash',
+        onSelect: it => showSel('stashSelInfo', 'stashBtns', it, 'stashItems'),
+        onDoubleClick: it => { transferBagItem(game, it, 'stashItems', 'bagItems'); this.syncPhysBags(game); },
+      });
+    }
+    const sb = $('btnShakeBag'); if (sb) sb.onclick = () => { this.bagPhys?.shake(); game.audio.sfx('roll'); };
+    const ss = $('btnShakeStash'); if (ss) ss.onclick = () => { this.stashPhys?.shake(); game.audio.sfx('roll'); };
+    const bc = $('btnInvClose'); if (bc) bc.onclick = () => this.toggleInv(game);
+    document.querySelectorAll('[data-invtab]').forEach(btn => {
+      btn.onclick = () => { this.setInvTab(game, btn.dataset.invtab); game.audio.sfx('ui'); };
+    });
+  }
+  setInvTab(game, tab) {
+    this.invTab = tab;
+    document.querySelectorAll('[data-invtab]').forEach(b => b.classList.toggle('on', b.dataset.invtab === tab));
+    ['bag', 'gear', 'stash', 'cos'].forEach(k => {
+      const pane = $('pane-' + k);
+      if (pane) pane.classList.toggle('hide', k !== tab);
+    });
+    if (tab === 'bag' || tab === 'stash') this.syncPhysBags(game);
+    if (tab === 'gear') this.renderInv(game, true);
+    if (tab === 'cos') this.renderCosmetics(game);
+  }
+  syncPhysBags(game) {
+    const st = ensurePhysicsStorage(game.meta.p);
+    this.bagPhys?.sync(st.bag);
+    this.stashPhys?.sync(st.stash);
+  }
+  renderCosmetics(game) {
+    const root = $('cosmeticsRoot'); if (!root) return;
+    const p = game.meta.p; p.cosmetics = p.cosmetics || { hat: 'hood', back: 'none', aura: 'none' };
+    const section = (title, key, list) => `<h3>${title}</h3><div class="cos-grid">${list.map(c =>
+      `<button type="button" class="cos-btn ${p.cosmetics[key] === c.id ? 'on' : ''}" data-ckey="${key}" data-cid="${c.id}"><div style="font-size:22px">${c.icon}</div><div>${c.name}</div></button>`
+    ).join('')}</div>`;
+    root.innerHTML = section('🎩 帽子與頭飾', 'hat', COSMETICS.hats) + section('🎒 背飾與羽翼', 'back', COSMETICS.backs) + section('✨ 提燈與武器光效', 'aura', COSMETICS.auras);
+    root.querySelectorAll('.cos-btn').forEach(b => {
+      b.onclick = () => {
+        p.cosmetics[b.dataset.ckey] = b.dataset.cid;
+        game.meta.save();
+        applyCosmetics(game.player.m, p.cosmetics);
+        game.audio.sfx('pickup');
+        this.renderCosmetics(game);
+      };
     });
   }
   netStatus(s) {
@@ -100,12 +182,18 @@ export class UI {
     if (!near) { el.style.display = 'none'; return; }
     const [sx, sy] = this.screenPos(near.x, 4.4, near.z);
     el.style.display = 'block'; el.style.left = sx + 'px'; el.style.top = sy + 'px';
-    el.textContent = { item: '前路：稀有裝備', boon: '前路：天賦祝福', heal: '前路：溫泉休憩', run: '前往晨光草原（常駐普通地圖）', town: '返回燈谷鎮（免清怪）', dungeon: '消耗 1 鑰石 · 進入副本地圖' }[near.type];
-    if(near.type==='dungeon') el.textContent='【副本地圖】'+FIELDS[g.field].dungeon+' · 鑰石 ×1';
+    const nextF = FIELDS[(g.field || 1) + 1];
+    el.textContent = {
+      item: '前路：稀有裝備', boon: '前路：天賦祝福', heal: '前路：溫泉休憩',
+      run: '前往晨光草原（常駐普通地圖）', town: '返回燈谷鎮（免清怪）',
+      nextField: nextF ? `道路前往：${nextF.name}（Lv.${nextF.level}）` : '返回海風港鎮',
+      dungeon: '消耗 1 鑰石 · 進入副本地圖',
+    }[near.type] || '傳送門';
+    if (near.type === 'dungeon' && FIELDS[g.field]) el.textContent = '【副本地圖】' + FIELDS[g.field].dungeon + ' · 鑰石 ×1';
     el.className = 'exitHint ' + near.type;
   }
   spotHint(g) {
-    const el = $('spotHint'), s = this.panelOpen || this.invOpen || this.setOpen || this.puzzleOpen ? null : g.nearSpot();
+    const el = $('spotHint'), s = this.panelOpen || this.invOpen || this.setOpen || this.puzzleOpen || g.sailing ? null : g.nearSpot();
     if (!s) { el.style.display = 'none'; return; }
     const [sx, sy] = this.screenPos(s.x, s.top || 2.6, s.z);
     el.style.display = 'block'; el.style.left = sx + 'px'; el.style.top = sy + 'px';
@@ -125,6 +213,11 @@ export class UI {
     }
   }
   update(g) {
+    // 物理背包／倉庫 60fps 重力模擬
+    if (this.invOpen) {
+      if (this.invTab === 'bag' && this.bagPhys) { this.bagPhys.step(1 / 60); this.bagPhys.draw(); }
+      if (this.invTab === 'stash' && this.stashPhys) { this.stashPhys.step(1 / 60); this.stashPhys.draw(); }
+    }
     // floating numbers
     for (const n of this.nums) {
       n.t += 1 / 60;
@@ -144,10 +237,10 @@ export class UI {
     $('hpText').textContent = `${Math.ceil(p.hp)}/${S.maxHp}`;
     $('mpText').textContent = `${Math.floor(p.mana)}/${S.mana}`;
     const cd = (id, cur, max, locked) => {
-      const el = $(id); el.classList.toggle('locked', !!locked);
-      el.querySelector('.cd').style.height = (max > 0 ? Math.min(1, cur / max) * 100 : 0) + '%';
+      const el = $(id); if (!el) return;
+      el.classList.toggle('locked', !!locked);
+      const c = el.querySelector('.cd'); if (c) c.style.height = (max > 0 ? Math.min(1, cur / max) * 100 : 0) + '%';
     };
-    cd('sk-lmb', p.cds.atk, 0.5);
     const hotbar = p.hotbar || [];
     for (let i = 0; i < 4; i++) {
       const el = $('sk-s' + i); if (!el) continue;
@@ -165,32 +258,40 @@ export class UI {
         cd('sk-s' + i, 0, 1, true);
       }
     }
-    cd('sk-roll', p.cds.roll, 0.85);
     $('sk-r').querySelector('.cnt').textContent = `${p.flask.charges}/${p.flask.max}`;
     $('sk-r').classList.toggle('locked', p.flask.charges === 0);
     $('sk-r').querySelector('.cd').style.height = (p.flask.charges >= p.flask.max ? 0 : (1 - p.flask.prog) * 100) + '%';
+    // 回城吟唱進度條
+    const rbar = $('recallBar');
+    if (rbar) {
+      rbar.classList.toggle('hide', !(g.recallT > 0));
+      if (g.recallT > 0) {
+        rbar.querySelector('.rtxt').textContent = '🐚 ' + t(g.settings?.lang, 'recallCast');
+        rbar.querySelector('.rfill').style.width = ((1 - g.recallT / 2.5) * 100) + '%';
+      }
+    }
     const stage = Math.floor(g.depth / 3) + 1, room = g.depth % 3 + 1;
     const cls = CLASSES[g.character?.job ?? 0] || CLASSES[0];
     const sc2 = findSecondClass(g.meta.p.secondClass);
     const roleTag = sc2 ? `${sc2.icon}${sc2.name}` : `${cls.icon}${cls.name}`;
-    $('roomInfo').textContent = g.interior ? `🏠 ${g.interior.kind === 'tavern' ? '楓的蘋果酒館' : '旅人小屋'}（室內）` : g.field ? `【常駐區】${g.biome.name} · ${roleTag} Lv.${g.meta.p.level}` : g.depth < 0 ? `燈谷鎮 · ${roleTag} Lv.${g.meta.p.level}` : g.depth === 9 ? '【副本最終】鹿王林地' : `【副本】${g.biome.name} ${stage}-${room}`;
+    $('roomInfo').textContent = g.sailing ? '⛵ 航行於海灣中' : g.interior ? `🏠 ${g.interior.kind === 'tavern' ? '楓的蘋果酒館' : '旅人小屋'}（室內）` : g.depth === -2 ? `⛵ 海風港鎮 · ${roleTag} Lv.${g.meta.p.level}` : g.field ? `【常駐區】${g.biome.name} · ${roleTag} Lv.${g.meta.p.level}` : g.depth < 0 ? `燈谷鎮 · ${roleTag} Lv.${g.meta.p.level}` : g.depth === 9 ? '【副本最終】鹿王林地' : `【副本】${g.biome.name} ${stage}-${room}`;
     const dayEl = $('dayInfo'); if (dayEl) { const di = dayInfo(g.dayTime || 0.3); dayEl.textContent = `${di.icon} ${di.label}`; }
     if (this.regionMapOpen) {
       this._rmT = (this._rmT || 0) + 1;
       if (this._rmT % 4 === 0) {
-        const rmt = $('rmTitle'); if (rmt) rmt.textContent = g.interior ? '室內平面圖' : g.field ? `${g.biome.name} · 地區地圖` : g.depth < 0 ? '燈谷鎮 · 地區地圖' : '副本房間地圖';
+        const rmt = $('rmTitle'); if (rmt) rmt.textContent = g.interior ? '室內平面圖' : g.depth === -2 ? '海風港鎮 · 地區地圖' : g.field ? `${g.biome.name} · 地區地圖` : g.depth < 0 ? '燈谷鎮 · 地區地圖' : '副本房間地圖';
         drawRegionMap(g, $('regionMapCanvas'));
       }
     }
     $('killInfo').textContent = '擊敗 ' + p.kills;
-    const target=$('fieldTarget');
-    let nearest=null, distance=7;
-    if (g.field && g.state==='play') for(const enemy of g.enemies) {
-      const d=enemy.pos.distanceTo(p.pos);
-      if(!enemy.dead && d<distance){nearest=enemy;distance=d;}
+    const target = $('fieldTarget');
+    let nearest = null, distance = 7;
+    if (g.field && g.state === 'play') for (const enemy of g.enemies) {
+      const d = enemy.pos.distanceTo(p.pos);
+      if (!enemy.dead && d < distance) { nearest = enemy; distance = d; }
     }
-    target.hidden=!nearest;
-    if(nearest) target.textContent=(nearest.rival?'演武旅人':nearest.legendary?'傳奇':nearest.elite?'精英':'普通')+' · Lv.'+nearest.level+'　'+Math.ceil(nearest.hp)+' / '+Math.ceil(nearest.maxHp);
+    target.hidden = !nearest;
+    if (nearest) target.textContent = (nearest.rival ? '演武旅人' : nearest.legendary ? '傳奇' : nearest.elite ? '精英' : '普通') + ' · Lv.' + nearest.level + '　' + Math.ceil(nearest.hp) + ' / ' + Math.ceil(nearest.maxHp);
     const M = g.meta, pr = M.p;
     $('shardInfo').textContent = `✦ ${pr.shards}${M.runShards ? ` (+${M.runShards})` : ''}` + (g.depth >= 0 && pr.mods.length ? ' · ' + M.activeMods().map(m => m.name).join('') : '');
     const coinEl = $('coinInfo'); if (coinEl) coinEl.textContent = `🪙 ${pr.coins}`;
@@ -204,7 +305,10 @@ export class UI {
     if (xpFill) xpFill.style.width = (pr.level >= 30 ? 100 : Math.min(100, pr.xp / (pr.level * 40) * 100)) + '%';
     const compass = $('fieldCompass');
     if (compass) {
-      if (g.field && g.state === 'play') {
+      if (g.waypoint) {
+        compass.hidden = false;
+        compass.textContent = `🧭 導航：${g.waypoint.name} · ${g.waypoint.route}`;
+      } else if (g.field && g.state === 'play') {
         const grave = pr.graves[g.field];
         const poi = grave ? { x: grave.x, z: grave.z, label: '🪦 墓碑' }
           : (g.exits[0] ? { x: g.exits[0].x, z: g.exits[0].z, label: '⛩ ' + FIELDS[g.field].dungeon } : null);
@@ -222,7 +326,7 @@ export class UI {
     const tip = $('tip');
     if (d) { tip.classList.remove('hide'); if (tip.dataset.id != d.item.id) { tip.dataset.id = d.item.id; tip.innerHTML = this.itemHTML(d.item, p.equip[d.item.slot]); } }
     else { tip.classList.add('hide'); tip.dataset.id = ''; }
-    if (this.invOpen) this.renderInv(g);
+    if (this.invOpen && this.invTab === 'gear') this.renderInv(g);
   }
   itemHTML(it, cur) {
     const R = RARITY[it.rarity];
@@ -230,7 +334,7 @@ export class UI {
     let cmp = '';
     if (cur !== undefined) {
       const diff = itemScore(it) - itemScore(cur);
-      cmp = `<div class="cmp ${diff >= 0 ? 'up' : 'down'}">${cur ? (diff >= 0 ? `▲ 比目前好 ${diff}` : `▼ 比目前差 ${-diff}`) : '▲ 空欄位'}</div><div class="hint">[F] 裝備</div>`;
+      cmp = `<div class="cmp ${diff >= 0 ? 'up' : 'down'}">${cur ? (diff >= 0 ? `▲ 比目前好 ${diff}` : `▼ 比目前差 ${-diff}`) : '▲ 空欄位'}</div><div class="hint">[F] 裝備（舊裝備自動收入物理背包）</div>`;
     }
     return `<div class="iname" style="color:${R.color}">${it.name}</div><div class="ibase">${R.name} · ${SLOTS[it.slot].name} · ${it.base}</div><div class="sep"></div>${lines}${cmp}`;
   }
@@ -239,10 +343,11 @@ export class UI {
     const el = $('regionMap'); if (el) el.classList.toggle('hide', !this.regionMapOpen);
     if (this.regionMapOpen) drawRegionMap(g, $('regionMapCanvas'));
   }
-  toggleInv(g) {
+  toggleInv(g, tab) {
+    if (tab && this.invOpen && this.invTab !== tab) { this.setInvTab(g, tab); return; }
     this.invOpen = !this.invOpen;
     $('inv').classList.toggle('hide', !this.invOpen);
-    if (this.invOpen) this.renderInv(g, true);
+    if (this.invOpen) this.setInvTab(g, tab || this.invTab || 'bag');
   }
   renderInv(g, force) {
     if (!force && (this._invT = (this._invT || 0) + 1) % 15) return;
@@ -251,23 +356,21 @@ export class UI {
       const it = p.equip[k];
       return `<div class="slot"><div class="slotname">${SLOTS[k].icon}</div><div>${it ? this.itemHTML(it) : '<div class="empty">（空）</div>'}</div></div>`;
     }).join('');
-    const progress=g.meta.p, cls = CLASSES[g.character?.job ?? 0] || CLASSES[0], sc2 = findSecondClass(progress.secondClass);
+    const progress = g.meta.p, cls = CLASSES[g.character?.job ?? 0] || CLASSES[0], sc2 = findSecondClass(progress.secondClass);
     const rows = [
       ['職業', sc2 ? `${cls.icon} ${cls.name} → ${sc2.icon} ${sc2.name}` : `${cls.icon} ${cls.name}`],
       ['公會', progress.guildName || '未加入（可至公會大廳創立）'],
       ['職業被動', cls.summary],
-      ['等級 / 經驗', progress.level===30?'30 · 滿級':progress.level+' · '+progress.xp+'/'+(progress.level*40)],
-      ['金幣 / 鑰石',progress.coins+' / '+progress.keys],
-      ['木材 / 礦石 / 魚',progress.goods.wood+' / '+progress.goods.ore+' / '+progress.goods.fish],
+      ['等級 / 經驗', progress.level === 30 ? '30 · 滿級' : progress.level + ' · ' + progress.xp + '/' + (progress.level * 40)],
+      ['金幣 / 鑰石', progress.coins + ' / ' + progress.keys],
+      ['木材 / 礦石 / 魚', progress.goods.wood + ' / ' + progress.goods.ore + ' / ' + progress.goods.fish],
       ['生命', `${Math.ceil(p.hp)} / ${S.maxHp}`], ['法力', `${S.mana}`], ['基礎傷害', `${S.baseDmg + S.addFire}`], ['傷害加成', `+${S.dmgPct}%`],
       ['攻擊速度', `+${S.atkSpd}%`], ['暴擊', `${S.crit}% × ${S.critMult}%`], ['範圍', `+${S.area}%`], ['移動速度', `+${S.moveSpd}%`],
       ['冷卻縮減', `${S.cdr}%`], ['減傷', `${S.armor}%`], ['擊中回復', `${S.lifeOnHit}`], ['餘燼彈數', `${S.proj}`],
     ];
     $('invStats').innerHTML = rows.map(r => `<div><span>${r[0]}</span><b>${r[1]}</b></div>`).join('');
     const counts = {}; p.boons.forEach(b => counts[b] = (counts[b] || 0) + 1);
-    {
-      $('invBoons').innerHTML = Object.entries(counts).map(([id, n]) => { const b = BOONS.find(x => x.id === id); return `<span class="chip" title="${b.desc}">${b.icon} ${b.name}${n > 1 ? ' ×' + n : ''}</span>`; }).join('') || '<span class="empty">尚無天賦</span>';
-    }
+    $('invBoons').innerHTML = Object.entries(counts).map(([id, n]) => { const b = BOONS.find(x => x.id === id); return `<span class="chip" title="${b.desc}">${b.icon} ${b.name}${n > 1 ? ' ×' + n : ''}</span>`; }).join('') || '<span class="empty">尚無天賦</span>';
   }
   showBoons(g, choices) {
     this.boonChoices = choices;

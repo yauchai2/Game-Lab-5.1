@@ -2,15 +2,21 @@ import { buildPlayer } from './models.js';
 import { FIELDS } from './frontier.js';
 import illustration from './worldmap.svg';
 import { BIOMES } from './util.js';
+import { t } from './i18n.js';
 
-const regions = [
-  ['燈谷鎮', '安全區', '鎮中心設有委託布告欄、鐵匠鋪與地圖桌。', 50, 55],
-  ['晨光草原', '等級 1–5', '沿南路走進開闊的草原，草原洞窟藏在丘陵之間。', 49, 84],
-  ['低語森林', '等級 5–10', '西側林地的樹冠高低交錯，古老的樹洞通往地底。', 20, 63],
-  ['霧潮沼澤', '等級 10–15', '東側濕地常有濃霧，潮水間留有沼澤遺跡。', 81, 63],
-  ['霜冬雪原', '等級 15–20', '西北高地時有暴風雪，山脊下方藏著冰窟。', 18, 26],
-  ['燼煙火岩區', '等級 20–25', '東北方的赤色岩壁環抱著熔爐。', 81, 27],
-  ['古樹林', '等級 25–30', '北方密林的深處，是通往鹿王樹心的入口。', 50, 19],
+// 世界總圖節點（不可直接點擊傳送！僅供檢視路線、設定導航目標與查詢航線）
+export const WORLD_REGIONS = [
+  { id: 0, kind: 'town', name: '燈谷鎮', level: '主城安全區', desc: '鎮中心設有公會大廳、覺醒祭壇、可入屋小屋與南側渡船碼頭。', route: '任何野外按 H 吹響歸途海螺即可回城。', x: 48, y: 53 },
+  { id: 1, kind: 'field', name: '晨光草原', level: 'Lv.1–5', desc: '從燈谷鎮北門踏入的開闊草原，藏有草原洞窟與上升氣流。', route: '由燈谷鎮北側拱門步行抵達。', x: 48, y: 78 },
+  { id: 2, kind: 'field', name: '低語森林', level: 'Lv.5–10', desc: '西側林地的樹冠高低交錯，古老的樹洞通往地底。', route: '經由晨光草原的區域道路前往。', x: 22, y: 63 },
+  { id: 3, kind: 'field', name: '霧潮沼澤', level: 'Lv.10–15', desc: '東側濕地常有濃霧，潮水間留有沼澤遺跡。', route: '經由低語森林的區域道路前往。', x: 76, y: 62 },
+  { id: 4, kind: 'field', name: '霜冬雪原', level: 'Lv.15–20', desc: '西北高地時有暴風雪，山脊下方藏著冰窟。', route: '經由霧潮沼澤的區域道路前往。', x: 20, y: 28 },
+  { id: 5, kind: 'field', name: '燼煙火岩區', level: 'Lv.20–25', desc: '東北方的赤色岩壁環抱著熔爐與演武場。', route: '經由霜冬雪原的區域道路前往。', x: 78, y: 27 },
+  { id: 6, kind: 'field', name: '古樹林', level: 'Lv.25–30', desc: '北方密林深處，是通往鹿王樹心的入口。', route: '經由燼煙火岩區的區域道路前往。', x: 49, y: 18 },
+  { id: 100, kind: 'harbor', name: '⛵ 海風港鎮', level: '第二城鎮', desc: '跨越碧藍海灣的陽光海港，設有紅白燈塔、公共倉庫與造型工坊！', route: '前往燈谷鎮南側碼頭搭乘木造渡船（3D 航行）抵達。', x: 86, y: 82 },
+  { id: 7, kind: 'field', name: '浮空遺跡群', level: 'Lv.12–16', desc: '海灣上空的浮石拱門遺跡，富含強力上升氣流。', route: '乘船至海風港鎮後，由西北路牌進入。', x: 14, y: 86 },
+  { id: 8, kind: 'field', name: '珊瑚潮汐灣', level: 'Lv.18–22', desc: '金色沙灘、彩色遮陽傘與清澈泡沫潮池的海濱原野。', route: '乘船至海風港鎮後，由正北路牌進入。', x: 66, y: 88 },
+  { id: 9, kind: 'field', name: '沉沒電光都', level: 'Lv.24–30', desc: '半淹於深藍海水的屋頂碼頭與發光電線浮台秘境。', route: '乘船至海風港鎮後，由東北路牌進入。', x: 90, y: 46 },
 ];
 
 export function bindWorldMap(game) {
@@ -20,64 +26,81 @@ export function bindWorldMap(game) {
   const detail = dialog.querySelector('.region-detail');
   atlas.innerHTML = illustration;
   const buttons = [];
-  let selected = 0;
-  const travel = document.createElement('button'); travel.className = 'btn small map-travel';
+  let selected = WORLD_REGIONS[0];
+
+  const wpBtn = document.createElement('button'); wpBtn.className = 'btn small map-travel';
   const duel = document.createElement('button'); duel.className = 'btn small';
+  const raid = document.createElement('button'); raid.className = 'btn small'; raid.textContent = '公會組隊副本';
+  raid.onclick = () => game.net.send({ t: 'raidJoin', code: game.party });
   const actions = document.createElement('div'); actions.className = 'map-actions';
-  const raid=document.createElement('button');raid.className='btn small';raid.textContent='公會組隊副本';
-  raid.onclick=()=>game.net.send({t:'raidJoin',code:game.party});
-  actions.append(travel, duel, raid); dialog.append(actions);
-  travel.onclick = () => {
-    dialog.close();
-    if (selected) game.enterField(selected); else game.enterTown();
+  actions.append(wpBtn, duel, raid); dialog.append(actions);
+
+  wpBtn.onclick = () => {
+    const lang = game.settings?.lang || 'zh-TW';
+    if (game.waypoint?.id === selected.id) {
+      game.waypoint = null;
+      game.ui.toast(t(lang, 'clearWaypoint'), '#e8dcc8');
+    } else {
+      game.waypoint = selected;
+      game.ui.toast(`🧭 ${t(lang, 'waypointSet')}：${selected.name}（${selected.route}）`, '#ffd85a');
+    }
+    select(selected);
   };
+
   duel.textContent = '接受演武挑戰';
   duel.onclick = () => {
     if (game.field !== 5 || game.dueling) return;
-    dialog.close(); game.dueling=true;
-    const pos=game.world.randomWalkable(game.rng, game.player.pos, 5);
-    const rival=game.spawnEnemy('boar',pos,true); const actor=buildPlayer(0xb45441,0x81412f);
-    game.scene.remove(rival.m.root);rival.m=actor;rival.m.mat=actor.cloak.material;
-    actor.root.scale.setScalar(1.45);game.scene.add(actor.root);
-    rival.rival=true; rival.level=20;
-    game.ui.banner('火岩演武場','已開啟模擬對戰 · 擊敗對手結束挑戰');
+    dialog.close(); game.dueling = true;
+    const pos = game.world.randomWalkable(game.rng, game.player.pos, 5);
+    const rival = game.spawnEnemy('boar', pos, true); const actor = buildPlayer(0xb45441, 0x81412f);
+    game.scene.remove(rival.m.root); rival.m = actor; rival.m.mat = actor.cloak.material;
+    actor.root.scale.setScalar(1.45); game.scene.add(actor.root);
+    rival.rival = true; rival.level = 20;
+    game.ui.banner('火岩演武場', '已開啟模擬對戰 · 擊敗對手結束挑戰');
   };
-  function select(i) {
-    selected = i; raid.hidden=!(i===0 && game.depth<0 && game.wallet);
-    travel.hidden = (game.field || 0) === i && (game.field || game.depth < 0);
-    travel.textContent = i ? '傳送至' + regions[i][0] : '返回燈谷鎮';
-    duel.hidden = !(i === 5 && game.field === 5 && !game.dueling);
-    const [label, level, description] = regions[i];
-    name.textContent = label + ' · ' + level;
-    const grave = game.meta.p.graves[i];
-    detail.textContent = description + (grave ? ' 墓碑在此，按 F 可取回素材。' : '');
-    buttons.forEach((button, j) => button.setAttribute('aria-pressed', i === j));
+
+  function select(reg) {
+    selected = reg;
+    const lang = game.settings?.lang || 'zh-TW';
+    raid.hidden = !(reg.id === 0 && game.depth < 0 && game.wallet);
+    duel.hidden = !(reg.id === 5 && game.field === 5 && !game.dueling);
+    const isWp = game.waypoint?.id === reg.id;
+    wpBtn.textContent = isWp ? t(lang, 'clearWaypoint') : `🧭 ${t(lang, 'setWaypoint')}`;
+    name.textContent = `${reg.name} · ${reg.level}`;
+    const grave = reg.kind === 'field' ? game.meta.p.graves[reg.id] : null;
+    detail.textContent = `${reg.desc} 【抵達方式】${reg.route}${grave ? ' · 🪦 墓碑在此！' : ''}`;
+    buttons.forEach((button, j) => {
+      button.setAttribute('aria-pressed', WORLD_REGIONS[j].id === reg.id);
+      button.classList.toggle('wp', game.waypoint?.id === WORLD_REGIONS[j].id);
+    });
   }
-  regions.forEach(([label, , , x, y], i) => {
+
+  WORLD_REGIONS.forEach(reg => {
     const button = document.createElement('button');
-    button.textContent = label;
-    button.style.left = x + '%'; button.style.top = y + '%';
-    button.onclick = () => select(i);
+    button.textContent = reg.name;
+    button.style.left = reg.x + '%'; button.style.top = reg.y + '%';
+    button.onclick = () => select(reg);
     atlas.appendChild(button); buttons.push(button);
   });
+
   function open() {
     if (game.state !== 'play' || game.ui.invOpen || game.ui.panelOpen || game.ui.setOpen) return;
     game.keys = {}; game.mouse.l = game.mouse.r = false;
-    const town = game.depth < 0;
-    dialog.querySelector('.map-location').textContent = town ? '所在位置 · 燈谷鎮（安全區）' :
-      '【副本地圖】' + BIOMES[game.biomeFor(game.depth)].name + ' · 第 ' + (game.depth + 1) + ' 層（需清怪開門，或隨時撤回燈谷鎮）';
-    if (game.field) dialog.querySelector('.map-location').textContent = '【常駐普通地圖】' + FIELDS[game.field].name + '（無需清怪，可隨時傳送至他區或回城）';
-    buttons.forEach((b,i)=>b.classList.toggle('here', town ? i===0 : i===game.field));
-    if (game.field) select(game.field);
-    else if (town) select(0);
-    else {
-      select(0);
-      buttons.forEach(button => button.setAttribute('aria-pressed', false));
-      name.textContent = '副本探索中';
-      detail.textContent = '選擇地圖上的區域，查看地形與建議等級。';
-    }
+    const lang = game.settings?.lang || 'zh-TW';
+    const isHarbor = game.depth === -2;
+    const isTown = game.depth === -1;
+    dialog.querySelector('.map-location').textContent =
+      (isHarbor ? '所在位置 · 海風港鎮（第二城鎮）' : isTown ? '所在位置 · 燈谷鎮（主城）' : game.field ? `所在位置 · ${FIELDS[game.field].name}` : `所在位置 · 副本第 ${game.depth + 1} 層`)
+      + ' ｜ ' + t(lang, 'noDirectTp');
+    buttons.forEach((b, j) => {
+      const r = WORLD_REGIONS[j];
+      b.classList.toggle('here', (isHarbor && r.id === 100) || (isTown && r.id === 0) || (game.field && r.id === game.field));
+    });
+    const curReg = WORLD_REGIONS.find(r => (isHarbor && r.id === 100) || (isTown && r.id === 0) || (game.field && r.id === game.field)) || WORLD_REGIONS[0];
+    select(curReg);
     dialog.showModal();
   }
+
   document.getElementById('btnMap').onclick = open;
   dialog.querySelector('.map-close').onclick = () => dialog.close();
   game.ui.mapDialog = dialog;
