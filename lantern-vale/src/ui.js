@@ -1,3 +1,4 @@
+import { bindCharacters } from './characters.js';
 import { buildPanels } from './panels.js';
 import { loadSettings, applySettings, buildSettingsUI } from './settings.js';
 import * as THREE from 'three';
@@ -17,16 +18,13 @@ export class UI {
     game.settings = loadSettings(); buildPanels(game); buildSettingsUI(game); applySettings(game);
     $('btnMute').onclick = () => { game.audio.init(); const m = game.audio.toggleMute(); $('btnMute').textContent = m ? '🔇' : '🔊'; };
     $('btnMute').textContent = game.audio.muted ? '🔇' : '🔊';
-    let saved = {}; try { saved = JSON.parse(localStorage.getItem('lv_prof') || '{}'); } catch (e) { /* ignore */ }
-    $('inName').value = saved.name || ''; game.hoodIdx = saved.hood || 0;
-    const swatch = $('swatches'); const HC = ['#2f8a7e', '#d9543a', '#6a6ad0', '#e0a030', '#c060b0', '#58a858', '#4aa0d8', '#8a6a50'];
-    HC.forEach((c, i) => { const b = document.createElement('button'); b.style.background = c; b.className = i === game.hoodIdx ? 'on' : ''; b.onclick = () => { game.hoodIdx = i; swatch.querySelectorAll('button').forEach((x, j) => x.classList.toggle('on', j === i)); game.audio.sfx('ui'); }; swatch.appendChild(b); });
+    const enterCharacter = bindCharacters(game);
     $('btnTown2').onclick = () => { $('dead').classList.add('hide'); game.party = ''; game.enterTown(); };
     $('btnTown3').onclick = () => { $('win').classList.add('hide'); game.enterTown(); };
     $('btnStart').onclick = () => {
       game.audio.init(); game.audio.sfx('ui');
       game.playerName = ($('inName').value.trim() || '旅人').slice(0, 12); game.party = $('inParty').value.trim().slice(0, 12);
-      try { localStorage.setItem('lv_prof', JSON.stringify({ name: $('inName').value.trim(), hood: game.hoodIdx })); } catch (e) { /* ignore */ }
+      enterCharacter();
       game.net.connect(game.playerName, game.hoodIdx);
       $('title').classList.add('hide'); $('hud').classList.remove('hide'); game.enterTown();
     };
@@ -211,9 +209,10 @@ export class UI {
   showWin(g) { this.heirUI(g, 'winHeir'); $('winSum').textContent = this.runSummary(g); $('win').classList.remove('hide'); this.saveBest(g, true); }
   saveBest(g, won) {
     try {
-      const best = JSON.parse(localStorage.getItem('lv_best') || '{"depth":0,"wins":0}');
+      const key = g.slot ? 'lv_best_' + g.slot : 'lv_best';
+      const best = JSON.parse(localStorage.getItem(key) || '{"depth":0,"wins":0}');
       best.depth = Math.max(best.depth, g.depth); if (won) best.wins++;
-      localStorage.setItem('lv_best', JSON.stringify(best));
+      localStorage.setItem(key, JSON.stringify(best));
     } catch (e) { /* storage unavailable */ }
   }
 }

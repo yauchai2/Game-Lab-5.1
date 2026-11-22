@@ -11,7 +11,7 @@ function mesh(geo, opts = {}) {
 }
 
 // Player: "Wick" — a small lantern-bearer in a teal hood and rust scarf.
-export function buildPlayer(hood = 0x2f8a7e, hoodDark = 0x23695f, scarfCol = 0xd9543a) {
+export function buildPlayer(hood = 0x2f8a7e, hoodDark = 0x23695f, scarfCol = 0xd9543a, look) {
   const root = new THREE.Group();
   const body = new THREE.Group(); root.add(body);
   const cloak = mesh(mergeGeometries([
@@ -20,10 +20,25 @@ export function buildPlayer(hood = 0x2f8a7e, hoodDark = 0x23695f, scarfCol = 0xd
   ]));
   body.add(cloak);
   const head = new THREE.Group(); head.position.y = 0.78; body.add(head);
+  const skin = [0xf6e3c8,0xd9ab79,0xb97c57,0x79503f][look?.skin ?? 0];
+  const hair = [0x70452e,0x392e35,0xd6a54f,0xbcb8b5][look?.hair ?? 0];
+  const face = new THREE.SphereGeometry(0.22, 8, 6);
+  if (look?.face === 1) face.scale(0.94, 1.16, 1);
+  if (look?.face === 2) face.scale(1.15, 0.94, 1);
+  if (look) {
+    const fringe = new THREE.SphereGeometry(0.19, 8, 5);
+    fringe.scale(1, 0.48, 0.54);
+    const parts = [part(fringe, hair, 0, 0.15, 0.21, 0, 0, look.style === 1 ? 0.38 : 0)];
+    for (const side of [-1, 1]) {
+      parts.push(part(new THREE.BoxGeometry(0.078, look.brow === 2 ? 0.032 : 0.019, 0.024), hair, side * 0.08, 0.083, 0.309, 0, 0, look.brow === 1 ? side * 0.32 : 0));
+      if (look.style === 2) parts.push(part(new THREE.IcosahedronGeometry(0.11, 1), hair, side * 0.23, 0.16, 0.1));
+    }
+    head.add(mesh(mergeGeometries(parts)));
+  }
   head.add(mesh(mergeGeometries([
     part(new THREE.SphereGeometry(0.3, 8, 6), hood, 0, 0.02, -0.03),           // hood
     part(new THREE.ConeGeometry(0.12, 0.3, 5), hood, 0, 0.3, -0.12, -0.6, 0, 0), // hood tip
-    part(new THREE.SphereGeometry(0.22, 8, 6), 0xf6e3c8, 0, -0.01, 0.1),           // face
+    part(face, skin, 0, -0.01, 0.1),           // face
     part(new THREE.BoxGeometry(0.05, 0.08, 0.03), 0x1d1626, -0.08, 0.02, 0.31),       // eyes
     part(new THREE.BoxGeometry(0.05, 0.08, 0.03), 0x1d1626, 0.08, 0.02, 0.31),
     part(new THREE.BoxGeometry(0.06, 0.03, 0.02), 0xf29a8a, -0.14, -0.06, 0.28),     // blush
