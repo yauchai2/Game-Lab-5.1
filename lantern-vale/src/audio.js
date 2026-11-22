@@ -12,7 +12,7 @@ const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
 
 export class Audio {
   constructor() {
-    this.ctx = null; this.muted = false; this.musicVol = 0.5; this.sfxVol = 0.8;
+    this.ctx = null; this.muted = false; this.musicVol = 0.5; this.sfxVol = 0.8; this.masterVol = 0.9;
     this.mode = null; this.intensity = 0; this.step = 0; this.nextT = 0; this.timer = null; this.last = {};
     try { this.muted = localStorage.getItem('lv_mute') === '1'; } catch (e) { /* ignore */ }
   }
@@ -20,7 +20,7 @@ export class Audio {
     if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
     const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
     this.ctx = new AC();
-    this.master = this.ctx.createGain(); this.master.gain.value = this.muted ? 0 : 0.9;
+    this.master = this.ctx.createGain(); this.master.gain.value = this.muted ? 0 : this.masterVol;
     const comp = this.ctx.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 4;
     this.master.connect(comp); comp.connect(this.ctx.destination);
     this.musicBus = this.ctx.createGain(); this.musicBus.gain.value = this.musicVol * 0.5; this.musicBus.connect(this.master);
@@ -37,10 +37,15 @@ export class Audio {
     this.timer = setInterval(() => this.schedule(), 60);
     if (this.pending) this.setMusic(...this.pending);
   }
+  setVolumes(master, music, sfx) {
+    this.masterVol = master; this.musicVol = music; this.sfxVol = sfx;
+    if (!this.ctx) return;
+    this.master.gain.value = this.muted ? 0 : master; this.musicBus.gain.value = music * 0.5; this.sfxBus.gain.value = sfx * 0.6;
+  }
   toggleMute() {
     this.muted = !this.muted;
     try { localStorage.setItem('lv_mute', this.muted ? '1' : '0'); } catch (e) { /* ignore */ }
-    if (this.master) this.master.gain.value = this.muted ? 0 : 0.9;
+    if (this.master) this.master.gain.value = this.muted ? 0 : this.masterVol;
     return this.muted;
   }
   setMusic(mode, intensity = 0) {

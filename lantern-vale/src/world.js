@@ -22,6 +22,34 @@ export function toonMat(opts = {}) {
   return new THREE.MeshToonMaterial({ gradientMap: toonGradient(), ...opts });
 }
 
+
+// ---------- wind (vertex sway shared by toon + normal pass) ----------
+export const windU = { uTime: { value: 0 }, uWindStr: { value: 1 } };
+export function windPatch(mat, w) {
+  // w = [strength, y0, span]
+  mat.userData.wind = w;
+  mat.customProgramCacheKey = () => 'wind' + w.join(',');
+  mat.onBeforeCompile = (sh) => {
+    sh.uniforms.uTime = windU.uTime; sh.uniforms.uWindStr = windU.uWindStr;
+    sh.vertexShader = 'uniform float uTime; uniform float uWindStr;\n' + sh.vertexShader.replace('#include <project_vertex>', `
+      vec4 wpos = vec4(transformed, 1.0);
+      #ifdef USE_INSTANCING
+        wpos = instanceMatrix * wpos;
+      #endif
+      wpos = modelMatrix * wpos;
+      float hf = clamp((transformed.y - ${w[1].toFixed(3)}) / ${w[2].toFixed(3)}, 0.0, 1.6);
+      hf *= hf;
+      float ph = wpos.x * 0.35 + wpos.z * 0.27;
+      float gust = smoothstep(0.2, 1.0, 0.5 + 0.5 * sin(uTime * 0.7 - wpos.x * 0.11 - wpos.z * 0.07));
+      float sway = sin(uTime * 2.1 + ph) * 0.55 + sin(uTime * 3.6 + ph * 1.7) * 0.22;
+      wpos.xz += vec2(0.82, 0.48) * (sway * 0.6 + gust * 0.9) * hf * ${w[0].toFixed(3)} * uWindStr;
+      vec4 mvPosition = viewMatrix * wpos;
+      gl_Position = projectionMatrix * mvPosition;`);
+  };
+  return mat;
+}
+export function windMat(opts, w) { return windPatch(toonMat(opts), w); }
+
 function colorGeo(geo, hex) {
   geo = geo.index ? geo.toNonIndexed() : geo;
   const c = new THREE.Color(hex);
@@ -359,7 +387,20 @@ export class World {
     tg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     tg.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
     tg.computeVertexNormals();
-    const terrain = new THREE.Mesh(tg, toonMat({ vertexColors: true }));
+    const tmat = toonMat({ vertexColors: true });
+    tmat.customProgramCacheKey = () => 'terrainGust';
+    tmat.onBeforeCompile = (sh) => {
+      sh.uniforms.uTime = windU.uTime; sh.uniforms.uWindStr = windU.uWindStr;
+      sh.vertexShader = 'varying vec3 vGW;\n' + sh.vertexShader.replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\n vGW = (modelMatrix * vec4(transformed,1.0)).xyz;');
+      sh.fragmentShader = 'uniform float uTime; uniform float uWindStr; varying vec3 vGW;\n float gh2(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }\n float gn2(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix(gh2(i),gh2(i+vec2(1,0)),f.x), mix(gh2(i+vec2(0,1)),gh2(i+vec2(1,1)),f.x), f.y); }\n' +
+        sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+          float isG = smoothstep(0.02, 0.12, diffuseColor.g - max(diffuseColor.r, diffuseColor.b));
+          vec2 gp = vGW.xz * 0.09 - vec2(0.82, 0.48) * uTime * 0.22;
+          float gn = gn2(gp) * 0.65 + gn2(gp * 2.3 + 7.0) * 0.35;
+          float band = step(0.62, gn) * 0.10 - step(gn, 0.30) * 0.06;
+          diffuseColor.rgb *= 1.0 + band * isG * uWindStr;`);
+    };
+    const terrain = new THREE.Mesh(tg, tmat);
     terrain.receiveShadow = true; terrain.castShadow = true;
     this.group.add(terrain);
 
@@ -370,7 +411,7 @@ export class World {
     const snow = P.key === 'snow';
     const inst = (geo, list, opts2 = {}) => {
       if (!list.length) return null;
-      const m = new THREE.InstancedMesh(geo, toonMat({ vertexColors: true }), list.length);
+      const m = new THREE.InstancedMesh(geo, opts2.wind ? windMat({ vertexColors: true }, opts2.wind) : toonMat({ vertexColors: true }), list.length);
       const mtx = new THREE.Matrix4(), q4 = new THREE.Quaternion(), e = new THREE.Euler(), s = new THREE.Vector3(), p = new THREE.Vector3();
       list.forEach((it, idx) => {
         e.set(it.rx || 0, it.ry || 0, it.rz || 0); q4.setFromEuler(e);
@@ -456,13 +497,13 @@ export class World {
         this.obstacles.push({ x, z, r: 0.25, h: 0 });
       }
     }
-    inst(pineT[0], pines[0]); inst(pineT[1], pines[1]);
-    rounds.forEach((l, i) => inst(roundT[i], l));
+    inst(pineT[0], pines[0], { wind: [0.10, 0.9, 2.4] }); inst(pineT[1], pines[1], { wind: [0.10, 0.9, 2.4] });
+    rounds.forEach((l, i) => inst(roundT[i], l, { wind: [0.12, 0.9, 2.2] }));
     inst(rockGeo(P, r), rocks);
-    inst(bushGeo(P, r), bushes);
-    inst(grassGeo(P.grassDark), grass, { cast: false });
-    inst(grassGeo(P.leaf[0]), grass2, { cast: false });
-    inst(flowerGeo(), flowers, { cast: false });
+    inst(bushGeo(P, r), bushes, { wind: [0.10, 0.1, 0.8] });
+    inst(grassGeo(P.grassDark), grass, { cast: false, wind: [0.32, 0.0, 0.42] });
+    inst(grassGeo(P.leaf[0]), grass2, { cast: false, wind: [0.32, 0.0, 0.42] });
+    inst(flowerGeo(), flowers, { cast: false, wind: [0.25, 0.0, 0.3] });
     inst(mushroomGeo(), shrooms);
     inst(pillarGeo(P, r), pillars);
     inst(logGeo(P), logs);
@@ -507,17 +548,29 @@ export class World {
     tex.magFilter = tex.minFilter = THREE.LinearFilter; tex.needsUpdate = true;
     const mat = new THREE.ShaderMaterial({
       uniforms: {
-        uShore: { value: tex }, uTime: { value: 0 },
+        uShore: { value: tex }, uTime: { value: 0 }, uWater: { value: 1 },
         uDeep: { value: new THREE.Vector3(...P.waterDeep) }, uShallow: { value: new THREE.Vector3(...P.waterShallow) },
         uLine: { value: new THREE.Vector3(...P.waterLine) }, uHalf: { value: HALF },
       },
       vertexShader: `varying vec3 vW; void main(){ vec4 w = modelMatrix*vec4(position,1.0); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }`,
       fragmentShader: `
-        uniform sampler2D uShore; uniform float uTime, uHalf; uniform vec3 uDeep, uShallow, uLine; varying vec3 vW;
+        uniform sampler2D uShore; uniform float uTime, uHalf, uWater; uniform vec3 uDeep, uShallow, uLine; varying vec3 vW;
         float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
         float noise(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);
           return mix(mix(hash(i),hash(i+vec2(1,0)),f.x), mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x), f.y); }
         float fbm(vec2 p){ float s=0.0,a=0.5; for(int i=0;i<4;i++){ s+=a*noise(p); p*=2.03; a*=0.5;} return s; }
+        vec2 h22(vec2 p){ return fract(sin(vec2(dot(p,vec2(127.1,311.7)),dot(p,vec2(269.5,183.3))))*43758.5453); }
+        // F2-F1 voronoi edges (shallow-water caustic network)
+        float vor(vec2 p, float t){ vec2 g=floor(p), f=fract(p); float d1=8.0, d2=8.0;
+          for(int j=-1;j<=1;j++) for(int i=-1;i<=1;i++){ vec2 o=vec2(float(i),float(j)); vec2 r=h22(g+o); r=0.5+0.45*sin(t+6.2831*r); float d=length(o+r-f); if(d<d1){d2=d1;d1=d;} else if(d<d2){d2=d;} }
+          return d2-d1; }
+        // sparse expanding ripple rings scattered over open water
+        float rings(vec2 p, float t){ vec2 g=floor(p), f=fract(p); float acc=0.0;
+          for(int j=-1;j<=1;j++) for(int i=-1;i<=1;i++){ vec2 o=vec2(float(i),float(j)); vec2 id=g+o; vec2 r=h22(id); float on=step(0.55,h22(id+3.7).x);
+            float ph=fract(t*0.22+r.x*3.0+h22(id+9.1).y); vec2 c=o+0.2+r*0.6; float dd=length(c-f); float rad=ph*1.15;
+            float ring=1.0-smoothstep(0.0,0.045,abs(dd-rad)); float ring2=1.0-smoothstep(0.0,0.035,abs(dd-rad*0.62));
+            acc+=on*(ring+ring2*0.7)*(1.0-ph)*(1.0-ph); }
+          return clamp(acc,0.0,1.0); }
         void main(){
           vec2 uv = (vW.xz + uHalf) / (uHalf*2.0);
           float inside = step(0.0,uv.x)*step(uv.x,1.0)*step(0.0,uv.y)*step(uv.y,1.0);
@@ -538,6 +591,12 @@ export class World {
           float band2 = (1.0 - smoothstep(0.32, 0.5, d+wob)) * 0.35;
           col = mix(col, uShallow*1.15, band2);
           col = mix(col, vec3(1.0,0.99,0.95), clamp(rim + waveLine*0.85, 0.0, 1.0));
+          // shallow-water voronoi network + open-water ripple rings
+          float shallowT = (1.0 - smoothstep(0.7, 3.2, d)) * smoothstep(0.35, 0.8, d);
+          float vl = 1.0 - smoothstep(0.03, 0.11, vor(vW.xz*0.55 + vec2(uTime*0.03, 0.0), uTime*0.5));
+          col = mix(col, vec3(0.9,0.98,1.0), vl * shallowT * 0.55 * uWater);
+          float rg = rings(vW.xz*0.22, uTime) * smoothstep(1.2, 4.0, d);
+          col = mix(col, vec3(0.92,0.98,1.0), rg * 0.6 * uWater);
           // sparkles
           float sp = step(0.985, noise(vW.xz*3.0 + vec2(uTime*0.6,-uTime*0.4))) * depthT;
           col += sp*0.35;

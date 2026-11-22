@@ -167,13 +167,32 @@ html,body{image-rendering:pixelated;-webkit-font-smoothing:none;font-smooth:neve
 .tip2,#tip{background:var(--brown)!important;color:var(--cream);border-radius:10px!important;box-shadow:0 4px 0 rgba(0,0,0,.3)!important}
 #tip .ibase,#tip .hint{color:#e8cfa8}#tip .sep{background:var(--cream)}
 .exitHint.item{color:#9a5a00}
+
+/* ======== 設定頁 ======== */
+.mute.set{right:62px}
+.btn.small{font-size:16px;padding:6px 18px}
+.setp{width:min(520px,94vw);padding:16px 20px 14px!important;max-height:86vh;overflow:auto}
+.setp h3{font-size:22px;text-align:center;margin:0 0 8px}
+.stabs{display:flex;gap:6px;justify-content:center;margin-bottom:10px;flex-wrap:wrap}
+.stabs button{font-family:inherit;font-size:15px;padding:4px 14px;background:var(--paper2);color:var(--ink);cursor:pointer;border:0;border-radius:0;box-shadow:var(--box);margin:4px}
+.stabs button.on{background:var(--gold)}
+.srow{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;font-size:16px;border-bottom:2px dotted rgba(59,42,42,.25);min-height:36px}
+.srow:hover{background:rgba(255,207,74,.28)}
+.srow:hover .sl:before{content:'\25B6 ';color:var(--ink)}
+.sv{display:flex;align-items:center;gap:8px}
+.sval{color:#d8402a;font-weight:400;min-width:48px;text-align:center}
+.arr{font-family:inherit;font-size:14px;background:none;border:0;color:var(--ink);cursor:pointer;padding:2px 6px}
+.arr:hover{color:#d8402a}.arr.wide{background:var(--paper2);box-shadow:var(--box);margin:4px;padding:2px 10px}
+.kb{display:inline-block;min-width:64px;text-align:center;background:var(--ink);color:var(--paper);padding:0 6px;font-weight:400}
+.sabout{line-height:1.8;font-size:15px;padding:8px 6px}
+.sfoot{display:flex;justify-content:space-between;align-items:center;margin-top:12px}
 </style>
 </head>
 <body>
 <canvas id="view"></canvas>
 
 <div id="hud" class="hide">
-  <button id="btnMute" class="mute" title="靜音 (M)">🔊</button>
+  <button id="btnSet" class="mute set" title="設定 (Esc)">⚙</button><button id="btnMute" class="mute" title="靜音 (M)">🔊</button>
   <div id="stam"></div>
   <div id="topbar" class="panel"><span id="roomInfo"></span><span id="killInfo"></span></div>
   <div id="boss" class="hide"><div class="name"></div><div class="bar"><div class="fill"></div></div></div>
@@ -223,9 +242,15 @@ html,body{image-rendering:pixelated;-webkit-font-smoothing:none;font-smooth:neve
     <label>組隊代碼 <input id="inParty" maxlength="12" placeholder="留空＝單人" style="font-family:inherit;font-size:15px;padding:4px 8px;border:2px solid var(--ink);border-radius:6px;width:110px"></label>
   </div>
   <button class="btn" id="btnStart">進入燈谷鎮</button>
-  <div class="scales">像素大小：<button data-scale="2">細</button><button data-scale="3" class="on">標準</button><button data-scale="4">粗</button></div>
+  <button id="btnSetTitle" class="btn small" style="background:var(--teal)">⚙ 設定</button>
 </div>
 
+<div id="settings" class="modal hide"><div class="panel setp">
+  <h3>設定</h3>
+  <div class="stabs"><button data-tab="video">畫面</button><button data-tab="audio">音訊</button><button data-tab="keys">操作</button><button data-tab="about">關於</button></div>
+  <div class="sbody"></div>
+  <div class="sfoot"><button class="btn small" id="btnClose">繼續遊戲</button><span class="hint">Esc 開關設定</span></div>
+</div></div>
 <div id="boons" class="modal hide"><h2>選擇一份祝福</h2><div class="cards"></div></div>
 <div id="inv" class="modal hide"><div class="panel">
   <div><h3>裝備</h3><div id="invEquip"></div></div>
