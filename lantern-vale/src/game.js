@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { World, toonMat, HALF } from './world.js';
 import { BIOMES, mulberry32, clamp, lerp, angleLerp, rand, pick } from './util.js';
+import { buildTownScenery } from './town.js';
 import { buildPlayer, buildSlime, buildThorn, buildBoar, buildMoth, buildStag, buildArch, buildHouse, buildFountain, buildBoard, buildStall } from './models.js';
 import { Net } from './net.js';
 const EMOTES = ['嗨～', '♥', '哈哈', 'zZ'];
@@ -209,7 +210,7 @@ export class Game {
     this.enemies = []; this.projs = []; this.eprojs = []; this.decals = []; this.drops = []; this.exits = []; this.slashes = []; this.rings = [];
     this.fx.clear(); this.puffs.clear();
     const town = depth === -1;
-    if (this.townGroup) { this.scene.remove(this.townGroup); this.townGroup = null; }
+    if (this.townGroup) { this.scene.remove(this.townGroup); this.townGroup = null; this.chimneys = null; }
     for (const b of this.bots) this.removeRemote(b); this.bots = [];
     const bi = (title || town) ? 0 : this.biomeFor(depth);
     const B = BIOMES[bi]; this.biome = B;
@@ -680,24 +681,9 @@ export class Game {
   buildTown() {
     const P = this.biome, g = new THREE.Group(); this.townGroup = g; this.scene.add(g);
     const add = (o, x, z, ry = 0, obst = 0) => { o.position.set(x, 0, z); o.rotation.y = ry; g.add(o); if (obst) this.world.obstacles.push({ x, z, r: obst, h: 0 }); return o; };
-    // cobble plaza
-    const plaza = new THREE.Mesh(new THREE.CylinderGeometry(7.2, 7.4, 0.12, 20), toonMat({ color: 0xe3d3b0 }));
-    plaza.position.set(0, 0.03, 0); plaza.receiveShadow = true; g.add(plaza);
-    const ring = new THREE.Mesh(new THREE.CylinderGeometry(5.0, 5.0, 0.16, 20), toonMat({ color: 0xd2bf98 })); ring.position.set(0, 0.04, 0); ring.receiveShadow = true; g.add(ring);
     add(buildFountain(), 0, -1, 0, 2.0);
-    const roofs = [0xd9543a, 0x3f8ab0, 0xe0a030, 0x8a5ab8, 0xd9543a, 0x58a858];
-    [[-11, 3, 0.5], [11, 3, -0.5], [-10, -8, 0.3], [10, -8, -0.3], [-15, -2, 1.2], [15, -2, -1.2]].forEach(([x, z, ry], i) => {
-      add(buildHouse(roofs[i], 0xf3e2c0, 3.4, 3.0), x, z, ry, 2.0);
-    });
-    add(buildBoard(), -4.5, 6, 0.3, 0.9);
-    add(buildStall(0xd9543a), 5, 6, -0.4, 1.4);
-    add(buildStall(0x3f8ab0), 8.5, 4, -0.8, 1.4);
-    // bonfire-ish lantern post cluster
-    for (const [x, z] of [[-6.5, 0], [6.5, 0], [-3, -5], [3, -5]]) {
-      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 1.7, 5), toonMat({ color: 0x6b4530 })); post.position.set(x, 0.85, z); post.castShadow = true; g.add(post);
-      const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.36, 0.3), new THREE.MeshBasicMaterial({ color: 0xffd27a })); lamp.position.set(x, 1.85, z); lamp.userData.noNormal = false; g.add(lamp);
-      this.world.obstacles.push({ x, z, r: 0.25, h: 0 });
-    }
+    const sc = buildTownScenery({ gh: (x, z) => this.world.gh(x, z), rng: Math.random });
+    g.add(sc.group); this.world.obstacles.push(...sc.obstacles); this.chimneys = sc.chimneys; this.smokeT = 0;
     // portal sign
     const sign = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.5, 0.1), toonMat({ color: 0xfff1d0 }));
     const ex = this.exits[0]; sign.position.set(ex.x, 3.4, ex.z); sign.rotation.y = ex.g.rotation.y; g.add(sign);
@@ -708,9 +694,13 @@ export class Game {
     const defs = [['米糕 (鎮民)', 1, ['歡迎來到燈谷鎮！', '北邊的拱門通往燈谷，小心鹿王。', '空白鍵可以跳，按住就能滑翔喔。']],
       ['阿杏 (鎮民)', 5, ['頂著懸崖不放就能攀爬，但會耗體力。', '聽說傳奇裝備很稀有……', '多喝蜜藥瓶，少受傷。']],
       ['老燈 (鎮民)', 3, ['一個人也能走完，找朋友一起更熱鬧。', '輸入 Enter 可以聊天。', '噓……森林深處有東西在動。']]];
-    defs.forEach(([name, col, lines], i) => {
+    defs.push(['酒館老闆娘 楓', 4, ['今天的蘋果酒剛釀好！', '冒險回來記得來坐坐。', '聽說有人在雪原看見發光的鹿角。'], [-10, -4, 1.5]],
+      ['市集商人 豆豆', 2, ['新鮮的漿果，一個銅幣！', '下次我會進一些好裝備。', '傘下的位子最涼快。'], [8, 2.5, 2]],
+      ['守門人 石頭', 6, ['北門外就是燈谷，祝你好運。', '別在懸崖邊逗留太久。', '回來的路，燈會替你亮著。'], [0, -11.5, 1.2]],
+      ['園丁 小芽', 7, ['白色小花最近開得特別好。', '水池裡有小魚喔。', '踩到花圃我會哭的。'], [-4, 9.5, 2]]);
+    defs.forEach(([name, col, lines, home], i) => {
       const id = 'bot' + i; const a = Math.random() * 6.28;
-      const r = this.addRemote(id, name, col); r.bot = true; r.lines = lines; r.x = r.tx = Math.cos(a) * 4 + 2; r.z = r.tz = Math.sin(a) * 4 + 1; r.wait = Math.random() * 3;
+      const r = this.addRemote(id, name, col); r.bot = true; r.lines = lines; r.x = r.tx = Math.cos(a) * 4 + 2; r.z = r.tz = Math.sin(a) * 4 + 1; r.wait = Math.random() * 3; if (home) { r.home = home; r.x = r.tx = home[0]; r.z = r.tz = home[1]; }
       this.bots.push(id);
     });
   }
@@ -775,9 +765,9 @@ export class Game {
         r.wait -= dt;
         if (Math.hypot(r.tx - r.x, r.tz - r.z) < 0.4) {
           r.a = 0;
-          if (r.wait <= 0) { r.wait = 3 + Math.random() * 5; const a = Math.random() * 6.28, d = 3 + Math.random() * 8; r.tx = Math.cos(a) * d; r.tz = Math.sin(a) * d * 0.8 + 2; if (Math.random() < 0.45) this.say(r.id, r.lines[(Math.random() * r.lines.length) | 0]); }
+          if (r.wait <= 0) { r.wait = 3 + Math.random() * 5; const hm = r.home || [0, 2, 8], a = Math.random() * 6.28, d = (r.home ? 0.3 : 3) + Math.random() * hm[2]; r.tx = hm[0] + Math.cos(a) * d; r.tz = hm[1] + Math.sin(a) * d * 0.8; if (Math.random() < 0.45) this.say(r.id, r.lines[(Math.random() * r.lines.length) | 0]); }
         } else { const dx = r.tx - r.x, dz = r.tz - r.z, d = Math.hypot(dx, dz); r.x += dx / d * 2.2 * dt; r.z += dz / d * 2.2 * dt; r.tf = Math.atan2(dx, dz); r.a = 1; if (Math.hypot(r.x, r.z + 1) < 2.3) { r.x += (r.x / 2) * dt; r.z += ((r.z + 1) / 2) * dt; } }
-        r.y = 0;
+        r.y = this.world.gh(r.x, r.z);
         if (Math.hypot(p.pos.x - r.x, p.pos.z - r.z) < 4 && Math.random() < dt * 0.3) r.tf = Math.atan2(p.pos.x - r.x, p.pos.z - r.z);
       } else {
         const k = 1 - Math.exp(-dt * 12);
@@ -809,6 +799,8 @@ export class Game {
   // ---------------- update ----------------
   update(dt) {
     this.time += dt;
+    if (this.chimneys && this.townGroup) { this.smokeT -= dt; if (this.smokeT <= 0) { this.smokeT = 0.35; const c = this.chimneys[(Math.random() * this.chimneys.length) | 0];
+      if (c) this.puffs.burst(c.x, c.y, c.z, 1, { c: 0xeeeae2, s: 0.28, speed: 0.15, up: 0.9, g: -0.6, life: 2.4, grow: 2.2, drag: 0.6 }); } }
     if (this.hitstop > 0) { this.hitstop -= dt; dt *= 0.08; }
     const p = this.player, S = p.stats;
     // aim
@@ -1242,7 +1234,7 @@ export class Game {
     this.camY = lerp(this.camY || 0, this.state === 'title' ? 0 : p.y * 0.85, 1 - Math.exp(-dt * 4));
     this.shake = Math.max(0, this.shake - dt * 2.2);
     const s = this.shake * this.shake * 0.6;
-    const dist = this.state === 'title' ? 34 : 29;
+    const dist = this.camDistOverride || (this.state === 'title' ? 34 : 29);
     this.camera.position.set(this.camPos.x + (Math.random() - 0.5) * s, this.camY + dist * 0.8, this.camPos.z + dist * 0.58 + (Math.random() - 0.5) * s);
     this.camera.lookAt(this.camPos.x, this.camY, this.camPos.z);
     this.sun.position.set(this.camPos.x - 10, 22, this.camPos.z + 6);
