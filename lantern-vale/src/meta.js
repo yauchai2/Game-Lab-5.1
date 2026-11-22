@@ -26,9 +26,9 @@ function seeded(seed) { let s = [...seed].reduce((h, c) => (h * 33 + c.charCodeA
 export const DEFAULT_PROFILE = { shards: 0, feathers: 0, shells: 0, heirloom: null, mods: [], quests: null, best: { depth: 0, wins: 0 }, kills: 0, runs: 0 };
 
 export class Meta {
-  constructor() { this.p = this.load(); this.rollQuests(); this.runShards = 0; }
-  load() { try { return { ...DEFAULT_PROFILE, ...JSON.parse(localStorage.getItem('lv_profile') || '{}') }; } catch (e) { return { ...DEFAULT_PROFILE }; } }
-  save() { try { localStorage.setItem('lv_profile', JSON.stringify(this.p)); } catch (e) { /* ignore */ } }
+  constructor(slot = 0) { this.key = slot ? 'lv_profile_' + slot : 'lv_profile'; this.p = this.load(); this.rollQuests(); this.runShards = 0; }
+  load() { try { return { ...structuredClone(DEFAULT_PROFILE), ...JSON.parse(localStorage.getItem(this.key) || '{}') }; } catch (e) { return { ...structuredClone(DEFAULT_PROFILE) }; } }
+  save() { try { localStorage.setItem(this.key, JSON.stringify(this.p)); } catch (e) { /* ignore */ } }
   rollQuests() {
     const d = today(); if (this.p.quests && this.p.quests.day === d) return;
     const r = seeded('lv' + d), pool = [...QUEST_POOL], list = [];

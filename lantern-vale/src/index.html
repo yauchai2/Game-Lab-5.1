@@ -199,6 +199,14 @@ html,body{image-rendering:pixelated;-webkit-font-smoothing:none;font-smooth:neve
 .btn.small[disabled]{opacity:.45;cursor:default;transform:none}.btn.small.on{background:#58a858}
 .heir{max-width:min(620px,94vw);display:flex;flex-wrap:wrap;gap:4px;justify-content:center;background:rgba(255,246,222,.92);padding:8px;box-shadow:var(--box)}
 .heirInfo{width:100%;text-align:center;font-size:14px;color:var(--ink)}.heirBtn{background:var(--paper2)!important;text-shadow:0 2px 0 #3b2a2a}
+#title{overflow:auto;justify-content:safe center;padding:16px;box-sizing:border-box}
+.creator{width:min(530px,94vw);box-sizing:border-box;padding:18px}
+.creator header,.charbody{display:flex;gap:16px}.creator header{align-items:center;justify-content:space-between;border-bottom:2px solid #bb9870;padding-bottom:10px;margin-bottom:12px}.creator h2{margin:0}
+.portraitwell{background:#cfbc85;align-self:stretch;display:grid;align-content:center;justify-items:center;padding:8px;border:2px solid #80684f}
+#portrait{width:135px;height:135px;image-rendering:pixelated}.fields{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:7px}.fields label,.cloak{display:grid;font-size:13px;gap:2px}
+.creator input,.creator select{font:inherit;min-width:0;width:100%;box-sizing:border-box;background:#fff3d4;color:#48352d;border:1px solid #927659;padding:4px}.creator header select{width:auto}
+.cloak{grid-column:1/-1}.swatches [aria-pressed=true]{outline:2px solid #412f28;outline-offset:1px}#title details{width:min(530px,92vw);box-sizing:border-box}summary{cursor:pointer}
+@media(max-width:500px){.creator{padding:10px}.charbody{gap:8px}.portraitwell{padding:4px}#portrait{width:90px;height:100px}.fields{min-width:0}.portraitwell .btn{font-size:12px}}
 </style>
 </head>
 <body>
@@ -233,7 +241,11 @@ html,body{image-rendering:pixelated;-webkit-font-smoothing:none;font-smooth:neve
 <div id="title">
   <h1>燈谷行</h1>
   <div class="en">LANTERN VALE</div>
-  <div class="box panel">
+  <section class="panel creator"><header><h2>選擇旅人</h2><select id="characterSlot" aria-label="角色存檔"></select></header>
+  <div class="charbody"><div class="portraitwell"><canvas id="portrait" aria-label="旅人外觀預覽"></canvas><button id="randomLook" class="btn small">隨機外觀</button></div>
+  <div class="fields"><label>名字<input id="inName" maxlength="12" placeholder="旅人"></label><label>職業<select id="job"></select></label><label>膚色<select id="skin"></select></label><label>髮色<select id="hair"></select></label><label>髮型<select id="style"></select></label><label>眉型<select id="brow"></select></label><label>臉型<select id="face"></select></label><label>組隊代碼<input id="inParty" maxlength="12" placeholder="留空即可單人出發"></label>
+  <div class="cloak">披風<div class="swatches" id="swatches"></div></div></div></div></section>
+  <details class="box panel"><summary>旅人手冊與操作</summary>
     提著燈籠的旅人們聚集在燈谷鎮，一起出發穿越被餘燼侵蝕的山谷，喚醒沉睡的古樹鹿王。城鎮是安全區，可以和其他玩家聊天；每次旅程地形、敵人和戰利品都不同。
     <div class="sep"></div>
     <div class="keys">
@@ -248,12 +260,7 @@ html,body{image-rendering:pixelated;-webkit-font-smoothing:none;font-smooth:neve
       <b>F</b><span>撿起並裝備地上的物品</span>
       <b>Tab</b><span>角色與裝備</span>
     </div>
-  </div>
-  <div class="box panel" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:center">
-    <label>暱稱 <input id="inName" maxlength="12" placeholder="旅人" style="font-family:inherit;font-size:15px;padding:4px 8px;border:2px solid var(--ink);border-radius:6px;width:110px"></label>
-    <div id="swatches" class="swatches" title="兜帽顏色"></div>
-    <label>組隊代碼 <input id="inParty" maxlength="12" placeholder="留空＝單人" style="font-family:inherit;font-size:15px;padding:4px 8px;border:2px solid var(--ink);border-radius:6px;width:110px"></label>
-  </div>
+  </details>
   <button class="btn" id="btnStart">進入燈谷鎮</button>
   <button id="btnSetTitle" class="btn small" style="background:var(--teal)">⚙ 設定</button>
 </div>

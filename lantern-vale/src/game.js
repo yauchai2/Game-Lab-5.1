@@ -8,7 +8,7 @@ import { Net } from './net.js';
 import { Meta } from './meta.js';
 import { buildPanels } from './panels.js';
 const EMOTES = ['嗨～', '♥', '哈哈', 'zZ'];
-const HOODS = [[0x2f8a7e, 0x23695f], [0xd9543a, 0xa83f2c], [0x6a6ad0, 0x4a4aa0], [0xe0a030, 0xb07f20], [0xc060b0, 0x904488], [0x58a858, 0x3f823f], [0x4aa0d8, 0x3478a8], [0x8a6a50, 0x65503c]];
+import { HOODS } from './characters.js';
 import { makeItem, itemLines, itemScore, RARITY, SLOTS, rollBoons, BOONS } from './loot.js';
 
 const V2 = THREE.Vector2, V3 = THREE.Vector3;
@@ -116,6 +116,7 @@ export class Game {
       Space: ' ', ShiftLeft: 'shift', ShiftRight: 'shift', KeyQ: 'q', KeyE: 'e', KeyR: 'r', KeyF: 'f', KeyI: 'i', KeyM: 'm', Tab: 'tab', Escape: 'escape', Enter: 'enter', KeyT: 't', Digit1: '1', Digit2: '2', Digit3: '3', Digit4: '4' };
     const typing = () => { const a = document.activeElement; return a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA'); };
     addEventListener('keydown', e => {
+      if (this.state === 'title' && document.activeElement?.closest('#title') && e.code !== 'Escape') return;
       if (typing()) { if (e.code === 'Escape' || e.code === 'Enter') this.ui.chatKey?.(e); return; }
       const k = CODE[e.code] ?? e.key.toLowerCase();
       if (['tab', ' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) e.preventDefault();
@@ -152,7 +153,7 @@ export class Game {
 
   // ---------------- player ----------------
   makePlayer() {
-    const m = buildPlayer(...HOODS[this.hoodIdx]);
+    const m = buildPlayer(...HOODS[this.hoodIdx], undefined, this.character);
     m.root.scale.setScalar(1.25);
     this.scene.add(m.root);
     const p = {
@@ -168,6 +169,9 @@ export class Game {
   recalc() {
     const p = this.player;
     const s = { baseDmg: 10, dmgPct: 0, addFire: 0, atkSpd: 0, crit: 5, critMult: 150, maxHp: 100, lifeOnHit: 0, moveSpd: 0, cdr: 0, mana: 50, area: 0, armor: 0, proj: 1, regen: 0 };
+    if (this.character?.job === 1) s.moveSpd += 8;
+    else if (this.character?.job === 2) s.addFire += 3;
+    else s.armor += 5;
     const specials = new Set();
     for (const it of Object.values(p.equip)) if (it) {
       for (const m of [it.implicit, ...it.mods]) if (m) s[m.k] = (s[m.k] || 0) + m.v;
