@@ -11,18 +11,18 @@ function mesh(geo, opts = {}) {
 }
 
 // Player: "Wick" — a small lantern-bearer in a teal hood and rust scarf.
-export function buildPlayer() {
+export function buildPlayer(hood = 0x2f8a7e, hoodDark = 0x23695f, scarfCol = 0xd9543a) {
   const root = new THREE.Group();
   const body = new THREE.Group(); root.add(body);
   const cloak = mesh(mergeGeometries([
-    part(new THREE.ConeGeometry(0.38, 0.62, 7), 0x2f8a7e, 0, 0.36, 0),
-    part(new THREE.CylinderGeometry(0.33, 0.39, 0.08, 7), 0x23695f, 0, 0.07, 0),
+    part(new THREE.ConeGeometry(0.38, 0.62, 7), hood, 0, 0.36, 0),
+    part(new THREE.CylinderGeometry(0.33, 0.39, 0.08, 7), hoodDark, 0, 0.07, 0),
   ]));
   body.add(cloak);
   const head = new THREE.Group(); head.position.y = 0.78; body.add(head);
   head.add(mesh(mergeGeometries([
-    part(new THREE.SphereGeometry(0.3, 8, 6), 0x2f8a7e, 0, 0.02, -0.03),           // hood
-    part(new THREE.ConeGeometry(0.12, 0.3, 5), 0x2f8a7e, 0, 0.3, -0.12, -0.6, 0, 0), // hood tip
+    part(new THREE.SphereGeometry(0.3, 8, 6), hood, 0, 0.02, -0.03),           // hood
+    part(new THREE.ConeGeometry(0.12, 0.3, 5), hood, 0, 0.3, -0.12, -0.6, 0, 0), // hood tip
     part(new THREE.SphereGeometry(0.22, 8, 6), 0xf6e3c8, 0, -0.01, 0.1),           // face
     part(new THREE.BoxGeometry(0.05, 0.08, 0.03), 0x1d1626, -0.08, 0.02, 0.31),       // eyes
     part(new THREE.BoxGeometry(0.05, 0.08, 0.03), 0x1d1626, 0.08, 0.02, 0.31),
@@ -30,8 +30,8 @@ export function buildPlayer() {
     part(new THREE.BoxGeometry(0.06, 0.03, 0.02), 0xf29a8a, 0.14, -0.06, 0.28),
   ])));
   const scarf = mesh(mergeGeometries([
-    part(new THREE.TorusGeometry(0.24, 0.07, 4, 8), 0xd9543a, 0, 0.6, 0, Math.PI / 2, 0, 0),
-    part(new THREE.BoxGeometry(0.1, 0.3, 0.05), 0xd9543a, 0.12, 0.48, -0.24, 0.3, 0, 0.2),
+    part(new THREE.TorusGeometry(0.24, 0.07, 4, 8), scarfCol, 0, 0.6, 0, Math.PI / 2, 0, 0),
+    part(new THREE.BoxGeometry(0.1, 0.3, 0.05), scarfCol, 0.12, 0.48, -0.24, 0.3, 0, 0.2),
   ]));
   body.add(scarf);
   const legL = mesh(part(new THREE.BoxGeometry(0.11, 0.16, 0.14), 0x5a3b2c, 0, -0.04, 0));
@@ -162,5 +162,51 @@ export function buildArch(P) {
     part(new THREE.IcosahedronGeometry(0.2, 0), P.leaf[1], 1.0, 2.9, -0.1),
   ]));
   g.add(stone);
+  return g;
+}
+
+// ---------- town props ----------
+export function buildHouse(roof, wall = 0xf3e2c0, w = 3.2, d = 2.8) {
+  const g = new THREE.Group();
+  const body = mesh(mergeGeometries([
+    part(new THREE.BoxGeometry(w, 1.8, d), wall, 0, 0.9, 0),
+    part(new THREE.BoxGeometry(w + 0.3, 0.15, d + 0.3), 0x8a6a50, 0, 0.07, 0),
+    part(new THREE.BoxGeometry(0.7, 1.2, 0.08), 0x7a4a33, 0, 0.6, d / 2 + 0.02),          // door
+    part(new THREE.BoxGeometry(0.5, 0.5, 0.08), 0x4a3a5a, -w / 2 + 0.7, 1.15, d / 2 + 0.02), // windows
+    part(new THREE.BoxGeometry(0.5, 0.5, 0.08), 0xffd88a, w / 2 - 0.7, 1.15, d / 2 + 0.02),
+    part(new THREE.BoxGeometry(0.35, 1.0, 0.35), 0x9a8f86, w / 2 - 0.5, 2.4, -d / 4),       // chimney
+  ]));
+  const roofG = new THREE.ConeGeometry(Math.max(w, d) * 0.78, 1.4, 4); roofG.rotateY(Math.PI / 4); roofG.scale(w / Math.max(w, d) * 1.05, 1, d / Math.max(w, d) * 1.05);
+  const roofM = mesh(mergeGeometries([part(roofG, roof, 0, 2.5, 0)]));
+  g.add(body, roofM);
+  return g;
+}
+export function buildFountain() {
+  const g = new THREE.Group();
+  g.add(mesh(mergeGeometries([
+    part(new THREE.CylinderGeometry(1.7, 1.9, 0.5, 10), 0xcfc4b0, 0, 0.25, 0),
+    part(new THREE.CylinderGeometry(1.45, 1.45, 0.52, 10), 0x4aa8d8, 0, 0.27, 0),
+    part(new THREE.CylinderGeometry(0.28, 0.4, 1.3, 7), 0xcfc4b0, 0, 0.9, 0),
+    part(new THREE.SphereGeometry(0.45, 7, 4, 0, Math.PI * 2, 0, Math.PI / 2), 0xe0d6c2, 0, 1.45, 0),
+  ])));
+  return g;
+}
+export function buildBoard() {
+  const g = new THREE.Group();
+  g.add(mesh(mergeGeometries([
+    part(new THREE.BoxGeometry(0.12, 1.6, 0.12), 0x6b4530, -0.8, 0.8, 0), part(new THREE.BoxGeometry(0.12, 1.6, 0.12), 0x6b4530, 0.8, 0.8, 0),
+    part(new THREE.BoxGeometry(1.9, 1.1, 0.1), 0xe9cf9a, 0, 1.25, 0),
+    part(new THREE.BoxGeometry(0.4, 0.5, 0.04), 0xfff6e2, -0.4, 1.3, 0.07), part(new THREE.BoxGeometry(0.35, 0.4, 0.04), 0xf6b8a0, 0.35, 1.2, 0.07),
+  ])));
+  return g;
+}
+export function buildStall(color) {
+  const g = new THREE.Group();
+  g.add(mesh(mergeGeometries([
+    part(new THREE.BoxGeometry(2.2, 0.8, 1.0), 0x8a5a3b, 0, 0.4, 0),
+    part(new THREE.BoxGeometry(0.1, 1.8, 0.1), 0x6b4530, -1.0, 0.9, -0.5), part(new THREE.BoxGeometry(0.1, 1.8, 0.1), 0x6b4530, 1.0, 0.9, -0.5),
+    part(new THREE.BoxGeometry(2.6, 0.12, 1.5), color, 0, 1.85, -0.15, 0.25, 0, 0),
+    part(new THREE.IcosahedronGeometry(0.18, 0), 0xe0453a, -0.5, 0.95, 0.1), part(new THREE.IcosahedronGeometry(0.18, 0), 0xf4c542, 0, 0.95, 0.1), part(new THREE.IcosahedronGeometry(0.18, 0), 0x86bd3f, 0.5, 0.95, 0.1),
+  ])));
   return g;
 }

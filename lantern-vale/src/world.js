@@ -169,6 +169,16 @@ export class World {
   }
   isWalk(x, z) { const k = this.idx(x, z); return k >= 0 && this.walk[k] === 1; }
   groundY(x, z) { const k = this.idx(x, z); return k < 0 ? -2 : Math.max(this.height[k], -0.3); }
+  // smooth bilinear height for the 3D-moving player
+  gh(x, z) {
+    const fx = (x + HALF) / RES, fz = (z + HALF) / RES;
+    const i = Math.floor(fx), j = Math.floor(fz);
+    if (i < 0 || j < 0 || i >= GW - 1 || j >= GW - 1) return -2;
+    const tx = fx - i, tz = fz - j, H = this.height, k = j * GW + i;
+    const h = (H[k] * (1 - tx) + H[k + 1] * tx) * (1 - tz) + (H[k + GW] * (1 - tx) + H[k + GW + 1] * tx) * tz;
+    return Math.max(h, -0.3);
+  }
+  isLand(x, z) { const k = this.idx(x, z); return k >= 0 && this.height[k] > -0.2 && this.RR[k] < 1.0; }
 
   clear() {
     this.scene.remove(this.group);
@@ -185,8 +195,9 @@ export class World {
     this.P = P;
     const r = mulberry32(seed * 7919 + 13);
     const N = new Noise(seed);
-    const R = opts.boss ? 17 : 18 + r() * 4;
-    const ax = 0.8 + r() * 0.4, az = 0.8 + r() * 0.4;
+    const R = opts.town ? 25 : opts.boss ? 17 : 18 + r() * 4;
+    const ax = opts.town ? 1 : 0.8 + r() * 0.4, az = opts.town ? 1 : 0.8 + r() * 0.4;
+    const nAmp = opts.town ? 0.16 : 0.55;
     const so = r() * 100;
     const T = new Uint8Array(GW * GW); // 0 water, 1 ground, 2 plateau, 3 high
     const RR = new Float32Array(GW * GW);
@@ -194,11 +205,11 @@ export class World {
 
     for (let j = 0; j < GW; j++) for (let i = 0; i < GW; i++) {
       const x = -HALF + i * RES, z = -HALF + j * RES, k = j * GW + i;
-      const rr = Math.hypot(x * ax, z * az) / R + (N.fbm(x * 0.07 + so, z * 0.07) - 0.5) * 0.55;
+      const rr = Math.hypot(x * ax, z * az) / R + (N.fbm(x * 0.07 + so, z * 0.07) - 0.5) * nAmp;
       RR[k] = rr;
       let t = rr < 1 ? 1 : 0;
       const dc = Math.hypot(x, z);
-      if (t === 1 && dc > 6.5) {
+      if (t === 1 && dc > 6.5 && !opts.town) {
         const p = N.fbm(x * 0.1 + 50 + so, z * 0.1 + 50);
         const edge = smooth(0.72, 0.95, rr) * 0.22;
         const v = p + edge - (opts.boss ? 0.12 : 0);
@@ -207,8 +218,9 @@ export class World {
       }
       T[k] = t;
     }
-    // reachability from center
-    const walk = this.walk; walk.fill(0);
+    const walk = this.walk;
+    const floodWalk = () => {
+    walk.fill(0);
     let start = -1, best = 1e9;
     for (let k = 0; k < GW * GW; k++) if (T[k] === 1 && RR[k] < 0.94) {
       const i = k % GW, j = (k / GW) | 0;
@@ -231,18 +243,8 @@ export class World {
       if (T[k + 1] >= 2 || T[k - 1] >= 2 || T[k + GW] >= 2 || T[k - GW] >= 2) w2[k] = 0;
     }
     walk.set(w2);
-
-    // heights
-    for (let k = 0; k < GW * GW; k++) {
-      const i = k % GW, j = (k / GW) | 0, x = -HALF + i * RES, z = -HALF + j * RES;
-      const t = T[k], rr = RR[k];
-      const nz = N.n2(x * 0.6, z * 0.6);
-      if (t === 0 || t === 1) {
-        const base = 0.04 * nz;
-        H[k] = lerp(-1.5, base, smooth(1.08, 0.97, rr));
-      } else if (t === 2) H[k] = 1.5 + nz * 0.2;
-      else H[k] = 2.7 + nz * 0.25;
-    }
+    };
+    floodWalk();
 
     // dirt paths: centre -> exits
     const exits = [];
@@ -260,7 +262,7 @@ export class World {
         }
         if (ok && d > 9 && z < 4) cands.push({ x, z, d, a: Math.atan2(z, x) });
       }
-      cands.sort((a, b) => b.d - a.d);
+      if (opts.town) cands.sort((a, b) => Math.hypot(a.x, a.z + 18) - Math.hypot(b.x, b.z + 18)); else cands.sort((a, b) => b.d - a.d);
       for (const c of cands) {
         if (exits.length >= exitCount) break;
         if (exits.every(e => Math.hypot(e.x - c.x, e.z - c.z) > 9)) exits.push(c);
@@ -280,6 +282,27 @@ export class World {
       const t = clamp((wx * vx + wz * vz) / (vx * vx + vz * vz + 1e-6), 0, 1);
       return Math.hypot(px - (a.x + vx * t), pz - (a.z + vz * t));
     };
+
+    // carve guaranteed wide corridors spawn -> exits (fixes pinched/blocked routes), then re-flood
+    for (let k = 0; k < GW * GW; k++) {
+      if (RR[k] > 0.95 || T[k] === 1) continue;
+      const x = -HALF + (k % GW) * RES, z = -HALF + ((k / GW) | 0) * RES;
+      let dp = 9; for (const [p0, p1] of paths) dp = Math.min(dp, distSeg(x, z, p0, p1));
+      if (dp < 2.1) T[k] = 1;
+    }
+    floodWalk();
+    this.T = T;
+    // heights
+    for (let k = 0; k < GW * GW; k++) {
+      const i = k % GW, j = (k / GW) | 0, x = -HALF + i * RES, z = -HALF + j * RES;
+      const t = T[k], rr = RR[k];
+      const nz = N.n2(x * 0.6, z * 0.6);
+      if (t === 0 || t === 1) {
+        const base = 0.04 * nz;
+        H[k] = lerp(-1.5, base, smooth(1.08, 0.97, rr));
+      } else if (t === 2) H[k] = 1.5 + nz * 0.2;
+      else H[k] = 2.7 + nz * 0.25;
+    }
 
     // ---------- terrain mesh (flat-shaded, jittered grid) ----------
     const pos = [], col = [];
@@ -380,10 +403,12 @@ export class World {
           const s = 0.7 + r() * 0.45;
           if (r() < pineBias) pines[Math.floor(r() * 2)].push({ x, y, z, s, ry: r() * 6 });
           else rounds[Math.floor(r() * 3)].push({ x, y, z, s, ry: r() * 6 });
+          this.obstacles.push({ x, z, r: 0.4 * s + 0.15, h: y });
         } else if (r() < 0.5) rocks.push({ x, y, z, s: 0.6 + r() * 0.9, ry: r() * 6 });
         else bushes.push({ x, y, z, s: 0.8 + r() * 0.6, ry: r() * 6 });
       } else if (t === 1 && rr < 1.0) {
         const isW = walk[k];
+        if (opts.town && Math.hypot(x, z) < 16) continue;
         if (isW && (nearExitOrSpawn(x, z, 3.5) || nearPath(x, z, 1.4))) continue;
         const roll = r();
         if (!isW && rr > 0.95) { if (roll < 0.15) rocks.push({ x, y: y - 0.1, z, s: 0.5 + r() * 0.6, ry: r() * 6 }); continue; }
@@ -391,14 +416,14 @@ export class World {
           const s = 0.75 + r() * 0.5;
           if (r() < pineBias) pines[Math.floor(r() * 2)].push({ x, y, z, s, ry: r() * 6 });
           else rounds[Math.floor(r() * 3)].push({ x, y, z, s, ry: r() * 6 });
-          if (isW) this.obstacles.push({ x, z, r: 0.45 * s + 0.2 });
+          if (isW) this.obstacles.push({ x, z, r: 0.45 * s + 0.2, h: y });
         } else if (roll < 0.06 && !occupied(x, z, 1)) {
           const s = 0.5 + r() * 0.9;
           rocks.push({ x, y, z, s, ry: r() * 6 });
-          if (isW && s > 0.8) this.obstacles.push({ x, z, r: 0.5 * s });
+          if (isW && s > 0.8) this.obstacles.push({ x, z, r: 0.5 * s, h: y });
         } else if (roll < 0.1) bushes.push({ x, y, z, s: 0.6 + r() * 0.5, ry: r() * 6 });
         else if (roll < 0.11 && !occupied(x, z, 1)) {
-          if (P.key === 'ember' || r() < 0.5) { pillars.push({ x, y, z, s: 0.9 + r() * 0.3, ry: r() * 6 }); if (isW) this.obstacles.push({ x, z, r: 0.5 }); }
+          if (P.key === 'ember' || r() < 0.5) { pillars.push({ x, y, z, s: 0.9 + r() * 0.3, ry: r() * 6 }); if (isW) this.obstacles.push({ x, z, r: 0.5, h: y }); }
           else { logs.push({ x, y, z, s: 0.9, ry: r() * 6 }); }
         } else if (roll < 0.125) shrooms.push({ x, y, z, s: 0.8 + r() * 0.8, ry: r() * 6 });
       }
@@ -428,7 +453,7 @@ export class World {
         const x = p0.x + (p1.x - p0.x) * t2 + nx * side, z = p0.z + (p1.z - p0.z) * t2 + nz * side;
         if (!this.isWalk(x, z)) continue;
         posts.push({ x, y: this.groundY(x, z), z, s: 1, ry: Math.atan2(-nz * side, nx * side) });
-        this.obstacles.push({ x, z, r: 0.25 });
+        this.obstacles.push({ x, z, r: 0.25, h: 0 });
       }
     }
     inst(pineT[0], pines[0]); inst(pineT[1], pines[1]);

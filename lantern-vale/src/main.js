@@ -1,10 +1,13 @@
 import { Pipeline } from './render.js';
 import { Game } from './game.js';
 import { UI } from './ui.js';
+import { Audio } from './audio.js';
 
 const pipe = new Pipeline(document.getElementById('view'));
 const ui = new UI();
-const game = new Game(pipe, ui);
+const audio = new Audio();
+const game = new Game(pipe, ui, audio);
+ui.audio = audio;
 ui.bind(game);
 window.__game = game; // debug / screenshot hook
 let last = performance.now();

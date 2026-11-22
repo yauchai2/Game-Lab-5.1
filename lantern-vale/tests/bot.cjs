@@ -10,6 +10,8 @@ const { chromium } = require('playwright');
   await page.waitForTimeout(1500);
   await page.click('#btnStart');
   await page.waitForTimeout(500);
+  await page.evaluate(() => __game.startRun());
+  await page.waitForTimeout(300);
   const startDepth = +(process.argv[3]||0); if (startDepth) await page.evaluate(d => __game.loadRoom(d, 'item'), startDepth);
   const shots = [];
   for (let chunk = 0; chunk < +(process.argv[4]||80); chunk++) {
@@ -50,7 +52,7 @@ const { chromium } = require('playwright');
       return { done: null, en: g.enemies.map(e=>[e.type,e.state,e.pos.x.toFixed(1),e.pos.z.toFixed(1),Math.round(e.hp)]), dbg: { drops: g.drops.map(d => [d.kind, d.g.position.x.toFixed(1), d.g.position.z.toFixed(1), d.y.toFixed(2), d.vy.toFixed(2)]), exits: g.exits.map(x => [x.on, x.x, x.z, W.isWalk(x.x, x.z)]), state2: g.state }, depth: g.depth, state: g.state, hp: Math.round(p.hp), enemies: g.enemies.length, cleared: g.cleared, wave: g.waveIdx, pos: [p.pos.x.toFixed(1), p.pos.z.toFixed(1)], log };
     }, { god });
     for (const l of res.log) console.log(l);
-    if (chunk % 3 === 0) console.log(JSON.stringify({ ...res, log: undefined, dbg: undefined, en: res.en }));
+    if (chunk % 3 === 0) console.log(JSON.stringify({ ...res, log: undefined }));
     if (res.done) { console.log('END', JSON.stringify(res)); break; }
     if (chunk % 10 === 5) { await page.waitForTimeout(600); await page.screenshot({ path: `shots/bot${chunk}.png` }); }
     await page.waitForTimeout(50);

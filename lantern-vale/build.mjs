@@ -9,3 +9,5 @@ console.log('built', (html.length / 1024).toFixed(0) + 'KB');
 const art = html.replace(/<!doctype html>\s*/i, '').replace(/<html[^>]*>\s*/i, '').replace(/<\/?head>\s*/gi, '')
   .replace(/<meta charset[^>]*>\s*/i, '').replace(/<meta name="viewport"[^>]*>\s*/i, '').replace(/<body>\s*/i, '').replace(/<\/body>\s*<\/html>\s*$/i, '');
 fs.writeFileSync('dist/lantern-vale.html', art);
+fs.mkdirSync('game', { recursive: true });
+fs.copyFileSync('dist/index.html', 'game/index.html');

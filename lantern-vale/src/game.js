@@ -1,7 +1,10 @@
 import * as THREE from 'three';
 import { World, toonMat, HALF } from './world.js';
 import { BIOMES, mulberry32, clamp, lerp, angleLerp, rand, pick } from './util.js';
-import { buildPlayer, buildSlime, buildThorn, buildBoar, buildMoth, buildStag, buildArch } from './models.js';
+import { buildPlayer, buildSlime, buildThorn, buildBoar, buildMoth, buildStag, buildArch, buildHouse, buildFountain, buildBoard, buildStall } from './models.js';
+import { Net } from './net.js';
+const EMOTES = ['嗨～', '♥', '哈哈', 'zZ'];
+const HOODS = [[0x2f8a7e, 0x23695f], [0xd9543a, 0xa83f2c], [0x6a6ad0, 0x4a4aa0], [0xe0a030, 0xb07f20], [0xc060b0, 0x904488], [0x58a858, 0x3f823f], [0x4aa0d8, 0x3478a8], [0x8a6a50, 0x65503c]];
 import { makeItem, itemLines, itemScore, RARITY, SLOTS, rollBoons, BOONS } from './loot.js';
 
 const V2 = THREE.Vector2, V3 = THREE.Vector3;
@@ -68,8 +71,8 @@ const decalFS = `uniform vec3 uColor; uniform float uProg, uShape, uAlpha; varyi
   }`;
 
 export class Game {
-  constructor(pipe, ui) {
-    this.pipe = pipe; this.ui = ui;
+  constructor(pipe, ui, audio) {
+    this.pipe = pipe; this.ui = ui; this.audio = audio;
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(30, 16 / 9, 4, 90);
     pipe.onResize = (w, h) => { this.camera.aspect = w / h; this.camera.updateProjectionMatrix(); };
@@ -93,7 +96,10 @@ export class Game {
     this.state = 'title'; this.time = 0; this.shake = 0; this.hitstop = 0; this.hurtFlash = 0; this.fade = 0;
     this.camPos = new V3(0, 20, 14);
     this.flowTimer = 0;
+    this.net = new Net(); this.remotes = new Map(); this.townGroup = null; this.party = ''; this.bots = [];
+    this.playerName = '旅人'; this.hoodIdx = 0; this.posT = 0;
     this.bindInput();
+    this.setupNet();
     // title scene: a pretty room in the background
     this.player = this.makePlayer();
     this.loadRoom(0, null, true);
@@ -101,38 +107,50 @@ export class Game {
 
   // ---------------- input ----------------
   bindInput() {
+    const CODE = { KeyW: 'w', KeyA: 'a', KeyS: 's', KeyD: 'd', ArrowUp: 'arrowup', ArrowDown: 'arrowdown', ArrowLeft: 'arrowleft', ArrowRight: 'arrowright',
+      Space: ' ', ShiftLeft: 'shift', ShiftRight: 'shift', KeyQ: 'q', KeyE: 'e', KeyR: 'r', KeyF: 'f', KeyI: 'i', KeyM: 'm', Tab: 'tab', Escape: 'escape', Enter: 'enter', KeyT: 't', Digit1: '1', Digit2: '2', Digit3: '3', Digit4: '4' };
+    const typing = () => { const a = document.activeElement; return a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA'); };
     addEventListener('keydown', e => {
-      const k = e.key.toLowerCase(); this.keys[k] = true;
-      if (k === ' ' || k === 'tab') e.preventDefault();
+      if (typing()) { if (e.code === 'Escape' || e.code === 'Enter') this.ui.chatKey?.(e); return; }
+      const k = CODE[e.code] ?? e.key.toLowerCase();
+      if (['tab', ' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) e.preventDefault();
+      const fresh = !this.keys[k]; this.keys[k] = true;
+      this.audio.init();
+      if (!fresh) return;
+      if (k === 'm') { this.ui.toast(this.audio.toggleMute() ? '音效：關' : '音效：開', '#fff'); return; }
       if (this.state === 'play') {
-        if (k === ' ') this.tryRoll();
+        if (k === 'shift') this.tryRoll();
+        if (k === ' ') this.tryJump();
         if (k === 'q') this.trySlam();
         if (k === 'e') this.tryWisp();
         if (k === 'r') this.tryFlask();
         if (k === 'f') this.tryPickup();
+        if (['1', '2', '3', '4'].includes(k)) this.emote(+k - 1);
+        if (k === 'enter' || k === 't') { if (this.ui.focusChat?.()) e.preventDefault(); }
         if (k === 'tab' || k === 'i') this.ui.toggleInv(this);
         if (k === 'escape') this.ui.toggleInv(this);
       } else if (this.state === 'boon' && ['1', '2', '3'].includes(k)) this.ui.pickBoonIndex(+k - 1);
     });
-    addEventListener('keyup', e => { this.keys[e.key.toLowerCase()] = false; });
+    addEventListener('keyup', e => { const k = CODE[e.code] ?? e.key.toLowerCase(); this.keys[k] = false; this.keys[e.key.toLowerCase()] = false; });
     const cv = this.pipe.renderer.domElement;
     addEventListener('mousemove', e => { this.mouse.x = e.clientX; this.mouse.y = e.clientY; });
-    cv.addEventListener('mousedown', e => { if (e.button === 0) this.mouse.l = true; if (e.button === 2) this.mouse.r = true; });
+    cv.addEventListener('mousedown', e => { this.audio.init(); window.focus(); if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur(); if (e.button === 0) this.mouse.l = true; if (e.button === 2) this.mouse.r = true; });
     addEventListener('mouseup', e => { if (e.button === 0) this.mouse.l = false; if (e.button === 2) this.mouse.r = false; });
     addEventListener('contextmenu', e => e.preventDefault());
     addEventListener('blur', () => { this.keys = {}; this.mouse.l = this.mouse.r = false; });
+    document.addEventListener('visibilitychange', () => { this.keys = {}; });
   }
 
   // ---------------- player ----------------
   makePlayer() {
-    const m = buildPlayer();
+    const m = buildPlayer(...HOODS[this.hoodIdx]);
     m.root.scale.setScalar(1.25);
     this.scene.add(m.root);
     const p = {
       m, pos: new V3(), vel: new V3(), facing: 0, hp: 100, mana: 50, equip: { staff: null, cloak: null, charm: null },
       boons: [], skills: { slam: false, wisp: false }, cds: { atk: 0, bolt: 0, roll: 0, slam: 0, wisp: 0 },
       roll: 0, rollDir: new V3(), iframes: 0, flask: { charges: 2, max: 3, prog: 0 }, healOver: 0,
-      swing: 0, swingT: 0, swingCount: 0, galeBuff: false, wisps: [], wispT: 0, walkT: 0, kills: 0, dmgDealt: 0, stats: {},
+      y: 0, vy: 0, air: false, climbing: false, gliding: false, wall: false, stamina: 100, lastLow: new V3(), stepT: 0, swing: 0, swingT: 0, swingCount: 0, galeBuff: false, wisps: [], wispT: 0, walkT: 0, kills: 0, dmgDealt: 0, stats: {},
     };
     p.equip.staff = makeItem(mulberry32(5), 0, 0, 'staff');
     return p;
@@ -165,11 +183,20 @@ export class Game {
     this.scene.remove(this.player.m.root);
     this.player = this.makePlayer();
     this.recalc(); this.player.hp = this.player.stats.maxHp; this.player.mana = this.player.stats.mana;
-    this.runSeed = (Math.random() * 1e6) | 0;
+    this.runSeed = this.party ? [...this.party].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % 1000000 : (Math.random() * 1e6) | 0;
     this.runStart = performance.now();
     this.state = 'play';
     this.loadRoom(0, null);
   }
+  enterTown() {
+    for (const e of this.enemies) this.scene.remove(e.m.root);
+    this.scene.remove(this.player.m.root);
+    this.player = this.makePlayer(); this.recalc();
+    this.player.hp = this.player.stats.maxHp; this.player.mana = this.player.stats.mana;
+    this.state = 'play'; this.player.m.root.visible = true;
+    this.loadRoom(-1, null);
+  }
+  get zone() { return this.state === 'title' ? 'title' : this.depth < 0 ? 'town' : `run:${this.party || 'solo' + (this.net.id || '')}:${this.depth}`; }
   biomeFor(depth) { return depth >= 9 ? 3 : Math.floor(depth / 3); }
   loadRoom(depth, reward, title = false) {
     this.depth = depth; this.reward = reward;
@@ -181,12 +208,15 @@ export class Game {
     this.player.wisps = [];
     this.enemies = []; this.projs = []; this.eprojs = []; this.decals = []; this.drops = []; this.exits = []; this.slashes = []; this.rings = [];
     this.fx.clear(); this.puffs.clear();
-    const bi = title ? 0 : this.biomeFor(depth);
+    const town = depth === -1;
+    if (this.townGroup) { this.scene.remove(this.townGroup); this.townGroup = null; }
+    for (const b of this.bots) this.removeRemote(b); this.bots = [];
+    const bi = (title || town) ? 0 : this.biomeFor(depth);
     const B = BIOMES[bi]; this.biome = B;
     const boss = depth === 9 && !title;
-    const seed = title ? 4242 : (this.runSeed || 1) + depth * 101;
+    const seed = title ? 4242 : town ? 9001 : (this.runSeed || 1) + depth * 101;
     this.rng = mulberry32(seed + 77);
-    const { spawn, exits } = this.world.generate(seed, B, { boss, exitCount: boss ? 0 : (depth === 0 ? 2 : (this.rng() < 0.5 ? 2 : 3)) });
+    const { spawn, exits } = this.world.generate(seed, B, { boss, town, exitCount: town ? 1 : boss ? 0 : (depth === 0 ? 2 : (this.rng() < 0.5 ? 2 : 3)) });
     // lights per biome
     this.sun.color.set(B.sun); this.sun.intensity = B.sunI * 2.3;
     this.hemi.color.set(B.sky); this.hemi.groundColor.set(B.ground); this.hemi.intensity = B.ambient * 1.75;
@@ -199,7 +229,8 @@ export class Game {
     // exits (inactive until cleared)
     const types = ['item', 'boon', 'heal'];
     const pool = depth === 0 ? ['boon', 'item'] : types.slice().sort(() => this.rng() - 0.5);
-    exits.forEach((e, i) => this.makeExit(e, pool[i % pool.length]));
+    if (town) { this.makeExit(exits[0], 'run'); this.exits[0].on = true; this.buildTown(); }
+    else exits.forEach((e, i) => this.makeExit(e, pool[i % pool.length]));
     // motes (fireflies / pollen / snow)
     for (const mo of this.motes) this.scene.remove(mo);
     this.motes = [];
@@ -212,7 +243,11 @@ export class Game {
     }
     // waves
     this.waves = [];
-    if (!title) {
+    if (town) {
+      this.cleared = true; this.waveIdx = 0; this.waves = [];
+      this.ui.banner('燈谷鎮', '與旅人交談，準備出發');
+      this.fade = 1;
+    } else if (!title) {
       if (boss) this.waves = [{ boss: true }];
       else {
         const nW = depth === 0 ? 1 : 2 + (depth >= 5 ? 1 : 0);
@@ -223,14 +258,16 @@ export class Game {
       this.ui.banner(boss ? '古樹鹿王的林地' : B.name, boss ? '最終之戰' : `第 ${stage} 區 · 第 ${room} 間`);
       this.fade = 1;
     } else { this.cleared = true; this.waveIdx = 0; }
+    p.y = 0; p.vy = 0; p.air = false; p.climbing = false; p.stamina = 100; p.lastLow.set(p.pos.x, 0, p.pos.z);
     this.world.computeFlow(p.pos.x, p.pos.z);
+    this.musicKey = title ? 'title' : town ? 'town' : boss ? 'boss' : B.key; this.audio.setMusic(this.musicKey, 0);
   }
 
   makeExit(e, type) {
     const g = buildArch(this.biome);
     g.position.set(e.x, 0, e.z);
     const toC = Math.atan2(-e.x, -e.z); g.rotation.y = toC;
-    const col = { item: 0xffd85a, boon: 0xc08cff, heal: 0xff6b6b }[type];
+    const col = { item: 0xffd85a, boon: 0xc08cff, heal: 0xff6b6b, run: 0x6fe0d0 }[type];
     const disc = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 2.2), new THREE.ShaderMaterial({
       uniforms: { uT: { value: 0 }, uC: { value: new THREE.Color(col) }, uOn: { value: 0 } }, transparent: true, depthWrite: false, side: THREE.DoubleSide,
       vertexShader: decalVS,
@@ -309,7 +346,7 @@ export class Game {
   }
   hitEnemy(e, hit, kx = 0, kz = 0, opts = {}) {
     if (e.dead) return;
-    e.hp -= hit.dmg; e.flash = 0.12;
+    e.hp -= hit.dmg; e.flash = 0.12; this.audio.sfx(hit.crit ? 'crit' : 'hit');
     const kb = e.type === 'stag' ? 0.15 : 1;
     e.knock.x += kx * kb; e.knock.z += kz * kb;
     if (opts.stun && e.type !== 'stag') e.stun = Math.max(e.stun, opts.stun);
@@ -321,7 +358,7 @@ export class Game {
     if (e.hp <= 0) this.killEnemy(e);
   }
   killEnemy(e) {
-    e.dead = true;
+    e.dead = true; this.audio.sfx(e.type === 'stag' ? 'bossDie' : 'enemyDie');
     this.scene.remove(e.m.root);
     const col = { slime: [0x7fc35a, 0xb5e080], thorn: [0x8a5a3b, 0x6aa84a], boar: [0x9a6a4a, 0x5a3b2c], moth: [0xb48ae0, 0xffd27a], stag: [0xffb050, 0xe8dcc8] }[e.type];
     this.puffs.burst(e.pos.x, 0.4, e.pos.z, e.type === 'stag' ? 40 : 10, { c: col, s: 0.22, speed: 4, up: 4, life: 0.8 });
@@ -346,7 +383,11 @@ export class Game {
   }
   hurtPlayer(dmg, src) {
     const p = this.player;
-    if (p.iframes > 0 || p.roll > 0 || this.state !== 'play') return;
+    if (p.iframes > 0 || p.roll > 0 || this.state !== 'play' || this.depth < 0) return;
+    const air = p.y - this.world.gh(p.pos.x, p.pos.z);
+    if (air > 0.8 && !p.gliding) return; // jumping dodges ground attacks
+    if (src && Math.abs(src.y - p.y) > 1.7 && air <= 0.8) return; // different height level
+    this.audio.sfx('hurt');
     dmg = Math.round(dmg * (1 - p.stats.armor / 100));
     p.hp -= dmg; p.iframes = 0.6;
     this.hurtFlash = 0.5; this.shake = Math.max(this.shake, 0.35); this.hitstop = 0.06;
@@ -357,22 +398,22 @@ export class Game {
     if (p.hp <= 0) { p.hp = 0; this.die(); }
   }
   die() {
-    this.state = 'dead';
+    this.state = 'dead'; this.audio.sfx('dead'); this.audio.setMusic('title', 0);
     this.puffs.burst(this.player.pos.x, 0.5, this.player.pos.z, 20, { c: [0x2f8a7e, 0xd9543a, 0xffd36e], s: 0.2, speed: 4, life: 1 });
     this.player.m.root.visible = false;
     setTimeout(() => this.ui.showDead(this), 900);
   }
-  victory() { this.state = 'win'; this.ui.showWin(this); }
+  victory() { this.audio.sfx('win'); this.state = 'win'; this.ui.showWin(this); }
 
   dropItem(x, z, item) {
     const g = new THREE.Group();
-    const R = RARITY[item.rarity];
+    const R = RARITY[item.rarity]; this.audio.sfx('drop' + item.rarity);
     const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.22, 0), new THREE.MeshBasicMaterial({ color: R.beam }));
     gem.position.y = 0.5; g.add(gem);
     const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.12, item.rarity >= 2 ? 6 : 2.5, 6, 1, true),
       new THREE.MeshBasicMaterial({ color: R.beam, transparent: true, opacity: item.rarity >= 2 ? 0.45 : 0.25, depthWrite: false, blending: THREE.AdditiveBlending }));
     beam.position.y = item.rarity >= 2 ? 3 : 1.25; beam.userData.noNormal = true; g.add(beam);
-    g.position.set(x, 0, z);
+    g.position.set(x, this.world.groundY(x, z), z);
     this.scene.add(g);
     // pop out
     const a = Math.random() * 6.28;
@@ -382,20 +423,20 @@ export class Game {
   dropOrb(x, z) {
     const g = new THREE.Group();
     const orb = new THREE.Mesh(new THREE.SphereGeometry(0.16, 6, 4), new THREE.MeshBasicMaterial({ color: 0xff5a6a }));
-    orb.position.y = 0.3; g.add(orb); g.position.set(x, 0, z);
+    orb.position.y = 0.3; g.add(orb); g.position.set(x, this.world.groundY(x, z), z);
     this.scene.add(g);
     const a = Math.random() * 6.28;
     this.drops.push({ g, gem: orb, kind: 'orb', vx: Math.cos(a) * 2.5, vz: Math.sin(a) * 2.5, vy: 4, y: 0.3 });
   }
   nearestDrop() {
     let best = null, bd = 1.4;
-    for (const d of this.drops) if (d.kind === 'item') { const dd = Math.hypot(d.g.position.x - this.player.pos.x, d.g.position.z - this.player.pos.z); if (dd < bd) { bd = dd; best = d; } }
+    for (const d of this.drops) if (d.kind === 'item') { const dd = Math.hypot(d.g.position.x - this.player.pos.x, d.g.position.z - this.player.pos.z); if (dd < bd && Math.abs(d.g.position.y - this.player.y) < 1.6) { bd = dd; best = d; } }
     return best;
   }
   tryPickup() {
     const d = this.nearestDrop(); if (!d) return;
     const p = this.player, it = d.item;
-    const old = p.equip[it.slot];
+    const old = p.equip[it.slot]; this.audio.sfx('pickup');
     p.equip[it.slot] = it;
     this.scene.remove(d.g); this.drops.splice(this.drops.indexOf(d), 1);
     if (old) this.dropItem(p.pos.x, p.pos.z, old);
@@ -429,7 +470,7 @@ export class Game {
     const aps = 2.0 * (1 + p.stats.atkSpd / 100);
     p.cds.atk = 1 / aps;
     const dir = this.aimDir(); p.facing = Math.atan2(dir.x, dir.y);
-    p.swing = 1; p.swingT = 0.22; p.swingCount++;
+    p.swing = 1; p.swingT = 0.22; p.swingCount++; this.audio.sfx('swing');
     const range = 2.3 * (1 + p.stats.area / 100);
     let mult = 1;
     if (p.galeBuff) { mult += 0.6; p.galeBuff = false; }
@@ -475,7 +516,7 @@ export class Game {
   tryBolt() {
     const p = this.player; if (p.cds.bolt > 0 || p.roll > 0) return;
     if (p.mana < 8) { if (!this._noManaT || this.time - this._noManaT > 1) { this.ui.toast('法力不足', '#7fb2ff'); this._noManaT = this.time; } return; }
-    p.mana -= 8; p.cds.bolt = 0.38 / (1 + p.stats.atkSpd / 200);
+    this.audio.sfx('bolt'); p.mana -= 8; p.cds.bolt = 0.38 / (1 + p.stats.atkSpd / 200);
     const dir = this.aimDir(); p.facing = Math.atan2(dir.x, dir.y);
     const n = p.stats.proj, spread = 0.2;
     for (let i = 0; i < n; i++) {
@@ -488,13 +529,14 @@ export class Game {
   fireProj(pos, dir, o) {
     const geo = o.wave ? new THREE.BoxGeometry(1.6, 0.1, 0.3) : new THREE.IcosahedronGeometry(o.size, 0);
     const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: o.color, transparent: !!o.wave, opacity: 0.8 }));
-    mesh.position.set(pos.x + dir.x * 0.5, 0.6, pos.z + dir.y * 0.5);
+    mesh.position.set(pos.x + dir.x * 0.5, (pos.y || 0) + 0.6, pos.z + dir.y * 0.5);
     if (o.wave) { mesh.rotation.y = Math.atan2(dir.x, dir.y); mesh.userData.noNormal = true; }
     this.scene.add(mesh);
     this.projs.push({ mesh, vx: dir.x * o.speed, vz: dir.y * o.speed, life: o.life || 1.1, ...o, hit: new Set() });
   }
   tryRoll() {
-    const p = this.player; if (p.cds.roll > 0 || p.roll > 0) return;
+    const p = this.player; if (p.cds.roll > 0 || p.roll > 0 || p.air || p.climbing) return;
+    this.audio.sfx('roll');
     const mv = this.moveInput();
     if (mv.lengthSq() < 0.01) { const a = this.aimDir(); mv.set(a.x, a.y); }
     p.rollDir.set(mv.x, 0, mv.y).normalize();
@@ -509,6 +551,7 @@ export class Game {
   }
   trySlam() {
     const p = this.player; if (!p.skills.slam || p.cds.slam > 0 || p.roll > 0) return;
+    this.audio.sfx('slam');
     p.cds.slam = 5 * (this.has('quake') ? 0.8 : 1) * (1 - p.stats.cdr / 100);
     const R = 3.2 * (1 + p.stats.area / 100) * (this.has('quake') ? 1.35 : 1);
     const a = this.aimDir();
@@ -521,6 +564,7 @@ export class Game {
   }
   tryWisp() {
     const p = this.player; if (!p.skills.wisp || p.cds.wisp > 0) return;
+    this.audio.sfx('wisp');
     p.cds.wisp = 12 * (1 - p.stats.cdr / 100);
     for (const w of p.wisps) this.scene.remove(w.mesh);
     p.wisps = [];
@@ -534,13 +578,13 @@ export class Game {
   }
   tryFlask() {
     const p = this.player; if (p.flask.charges <= 0 || p.hp >= p.stats.maxHp) return;
-    p.flask.charges--; p.healOver = 1.0;
+    p.flask.charges--; p.healOver = 1.0; this.audio.sfx('flask');
     p.healRate = p.stats.maxHp * 0.42 * (1 + 0.25 * p.boons.filter(b => b === 'flask').length);
     this.fx.burst(p.pos.x, 1, p.pos.z, 10, { c: [0xff7a8a, 0xffd0d8], s: 0.1, speed: 2, up: 3, life: 0.6, g: -1 });
   }
   takeBoon(b) {
     const p = this.player;
-    p.boons.push(b.id);
+    p.boons.push(b.id); this.audio.sfx('boon');
     if (b.skill) p.skills[b.skill] = true;
     this.recalc();
     if (b.id === 'thick') p.hp = p.stats.maxHp;
@@ -555,7 +599,7 @@ export class Game {
     return v;
   }
 
-  moveEntity(pos, dx, dz, r) {
+  moveEntity(pos, dx, dz, r, y = 0) {
     // axis-separated movement on walk grid + circular obstacles
     const W = this.world;
     const nx = pos.x + dx;
@@ -563,8 +607,202 @@ export class Game {
     const nz = pos.z + dz;
     if (W.isWalk(pos.x, nz + Math.sign(dz) * r * 0.6)) pos.z = nz;
     for (const o of W.obstacles) {
+      if (Math.abs((o.h || 0) - y) > 1.3) continue;
       const ox = pos.x - o.x, oz = pos.z - o.z, d = Math.hypot(ox, oz), m = o.r + r * 0.7;
       if (d < m && d > 0.001) { pos.x = o.x + ox / d * m; pos.z = o.z + oz / d * m; }
+    }
+  }
+
+  movePlayer(dx, dz) {
+    const p = this.player, W = this.world, pos = p.pos, r = 0.35;
+    const ok = (cx, cz) => {
+      if (!W.isLand(cx, cz)) return false;
+      const g = W.gh(cx, cz);
+      if (g > p.y + 0.55 && !p.climbing) { p.wall = true; p.wallH = Math.max(p.wallH || 0, g); return false; }
+      return true;
+    };
+    const nx = pos.x + dx; if (dx && ok(nx + Math.sign(dx) * r * 0.6, pos.z)) pos.x = nx;
+    const nz = pos.z + dz; if (dz && ok(pos.x, nz + Math.sign(dz) * r * 0.6)) pos.z = nz;
+    for (const o of W.obstacles) {
+      if (Math.abs((o.h || 0) - p.y) > 1.3) continue;
+      const ox = pos.x - o.x, oz = pos.z - o.z, d = Math.hypot(ox, oz), m = o.r + r * 0.7;
+      if (d < m && d > 0.001) { pos.x = o.x + ox / d * m; pos.z = o.z + oz / d * m; }
+    }
+  }
+  updateVertical(dt, mv) {
+    const p = this.player, W = this.world;
+    const g = W.gh(p.pos.x, p.pos.z);
+    const want = mv.lengthSq() > 0.01;
+    // grab a wall
+    if (p.wall && want && p.roll <= 0 && p.stamina > 4 && !p.climbing && g - p.y <= 3.8) { p.climbing = true; p.air = false; p.vy = 0; p.climbH = p.wallH; this.audio.sfx('climb'); }
+    p.gliding = false;
+    if (p.climbing) {
+      p.stamina -= 20 * dt; p.y += 3.4 * dt;
+      p.climbT = (p.climbT || 0) + dt; if (p.climbT > 0.22) { p.climbT = 0; this.audio.sfx('climb'); }
+      if (p.y >= Math.max(g, p.climbH) - 0.4) { p.climbing = false; p.air = true; p.vy = 4.2; p.vel.x *= 3; p.vel.z *= 3; }
+      else if (!want || p.stamina <= 0) { p.climbing = false; p.air = true; p.vy = 0; }
+    } else if (!p.air) {
+      if (g >= p.y) p.y += (g - p.y) * Math.min(1, dt * 25);
+      else if (p.y - g > 0.55) { p.air = true; p.vy = 0; }
+      else p.y = g;
+      if (p.y < g) p.y = g - (g - p.y) * 0.5;
+      p.stamina = Math.min(100, p.stamina + 38 * dt);
+      if (p.y < 0.7) p.lastLow.set(p.pos.x, 0, p.pos.z);
+    }
+    if (p.air && !p.climbing) {
+      const glide = (this.keys[' '] && p.vy < 0 && p.stamina > 0 && p.roll <= 0);
+      p.vy -= 24 * dt;
+      if (glide) {
+        if (!p.gliding0) this.audio.sfx('glide');
+        p.vy = Math.max(p.vy, -1.6); p.stamina -= 10 * dt; p.gliding = true;
+      }
+      p.gliding0 = glide;
+      const vyBefore = p.vy;
+      p.y += p.vy * dt;
+      if (p.y <= g) {
+        p.y = g; p.air = false; p.vy = 0; p.gliding0 = false;
+        if (vyBefore < -4) { this.audio.sfx('land'); this.puffs.burst(p.pos.x, p.y + 0.1, p.pos.z, 6, { c: 0xf4ecd8, s: 0.25, speed: 2, up: 0.5, g: -0.3, life: 0.45, grow: 1, drag: 3 }); }
+      }
+    }
+    p.pos.y = p.y;
+    if (p.y < -0.1 && !W.isLand(p.pos.x, p.pos.z)) { p.pos.x = p.lastLow.x; p.pos.z = p.lastLow.z; p.y = W.gh(p.pos.x, p.pos.z); }
+  }
+  tryJump() {
+    const p = this.player;
+    if (p.climbing) { p.climbing = false; p.air = true; p.vy = 6.5; this.audio.sfx('jump'); return; }
+    if (p.air || p.roll > 0) return;
+    p.air = true; p.vy = 8.2; this.audio.sfx('jump');
+    this.puffs.burst(p.pos.x, p.y + 0.1, p.pos.z, 4, { c: 0xf4ecd8, s: 0.2, speed: 1.5, up: 0.3, g: -0.3, life: 0.35, grow: 1, drag: 3 });
+  }
+
+
+  // ---------------- town ----------------
+  buildTown() {
+    const P = this.biome, g = new THREE.Group(); this.townGroup = g; this.scene.add(g);
+    const add = (o, x, z, ry = 0, obst = 0) => { o.position.set(x, 0, z); o.rotation.y = ry; g.add(o); if (obst) this.world.obstacles.push({ x, z, r: obst, h: 0 }); return o; };
+    // cobble plaza
+    const plaza = new THREE.Mesh(new THREE.CylinderGeometry(7.2, 7.4, 0.12, 20), toonMat({ color: 0xe3d3b0 }));
+    plaza.position.set(0, 0.03, 0); plaza.receiveShadow = true; g.add(plaza);
+    const ring = new THREE.Mesh(new THREE.CylinderGeometry(5.0, 5.0, 0.16, 20), toonMat({ color: 0xd2bf98 })); ring.position.set(0, 0.04, 0); ring.receiveShadow = true; g.add(ring);
+    add(buildFountain(), 0, -1, 0, 2.0);
+    const roofs = [0xd9543a, 0x3f8ab0, 0xe0a030, 0x8a5ab8, 0xd9543a, 0x58a858];
+    [[-11, 3, 0.5], [11, 3, -0.5], [-10, -8, 0.3], [10, -8, -0.3], [-15, -2, 1.2], [15, -2, -1.2]].forEach(([x, z, ry], i) => {
+      add(buildHouse(roofs[i], 0xf3e2c0, 3.4, 3.0), x, z, ry, 2.0);
+    });
+    add(buildBoard(), -4.5, 6, 0.3, 0.9);
+    add(buildStall(0xd9543a), 5, 6, -0.4, 1.4);
+    add(buildStall(0x3f8ab0), 8.5, 4, -0.8, 1.4);
+    // bonfire-ish lantern post cluster
+    for (const [x, z] of [[-6.5, 0], [6.5, 0], [-3, -5], [3, -5]]) {
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 1.7, 5), toonMat({ color: 0x6b4530 })); post.position.set(x, 0.85, z); post.castShadow = true; g.add(post);
+      const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.36, 0.3), new THREE.MeshBasicMaterial({ color: 0xffd27a })); lamp.position.set(x, 1.85, z); lamp.userData.noNormal = false; g.add(lamp);
+      this.world.obstacles.push({ x, z, r: 0.25, h: 0 });
+    }
+    // portal sign
+    const sign = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.5, 0.1), toonMat({ color: 0xfff1d0 }));
+    const ex = this.exits[0]; sign.position.set(ex.x, 3.4, ex.z); sign.rotation.y = ex.g.rotation.y; g.add(sign);
+    // offline villagers
+    if (!this.net.url) this.spawnBots();
+  }
+  spawnBots() {
+    const defs = [['米糕 (鎮民)', 1, ['歡迎來到燈谷鎮！', '北邊的拱門通往燈谷，小心鹿王。', '空白鍵可以跳，按住就能滑翔喔。']],
+      ['阿杏 (鎮民)', 5, ['頂著懸崖不放就能攀爬，但會耗體力。', '聽說傳奇裝備很稀有……', '多喝蜜藥瓶，少受傷。']],
+      ['老燈 (鎮民)', 3, ['一個人也能走完，找朋友一起更熱鬧。', '輸入 Enter 可以聊天。', '噓……森林深處有東西在動。']]];
+    defs.forEach(([name, col, lines], i) => {
+      const id = 'bot' + i; const a = Math.random() * 6.28;
+      const r = this.addRemote(id, name, col); r.bot = true; r.lines = lines; r.x = r.tx = Math.cos(a) * 4 + 2; r.z = r.tz = Math.sin(a) * 4 + 1; r.wait = Math.random() * 3;
+      this.bots.push(id);
+    });
+  }
+  // ---------------- multiplayer ----------------
+  setupNet() {
+    const n = this.net;
+    n.on('status', s => { this.ui.netStatus(s); if (!s.ok && this.depth === -1 && !this.bots.length && s.reason !== 'no-server') this.spawnBots(); });
+    n.on('welcome', m => { for (const h of m.history || []) this.ui.addChat(h.name, h.text, false, h.zone); this.ui.addChat('', `已連線，你的編號 #${m.id}`, true); });
+    n.on('online', m => this.ui.setOnline(m.n));
+    n.on('sys', m => this.ui.addChat('', m.text, true));
+    n.on('chat', m => { this.ui.addChat(m.name, m.text, false, m.zone); this.audio.sfx('chat'); if (m.id === n.id) this.say('me', m.text); else if (this.remotes.has(m.id)) this.say(m.id, m.text); });
+    n.on('emote', m => { if (this.remotes.has(m.id)) this.say(m.id, EMOTES[m.e % EMOTES.length]); });
+    n.on('gone', m => this.removeRemote(m.id));
+    n.on('snap', m => {
+      const seen = new Set();
+      for (const p of m.players) {
+        seen.add(p.id);
+        let r = this.remotes.get(p.id);
+        if (r && r.col !== p.col) { this.removeRemote(p.id); r = null; }
+        if (!r) { r = this.addRemote(p.id, p.name, p.col); }
+        if (r.name !== p.name) { r.name = p.name; r.tag.textContent = p.name; }
+        r.tx = p.x; r.ty = p.y; r.tz = p.z; r.tf = p.f; r.a = p.a;
+      }
+      for (const id of [...this.remotes.keys()]) if (!seen.has(id) && !String(id).startsWith('bot')) this.removeRemote(id);
+    });
+  }
+  addRemote(id, name, col) {
+    const hood = HOODS[col % HOODS.length]; const m = buildPlayer(hood[0], hood[1], 0xf0d070);
+    m.root.scale.setScalar(1.25); this.scene.add(m.root);
+    const tag = document.createElement('div'); tag.className = 'ptag'; tag.textContent = name;
+    const bub = document.createElement('div'); bub.className = 'pbub';
+    document.getElementById('tags').append(tag, bub);
+    const r = { id, name, col, m, tag, bub, x: 0, y: 0, z: 0, f: 0, tx: 0, ty: 0, tz: 0, tf: 0, a: 0, walkT: 0, say: 0, init: false };
+    this.remotes.set(id, r); return r;
+  }
+  removeRemote(id) { const r = this.remotes.get(id); if (!r) return; this.scene.remove(r.m.root); r.tag.remove(); r.bub.remove(); this.remotes.delete(id); }
+  clearRemotes() { for (const id of [...this.remotes.keys()]) this.removeRemote(id); }
+  say(id, text) {
+    if (id === 'me') { this.mySay = { text, t: 4.5 }; return; }
+    const r = this.remotes.get(id); if (!r) return; r.bub.textContent = text; r.say = 4.5;
+  }
+  sendChat(text) {
+    if (!text) return;
+    if (this.net.ok) this.net.send({ t: 'chat', text });
+    else { this.ui.addChat(this.playerName, text, false, 'town'); this.say('me', text); }
+  }
+  emote(i) {
+    this.audio.sfx('emote'); const e = EMOTES[i % EMOTES.length];
+    this.say('me', e); this.net.send({ t: 'emote', e: i });
+  }
+  updateNet(dt) {
+    const p = this.player, n = this.net;
+    this.posT -= dt;
+    if (this.posT <= 0 && this.state !== 'title') {
+      this.posT = 0.1;
+      const a = p.roll > 0 ? 5 : p.climbing ? 3 : p.gliding ? 4 : p.air ? 2 : p.walkT > 0 ? 1 : 0;
+      n.send({ t: 'pos', zone: this.zone, x: p.pos.x, y: p.y, z: p.pos.z, f: p.facing, a });
+    }
+    if (this.zone !== this._lastZone) { this._lastZone = this.zone; for (const id of [...this.remotes.keys()]) if (!String(id).startsWith('bot')) this.removeRemote(id); }
+    for (const r of this.remotes.values()) {
+      if (r.bot) {
+        r.wait -= dt;
+        if (Math.hypot(r.tx - r.x, r.tz - r.z) < 0.4) {
+          r.a = 0;
+          if (r.wait <= 0) { r.wait = 3 + Math.random() * 5; const a = Math.random() * 6.28, d = 3 + Math.random() * 8; r.tx = Math.cos(a) * d; r.tz = Math.sin(a) * d * 0.8 + 2; if (Math.random() < 0.45) this.say(r.id, r.lines[(Math.random() * r.lines.length) | 0]); }
+        } else { const dx = r.tx - r.x, dz = r.tz - r.z, d = Math.hypot(dx, dz); r.x += dx / d * 2.2 * dt; r.z += dz / d * 2.2 * dt; r.tf = Math.atan2(dx, dz); r.a = 1; if (Math.hypot(r.x, r.z + 1) < 2.3) { r.x += (r.x / 2) * dt; r.z += ((r.z + 1) / 2) * dt; } }
+        r.y = 0;
+        if (Math.hypot(p.pos.x - r.x, p.pos.z - r.z) < 4 && Math.random() < dt * 0.3) r.tf = Math.atan2(p.pos.x - r.x, p.pos.z - r.z);
+      } else {
+        const k = 1 - Math.exp(-dt * 12);
+        if (!r.init) { r.x = r.tx; r.y = r.ty; r.z = r.tz; r.f = r.tf; r.init = true; }
+        r.x += (r.tx - r.x) * k; r.y += (r.ty - r.y) * k; r.z += (r.tz - r.z) * k; r.f = angleLerp(r.f, r.tf, k);
+      }
+      const m = r.m;
+      m.root.position.set(r.x, r.y, r.z); m.root.rotation.y = r.f;
+      if (r.a === 1) r.walkT += dt * 11;
+      const sw = Math.sin(r.walkT), moving = r.a === 1;
+      m.legL.position.z = moving ? sw * 0.12 : 0; m.legR.position.z = moving ? -sw * 0.12 : 0;
+      m.body.position.y = moving ? Math.abs(sw) * 0.06 : r.a === 2 ? 0.1 : r.a === 4 ? 0.3 : 0;
+      m.body.rotation.x = r.a === 4 ? 0.9 : r.a === 5 ? (this.time * 20) % 6.28 : r.a === 3 ? -0.35 : moving ? 0.12 : 0;
+      // labels
+      r.say = Math.max(0, r.say - dt);
+      const [sx, sy] = this.ui.screenPos(r.x, r.y + 2.0, r.z);
+      r.tag.style.transform = `translate(${sx}px, ${sy}px) translate(-50%,-100%)`;
+      r.bub.style.transform = `translate(${sx}px, ${sy - 22}px) translate(-50%,-100%)`; r.bub.style.opacity = r.say > 0 ? 1 : 0;
+    }
+    // own label + bubble
+    const me = document.getElementById('myTag'), mb = document.getElementById('myBub');
+    if (me) {
+      me.textContent = this.playerName; const [sx, sy] = this.ui.screenPos(p.pos.x, p.y + 2.0, p.pos.z);
+      me.style.transform = `translate(${sx}px, ${sy}px) translate(-50%,-100%)`; me.style.display = this.state === 'title' ? 'none' : 'block';
+      if (this.mySay) { this.mySay.t -= dt; mb.textContent = this.mySay.text; mb.style.transform = `translate(${sx}px, ${sy - 22}px) translate(-50%,-100%)`; mb.style.opacity = this.mySay.t > 0 ? 1 : 0; }
     }
   }
 
@@ -575,7 +813,7 @@ export class Game {
     const p = this.player, S = p.stats;
     // aim
     const ndc = new V2(this.mouse.x / innerWidth * 2 - 1, -(this.mouse.y / innerHeight) * 2 + 1);
-    this.ray.setFromCamera(ndc, this.camera); this.ray.ray.intersectPlane(this.plane, this.aim);
+    this.plane.constant = -p.y; this.ray.setFromCamera(ndc, this.camera); this.ray.ray.intersectPlane(this.plane, this.aim);
 
     if (this.state === 'play') {
       for (const k in p.cds) p.cds[k] = Math.max(0, p.cds[k] - dt);
@@ -588,22 +826,28 @@ export class Game {
         if (this.mouse.l) this.tryAttack();
         if (this.mouse.r) this.tryBolt();
       }
-      // movement
+      // movement (3D: walk, jump, climb walls, glide)
       const mv = this.moveInput();
       const spd = 5.4 * (1 + S.moveSpd / 100);
+      p.wall = false; p.wallH = 0;
       if (p.roll > 0) {
         p.roll -= dt;
-        this.moveEntity(p.pos, p.rollDir.x * 13 * dt, p.rollDir.z * 13 * dt, 0.35);
-        if (Math.random() < 0.5) this.puffs.emit(p.pos.x, 0.1, p.pos.z, { c: 0xf4ecd8, s: 0.18, g: -0.4, life: 0.4, grow: 1 });
+        this.movePlayer(p.rollDir.x * 13 * dt, p.rollDir.z * 13 * dt);
+        if (Math.random() < 0.5) this.puffs.emit(p.pos.x, p.y + 0.1, p.pos.z, { c: 0xf4ecd8, s: 0.18, g: -0.4, life: 0.4, grow: 1 });
       } else {
         const attacking = p.swingT > 0;
-        p.vel.x = lerp(p.vel.x, mv.x * spd * (attacking ? 0.55 : 1), 1 - Math.exp(-dt * 14));
-        p.vel.z = lerp(p.vel.z, mv.y * spd * (attacking ? 0.55 : 1), 1 - Math.exp(-dt * 14));
-        this.moveEntity(p.pos, p.vel.x * dt, p.vel.z * dt, 0.35);
+        const f = (attacking ? 0.55 : 1) * (p.climbing ? 0.22 : 1) * (p.gliding ? 1.35 : 1);
+        p.vel.x = lerp(p.vel.x, mv.x * spd * f, 1 - Math.exp(-dt * (p.air ? 6 : 14)));
+        p.vel.z = lerp(p.vel.z, mv.y * spd * f, 1 - Math.exp(-dt * (p.air ? 6 : 14)));
+        this.movePlayer(p.vel.x * dt, p.vel.z * dt);
         if (mv.lengthSq() > 0.01 && !attacking) p.facing = angleLerp(p.facing, Math.atan2(mv.x, mv.y), 1 - Math.exp(-dt * 14));
-        if (mv.lengthSq() > 0.01) { p.walkT += dt * 11; if (Math.random() < dt * 4) this.puffs.emit(p.pos.x, 0.05, p.pos.z, { c: 0xf4ecd8, s: 0.12, g: -0.3, life: 0.35, grow: 1 }); }
-        else p.walkT = 0;
+        if (mv.lengthSq() > 0.01 && !p.air && !p.climbing) {
+          p.walkT += dt * 11; p.stepT += dt * 11;
+          if (p.stepT > Math.PI) { p.stepT -= Math.PI; this.audio.sfx('step'); }
+          if (Math.random() < dt * 4) this.puffs.emit(p.pos.x, p.y + 0.05, p.pos.z, { c: 0xf4ecd8, s: 0.12, g: -0.3, life: 0.35, grow: 1 });
+        } else p.walkT = 0;
       }
+      this.updateVertical(dt, mv);
       p.swingT = Math.max(0, p.swingT - dt);
       // wisps
       if (p.wispT > 0) {
@@ -641,15 +885,17 @@ export class Game {
       this.ui.exitHint(this);
       // flow field
       this.flowTimer -= dt;
-      if (this.flowTimer <= 0) { this.world.computeFlow(p.pos.x, p.pos.z); this.flowTimer = 0.25; }
+      if (this.flowTimer <= 0) { this.world.computeFlow(p.lastLow.x, p.lastLow.z); this.flowTimer = 0.25; }
     }
 
+    if (this.state === 'play' && this.musicKey) this.audio.setMusic(this.musicKey, this.enemies.length ? 1 : 0);
     this.updateEnemies(dt);
     this.updateProjs(dt);
     this.updateMisc(dt);
     this.animatePlayer(dt);
     this.updateCamera(dt);
     this.fx.update(dt); this.puffs.update(dt);
+    this.updateNet(dt);
     this.ui.update(this);
   }
 
@@ -668,11 +914,13 @@ export class Game {
     this.activateExits();
   }
   activateExits() {
+    this.audio.sfx('exit');
     for (const x of this.exits) { x.on = true; this.puffs.burst(x.x, 1.2, x.z, 12, { c: 0xffffff, s: 0.3, speed: 2, up: 1, g: -0.5, life: 0.8, grow: 1.4, drag: 3 }); }
   }
   goExit(x) {
     if (this.state !== 'play') return;
-    this.state = 'transition';
+    if (x.type === 'run') { this.state = 'transition'; this.audio.sfx('warp'); this.ui.wipe(() => this.startRun()); return; }
+    this.state = 'transition'; this.audio.sfx('warp');
     this.ui.wipe(() => { this.state = 'play'; this.loadRoom(this.depth + 1, x.type); });
   }
 
@@ -772,7 +1020,8 @@ export class Game {
       // contact damage
       if (playing && e.type !== 'boar' && dist < e.r + 0.35 && e.hitCd <= 0 && e.stun <= 0) { this.hurtPlayer(e.dmg * (e.type === 'stag' ? 0.8 : 1), e.pos); e.hitCd = 0.8; }
       // visuals
-      e.m.root.position.set(e.pos.x, W.groundY(e.pos.x, e.pos.z), e.pos.z);
+      e.pos.y = W.groundY(e.pos.x, e.pos.z);
+      e.m.root.position.set(e.pos.x, e.pos.y, e.pos.z);
       e.m.root.rotation.y = e.facing;
       const fl = e.flash > 0 ? 1 : 0;
       e.m.mat.emissive.setRGB(fl * 0.9, fl * 0.85, fl * 0.8);
@@ -846,7 +1095,7 @@ export class Game {
 
   fireEnemyProj(pos, dir, speed, dmg, color, size = 0.2) {
     const mesh = new THREE.Mesh(new THREE.IcosahedronGeometry(size, 0), new THREE.MeshBasicMaterial({ color }));
-    mesh.position.set(pos.x + dir.x * 0.6, 0.6, pos.z + dir.y * 0.6);
+    mesh.position.set(pos.x + dir.x * 0.6, (pos.y || 0) + 0.6, pos.z + dir.y * 0.6);
     this.scene.add(mesh);
     this.eprojs.push({ mesh, vx: dir.x * speed, vz: dir.y * speed, life: 3.2, dmg });
   }
@@ -865,7 +1114,7 @@ export class Game {
       for (const e of this.enemies) {
         if (e.dead || pr.hit.has(e)) continue;
         const d = Math.hypot(e.pos.x - pr.mesh.position.x, e.pos.z - pr.mesh.position.z);
-        if (d < e.r + (pr.wave ? 0.8 : 0.25)) {
+        if (d < e.r + (pr.wave ? 0.8 : 0.25) && Math.abs(pr.mesh.position.y - (e.pos.y + 0.6)) < 2.4) {
           pr.hit.add(e);
           const n = new V2(pr.vx, pr.vz).normalize();
           this.hitEnemy(e, this.rollDamage(pr.mult, pr.fire), n.x * 3, n.y * 3, { hitstop: 0.02 });
@@ -882,6 +1131,7 @@ export class Game {
         }
       }
       if (pr.hit0) { pr.hit.add(pr.hit0); pr.hit0 = null; }
+      if (!pr.wave && this.world.groundY(pr.mesh.position.x, pr.mesh.position.z) > pr.mesh.position.y - 0.05) pr.life = 0;
       if (pr.life <= 0) {
         this.scene.remove(pr.mesh);
         if (pr.fire) this.fx.burst(pr.mesh.position.x, pr.mesh.position.y, pr.mesh.position.z, 5, { c: [0xffd27a, 0xff7a30], s: 0.08, speed: 3, up: 2, life: 0.3 });
@@ -891,11 +1141,10 @@ export class Game {
     for (const pr of this.eprojs) {
       pr.mesh.position.x += pr.vx * dt; pr.mesh.position.z += pr.vz * dt; pr.life -= dt;
       pr.mesh.rotation.y += dt * 8;
-      if (this.state === 'play' && Math.hypot(p.pos.x - pr.mesh.position.x, p.pos.z - pr.mesh.position.z) < 0.45) {
+      if (this.state === 'play' && Math.hypot(p.pos.x - pr.mesh.position.x, p.pos.z - pr.mesh.position.z) < 0.45 && Math.abs(pr.mesh.position.y - (p.y + 0.6)) < 1.3) {
         if (p.roll <= 0 && p.iframes <= 0) { this.hurtPlayer(pr.dmg, pr.mesh.position); pr.life = 0; }
       }
-      const k = this.world.idx(pr.mesh.position.x, pr.mesh.position.z);
-      if (k >= 0 && this.world.height[k] > 1.0) pr.life = 0; // hit cliffs
+      if (this.world.groundY(pr.mesh.position.x, pr.mesh.position.z) > pr.mesh.position.y - 0.1) pr.life = 0; // hit cliffs
       if (pr.life <= 0) { this.scene.remove(pr.mesh); this.fx.burst(pr.mesh.position.x, 0.6, pr.mesh.position.z, 4, { c: pr.mesh.material.color.getHex(), s: 0.08, speed: 2, life: 0.3 }); }
     }
     this.eprojs = this.eprojs.filter(pr => pr.life > 0);
@@ -918,7 +1167,7 @@ export class Game {
       if (d.vy !== 0 || d.y > (d.kind === 'orb' ? 0.3 : 0.5)) {
         d.vy -= 18 * dt; d.y += d.vy * dt;
         const nx = d.g.position.x + d.vx * dt, nz = d.g.position.z + d.vz * dt;
-        if (this.world.isWalk(nx, nz)) { d.g.position.x = nx; d.g.position.z = nz; }
+        if (this.world.isLand(nx, nz)) { d.g.position.x = nx; d.g.position.z = nz; d.g.position.y = this.world.groundY(nx, nz); }
         const rest = d.kind === 'orb' ? 0.3 : 0.5;
         if (d.y < rest) { d.y = rest; d.vy = 0; d.vx = d.vz = 0; }
       }
@@ -926,8 +1175,8 @@ export class Game {
       d.gem.rotation.y += dt * 2;
       if (d.kind === 'orb' && this.state === 'play') {
         const dx = p.pos.x - d.g.position.x, dz = p.pos.z - d.g.position.z, dist = Math.hypot(dx, dz);
-        if (dist < 2.5 && d.vy === 0) { d.g.position.x += dx / dist * dt * 8; d.g.position.z += dz / dist * dt * 8; }
-        if (dist < 0.6) { this.heal(p.stats.maxHp * 0.12); d.taken = true; this.scene.remove(d.g); }
+        if (dist < 2.5 && d.vy === 0 && Math.abs(d.g.position.y - p.y) < 1.6) { d.g.position.x += dx / dist * dt * 8; d.g.position.z += dz / dist * dt * 8; }
+        if (dist < 0.6 && Math.abs(d.g.position.y - p.y) < 1.6) { this.audio.sfx('orb'); this.heal(p.stats.maxHp * 0.12); d.taken = true; this.scene.remove(d.g); }
       }
     }
     this.drops = this.drops.filter(d => !d.taken);
@@ -953,7 +1202,7 @@ export class Game {
       }
     }
     // lantern flicker
-    this.lampLight.position.set(p.pos.x, 1.6, p.pos.z);
+    this.lampLight.position.set(p.pos.x, p.y + 1.6, p.pos.z);
     this.lampLight.intensity = 1.6 + Math.sin(this.time * 9) * 0.15 + Math.sin(this.time * 23) * 0.1;
     this.hurtFlash = Math.max(0, this.hurtFlash - dt * 1.5);
     this.fade = Math.max(0, this.fade - dt * 1.6);
@@ -962,15 +1211,18 @@ export class Game {
 
   animatePlayer(dt) {
     const p = this.player, m = p.m;
-    m.root.position.set(p.pos.x, this.world.groundY(p.pos.x, p.pos.z), p.pos.z);
+    m.root.position.set(p.pos.x, p.y, p.pos.z);
     m.root.rotation.y = p.facing;
-    const moving = p.walkT > 0;
+    const moving = p.walkT > 0 && !p.air;
     const sw = Math.sin(p.walkT);
     m.legL.position.z = moving ? sw * 0.12 : 0; m.legR.position.z = moving ? -sw * 0.12 : 0;
     m.body.position.y = moving ? Math.abs(Math.sin(p.walkT)) * 0.06 : Math.sin(this.time * 2) * 0.015;
     m.body.rotation.x = moving ? 0.12 : 0;
     m.head.rotation.z = moving ? Math.sin(p.walkT) * 0.05 : 0;
     if (p.roll > 0) { m.body.rotation.x = (1 - p.roll / 0.3) * Math.PI * 2; m.body.position.y = 0.25; }
+    else if (p.gliding) { m.body.rotation.x = 0.9; m.body.position.y = 0.3; m.staff.rotation.z = 1.2; }
+    else if (p.climbing) { m.body.rotation.x = -0.35; m.body.position.y = 0.05 + Math.sin(this.time * 14) * 0.04; }
+    else if (p.air) { m.body.rotation.x = p.vy > 0 ? -0.15 : 0.15; m.body.position.y = 0.1; }
     else if (!moving) m.body.rotation.x = 0;
     // staff swing
     if (p.swingT > 0) { const k = 1 - p.swingT / 0.22; m.staff.rotation.set(1.2 * Math.sin(k * Math.PI), 0, -1.6 + k * 3.2); }
@@ -987,11 +1239,12 @@ export class Game {
     else { const a = this.aim; tx += clamp(a.x - p.pos.x, -6, 6) * 0.12; tz += clamp(a.z - p.pos.z, -6, 6) * 0.12; }
     this.camPos.x = lerp(this.camPos.x, tx, 1 - Math.exp(-dt * 5));
     this.camPos.z = lerp(this.camPos.z, tz, 1 - Math.exp(-dt * 5));
+    this.camY = lerp(this.camY || 0, this.state === 'title' ? 0 : p.y * 0.85, 1 - Math.exp(-dt * 4));
     this.shake = Math.max(0, this.shake - dt * 2.2);
     const s = this.shake * this.shake * 0.6;
     const dist = this.state === 'title' ? 34 : 29;
-    this.camera.position.set(this.camPos.x + (Math.random() - 0.5) * s, dist * 0.8, this.camPos.z + dist * 0.58 + (Math.random() - 0.5) * s);
-    this.camera.lookAt(this.camPos.x, 0, this.camPos.z);
+    this.camera.position.set(this.camPos.x + (Math.random() - 0.5) * s, this.camY + dist * 0.8, this.camPos.z + dist * 0.58 + (Math.random() - 0.5) * s);
+    this.camera.lookAt(this.camPos.x, this.camY, this.camPos.z);
     this.sun.position.set(this.camPos.x - 10, 22, this.camPos.z + 6);
     this.sun.target.position.set(this.camPos.x, 0, this.camPos.z);
   }

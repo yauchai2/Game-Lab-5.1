@@ -12,13 +12,45 @@ export class UI {
   }
   bind(game) {
     this.game = game;
-    $('btnStart').onclick = () => { $('title').classList.add('hide'); $('hud').classList.remove('hide'); game.startRun(); };
+    $('btnMute').onclick = () => { game.audio.init(); const m = game.audio.toggleMute(); $('btnMute').textContent = m ? '🔇' : '🔊'; };
+    let saved = {}; try { saved = JSON.parse(localStorage.getItem('lv_prof') || '{}'); } catch (e) { /* ignore */ }
+    $('inName').value = saved.name || ''; game.hoodIdx = saved.hood || 0;
+    const swatch = $('swatches'); const HC = ['#2f8a7e', '#d9543a', '#6a6ad0', '#e0a030', '#c060b0', '#58a858', '#4aa0d8', '#8a6a50'];
+    HC.forEach((c, i) => { const b = document.createElement('button'); b.style.background = c; b.className = i === game.hoodIdx ? 'on' : ''; b.onclick = () => { game.hoodIdx = i; swatch.querySelectorAll('button').forEach((x, j) => x.classList.toggle('on', j === i)); game.audio.sfx('ui'); }; swatch.appendChild(b); });
+    $('btnTown2').onclick = () => { $('dead').classList.add('hide'); game.party = ''; game.enterTown(); };
+    $('btnTown3').onclick = () => { $('win').classList.add('hide'); game.enterTown(); };
+    $('btnStart').onclick = () => {
+      game.audio.init(); game.audio.sfx('ui');
+      game.playerName = ($('inName').value.trim() || '旅人').slice(0, 12); game.party = $('inParty').value.trim().slice(0, 12);
+      try { localStorage.setItem('lv_prof', JSON.stringify({ name: $('inName').value.trim(), hood: game.hoodIdx })); } catch (e) { /* ignore */ }
+      game.net.connect(game.playerName, game.hoodIdx);
+      $('title').classList.add('hide'); $('hud').classList.remove('hide'); game.enterTown();
+    };
     $('btnRetry').onclick = () => { $('dead').classList.add('hide'); game.startRun(); };
     $('btnAgain').onclick = () => { $('win').classList.add('hide'); game.startRun(); };
     document.querySelectorAll('[data-scale]').forEach(b => b.onclick = () => {
       game.pipe.setPixelScale(+b.dataset.scale);
       document.querySelectorAll('[data-scale]').forEach(x => x.classList.toggle('on', x === b));
     });
+  }
+  netStatus(s) {
+    const el = $('netStat');
+    if (s.ok) { el.textContent = '● 線上'; el.className = 'net on'; }
+    else { el.textContent = s.reason === 'no-server' ? '○ 離線模式（鎮民 NPC 陪你）' : '○ 連線中斷'; el.className = 'net off'; if (s.reason === 'closed') this.addChat('', '與伺服器的連線中斷了', true); }
+    $('netStat').classList.remove('hide');
+  }
+  setOnline(n) { $('onlineN').textContent = `線上 ${n} 人`; }
+  addChat(name, text, sys, zone) {
+    const log = $('chatLog'); const d = document.createElement('div'); d.className = 'cl' + (sys ? ' sys' : '');
+    if (sys) d.textContent = text; else { const b = document.createElement('b'); b.textContent = name + '：'; d.append(b, document.createTextNode(text)); }
+    log.appendChild(d); while (log.children.length > 40) log.firstChild.remove(); log.scrollTop = 1e6;
+    setTimeout(() => d.classList.add('old'), 12000);
+  }
+  focusChat() { const i = $('chatIn'); i.classList.remove('hide'); i.focus(); $('chatLog').classList.add('open'); return true; }
+  chatKey(e) {
+    const i = $('chatIn');
+    if (e.code === 'Enter') { const t = i.value.trim(); i.value = ''; if (t) this.game.sendChat(t); }
+    i.blur(); i.classList.add('hide'); $('chatLog').classList.remove('open'); e.preventDefault();
   }
   screenPos(x, y, z) {
     v3.set(x, y, z).project(this.game.camera);
@@ -56,7 +88,7 @@ export class UI {
     if (!near) { el.style.display = 'none'; return; }
     const [sx, sy] = this.screenPos(near.x, 4.4, near.z);
     el.style.display = 'block'; el.style.left = sx + 'px'; el.style.top = sy + 'px';
-    el.textContent = { item: '前路：稀有裝備', boon: '前路：天賦祝福', heal: '前路：溫泉休憩' }[near.type];
+    el.textContent = { item: '前路：稀有裝備', boon: '前路：天賦祝福', heal: '前路：溫泉休憩', run: '出發：燈谷冒險' }[near.type];
     el.className = 'exitHint ' + near.type;
   }
   update(g) {
@@ -71,6 +103,7 @@ export class UI {
     this.nums = this.nums.filter(n => n.t <= 0.85);
     if (g.state === 'title') return;
     const p = g.player, S = p.stats;
+    $('stamFill').style.width = (p.stamina) + '%'; $('stam').classList.toggle('hide', p.stamina >= 99.5 && !p.air && !p.climbing);
     $('hpFill').style.height = (p.hp / S.maxHp * 100) + '%';
     $('mpFill').style.height = (p.mana / S.mana * 100) + '%';
     $('hpText').textContent = `${Math.ceil(p.hp)}/${S.maxHp}`;
@@ -88,7 +121,7 @@ export class UI {
     $('sk-r').classList.toggle('locked', p.flask.charges === 0);
     $('sk-r').querySelector('.cd').style.height = (p.flask.charges >= p.flask.max ? 0 : (1 - p.flask.prog) * 100) + '%';
     const stage = Math.floor(g.depth / 3) + 1, room = g.depth % 3 + 1;
-    $('roomInfo').textContent = g.depth === 9 ? '最終 · 鹿王林地' : `${g.biome.name}  ${stage}-${room}`;
+    $('roomInfo').textContent = g.depth < 0 ? '燈谷鎮 · 安全區' : g.depth === 9 ? '最終 · 鹿王林地' : `${g.biome.name}  ${stage}-${room}`;
     $('killInfo').textContent = `擊敗 ${p.kills}`;
     // ground item tooltip
     const d = g.state === 'play' && !this.invOpen ? g.nearestDrop() : null;
