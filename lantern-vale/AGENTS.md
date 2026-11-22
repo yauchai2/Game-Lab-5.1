@@ -44,7 +44,7 @@ node build.mjs              # 產生 dist/index.html、dist/lantern-vale.html、
 | `util.js` | 隨機數、群系 `BIOMES`、數學工具 |
 
 ## 操作（現況）
-WASD 移動；左鍵杖擊；右鍵餘燼彈；**空白鍵：單擊翻滾、連按兩下跳起（按住第二下滑翔）**、頂牆攀爬；Q/E 技能；R 藥瓶；F 互動/撿取；Tab/I 裝備；Enter 聊天；M 靜音；Esc 設定。**Shift 目前未綁定**（用途待 Alan 決定）。
+WASD 移動；左鍵杖擊；右鍵餘燼彈；**空白鍵：單擊翻滾、連按兩下跳起（按住第二下滑翔）**、頂牆攀爬；Q/E 技能；R 藥瓶；F 互動/撿取；Tab/I 裝備；Enter 聊天；M 世界地圖（右上角喇叭可靜音）；Esc 設定。**Shift 目前未綁定**（用途待 Alan 決定）。
 
 ## 必須遵守
 1. **原創**：不得使用 A Short Hike（或任何參考遊戲）的角色、名稱、關卡、素材。`reference/` 只當風格靈感。
@@ -59,7 +59,7 @@ WASD 移動；左鍵杖擊；右鍵餘燼彈；**空白鍵：單擊翻滾、連�
 - 分支與 PR：`feat/lantern-vale-import`(#1) → `feat/ui-short-hike-style`(#2) → `feat/town-expansion`(#3) → `feat/wind-water-settings`(#4) → `feat/meta-content`(#5)，皆為草稿、依序堆疊，base 為 `main`。
 - 線上 Artifact：https://claude.ai/artifact/A31bfw66rqn8M4U48wAEdf （第 8 版）
 - 設計文件（Claude Doc）：https://claude.ai/artifact/HPY3ip7hotmK3MFMLBFWxo
-- 已決定與待辦：`docs/07_計畫與待辦.md`。下一步：角色選擇頁、遊戲內 M 鍵地圖、常駐區域骨架。
+- 已決定與待辦：`docs/07_計畫與待辦.md`。角色選擇頁與 M 鍵地圖已實作。下一步為常駐區域骨架。
 
 ## 本機工具（在 Alan 的 Mac 上）
 - Godot MCP：`node /Users/alanchan/Tools/godot-mcp/node_modules/@coding-solo/godot-mcp/build/index.js`，環境變數 `GODOT_PATH=/Applications/Godot.app/Contents/MacOS/Godot`（路徑需確認）。

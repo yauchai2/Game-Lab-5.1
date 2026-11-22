@@ -1,3 +1,4 @@
+import { bindWorldMap } from './worldmap.js';
 import { bindCharacters } from './characters.js';
 import { buildPanels } from './panels.js';
 import { loadSettings, applySettings, buildSettingsUI } from './settings.js';
@@ -18,6 +19,7 @@ export class UI {
     game.settings = loadSettings(); buildPanels(game); buildSettingsUI(game); applySettings(game);
     $('btnMute').onclick = () => { game.audio.init(); const m = game.audio.toggleMute(); $('btnMute').textContent = m ? '🔇' : '🔊'; };
     $('btnMute').textContent = game.audio.muted ? '🔇' : '🔊';
+    bindWorldMap(game);
     const enterCharacter = bindCharacters(game);
     $('btnTown2').onclick = () => { $('dead').classList.add('hide'); game.party = ''; game.enterTown(); };
     $('btnTown3').onclick = () => { $('win').classList.add('hide'); game.enterTown(); };

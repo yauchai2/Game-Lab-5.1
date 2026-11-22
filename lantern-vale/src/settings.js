@@ -19,7 +19,7 @@ const ROWS = {
   audio: [['master', '主音量', 'num'], ['music', '音樂', 'num'], ['sfx', '音效', 'num']],
   video: [['pixel', '像素大小', ['', '', '細', '標準', '粗']], ['wind', '風吹草動', ['關', '微風', '強風']], ['water', '水波特效', ['關', '開']], ['shafts', '光柱與風線', ['關', '開']], ['shake', '畫面震動', ['關', '開']], ['dmg', '傷害數字', ['關', '開']], ['chat', '聊天視窗', ['關', '開']]],
 };
-const KEYS = [['WASD', '移動'], ['左鍵', '杖擊（按住連擊）'], ['右鍵', '餘燼彈（耗法力）'], ['空白', '單擊翻滾／連按兩下跳起（按住第二下滑翔）／頂牆攀爬'], ['Q / E', '技能'], ['R', '蜜藥瓶回血'], ['F', '撿起地上物品'], ['Tab / I', '角色與裝備'], ['Enter', '聊天'], ['1–4', '表情'], ['M', '音效開關'], ['Esc', '設定']];
+const KEYS = [['WASD', '移動'], ['左鍵', '杖擊（按住連擊）'], ['右鍵', '餘燼彈（耗法力）'], ['空白', '單擊翻滾／連按兩下跳起（按住第二下滑翔）／頂牆攀爬'], ['Q / E', '技能'], ['R', '蜜藥瓶回血'], ['F', '撿起地上物品'], ['Tab / I', '角色與裝備'], ['Enter', '聊天'], ['1–4', '表情'], ['M', '世界地圖'], ['Esc', '設定']];
 export function buildSettingsUI(g) {
   const root = document.getElementById('settings'), body = root.querySelector('.sbody'), tabs = root.querySelector('.stabs');
   let tab = 'video';
@@ -37,7 +37,7 @@ export function buildSettingsUI(g) {
       r.querySelectorAll('.arr').forEach(b => b.onclick = () => { const nv = Math.max(lo, Math.min(hi, v + +b.dataset.d)); if (nv !== v) set(key, nv); });
       body.appendChild(r);
     });
-    if (tab === 'audio') { const r = document.createElement('div'); r.className = 'srow'; r.innerHTML = '<span class="sl">靜音（M）</span><span class="sv"></span>'; const b = document.createElement('button'); b.className = 'arr wide'; b.textContent = g.audio.muted ? '已靜音 · 點擊開啟' : '開啟中 · 點擊靜音'; b.onclick = () => { g.audio.init(); g.audio.toggleMute(); document.getElementById('btnMute').textContent = g.audio.muted ? '🔇' : '🔊'; render(); }; r.querySelector('.sv').appendChild(b); body.appendChild(r); }
+    if (tab === 'audio') { const r = document.createElement('div'); r.className = 'srow'; r.innerHTML = '<span class="sl">靜音</span><span class="sv"></span>'; const b = document.createElement('button'); b.className = 'arr wide'; b.textContent = g.audio.muted ? '已靜音 · 點擊開啟' : '開啟中 · 點擊靜音'; b.onclick = () => { g.audio.init(); g.audio.toggleMute(); document.getElementById('btnMute').textContent = g.audio.muted ? '🔇' : '🔊'; render(); }; r.querySelector('.sv').appendChild(b); body.appendChild(r); }
   };
   tabs.querySelectorAll('button').forEach(b => b.onclick = () => { tab = b.dataset.tab; g.audio.sfx('ui'); render(); });
   const open = (v) => { g.ui.setOpen = v; root.classList.toggle('hide', !v); if (v) { g.audio.init(); g.audio.sfx('ui'); render(); } };
