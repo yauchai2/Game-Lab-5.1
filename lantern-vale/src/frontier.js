@@ -84,6 +84,14 @@ function marker(kind) {
   } else if (kind === 'fish') {
     part(new THREE.CylinderGeometry(.9,1,.18,10),0x62aaa8,.12);
     part(new THREE.SphereGeometry(.28,6,4),0xe4c77f,.35).scale.set(1.6,.5,.7);
+  } else if (kind.startsWith('shrine_')) {
+    const col = kind === 'shrine_fury' ? 0xff6a38 : kind === 'shrine_frost' ? 0x62d8ff : 0xffd84a;
+    part(new THREE.CylinderGeometry(0.75, 0.9, 0.32, 6), 0x8a857e, 0.16);
+    part(new THREE.BoxGeometry(0.68, 1.95, 0.68), 0xaba59b, 1.15);
+    const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(0.38, 0), new THREE.MeshBasicMaterial({ color: col }));
+    crystal.position.y = 2.55; group.add(crystal);
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.95, 1.25, 18), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.65, side: THREE.DoubleSide, depthWrite: false }));
+    ring.rotation.x = -Math.PI / 2; ring.position.y = 0.08; ring.userData.noNormal = true; group.add(ring);
   } else {
     part(new THREE.BoxGeometry(.95,1.3,.42),0x76767b,.65);
     part(new THREE.OctahedronGeometry(.28),0xffd268,1.55);
@@ -125,6 +133,16 @@ export function setupField(g, restored = false) {
       addSpot(g, kind, verb + GOODS[kind], point.x, point.z);
     }
   }
+  // 野外遠古祝福石碑（狂暴火碑／寒霜冰碑／黃金財富碑，互動獲得 25 秒強力祝福）
+  const shrines = [
+    ['shrine_fury', '🔥 遠古狂暴石碑（25秒 傷害+45% · 移速+20%）'],
+    ['shrine_frost', '❄️ 遠古寒霜石碑（凍結周圍魔物 · 25秒 寒霜附魔）'],
+    ['shrine_gold', '💰 遠古財富石碑（立即灑落金幣寶石 · 25秒 雙倍掉寶）'],
+  ];
+  shrines.forEach(([sk, lbl], idx) => {
+    const pt = g.world.randomWalkable(r, g.player.pos, 18 + idx * 14);
+    addSpot(g, sk, lbl, pt.x, pt.z);
+  });
   const grave = g.meta.p.graves[g.field];
   if (grave) addSpot(g,'grave','取回墓碑素材',grave.x,grave.z);
   spawnSkyFeatures(g);
@@ -159,6 +177,31 @@ export function tickField(g, dt) {
 }
 export function useFieldSpot(g,s) {
   const p = g.meta.p;
+  if (s.kind.startsWith('shrine_')) {
+    s.mesh.visible = false;
+    g.shrineBuffs = g.shrineBuffs || { fury: 0, frost: 0, gold: 0, sheep: 0 };
+    if (s.kind === 'shrine_fury') {
+      g.shrineBuffs.fury = 25;
+      g.audio.sfx('meteor');
+      g.fx.burst(s.x, 1.5, s.z, 24, { c: [0xff6a38, 0xffd85a, 0xffffff], s: 0.14, speed: 6, up: 4, life: 0.65 });
+      g.ui.toast('🔥 獲得遠古狂暴祝福！25 秒內傷害 +45% · 移速 +20%', '#ff8c4a');
+    } else if (s.kind === 'shrine_frost') {
+      g.shrineBuffs.frost = 25;
+      g.audio.sfx('nova');
+      g.shockRing(s.x, s.z, 12, g.rollDamage(1.8), 0x7ae8ff, 1.2, { slow: 4.5 });
+      for (const e of g.enemies) if (!e.dead && Math.hypot(e.pos.x - s.x, e.pos.z - s.z) < 12) { e.statuses = e.statuses || {}; e.statuses.freeze = 3.2; }
+      g.ui.toast('❄️ 寒霜石碑爆發！周圍魔物全數冰凍 · 25 秒寒霜附魔', '#7ae8ff');
+    } else {
+      g.shrineBuffs.gold = 25;
+      p.coins += 18; p.shards += 12;
+      const pool = Object.keys(ALL_GEMS); const gid = pool[Math.floor(Math.random() * pool.length)];
+      addGemToBag(p, gid); g.meta.save();
+      g.audio.sfx('win');
+      g.fx.burst(s.x, 1.6, s.z, 28, { c: [0xffd84a, 0xfff6c0, 0xc08cff], s: 0.14, speed: 6, up: 5, life: 0.75 });
+      g.ui.toast(`💰 財富石碑降臨！金幣 +18 · 星砂 +12 · 寶石「${ALL_GEMS[gid].name}」`, '#ffd85a');
+    }
+    return true;
+  }
   if (s.kind === 'chest') return openHighChest(g, s);
   if (s.kind === 'field_quest') {
     g._activeFieldNpc = s.npcDef;

@@ -134,8 +134,48 @@ export function buildAwakenAltar() {
 }
 export function buildWardrobe() {
   const g = new THREE.Group(), P = [];
-  P.push(B(1.35, 2.05, 0.72, 0x8f5b3a, 0, 1.02, 0), B(1.5, 0.14, 0.85, 0x6a4128, 0, 2.08, 0));
-  P.push(B(0.55, 1.25, 0.06, 0x9fd8f0, 0, 1.18, 0.36), B(0.08, 0.24, 0.08, 0xffd24a, 0.38, 1.05, 0.38));
+  // 精緻裁縫試衣亭：弧頂暖木衣櫃＋湛藍穿衣鏡＋吊掛披風＋金邊飾條
+  P.push(B(1.45, 0.16, 0.88, 0x6e452a, 0, 0.08, 0));
+  P.push(B(1.32, 1.95, 0.72, 0x9a6440, 0, 1.1, 0), B(1.52, 0.18, 0.9, 0x6e452a, 0, 2.12, 0));
+  P.push(B(1.12, 0.16, 0.78, 0xd85842, 0, 2.28, 0));
+  P.push(B(0.62, 1.32, 0.08, 0x8fdcf8, -0.14, 1.16, 0.36), B(0.7, 1.4, 0.05, 0xf2c95e, -0.14, 1.16, 0.35));
+  P.push(B(0.08, 0.24, 0.08, 0xffd24a, 0.38, 1.08, 0.38));
+  P.push(B(0.45, 0.82, 0.08, 0xd9483b, 0.84, 1.25, 0, 0, 0, -0.08), B(0.32, 0.06, 0.06, 0x6e452a, 0.76, 1.66, 0));
+  g.add(M(P));
+  return g;
+}
+// 蓬鬆像素小綿羊（致敬螢幕擷圖 5 風格，可於城鎮與草原互動摸毛）
+export function buildSheep() {
+  const g = new THREE.Group(), P = [];
+  P.push(B(0.66, 0.52, 0.88, 0xfbf8f0, 0, 0.56, 0));
+  P.push(part(new THREE.IcosahedronGeometry(0.34, 0), 0xfffcf5, 0, 0.62, 0.2));
+  P.push(part(new THREE.IcosahedronGeometry(0.32, 0), 0xf3eee2, 0, 0.58, -0.22));
+  P.push(B(0.32, 0.3, 0.36, 0x3b3634, 0, 0.66, 0.52)); // 頭
+  P.push(B(0.12, 0.14, 0.08, 0x3b3634, -0.22, 0.72, 0.48, 0, 0, 0.4), B(0.12, 0.14, 0.08, 0x3b3634, 0.22, 0.72, 0.48, 0, 0, -0.4));
+  P.push(B(0.06, 0.06, 0.04, 0xffffff, -0.09, 0.7, 0.7), B(0.06, 0.06, 0.04, 0xffffff, 0.09, 0.7, 0.7));
+  for (const [lx, lz] of [[-0.2, -0.26], [0.2, -0.26], [-0.2, 0.24], [0.2, 0.24]]) {
+    P.push(B(0.12, 0.36, 0.12, 0x3b3634, lx, 0.18, lz));
+  }
+  g.add(M(P));
+  return g;
+}
+function birchMapleTown(cols = [0xe95c3f, 0xf39237, 0xf6c445]) {
+  const g = new THREE.Group();
+  g.add(M([
+    part(new THREE.CylinderGeometry(0.11, 0.18, 1.75, 5), 0xf3eee3, 0, 0.87, 0),
+    part(new THREE.CylinderGeometry(0.15, 0.155, 0.09, 5), 0x3b3836, 0, 0.52, 0),
+    part(new THREE.CylinderGeometry(0.135, 0.14, 0.08, 5), 0x3b3836, 0, 1.05, 0),
+    part(new THREE.IcosahedronGeometry(1.12, 0), cols[0], 0, 2.35, 0),
+    part(new THREE.IcosahedronGeometry(0.78, 0), cols[1], 0.72, 2.65, 0.28),
+    part(new THREE.IcosahedronGeometry(0.72, 0), cols[2], -0.68, 2.1, -0.32),
+  ], { wind: [0.26, 1.1, 2.1] }));
+  return g;
+}
+function picketFence(len = 3.2) {
+  const g = new THREE.Group(), P = [];
+  const n = Math.max(3, Math.round(len / 0.55));
+  for (let i = 0; i < n; i++) P.push(B(0.12, 0.78, 0.08, 0xf2e4cc, -len / 2 + (i + 0.5) * (len / n), 0.39, 0));
+  P.push(B(len, 0.1, 0.06, 0xdec8a4, 0, 0.56, 0.03), B(len, 0.1, 0.06, 0xdec8a4, 0, 0.24, 0.03));
   g.add(M(P));
   return g;
 }
@@ -182,9 +222,11 @@ export function buildTownScenery({ gh, rng }) {
   spots.push({ x: -9.5, z: 7.5, kind: 'well_drink', label: '汲取甘泉（補滿蜜藥瓶）', top: 2.3 });
   spots.push({ x: 0, z: -1, kind: 'fountain_wish', label: '許願噴泉（投 1 金幣獲得祝福）', top: 2.3 });
   [[-1.8, -16.5, [0xff8fb0, 0xffffff]], [1.8, -16.5, [0xffd45a, 0xff8fb0]], [-10.5, -4.5, [0xc59aff, 0xffffff]], [8.5, -4, [0xff8fb0, 0xffd45a]], [3, 7.5, [0xffffff, 0xffb3c9]]].forEach(([x, z, c]) => place(planter(0, 0, c), x, z, 0, 0.5));
-  [[-19, -12], [18, 8], [-18, 12], [20, -2], [-3, -22], [-19, 5]].forEach(([x, z], i) => place(i % 2 ? blossom(0xf59ac0) : cypress(1.3), x, z, 0, 0.5));
-  [[-4, -20], [4, -20], [-7.5, -17], [7.5, -17], [-20, -5], [-21, 8], [19, 14], [-12, 17]].forEach(([x, z]) => place(cypress(1 + r() * 0.3), x, z, 0, 0.45));
+  [[-19, -12], [18, 8], [-18, 12], [20, -2], [-3, -22], [-19, 5]].forEach(([x, z], i) => place(i % 2 ? blossom(0xf59ac0) : birchMapleTown(), x, z, 0, 0.5));
+  [[-4, -20], [4, -20], [-7.5, -17], [7.5, -17], [-20, -5], [-21, 8], [19, 14], [-12, 17]].forEach(([x, z], i) => place(i % 3 === 0 ? birchMapleTown([0xf39237, 0xf6c445, 0xe95c3f]) : cypress(1 + r() * 0.3), x, z, 0, 0.45));
   place(blossom(), -17, -15, 0, 0.6); place(blossom(0xf7b0cf), 14, 15, 0, 0.6);
+  // 溫暖白木小柵欄點綴花園與牧草地邊緣
+  place(picketFence(3.8), -8.6, 10.6, 0.25, 0.4); place(picketFence(3.2), 6.4, 11.4, -0.35, 0.4); place(picketFence(3.4), -13.2, 6.4, 1.35, 0.4);
   const spot = (o, x, z, ry, kind, label, rr = 1.1) => { place(o, x, z, ry, rr); spots.push({ x, z, kind, label, top: o.userData.top, o }); };
   spot(buildBoard(), -4.5, 6.8, faceCenter(-4.5, 6.8), 'quest', '任務布告欄', 1.2);
   spot(buildForge(), 12.5, -3.5, faceCenter(12.5, -3.5), 'forge', '鐵匠鋪', 1.5);

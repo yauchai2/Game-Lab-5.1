@@ -231,8 +231,8 @@ const createGuild = require('../server/guild.cjs');
   assert.equal(upgraded.item.rarity, 1, 'Two same-rarity gears collide and fuse into higher rarity');
 
   const codex = await import(src('codex.js'));
-  assert.equal(codex.GAME_VERSION, 'v0.9.0', 'Codex exports current version v0.9.0');
-  assert.ok(codex.CHANGELOG.length >= 6, 'Changelog contains structured version history');
+  assert.equal(codex.GAME_VERSION, 'v1.0.0', 'Codex exports current version v1.0.0');
+  assert.ok(codex.CHANGELOG.length >= 7, 'Changelog contains structured version history through v1.0.0');
 
   // 12. Tier System (T1-T6) & 3D Mount Milestone System
   const loot = await import(src('loot.js'));
@@ -245,5 +245,22 @@ const createGuild = require('../server/guild.cjs');
   assert.equal(mounts.activeMountDef({ level: 1, visitedFields: [1, 2, 3], mountId: 'alpaca' }).id, 'alpaca', 'Exploring 3 fields unlocks Cloud Alpaca mount');
   assert.equal(mounts.activeMountDef({ level: 10, secondClass: 'sunblade', mountId: 'manta' }).id, 'manta', 'Second-class awakening unlocks Starwing Manta mount');
 
-  console.log('ALL 12 LOGIC, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
+  // 13. v1.0.0 Art, Terrain Smoothness (GW=181), Sheep & Ancient Blessing Shrines
+  const world = await import(src('world.js'));
+  assert.equal(world.GW, 181, 'Terrain grid upgraded to 181x181 for smooth non-jagged large fields');
+  const town = await import(src('town.js'));
+  assert.equal(typeof town.buildSheep, 'function', 'Pettable fluffy sheep builder exported from town.js');
+  assert.equal(i18n.t('zh-TW', 'skMount'), '坐騎', 'Bottom bar mount label stays crisp 2-char');
+  assert.equal(i18n.t('en', 'skMount'), 'Mount', 'English mount short label defined');
+  const shrineMock = {
+    meta: { p: { coins: 0, shards: 0 }, save() {} },
+    audio: { sfx() {} },
+    fx: { burst() {} },
+    ui: { toast() {} },
+    shrineBuffs: { fury: 0, frost: 0, gold: 0, sheep: 0 },
+  };
+  assert.equal(frontier.useFieldSpot(shrineMock, { kind: 'shrine_fury', x: 0, z: 0, mesh: { visible: true } }), true);
+  assert.equal(shrineMock.shrineBuffs.fury, 25, 'Fury shrine activates 25s combat buff');
+
+  console.log('ALL 13 LOGIC, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
 })();

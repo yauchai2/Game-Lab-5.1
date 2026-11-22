@@ -3,8 +3,8 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { mulberry32, Noise, clamp, smooth, rand, pick, lerp } from './util.js';
 
 export const HALF = 30;          // world spans -30..30
-export const RES = 0.5;          // grid resolution (world units per cell)
-export const GW = Math.round(HALF * 2 / RES) + 1; // 121
+export const RES = 1 / 3;        // 更高密度的地形網格解析度，告別大地圖巨大鋸齒三角
+export const GW = Math.round(HALF * 2 / RES) + 1; // 181
 
 const WATER_Y = -0.32;
 
@@ -97,14 +97,38 @@ function pineGeo(P, r, snow) {
   return mergeGeometries(parts);
 }
 function roundTreeGeo(P, r, leafHex) {
-  const parts = [part(new THREE.CylinderGeometry(0.1, 0.17, 1.2, 5), P.trunk, 0, 0.6, 0, 0, 0, 0.08)];
-  const blobs = 4 + Math.floor(r() * 3);
+  const parts = [part(new THREE.CylinderGeometry(0.11, 0.19, 1.35, 5), P.trunk, 0, 0.67, 0, 0, 0, 0.06)];
+  const baseC = new THREE.Color(leafHex);
+  const hiC = baseC.clone().offsetHSL(-0.02, 0.06, 0.09).getHex();
+  const loC = baseC.clone().offsetHSL(0.02, 0.04, -0.09).getHex();
+  const blobs = 6 + Math.floor(r() * 3);
   for (let i = 0; i < blobs; i++) {
-    const a = r() * Math.PI * 2, d = i === 0 ? 0 : 0.45 + r() * 0.25;
-    const s = i === 0 ? 0.85 : 0.5 + r() * 0.25;
+    const a = (i / Math.max(1, blobs - 1)) * Math.PI * 2 + r() * 0.4;
+    const d = i === 0 ? 0 : 0.42 + r() * 0.34;
+    const s = i === 0 ? 0.92 : 0.48 + r() * 0.28;
+    const yy = i === 0 ? 2.15 : 1.55 + r() * 0.55;
     let g = new THREE.IcosahedronGeometry(s, 0);
-    g = jitterGeo(g, r, 0.15);
-    parts.push(part(g, leafHex, Math.cos(a) * d, 1.55 + r() * 0.45 + (i === 0 ? 0.25 : 0), Math.sin(a) * d));
+    g = jitterGeo(g, r, 0.14);
+    const colHex = yy > 1.95 ? hiC : (yy < 1.65 ? loC : leafHex);
+    parts.push(part(g, colHex, Math.cos(a) * d, yy, Math.sin(a) * d));
+  }
+  return mergeGeometries(parts);
+}
+// 白樺秋楓樹（致敬參考圖：潔白樺樹幹帶深色樹皮環＋溫暖珊瑚紅/金橘團簇樹冠）
+function birchMapleGeo(r, palette) {
+  const parts = [
+    part(new THREE.CylinderGeometry(0.09, 0.15, 1.6, 5), 0xf3eee3, 0, 0.8, 0, 0, 0, 0.04),
+    part(new THREE.CylinderGeometry(0.125, 0.13, 0.09, 5), 0x3b3836, 0, 0.45, 0),
+    part(new THREE.CylinderGeometry(0.115, 0.12, 0.08, 5), 0x3b3836, 0, 0.92, 0),
+    part(new THREE.CylinderGeometry(0.105, 0.11, 0.07, 5), 0x3b3836, 0, 1.28, 0),
+  ];
+  const cols = palette || [0xe95c3f, 0xf39237, 0xd84032];
+  for (let i = 0; i < 6; i++) {
+    const a = i * 1.15 + r() * 0.35, d = i === 0 ? 0 : 0.42 + r() * 0.32;
+    const s = i === 0 ? 0.88 : 0.46 + r() * 0.24;
+    let g = new THREE.IcosahedronGeometry(s, 0);
+    g = jitterGeo(g, r, 0.14);
+    parts.push(part(g, cols[i % cols.length], Math.cos(a) * d, (i === 0 ? 2.3 : 1.7 + r() * 0.55), Math.sin(a) * d));
   }
   return mergeGeometries(parts);
 }
@@ -364,14 +388,15 @@ export class World {
       else H[k] = 2.7 + nz * 0.25;
     }
 
-    // ---------- terrain mesh (flat-shaded, jittered grid) ----------
+    // ---------- terrain mesh (fine flat-shaded grid + smooth path feathering) ----------
     const pos = [], col = [];
     const vx = new Float32Array(GW * GW), vz = new Float32Array(GW * GW);
+    const jitAmt = Math.min(0.36, this.res * 0.24);
     for (let k = 0; k < GW * GW; k++) {
       const i = k % GW, j = (k / GW) | 0;
       const edge = i === 0 || j === 0 || i === GW - 1 || j === GW - 1;
-      vx[k] = -this.half + i * this.res + (edge ? 0 : (r() - 0.5) * this.res * 0.55);
-      vz[k] = -this.half + j * this.res + (edge ? 0 : (r() - 0.5) * this.res * 0.55);
+      vx[k] = -this.half + i * this.res + (edge ? 0 : (r() - 0.5) * jitAmt);
+      vz[k] = -this.half + j * this.res + (edge ? 0 : (r() - 0.5) * jitAmt);
     }
     const C = (h) => new THREE.Color(h);
     const cGrass = C(P.grass), cGL = C(P.grassLight), cGD = C(P.grassDark), cPl = C(P.plateau),
@@ -390,7 +415,7 @@ export class World {
       } else if (cy > 1.1) {
         tmp.copy(cPl);
         const pn = N.fbm(cx * 0.15 + 9, cz * 0.15);
-        if (pn > 0.58) tmp.copy(cGL).lerp(cPl, 0.4); else if (pn < 0.4) tmp.copy(cGD);
+        if (pn > 0.56) tmp.copy(cGL).lerp(cPl, 0.35); else if (pn < 0.41) tmp.copy(cGD);
       } else if (cy < -0.35) {
         tmp.copy(cWet);
       } else if (rr > 0.955 || cy < -0.05) {
@@ -398,16 +423,17 @@ export class World {
       } else {
         const pn = N.fbm(cx * 0.11 + 3, cz * 0.11 + 7);
         tmp.copy(cGrass);
-        if (pn > 0.57) tmp.copy(cGL); else if (pn < 0.4) tmp.copy(cGD);
-        if (rr > 0.92) tmp.lerp(cSand, 0.35);
+        if (pn > 0.56) tmp.lerp(cGL, smooth(0.56, 0.72, pn));
+        else if (pn < 0.43) tmp.lerp(cGD, smooth(0.43, 0.28, pn));
+        if (rr > 0.91) tmp.lerp(cSand, smooth(0.91, 0.96, rr) * 0.65);
         let dp = 9;
         for (const [p0, p1] of paths) dp = Math.min(dp, distSeg(cx, cz, p0, p1));
-        const wob = N.n2(cx * 0.9, cz * 0.9) * 0.6;
-        if (dp < 0.85 + wob) tmp.copy(cDirt);
-        else if (dp < 1.25 + wob) tmp.lerp(cDirt, 0.35);
+        const wob = (N.n2(cx * 0.75, cz * 0.75) - 0.5) * 0.75;
+        const pMix = 1 - smooth(0.7, 1.95, dp + wob);
+        if (pMix > 0.01) tmp.lerp(cDirt, pMix * 0.92);
       }
-      // subtle per-face value jitter for hand-made feel
-      const jv = 1 + (N.h(Math.floor(cx * 9) & 255, Math.floor(cz * 9) & 255) - 0.5) * 0.06;
+      // 柔和的微調色差，避免大型色塊斷裂
+      const jv = 1 + (N.h(Math.floor(cx * 9) & 255, Math.floor(cz * 9) & 255) - 0.5) * 0.035;
       for (const v of [a, b, c]) { pos.push(v.x, v.y, v.z); col.push(tmp.r * jv, tmp.g * jv, tmp.b * jv); }
     };
     for (let j = 0; j < GW - 1; j++) for (let i = 0; i < GW - 1; i++) {
@@ -420,21 +446,28 @@ export class World {
     tg.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
     tg.computeVertexNormals();
     const tmat = toonMat({ vertexColors: true });
-    tmat.customProgramCacheKey = () => 'terrainGust';
+    tmat.customProgramCacheKey = () => 'terrainGustV2';
     tmat.onBeforeCompile = (sh) => {
       sh.uniforms.uTime = windU.uTime; sh.uniforms.uWindStr = windU.uWindStr;
       sh.vertexShader = 'varying vec3 vGW;\n' + sh.vertexShader.replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\n vGW = (modelMatrix * vec4(transformed,1.0)).xyz;');
       sh.fragmentShader = 'uniform float uTime; uniform float uWindStr; varying vec3 vGW;\n float gh2(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }\n float gn2(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix(gh2(i),gh2(i+vec2(1,0)),f.x), mix(gh2(i+vec2(0,1)),gh2(i+vec2(1,1)),f.x), f.y); }\n' +
         sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
           float isG = smoothstep(0.02, 0.12, diffuseColor.g - max(diffuseColor.r, diffuseColor.b));
+          float isDirt = smoothstep(0.05, 0.16, diffuseColor.r - diffuseColor.b) * (1.0 - isG);
+          // 像素手繪質感：草葉細點與泥土碎石點綴（告別大三角平滑單調感）
+          vec2 pixCell = floor(vGW.xz * 3.4);
+          float tuft = step(0.84, gh2(pixCell)) * 0.085 - step(gh2(pixCell + 19.3), 0.14) * 0.055;
+          float peb = (step(0.86, gh2(pixCell * 1.3 + 5.1)) * 0.09 - step(gh2(pixCell * 1.3 + 13.7), 0.14) * 0.07) * isDirt;
+          // 隨風草浪
           vec2 gp = vGW.xz * 0.09 - vec2(0.82, 0.48) * uTime * 0.22;
           float gn = gn2(gp) * 0.65 + gn2(gp * 2.3 + 7.0) * 0.35;
-          float band = step(0.62, gn) * 0.10 - step(gn, 0.30) * 0.06;
-          // 緩慢飄動的立體雲影（致敬手繪陽光草地光斑）
+          float band = step(0.60, gn) * 0.10 - step(gn, 0.30) * 0.06;
+          // 陽光與冷青藍雲影對比（致敬 Pin on Vibe 與手繪像素風格）
           vec2 cp = vGW.xz * 0.028 - vec2(0.7, 0.45) * uTime * 0.055;
           float cn = gn2(cp) * 0.65 + gn2(cp * 2.1 + 3.4) * 0.35;
-          float cloudShade = smoothstep(0.54, 0.72, cn);
-          diffuseColor.rgb = mix(diffuseColor.rgb * (1.0 + band * isG * uWindStr), diffuseColor.rgb * vec3(0.84, 0.90, 0.96), cloudShade * 0.42);`);
+          float cloudShade = smoothstep(0.53, 0.72, cn);
+          vec3 baseCol = diffuseColor.rgb * (1.0 + (band * uWindStr + tuft) * isG + peb);
+          diffuseColor.rgb = mix(baseCol * vec3(1.03, 1.02, 0.98), baseCol * vec3(0.78, 0.88, 0.97), cloudShade * 0.46);`);
     };
     const terrain = new THREE.Mesh(tg, tmat);
     terrain.receiveShadow = true; terrain.castShadow = true;
@@ -462,7 +495,9 @@ export class World {
 
     const pineT = [pineGeo(P, r, snow), pineGeo(P, r, snow)];
     const roundT = P.leaf.slice(0, 3).map(h => roundTreeGeo(P, r, h));
-    const pines = [[], []], rounds = [[], [], []], rocks = [], bushes = [], grass = [], grass2 = [], flowers = [], shrooms = [], pillars = [], logs = [], posts = [];
+    const birchPal = P.key === 'snow' ? [0xd8f0ff, 0xf4f8ff, 0x9fd0ee] : P.key === 'ember' ? [0xff7838, 0xffb84a, 0xd83828] : [0xe95c3f, 0xf39237, 0xf6c445];
+    const birchT = birchMapleGeo(r, birchPal);
+    const pines = [[], []], rounds = [[], [], []], birches = [], rocks = [], bushes = [], grass = [], grass2 = [], flowers = [], shrooms = [], pillars = [], logs = [], posts = [];
     const occupied = (x, z, rad) => this.obstacles.some(o => Math.hypot(o.x - x, o.z - z) < o.r + rad);
     const nearExitOrSpawn = (x, z, d) => Math.hypot(x - spawn.x, z - spawn.z) < d || exits.some(e => Math.hypot(e.x - x, e.z - z) < d);
     const nearPath = (x, z, d) => paths.some(([p0, p1]) => distSeg(x, z, p0, p1) < d);
@@ -513,8 +548,31 @@ export class World {
         } else if (roll < treeRate + 0.15) shrooms.push({ x, y, z, s: 0.85 + r() * 0.85, ry: r() * 6 });
       }
     }
+    // 聚落式森林群組（Art-directed Forest Groves：每群 4~7 棵樹＋白樺楓紅點綴＋林下灌木與野花，消除空曠感）
+    if (!opts.town && !opts.raid) {
+      const groveCount = Math.min(54, Math.round(18 * areaScale));
+      for (let g = 0; g < groveCount; g++) {
+        const gx = rand(r, -this.half + 5, this.half - 5), gz = rand(r, -this.half + 5, this.half - 5);
+        const gk = this.idx(gx, gz); if (gk < 0 || !walk[gk]) continue;
+        if (nearExitOrSpawn(gx, gz, 9) || nearPath(gx, gz, 4.5)) continue;
+        const cnt = 4 + Math.floor(r() * 4);
+        for (let m = 0; m < cnt; m++) {
+          const a = (m / cnt) * Math.PI * 2 + r() * 0.6, rad = m === 0 ? 0.4 : 2.1 + r() * 2.8;
+          const x = gx + Math.cos(a) * rad, z = gz + Math.sin(a) * rad;
+          const kk = this.idx(x, z); if (kk < 0 || !walk[kk] || nearPath(x, z, 2.4) || occupied(x, z, 1.35)) continue;
+          const y = H[kk], s = 0.85 + r() * 0.65;
+          const tRoll = r();
+          if (tRoll < 0.28) birches.push({ x, y, z, s: s * 1.05, ry: r() * 6 });
+          else if (tRoll < 0.62) pines[Math.floor(r() * 2)].push({ x, y, z, s, ry: r() * 6 });
+          else rounds[Math.floor(r() * 3)].push({ x, y, z, s, ry: r() * 6 });
+          this.obstacles.push({ x, z, r: 0.45 * s + 0.18, h: y });
+          this.trees.push({ x, y, z, r: 1.55 * s, leafCol: tRoll < 0.28 ? birchPal[0] : P.leaf[0], rustleT: 0 });
+          if (r() < 0.65) bushes.push({ x: x + (r() - 0.5) * 1.8, y, z: z + (r() - 0.5) * 1.8, s: 0.7 + r() * 0.5, ry: r() * 6 });
+        }
+      }
+    }
     // grass & flowers in clumps (scaled with map area for lush A Short Hike vibe)
-    const clumpCount = Math.min(920, Math.round(260 * areaScale));
+    const clumpCount = Math.min(1150, Math.round(320 * areaScale));
     for (let i = 0; i < clumpCount; i++) {
       const cx = rand(r, -this.half + 2, this.half - 2), cz = rand(r, -this.half + 2, this.half - 2);
       const k = this.idx(cx, cz); if (k < 0 || T[k] === 0 || RR[k] > 0.96) continue;
@@ -544,6 +602,7 @@ export class World {
     }
     inst(pineT[0], pines[0], { wind: [0.20, 0.7, 2.2] }); inst(pineT[1], pines[1], { wind: [0.20, 0.7, 2.2] });
     rounds.forEach((l, i) => inst(roundT[i], l, { wind: [0.24, 0.8, 2.0] }));
+    inst(birchT, birches, { wind: [0.26, 0.8, 2.2] });
     inst(rockGeo(P, r), rocks);
     inst(bushGeo(P, r), bushes, { wind: [0.18, 0.08, 0.75] });
     inst(grassGeo(P.grassDark), grass, { cast: false, wind: [0.32, 0.0, 0.42] });
@@ -727,6 +786,32 @@ export class World {
       bridge.position.set(0, 0.28, 1.4); bridge.rotation.y = Math.PI / 2; bridge.castShadow = true; g.add(bridge);
       addLandmark(g, pt.x, pt.z, 2.4, true);
     }
+    // 8. 雙巨柱石階清泉遺跡（致敬 Pin on Vibe 參考圖：層疊石階、雙高柱、湛藍倒影池與漂浮白蓮）
+    for (let i = 0; i < 2 * scScale; i++) {
+      const pt = placeSpot(24); if (!pt) continue;
+      const g = new THREE.Group();
+      const step1 = new THREE.Mesh(new THREE.BoxGeometry(6.8, 0.36, 5.4), toonMat({ color: 0xd6d0c4 }));
+      step1.position.y = 0.18; step1.receiveShadow = true; step1.castShadow = true; g.add(step1);
+      const step2 = new THREE.Mesh(new THREE.BoxGeometry(5.6, 0.36, 4.4), toonMat({ color: 0xc8c2b4 }));
+      step2.position.y = 0.52; step2.receiveShadow = true; g.add(step2);
+      const pond = new THREE.Mesh(new THREE.BoxGeometry(4.4, 0.12, 3.2), new THREE.MeshBasicMaterial({ color: 0x3ec6e8 }));
+      pond.position.y = 0.72; g.add(pond);
+      for (const [lx, lz] of [[-1.1, 0.5], [1.2, -0.4], [0.2, 0.7]]) {
+        const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 0.05, 6), toonMat({ color: 0x6ac86e }));
+        pad.position.set(lx, 0.8, lz); g.add(pad);
+      }
+      for (const sx of [-2.4, 2.4]) {
+        const col = new THREE.Mesh(new THREE.BoxGeometry(0.95, 5.2, 0.95), toonMat({ color: 0xd0cac0 }));
+        col.position.set(sx, 2.9, -1.6); col.castShadow = true; g.add(col);
+        const cap = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.35, 1.25), toonMat({ color: 0xbcb6aa }));
+        cap.position.set(sx, 5.6, -1.6); g.add(cap);
+        const vine = new THREE.Mesh(new THREE.BoxGeometry(1.02, 0.4, 1.02), toonMat({ color: P.grass }));
+        vine.position.set(sx, 5.8, -1.6); g.add(vine);
+      }
+      const rune = new THREE.Mesh(new THREE.OctahedronGeometry(0.45, 0), new THREE.MeshBasicMaterial({ color: 0xffe680 }));
+      rune.position.set(0, 2.2, -1.6); g.add(rune);
+      addLandmark(g, pt.x, pt.z, 3.4, true);
+    }
   }
 
   // 海岸水域漂浮橘白航標與救生圈（致敬海面水波參考影片）
@@ -831,8 +916,12 @@ export class World {
           col = mix(col, vec3(0.9,0.98,1.0), vl * shallowT * 0.55 * uWater);
           float rg = rings(vW.xz*0.22, uTime) * smoothstep(1.2, 4.0, d);
           col = mix(col, vec3(0.92,0.98,1.0), rg * 0.6 * uWater);
-          // sparkles
+          // sparkles + 參考圖風格：水平像素白色水光短線（—）
           float sp = step(0.985, noise(vW.xz*3.0 + vec2(uTime*0.6,-uTime*0.4))) * depthT;
+          vec2 dashCell = vec2(floor(vW.x * 0.65 + sin(floor(vW.z * 2.2) + uTime * 0.55) * 0.35), floor(vW.z * 2.2));
+          vec2 dashUv = vec2(fract(vW.x * 0.65 + sin(floor(vW.z * 2.2) + uTime * 0.55) * 0.35), fract(vW.z * 2.2));
+          float dashOn = step(0.86, hash(dashCell)) * step(0.18, dashUv.x) * step(dashUv.x, 0.82) * step(0.38, dashUv.y) * step(dashUv.y, 0.62);
+          col = mix(col, vec3(0.98, 1.0, 1.0), clamp(dashOn * 0.72 * smoothstep(0.6, 2.0, d), 0.0, 0.8));
           col += sp*0.35;
           gl_FragColor = vec4(col, 1.0);
         }`,

@@ -20,8 +20,8 @@ export class Pipeline {
         uRes: { value: new THREE.Vector2() }, uTime: { value: 0 },
         uNear: { value: 1 }, uFar: { value: 100 }, uInvVP: { value: new THREE.Matrix4() },
         uGrade: { value: new THREE.Vector3(1, 1, 1) }, uShaft: { value: new THREE.Vector3(1, 0.9, 0.6) }, uShaftK: { value: 1 },
-        uCam: { value: new THREE.Vector3() }, uHurt: { value: 0 }, uFade: { value: 0 }, uSat: { value: 1.08 },
-        uOutline: { value: new THREE.Vector3(0.16, 0.10, 0.22) },
+        uCam: { value: new THREE.Vector3() }, uHurt: { value: 0 }, uFade: { value: 0 }, uSat: { value: 1.13 },
+        uOutline: { value: new THREE.Vector3(0.13, 0.14, 0.25) },
       },
       vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.0,1.0); }`,
       fragmentShader: `

@@ -276,7 +276,7 @@ button,select,a,summary,.sk,.pz-cell,.pz-gem{cursor:url("data:image/svg+xml,%3Cs
 #view.hover-interact{cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cpath d='M14 2l3 8 8 3-8 3-3 8-3-8-8-3 8-3z' fill='%23ffd85a' stroke='%233b2a2a' stroke-width='2'/%3E%3C/svg%3E") 14 14, pointer}
 body.holding-gem,body.holding-gem *{cursor:grabbing!important}
 .atlas button.wp{outline:3px solid #ffcf4a;background:#7a4c33!important;color:#fff8e4!important}
-#hoverBadge{position:fixed;pointer-events:none;z-index:40;background:#3b2a2ae6;color:#fff8e4;border:2px solid #ffcf4a;padding:2px 8px;font-size:12px;white-space:nowrap;transform:translate(14px,-22px)}
+#hoverBadge{display:none;position:fixed;pointer-events:none;z-index:40;background:#3b2a2af0;color:#fff8e4;border:2px solid #ffcf4a;padding:3px 9px;font-size:12px;white-space:nowrap;transform:translate(14px,-22px);box-shadow:0 3px 0 rgba(20,12,18,.6)}#hoverBadge.show{display:block}
 #recallBar{position:fixed;left:50%;bottom:118px;transform:translateX(-50%);width:min(320px,86vw);padding:8px 12px;text-align:center;z-index:25}
 #recallBar .rtrack{height:12px;background:#3b2a2a;margin-top:6px;overflow:hidden}#recallBar .rfill{height:100%;width:0%;background:linear-gradient(90deg,#7ae8ff,#ffd85a)}
 .inv-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;grid-column:1/-1}
@@ -291,11 +291,12 @@ body.holding-gem,body.holding-gem *{cursor:grabbing!important}
 .cos-btn{font-family:inherit;padding:8px;background:var(--paper2);color:var(--ink);border:2px solid #7a5a46;cursor:pointer;text-align:center;font-size:13px}
 .cos-btn.on{background:#ffe9a0;outline:3px solid #e8734a}
 /* ======== 下方技能欄位與技能拼圖介面 ======== */
-#skills{pointer-events:auto;gap:6px;padding:6px 9px}
-.sk{flex-direction:column;gap:1px;padding-top:7px;width:50px;height:50px;font-size:18px;line-height:1}
-.sk.util{width:42px;height:50px;background:#e6d5b2;font-size:16px}
+#skills{pointer-events:auto;gap:6px;padding:6px 10px}
+.sk{flex-direction:column;gap:2px;padding-top:7px;width:52px;height:52px;font-size:18px;line-height:1;transition:transform .08s}
+.sk:hover{transform:translateY(-2px)}
+.sk.util{width:46px;height:52px;background:#e6d5b2;font-size:16px}
 .sk-sep{width:2px;background:rgba(59,42,42,.28);margin:4px 2px}
-.sk .sname{font-size:10px;color:var(--ink);line-height:1.1}
+.sk .sname{font-size:10px;color:var(--ink);line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:44px}
 .sk .sup{position:absolute;right:2px;top:1px;font-size:10px;background:#5a3826;color:#ffd85a;padding:0 3px;line-height:1.2}
 .sk.pz-open{background:#5a3826;color:#fff2d6;font-size:15px}.sk.pz-open .k,.sk.pz-open .sname{color:#ffd85a}
 .pzp{width:min(680px,95vw);padding:14px 18px!important;max-height:92vh;overflow:auto}
@@ -353,7 +354,7 @@ body.photo-mode #hud > *:not(#photoBadge){opacity:0!important;pointer-events:non
   <div id="regionMap" class="panel hide"><div class="rm-head"><b id="rmTitle">地區地圖</b><span>Tab 關閉</span></div><canvas id="regionMapCanvas" width="220" height="220"></canvas><div class="rm-leg"><span>▲ 你</span><span style="color:#7a4ac0">● 副本</span><span style="color:#2f8a4e">● 回城</span><span style="color:#d88a00">● 採集/寶箱</span><span style="color:#2a9ab8">● 氣流</span><span style="color:#c83a3a">● 敵人</span></div></div>
   <div id="gatherMini" class="panel hide"><div class="gm-title"></div><div class="gm-track"><div class="gm-sweet"></div><div class="gm-needle"></div></div></div>
   <div id="recallBar" class="panel hide"><div class="rtxt">🐚 吹響歸途海螺中…</div><div class="rtrack"><div class="rfill"></div></div></div>
-  <div id="hoverBadge" class="hide"></div>
+  <div id="hoverBadge"></div>
   <div id="photoBadge" class="hide">📷 拍照純淨模式 · 按 P 恢復介面</div>
   <div id="boss" class="hide"><div class="name"></div><div class="bar"><div class="fill"></div></div></div>
   <div id="statusBar"></div>
@@ -366,10 +367,10 @@ body.photo-mode #hud > *:not(#photoBadge){opacity:0!important;pointer-events:non
     <div class="sk" id="sk-s3" title="拼圖技能 4"><span class="k key">C</span><span class="ic">—</span><span class="sname">空位</span><span class="sup" hidden></span><div class="cd"></div></div>
     <div class="sk" id="sk-r" title="蜜藥瓶"><span class="k key">R</span><span class="ic">🧪</span><span class="sname">藥瓶</span><span class="cnt"></span><div class="cd"></div></div>
     <div class="sk-sep"></div>
-    <button type="button" class="sk util" id="sk-mount" title="召喚／收起坐騎 (G)"><span class="k key">G</span><span class="ic">🦌</span><span class="sname">坐騎</span></button>
-    <button type="button" class="sk util" id="sk-recall" title="快捷回城 (H)"><span class="k key">H</span><span class="ic">🐚</span><span class="sname" data-i18n="recall">回城</span><div class="cd"></div></button>
-    <button type="button" class="sk util" id="sk-bag" title="物理背包與裝備 (I)"><span class="k">I</span><span class="ic">🎒</span><span class="sname" data-i18n="bag">背包</span></button>
-    <button type="button" class="sk util pz-open" id="sk-puzzle" title="技能拼圖與寶石商人 (K)"><span class="k">K</span><span class="ic">💎</span><span class="sname" data-i18n="puzzle">拼圖</span></button>
+    <button type="button" class="sk util" id="sk-mount" title="召喚／收起坐騎 (G)"><span class="k key">G</span><span class="ic">🦌</span><span class="sname" data-i18n="skMount">坐騎</span></button>
+    <button type="button" class="sk util" id="sk-recall" title="快捷回城 (H)"><span class="k key">H</span><span class="ic">🐚</span><span class="sname" data-i18n="skRecall">回城</span><div class="cd"></div></button>
+    <button type="button" class="sk util" id="sk-bag" title="物理背包與裝備 (I)"><span class="k">I</span><span class="ic">🎒</span><span class="sname" data-i18n="skBag">背包</span></button>
+    <button type="button" class="sk util pz-open" id="sk-puzzle" title="技能拼圖與寶石商人 (K)"><span class="k">K</span><span class="ic">💎</span><span class="sname" data-i18n="skPuzzle">拼圖</span></button>
   </div>
   <div id="tip" class="panel hide"></div>
   <div id="exitHint" class="exitHint" style="display:none"></div>

@@ -9,7 +9,7 @@ import { t } from './i18n.js';
 import * as THREE from 'three';
 import { World, toonMat, HALF, windU } from './world.js';
 import { BIOMES, mulberry32, clamp, lerp, angleLerp, rand, pick } from './util.js';
-import { buildTownScenery, buildGuildKiosk, buildAwakenAltar, buildWardrobe } from './town.js';
+import { buildTownScenery, buildGuildKiosk, buildAwakenAltar, buildWardrobe, buildSheep } from './town.js';
 import { loadSettings, applySettings, buildSettingsUI } from './settings.js';
 import { showWeapon, applyCosmetics, buildPlayer, buildNPC, buildSlime, buildThorn, buildBoar, buildMoth, buildSkyRay, buildStag, buildArch, buildHouse, buildFountain, buildBoard, buildStall } from './models.js';
 import { Net } from './net.js';
@@ -114,7 +114,7 @@ export class Game {
     this.playerName = '旅人'; this.hoodIdx = 0; this.posT = 0;
     this.dayTime = 0.28; this.isNight = false; this.campfires = []; this.prisms = []; this.interior = null; this.photoMode = false;
     this.recallT = 0; this.sailing = null; this.lastTown = -1; this.waypoint = null; this.worldBoxes = [];
-    this.zoneStates = new Map(); this.camZoom = 1.0; this.camYaw = 0.62; this.exitCooldown = 0; this.groundZones = []; this.physProps = []; this.mount = null; this.beams = []; this._fadedMats = new Map(); this.combo = { count: 0, timer: 0 }; this.glideTrails = [];
+    this.zoneStates = new Map(); this.camZoom = 1.0; this.camYaw = 0.62; this.camPunch = 0; this.exitCooldown = 0; this.groundZones = []; this.physProps = []; this.mount = null; this.beams = []; this._fadedMats = new Map(); this.combo = { count: 0, timer: 0 }; this.glideTrails = []; this.sheep = []; this.shrineBuffs = { fury: 0, frost: 0, gold: 0, sheep: 0 };
     this.bindInput();
     this.setupNet(); bindGuild(this);
     // title scene: a pretty room in the background
@@ -387,6 +387,7 @@ export class Game {
     for (const pr of this.prisms || []) { this.scene.remove(pr.mesh); } this.prisms = [];
     for (const gz of this.groundZones || []) { this.scene.remove(gz.mesh); } this.groundZones = [];
     for (const pp of this.physProps || []) { this.scene.remove(pp.mesh); } this.physProps = [];
+    for (const sh of this.sheep || []) { this.scene.remove(sh.mesh); } this.sheep = [];
     for (const bm of this.beams || []) { this.scene.remove(bm.mesh); } this.beams = [];
     this._fadedMats?.clear();
     for (const e of this.enemies) this.scene.remove(e.m.root);
@@ -540,7 +541,8 @@ export class Game {
   rollDamage(mult, fire = false) {
     const s = this.player.stats;
     const comboCrit = Math.min(22.5, (this.combo?.count || 0) * 1.5);
-    let dmg = (s.baseDmg + s.addFire) * (1 + s.dmgPct / 100) * mult;
+    const furyMul = (this.shrineBuffs?.fury || 0) > 0 ? 1.45 : 1;
+    let dmg = (s.baseDmg + s.addFire) * (1 + s.dmgPct / 100) * mult * furyMul;
     const crit = Math.random() * 100 < (s.crit + comboCrit);
     if (crit) dmg *= s.critMult / 100;
     return { dmg: Math.round(dmg * (0.9 + Math.random() * 0.2)), crit, fire };
@@ -554,12 +556,17 @@ export class Game {
     if (e.statuses.shock > 0) mult *= 1.25;
     if (p.statuses?.overload > 0) mult *= 1.25;
     let dmg = Math.round(hit.dmg * mult);
-    // 碎冰連攜：攻擊冰凍目標觸發 1.45 倍碎冰爆發
+    // 碎冰連攜：攻擊冰凍目標觸發 1.45 倍碎冰爆發＋浮動連攜字樣
     if (e.statuses.freeze > 0 && !opts.isDoT) {
       dmg = Math.round(dmg * 1.45);
       e.statuses.freeze = 0;
-      this.fx.burst(e.pos.x, e.pos.y + 0.7, e.pos.z, 14, { c: [0x9cf0ff, 0xffffff, 0x58b8e8], s: 0.14, speed: 6.5, up: 4, life: 0.45 });
+      this.fx.burst(e.pos.x, e.pos.y + 0.7, e.pos.z, 16, { c: [0x9cf0ff, 0xffffff, 0x58b8e8], s: 0.14, speed: 6.8, up: 4.2, life: 0.48 });
+      this.ui.dmgNum(e.pos.x, e.pos.y + 1.85, e.pos.z, '❄️ 碎冰爆發!', 'crit');
       this.audio.sfx('crit');
+    }
+    if ((this.shrineBuffs?.frost || 0) > 0 && !opts.isDoT && e.type !== 'stag') {
+      e.slow = Math.max(e.slow || 0, 2.2);
+      if (Math.random() < 0.28) e.statuses.freeze = Math.max(e.statuses.freeze || 0, 1.8);
     }
     // 空中截擊與擊落機制：滯空攻擊對空中怪物造成 1.5 倍暴擊、擊落眩暈並踏跳反彈回復體力
     if (opts.aerial && e.flying && e.groundedT <= 0) {
@@ -613,7 +620,8 @@ export class Game {
     const col = { slime: [0x7fc35a, 0xb5e080], thorn: [0x8a5a3b, 0x6aa84a], boar: [0x9a6a4a, 0x5a3b2c], moth: [0xb48ae0, 0xffd27a], skyray: [0x58d4e8, 0xffe480], stag: [0xffb050, 0xe8dcc8] }[e.type];
     this.puffs.burst(e.pos.x, 0.4, e.pos.z, e.type === 'stag' ? 40 : 12, { c: col, s: 0.24, speed: 4.5, up: 4.5, life: 0.8 });
     this.puffs.burst(e.pos.x, 0.3, e.pos.z, 6, { c: 0xffffff, s: 0.4, speed: 1.5, up: 1, g: -1, life: 0.8, grow: 1.4, drag: 3 });
-    this.shake = Math.max(this.shake, e.type === 'stag' ? 1 : 0.22);
+    this.shake = Math.max(this.shake, e.type === 'stag' ? 1 : e.elite ? 0.42 : 0.22);
+    if (e.elite || e.type === 'stag') this.camPunch = e.type === 'stag' ? 0.2 : 0.11;
     const p = this.player; p.kills++;
     // 清怪連擊系統（Kill-Streak Combo）：6 秒內連續擊殺疊加攻速、暴擊與掉寶率！
     this.combo = this.combo || { count: 0, timer: 0 };
@@ -629,7 +637,8 @@ export class Game {
     if (this.has('feast')) this.heal(4 * p.boons.filter(b => b === 'feast').length, false);
     const r = Math.random();
     const comboDrop = Math.min(0.12, this.combo.count * 0.008);
-    const dropChance = e.elite ? 1 : e.type === 'stag' ? 1 : (0.08 + comboDrop);
+    const goldDrop = (this.shrineBuffs?.gold || 0) > 0 ? 0.25 : 0;
+    const dropChance = e.elite ? 1 : e.type === 'stag' ? 1 : (0.08 + comboDrop + goldDrop);
     if (r < dropChance && this.field) this.dropItem(e.pos.x,e.pos.z,makeItem(Math.random,Math.floor(this.meta.p.level/4),e.elite?2:1));
     else if (r < dropChance) this.dropItem(e.pos.x, e.pos.z, makeItem(Math.random, this.depth + this.meta.dropBonus, e.type === 'stag' ? 3 : e.elite ? (Math.random() < 0.3 ? 3 : 2) : null));
     if (Math.random() < 0.16) this.dropOrb(e.pos.x, e.pos.z);
@@ -747,11 +756,27 @@ export class Game {
   }
 
   // ---------------- skills ----------------
-  aimDir() { const p = this.player; tmp2.set(this.aim.x - p.pos.x, this.aim.z - p.pos.z); if (tmp2.lengthSq() < 0.01) tmp2.set(Math.sin(p.facing), Math.cos(p.facing)); return tmp2.normalize().clone(); }
+  aimDir() {
+    const p = this.player;
+    tmp2.set(this.aim.x - p.pos.x, this.aim.z - p.pos.z);
+    if (tmp2.lengthSq() < 0.01) tmp2.set(Math.sin(p.facing), Math.cos(p.facing));
+    const base = tmp2.normalize().clone();
+    // 智慧柔順瞄準輔助：若滑鼠方向 20° 錐形內 12m 有活體敵人，輕微吸附確保爽快命中
+    let best = null, bestScore = 0.94;
+    for (const e of this.enemies) {
+      if (e.dead) continue;
+      const dx = e.pos.x - p.pos.x, dz = e.pos.z - p.pos.z, d = Math.hypot(dx, dz);
+      if (d < 0.4 || d > 12) continue;
+      const dot = (dx * base.x + dz * base.y) / d;
+      if (dot > bestScore) { bestScore = dot; best = new V2(dx / d, dz / d); }
+    }
+    return best || base;
+  }
   tryAttack() {
     const p = this.player; if (p.cds.atk > 0 || p.roll > 0) return;
     const comboSpd = Math.min(30, (this.combo?.count || 0) * 2);
-    const aps = 2.0 * (1 + (p.stats.atkSpd + comboSpd) / 100);
+    const furySpd = (this.shrineBuffs?.fury || 0) > 0 ? 25 : 0;
+    const aps = 2.0 * (1 + (p.stats.atkSpd + comboSpd + furySpd) / 100);
     p.cds.atk = 1 / aps;
     const dir = this.aimDir(); p.facing = Math.atan2(dir.x, dir.y);
     p.swing = 1; p.swingT = 0.22; p.swingCount++; this.audio.sfx('swing');
@@ -1269,6 +1294,7 @@ export class Game {
     if (this.depth >= 0 && !this.field && !this.interior) return null;
     const p = this.player; let best = null, bd = 2.8;
     for (const s of this.spots) { if (s.mesh?.visible === false) continue; const d = Math.hypot(s.x - p.pos.x, s.z - p.pos.z); if (d < bd) { bd = d; best = { ...s, bx: s.x, bz: s.z }; } }
+    for (const sh of this.sheep || []) { const d = Math.hypot(sh.x - p.pos.x, sh.z - p.pos.z); if (d < Math.min(bd, 2.2)) { bd = d; best = { kind: 'pet_sheep', label: '🐑 撫摸蓬鬆小綿羊（獲得軟綿祝福）', x: sh.x, z: sh.z, top: 1.5, sheep: sh }; } }
     if (!this.interior) for (const r of this.remotes.values()) if (r.bot) { const d = Math.hypot(r.x - p.pos.x, r.z - p.pos.z); if (d < Math.min(bd, 2.2)) { bd = d; best = { kind: 'talk', label: r.name.replace(' (鎮民)', ''), x: r.x, z: r.z, top: 2.4, bot: r }; } }
     return best;
   }
@@ -1284,6 +1310,16 @@ export class Game {
   }
   tryInteract() {
     const s = this.nearSpot(); if (!s) return false;
+    if (s.kind === 'pet_sheep') {
+      const sh = s.sheep;
+      if (sh) { sh.hop = 0.45; sh.wait = 3; }
+      this.shrineBuffs = this.shrineBuffs || { fury: 0, frost: 0, gold: 0, sheep: 0 };
+      this.shrineBuffs.sheep = 60;
+      this.audio.sfx('emote');
+      this.fx.burst(s.x, 1.1, s.z, 12, { c: [0xff9eb8, 0xffe480, 0xffffff], s: 0.11, speed: 3, up: 3.5, life: 0.65 });
+      this.ui.toast('🐑 咩～小羊很開心！獲得 60 秒「軟綿祝福」（移速 +10% · 緩慢回復）', '#ffe49e');
+      return true;
+    }
     if (s.kind === 'sit') {
       const p = this.player;
       if (p.sitting) { p.sitting = null; this.audio.sfx('sit'); return true; }
@@ -1405,13 +1441,13 @@ export class Game {
     // 補齊公會大廳涼亭、星燈覺醒祭壇與造型衣櫃 3D 實體模型（不再有憑空互動點）
     add(buildGuildKiosk(), 6.5, -6.5, -0.5, 1.4);
     add(buildAwakenAltar(), -2.2, -6.5, 0, 1.35);
-    add(buildWardrobe(), -3.2, 7.4, 0.2, 0.75);
+    add(buildWardrobe(), -1.6, 8.6, 0.18, 0.75);
     this.worldBoxes.push(
       { x: -6, z: 10, hw: 1.5, hd: 1.3, h: 0 },
       { x: 8, z: 4, hw: 1.2, hd: 0.8, h: 0 },
       { x: 3.6, z: 7.4, hw: 0.65, hd: 0.45, h: 0 },
       { x: 6.5, z: -6.5, hw: 1.5, hd: 1.2, h: 0 },
-      { x: -3.2, z: 7.4, hw: 0.75, hd: 0.45, h: 0 },
+      { x: -1.6, z: 8.6, hw: 0.75, hd: 0.45, h: 0 },
     );
     // 可踢飛滾動的 3D 物理物件（彩色海灘球與酒桶）
     const mkProp = (kind, x, z, col) => {
@@ -1424,6 +1460,13 @@ export class Game {
     };
     mkProp('ball', 2.4, 2.2, 0xff6b6b); mkProp('ball', -2.8, 12.2, 0x4cc9f0);
     mkProp('barrel', -7.2, -1.5, 0x9c663a); mkProp('barrel', 6.2, 2.8, 0x8a5832);
+    // 城鎮草地漫步的蓬鬆小綿羊（致敬螢幕擷圖 5 風格，可按 F 撫摸獲得軟綿祝福）
+    [[-8.5, 11.5], [5.8, 12.2], [-11.5, 6.2], [11.2, 7.8]].forEach(([sx, sz], idx) => {
+      const sm = buildSheep();
+      sm.position.set(sx, this.world.gh(sx, sz), sz);
+      this.scene.add(sm);
+      this.sheep.push({ mesh: sm, hx: sx, hz: sz, x: sx, z: sz, tx: sx, tz: sz, f: idx * 1.5, wait: 1 + idx, hop: 0, ph: idx * 2.1 });
+    });
     this.spots.push(
       { kind: 'market', label: '溪畔拍賣行', x: 8, z: 4, top: 2.5 },
       { kind: 'enter_home', label: '推門進入旅人小屋（室內）', x: -6, z: 7.4, top: 2.5 },
@@ -1432,7 +1475,7 @@ export class Game {
       { kind: 'ascend', label: '星燈覺醒祭壇（二轉職業覺醒）', x: -2.2, z: -6.5, top: 2.6 },
       { kind: 'ferry_harbor', label: '登船前往海風港鎮（南碼頭啟航）', x: 0, z: 26.2, top: 2.8 },
       { kind: 'open_stash', label: '燈谷公共倉庫（城鎮限定）', x: 3.6, z: 7.4, top: 2.2 },
-      { kind: 'open_cosmetics', label: '造型衣櫃（更換外觀）', x: -3.2, z: 7.4, top: 2.3 },
+      { kind: 'open_cosmetics', label: '造型衣櫃（更換外觀）', x: -1.6, z: 8.6, top: 2.3 },
     );
     this.updateHome();
     // offline villagers
@@ -1679,7 +1722,8 @@ export class Game {
         const canSprint = !!(this.keys.shift && mv.lengthSq() > 0.01 && !p.air && !p.climbing && !attacking && (mountDef || p.stamina > 2));
         if (canSprint) { p.sprinting = true; if (!mountDef) p.stamina = Math.max(0, p.stamina - 16 * dt * this.meta.staminaK); }
         const mountSpd = mountDef ? mountDef.speedMult : 1;
-        const f = chillMul * mountSpd * (attacking ? 0.55 : 1) * (p.climbing ? 0.22 : 1) * (p.gliding ? 1.35 : 1) * (canSprint ? 1.25 : 1);
+        const buffSpd = ((this.shrineBuffs?.fury || 0) > 0 ? 1.2 : 1) * ((this.shrineBuffs?.sheep || 0) > 0 ? 1.1 : 1);
+        const f = chillMul * mountSpd * buffSpd * (attacking ? 0.55 : 1) * (p.climbing ? 0.22 : 1) * (p.gliding ? 1.35 : 1) * (canSprint ? 1.25 : 1);
         if (mountDef?.ramKnockback && mv.lengthSq() > 0.2) {
           for (const e of this.enemies) if (!e.dead && e.type !== 'stag' && e.pos.distanceTo(p.pos) < e.r + 1.0) {
             const dx = e.pos.x - p.pos.x, dz = e.pos.z - p.pos.z, d = Math.hypot(dx, dz) || 1;
@@ -2214,8 +2258,31 @@ export class Game {
       }
     }
     this.drops = this.drops.filter(d => !d.taken);
-    // 連擊計時倒數＋海面浮標微幅起伏＋滑翔／坐騎白色氣流尾跡
+    // 連擊與祝福石碑／軟綿祝福倒數＋巡遊小綿羊＋晴日飛舞蝴蝶＋海面浮標微幅起伏
     if (this.combo?.timer > 0) { this.combo.timer -= dt; if (this.combo.timer <= 0) { this.combo.count = 0; this.combo.timer = 0; } }
+    if (this.shrineBuffs) {
+      for (const k of ['fury', 'frost', 'gold', 'sheep']) this.shrineBuffs[k] = Math.max(0, (this.shrineBuffs[k] || 0) - dt);
+      if (this.shrineBuffs.sheep > 0 && this.state === 'play') {
+        this.heal(p.stats.maxHp * 0.015 * dt, false);
+        p.mana = Math.min(p.stats.mana, p.mana + dt * 3);
+      }
+    }
+    for (const sh of this.sheep || []) {
+      sh.wait -= dt; sh.hop = Math.max(0, sh.hop - dt);
+      const dx = sh.tx - sh.x, dz = sh.tz - sh.z, d = Math.hypot(dx, dz);
+      if (d < 0.25) {
+        if (sh.wait <= 0) { sh.wait = 3 + Math.random() * 5; const a = Math.random() * 6.28, rr = 1.2 + Math.random() * 2.8; const nx = sh.hx + Math.cos(a) * rr, nz = sh.hz + Math.sin(a) * rr; if (this.world.isWalk(nx, nz)) { sh.tx = nx; sh.tz = nz; } }
+      } else {
+        sh.x += (dx / d) * 1.25 * dt; sh.z += (dz / d) * 1.25 * dt;
+        sh.f = angleLerp(sh.f, Math.atan2(dx, dz), 1 - Math.exp(-dt * 8));
+      }
+      const hopY = sh.hop > 0 ? Math.sin((sh.hop / 0.45) * Math.PI) * 0.55 : (d >= 0.25 ? Math.abs(Math.sin(this.time * 8 + sh.ph)) * 0.12 : 0);
+      sh.mesh.position.set(sh.x, this.world.gh(sh.x, sh.z) + hopY, sh.z);
+      sh.mesh.rotation.y = sh.f;
+    }
+    if (this.state === 'play' && !this.interior && !this.isNight && Math.random() < dt * 2.4) {
+      this.fx.emit(p.pos.x + (Math.random() - 0.5) * 16, p.y + 0.8 + Math.random() * 1.6, p.pos.z + (Math.random() - 0.5) * 16, { c: [0xffe46a, 0xffa8d8, 0x8ef0ff, 0xffffff], s: 0.08, vx: (Math.random() - 0.5) * 1.4, vz: (Math.random() - 0.5) * 1.4, vy: 0.35, g: -0.1, life: 2.2 });
+    }
     for (const b of this.world?.buoys || []) {
       b.mesh.position.y = b.y0 + Math.sin(this.time * 2.2 + b.ph) * 0.08;
       b.mesh.rotation.z = Math.sin(this.time * 1.6 + b.ph) * 0.09;
@@ -2373,8 +2440,9 @@ export class Game {
       this.camera.fov = lerp(this.camera.fov, preset.fov, 1 - Math.exp(-dt * 6));
       this.camera.updateProjectionMatrix();
     }
+    this.camPunch = Math.max(0, (this.camPunch || 0) - dt * 0.45);
     const baseDist = this.camDistOverride || (this.interior ? 17 : this.photoMode ? 18 : this.state === 'title' ? 34 : 29);
-    const dist = baseDist * (this.interior ? 1 : (this.camZoom || 1));
+    const dist = baseDist * (this.interior ? 1 : (this.camZoom || 1)) * (1 - (this.camPunch || 0));
     const yaw = this.state === 'title' ? 0.45 : 0.62;
     const horiz = dist * preset.zK;
     this.camera.position.set(
