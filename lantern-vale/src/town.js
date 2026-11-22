@@ -1,9 +1,9 @@
 // 燈谷鎮場景：石板廣場、酒館、山牆小屋、市集、花園、水池與小橋、雕像與旗幟
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { part, toonMat } from './world.js';
+import { part, toonMat, windMat } from './world.js';
 
-const M = (parts, opts = {}) => { const m = new THREE.Mesh(mergeGeometries(parts), toonMat({ vertexColors: true, ...opts })); m.castShadow = true; m.receiveShadow = true; return m; };
+const M = (parts, opts = {}) => { const m = new THREE.Mesh(mergeGeometries(parts), opts.wind ? windMat({ vertexColors: true }, opts.wind) : toonMat({ vertexColors: true, ...opts })); m.castShadow = true; m.receiveShadow = true; return m; };
 const B = (w, h, d, c, x, y, z, rx = 0, ry = 0, rz = 0) => part(new THREE.BoxGeometry(w, h, d), c, x, y, z, rx, ry, rz);
 const faceCenter = (x, z) => Math.atan2(-x, -z);
 
@@ -71,8 +71,8 @@ function crate(x, z, s = 0.6, y = 0) { return B(s, s, s, 0xb88a50, x, y + s / 2,
 function lampPost(x, z) { const g = new THREE.Group(); g.add(M([part(new THREE.CylinderGeometry(0.07, 0.1, 2.2, 5), 0x3a3a44, 0, 1.1, 0), part(new THREE.CylinderGeometry(0.16, 0.16, 0.1, 6), 0x3a3a44, 0, 0.05, 0)]));
   const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.4, 0.32), new THREE.MeshBasicMaterial({ color: 0xffd27a })); lamp.position.y = 2.35; g.add(lamp, M([B(0.42, 0.08, 0.42, 0x3a3a44, 0, 2.62, 0), B(0.42, 0.08, 0.42, 0x3a3a44, 0, 2.12, 0)])); return g; }
 function planter(x, z, cols) { const parts = [part(new THREE.CylinderGeometry(0.4, 0.3, 0.45, 7), 0x9a7a5a, 0, 0.22, 0), part(new THREE.SphereGeometry(0.42, 6, 4), 0x4f9a4a, 0, 0.62, 0)]; cols.forEach((c, i) => parts.push(part(new THREE.IcosahedronGeometry(0.12, 0), c, Math.cos(i * 2.1) * 0.3, 0.9 + (i % 2) * 0.05, Math.sin(i * 2.1) * 0.3))); const g = new THREE.Group(); g.add(M(parts)); return g; }
-function cypress(s = 1) { const g = new THREE.Group(); g.add(M([part(new THREE.CylinderGeometry(0.1, 0.14, 0.5, 5), 0x6b4530, 0, 0.25, 0), part(new THREE.ConeGeometry(0.62, 2.4, 6), 0x3f8a4f, 0, 1.6, 0), part(new THREE.ConeGeometry(0.46, 1.4, 6), 0x4e9a58, 0, 2.5, 0)])); g.scale.setScalar(s); return g; }
-function blossom(col = 0xf59ac0) { const g = new THREE.Group(); g.add(M([part(new THREE.CylinderGeometry(0.16, 0.24, 1.6, 6), 0x6b4530, 0, 0.8, 0), part(new THREE.IcosahedronGeometry(1.15, 1), col, 0, 2.2, 0), part(new THREE.IcosahedronGeometry(0.8, 1), new THREE.Color(col).offsetHSL(0, 0, 0.06).getHex(), 0.7, 2.7, 0.3), part(new THREE.IcosahedronGeometry(0.7, 1), new THREE.Color(col).offsetHSL(0, 0, -0.05).getHex(), -0.7, 2.0, -0.3)])); return g; }
+function cypress(s = 1) { const g = new THREE.Group(); g.add(M([part(new THREE.CylinderGeometry(0.1, 0.14, 0.5, 5), 0x6b4530, 0, 0.25, 0), part(new THREE.ConeGeometry(0.62, 2.4, 6), 0x3f8a4f, 0, 1.6, 0), part(new THREE.ConeGeometry(0.46, 1.4, 6), 0x4e9a58, 0, 2.5, 0)], { wind: [0.22, 0.5, 2.2] })); g.scale.setScalar(s); return g; }
+function blossom(col = 0xf59ac0) { const g = new THREE.Group(); g.add(M([part(new THREE.CylinderGeometry(0.16, 0.24, 1.6, 6), 0x6b4530, 0, 0.8, 0), part(new THREE.IcosahedronGeometry(1.15, 1), col, 0, 2.2, 0), part(new THREE.IcosahedronGeometry(0.8, 1), new THREE.Color(col).offsetHSL(0, 0, 0.06).getHex(), 0.7, 2.7, 0.3), part(new THREE.IcosahedronGeometry(0.7, 1), new THREE.Color(col).offsetHSL(0, 0, -0.05).getHex(), -0.7, 2.0, -0.3)], { wind: [0.24, 1.2, 2.0] })); return g; }
 function banner(col) { const g = new THREE.Group(); g.add(M([part(new THREE.CylinderGeometry(0.06, 0.08, 3.4, 5), 0x3a3a44, 0, 1.7, 0), B(1.1, 0.06, 0.06, 0x3a3a44, 0.5, 3.2, 0), B(0.8, 1.9, 0.05, col, 0.5, 2.2, 0), B(0.5, 0.5, 0.06, 0xf2c04a, 0.5, 2.5, 0.01), B(0.8, 0.14, 0.06, 0xf2c04a, 0.5, 1.3, 0.01)])); return g; }
 function statue() { const g = new THREE.Group(); g.add(M([B(1.3, 0.5, 1.3, 0xcfc8bc, 0, 0.25, 0), B(0.9, 0.7, 0.9, 0xdcd5c8, 0, 0.85, 0), part(new THREE.CylinderGeometry(0.28, 0.4, 1.2, 6), 0xece6da, 0, 1.8, 0), part(new THREE.SphereGeometry(0.28, 6, 5), 0xece6da, 0, 2.6, 0), B(0.9, 0.8, 0.08, 0xf4efe6, -0.6, 2.2, -0.2, 0, 0.4, 0.5), B(0.9, 0.8, 0.08, 0xf4efe6, 0.6, 2.2, -0.2, 0, -0.4, -0.5)])); return g; }
 function well() { const g = new THREE.Group(); g.add(M([part(new THREE.CylinderGeometry(0.85, 0.9, 0.8, 9), 0xb0a89a, 0, 0.4, 0), part(new THREE.CylinderGeometry(0.62, 0.62, 0.82, 9), 0x4aa8d8, 0, 0.42, 0), B(0.12, 2.0, 0.12, 0x6a4a32, -0.85, 1.4, 0), B(0.12, 2.0, 0.12, 0x6a4a32, 0.85, 1.4, 0), B(2.2, 0.12, 1.2, 0xb8452f, 0, 2.5, 0, 0, 0, 0), B(1.2, 0.1, 1.2, 0xb8452f, -0.5, 2.7, 0, 0, 0, 0.4)])); return g; }

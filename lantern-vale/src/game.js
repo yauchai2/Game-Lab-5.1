@@ -3,7 +3,7 @@ import { bindGuild, updateRaid } from './guild.js';
 import { FIELDS, fieldBiome, awardKill, setupField, tickField, useFieldSpot, leaveGrave, rememberGear, restoreGear } from './frontier.js';
 import { CLASSES, ensurePuzzle, computeBoard } from './puzzle.js';
 import { dayInfo, findSecondClass, buildDungeonLandmark, tickSkyFeatures, buildInterior } from './world_alive.js';
-import { buildHarborTown, buildFerryBoat } from './harbor.js';
+import { buildHarborTown, buildFerryBoat, buildWoodenPier } from './harbor.js';
 import { addGearToBag } from './physbag.js';
 import { t } from './i18n.js';
 import * as THREE from 'three';
@@ -11,7 +11,7 @@ import { World, toonMat, HALF, windU } from './world.js';
 import { BIOMES, mulberry32, clamp, lerp, angleLerp, rand, pick } from './util.js';
 import { buildTownScenery } from './town.js';
 import { loadSettings, applySettings, buildSettingsUI } from './settings.js';
-import { showWeapon, applyCosmetics, buildPlayer, buildSlime, buildThorn, buildBoar, buildMoth, buildSkyRay, buildStag, buildArch, buildHouse, buildFountain, buildBoard, buildStall } from './models.js';
+import { showWeapon, applyCosmetics, buildPlayer, buildNPC, buildSlime, buildThorn, buildBoar, buildMoth, buildSkyRay, buildStag, buildArch, buildHouse, buildFountain, buildBoard, buildStall } from './models.js';
 import { Net } from './net.js';
 import { Meta } from './meta.js';
 import { buildPanels } from './panels.js';
@@ -206,6 +206,7 @@ export class Game {
       m, pos: new V3(), vel: new V3(), facing: 0, hp: 100, mana: 50, equip: { staff: null, cloak: null, charm: null },
       boons: [], skills: { slam: false, wisp: false }, cds: { atk: 0, bolt: 0, roll: 0, slam: 0, wisp: 0 }, skillCds: [0, 0, 0, 0], hotbar: [],
       roll: 0, rollDir: new V3(), iframes: 0, flask: { charges: 2, max: 3, prog: 0 }, healOver: 0,
+      statuses: { poison: 0, freeze: 0, chill: 0, burn: 0, shock: 0, overload: 0 }, statusTick: 0, castCombo: 0, castComboT: 0, prevVx: 0, prevVz: 0,
       y: 0, vy: 0, air: false, climbing: false, gliding: false, wall: false, stamina: 100, lastLow: new V3(), stepT: 0, swing: 0, swingT: 0, swingCount: 0, galeBuff: false, wisps: [], wispT: 0, walkT: 0, kills: 0, dmgDealt: 0, stats: {},
     };
     p.equip.staff = makeItem(mulberry32(5), 0, 0, 'staff');
@@ -288,15 +289,27 @@ export class Game {
     for (const idx of st.hiddenSpots || []) if (this.spots[idx]?.mesh) this.spots[idx].mesh.visible = false;
     return true;
   }
-  enterField(id) {
+  enterField(id, fromDir = 'south') {
     if (!FIELDS[id]) return;
     if (this.field && this.field !== id) this.saveFieldState();
     if (!this.field && this.depth >= 0 && !this.runEnded) this.bankRun(1);
     this.worldEvent = null; this.field = id; this.originField = id; this.state = 'play';
     const restored = this.zoneStates.has(id);
-    this.loadRoom(FIELDS[id].biome * 3, null);
+    this.loadRoom(FIELDS[id].biome * 3, null, false, { fromDir });
     setupField(this, restored);
     if (restored) this.restoreFieldState(id);
+    // 依進入方向將玩家放在對應入口閘門內側（避免每次都回到同一預設點）
+    const matchExit = this.exits.find(x => (fromDir === 'north' && x.type === 'dungeon') || (fromDir === 'east' && x.type === 'nextField') || (fromDir === 'south' && x.type === 'town'));
+    if (matchExit) {
+      const ang = Math.atan2(-matchExit.x, -matchExit.z);
+      const sx = matchExit.x + Math.sin(ang) * 3.8, sz = matchExit.z + Math.cos(ang) * 3.8;
+      if (this.world.isLand(sx, sz)) {
+        this.player.pos.set(sx, this.world.gh(sx, sz), sz);
+        this.player.y = this.player.pos.y;
+        this.player.facing = ang;
+        this.camPos.set(sx, 0, sz);
+      }
+    }
   }
   startRun() {
     if (this.field) this.saveFieldState();
@@ -312,7 +325,7 @@ export class Game {
     this.state = 'play';
     this.loadRoom(0, null);
   }
-  enterTown() {
+  enterTown(fromDir = null) {
     if (this.field) this.saveFieldState();
     if (this.state === 'play' && !this.field && this.depth >= 0 && this.runStart && !this.runEnded) this.bankRun(1);
     this.field = 0; this.lastTown = -1; this.recallT = 0;
@@ -321,9 +334,9 @@ export class Game {
     this.player = this.makePlayer(); this.recalc();
     this.player.hp = this.player.stats.maxHp; this.player.mana = this.player.stats.mana;
     this.state = 'play'; this.player.m.root.visible = true;
-    this.loadRoom(-1, null);
+    this.loadRoom(-1, null, false, { fromDir });
   }
-  enterHarbor() {
+  enterHarbor(fromDir = null) {
     if (this.field) this.saveFieldState();
     if (this.state === 'play' && !this.field && this.depth >= 0 && this.runStart && !this.runEnded) this.bankRun(1);
     this.field = 0; this.lastTown = -2; this.recallT = 0;
@@ -332,7 +345,7 @@ export class Game {
     this.player = this.makePlayer(); this.recalc();
     this.player.hp = this.player.stats.maxHp; this.player.mana = this.player.stats.mana;
     this.state = 'play'; this.player.m.root.visible = true;
-    this.loadRoom(-2, null);
+    this.loadRoom(-2, null, false, { fromDir });
   }
   startRecall() {
     if (this.state !== 'play' || this.sailing) return;
@@ -345,13 +358,13 @@ export class Game {
   sailTo(dest) {
     if (this.sailing) return;
     const boat = buildFerryBoat();
-    const sx = 0, sz = this.depth === -2 ? 15.8 : 13.6;
-    const tx = 0, tz = sz + 14;
-    boat.position.set(sx, 0.05, sz);
+    const sx = 0, sz = 29.8;
+    const tx = 0, tz = 48.0;
+    boat.position.set(sx, -0.02, sz);
     this.scene.add(boat);
-    this.sailing = { dest, t: 0, dur: 2.5, boat, sx, sz, tx, tz };
+    this.sailing = { dest, t: 0, dur: 2.6, boat, sx, sz, tx, tz };
     this.audio.sfx('glide');
-    this.ui.banner(dest === 'harbor' ? '⛵ 揚帆啟航 · 海風港鎮' : '⛵ 乘風返航 · 燈谷鎮', '沿著海風波浪航行中…');
+    this.ui.banner(dest === 'harbor' ? '⛵ 揚帆啟航 · 海風港鎮' : '⛵ 乘風返航 · 燈谷鎮', '從木造碼頭駛入深海波浪中…');
   }
   get zone() { if (this.field) return 'field:' + this.field; return this.state === 'title' ? 'title' : this.depth === -2 ? 'harbor' : this.depth < 0 ? 'town' : `run:${this.party || 'solo' + (this.net.id || '')}:${this.depth}`; }
   biomeFor(depth) { return depth >= 9 ? 3 : ((Math.floor(depth / 3) + (FIELDS[this.originField]?.biome || 0)) % 4); }
@@ -384,15 +397,18 @@ export class Game {
     const boss = depth === 9 && !title && !this.field;
     const seed = this.field ? 7201 + this.field * 319 : title ? 4242 : harbor ? 9002 : town ? 9001 : (this.runSeed || 1) + depth * 101;
     this.rng = mulberry32(seed + 77);
-    const { spawn, exits } = this.world.generate(seed, B, { boss, town: anyTown, raid: !!extra.raid, size: FIELDS[this.field]?.size, exitCount: extra.raid ? 0 : this.field ? (FIELDS[this.field + 1] ? 3 : 2) : town ? 1 : harbor ? 0 : boss ? 0 : (depth === 0 ? 2 : (this.rng() < 0.5 ? 2 : 3)) });
+    const { spawn, exits } = this.world.generate(seed, B, { boss, town: anyTown, raid: !!extra.raid, cardinalExits: !!this.field, size: FIELDS[this.field]?.size, exitCount: extra.raid ? 0 : this.field ? (FIELDS[this.field + 1] ? 3 : 2) : town ? 1 : harbor ? 0 : boss ? 0 : (depth === 0 ? 2 : (this.rng() < 0.5 ? 2 : 3)) });
     // 校正光照倍率避免白晝過曝（特別是雪原與沙灘）
     this.sun.color.set(B.sun); this.sun.intensity = B.sunI * 1.45;
     this.hemi.color.set(B.sky); this.hemi.groundColor.set(B.ground); this.hemi.intensity = B.ambient * 1.15;
     this.pipe.postMat.uniforms.uGrade.value.set(...B.grade);
     this.pipe.postMat.uniforms.uShaft.value.set(...B.shaft);
-    // player
+    // player（依進入方向對應出生位置：北門返鎮、碼頭下船或預設廣場）
     const p = this.player;
-    p.pos.set(spawn.x, 0, harbor ? 8.5 : spawn.z); p.vel.set(0, 0, 0); p.facing = Math.PI; p.roll = 0;
+    if (town && extra.fromDir === 'north') { p.pos.set(0, 0, -13.5); p.facing = 0; }
+    else if (anyTown && extra.fromDir === 'pier') { p.pos.set(0, 0.3, 23.2); p.facing = Math.PI; }
+    else { p.pos.set(spawn.x, 0, harbor ? 8.5 : spawn.z); p.facing = Math.PI; }
+    p.vel.set(0, 0, 0); p.roll = 0;
     this.camPos.set(p.pos.x, 0, p.pos.z);
     // exits (inactive until cleared in dungeons; always open in town & persistent normal maps)
     const types = ['item', 'boon', 'heal'];
@@ -521,7 +537,19 @@ export class Game {
   hitEnemy(e, hit, kx = 0, kz = 0, opts = {}) {
     if (e.dead) return;
     const p = this.player;
-    let dmg = e.vuln > 0 ? Math.round(hit.dmg * 1.3) : hit.dmg;
+    e.statuses = e.statuses || { poison: 0, freeze: 0, burn: 0, shock: 0 };
+    let mult = 1;
+    if (e.vuln > 0) mult *= 1.3;
+    if (e.statuses.shock > 0) mult *= 1.25;
+    if (p.statuses?.overload > 0) mult *= 1.25;
+    let dmg = Math.round(hit.dmg * mult);
+    // 碎冰連攜：攻擊冰凍目標觸發 1.45 倍碎冰爆發
+    if (e.statuses.freeze > 0 && !opts.isDoT) {
+      dmg = Math.round(dmg * 1.45);
+      e.statuses.freeze = 0;
+      this.fx.burst(e.pos.x, e.pos.y + 0.7, e.pos.z, 14, { c: [0x9cf0ff, 0xffffff, 0x58b8e8], s: 0.14, speed: 6.5, up: 4, life: 0.45 });
+      this.audio.sfx('crit');
+    }
     // 空中截擊與擊落機制：滯空攻擊對空中怪物造成 1.5 倍暴擊、擊落眩暈並踏跳反彈回復體力
     if (opts.aerial && e.flying && e.groundedT <= 0) {
       dmg = Math.round(dmg * 1.5);
@@ -533,16 +561,36 @@ export class Game {
       this.ui.toast('🦅 空中破翼擊落！體力 +40 · 踏跳反彈', '#7ae8ff');
       this.fx.burst(e.pos.x, e.pos.y + 0.6, e.pos.z, 14, { c: [0x7ae8ff, 0xffe480, 0xffffff], s: 0.14, speed: 6, up: 4, life: 0.5 });
     }
-    e.hp -= dmg; e.flash = 0.12; this.audio.sfx(hit.crit ? 'crit' : 'hit');
-    const kb = e.type === 'stag' ? 0.15 : 1;
-    e.knock.x += kx * kb; e.knock.z += kz * kb;
+    // 異常狀態附加（冰凍、中毒、灼燒、感電）
+    if (opts.slow && e.type !== 'stag') {
+      e.slow = Math.max(e.slow || 0, opts.slow);
+      if (Math.random() < 0.42) { e.statuses.freeze = Math.max(e.statuses.freeze, 2.0); this.fx.burst(e.pos.x, e.pos.y + 0.6, e.pos.z, 8, { c: [0x8eeeff, 0xffffff], s: 0.12, speed: 3.5, up: 2, life: 0.4 }); }
+    }
+    if (hit.fire && !opts.isDoT && Math.random() < 0.45) e.statuses.burn = Math.max(e.statuses.burn, 3.6);
+    if (opts.poison) e.statuses.poison = Math.max(e.statuses.poison, opts.poison);
+    if (opts.shock) e.statuses.shock = Math.max(e.statuses.shock, opts.shock);
+    e.hp -= dmg; e.flash = 0.14;
+    if (!opts.isDoT) {
+      // 加強打擊感：壓扁彈回（squash-and-stretch）、暴擊衝擊環、更強震動與頓幀
+      e.squash = hit.crit ? 0.36 : 0.22;
+      this.audio.sfx(hit.crit ? 'crit' : 'hit');
+      const kb = e.type === 'stag' ? 0.15 : 1.18;
+      e.knock.x += kx * kb; e.knock.z += kz * kb;
+      if (hit.crit) {
+        this.hitstop = Math.max(this.hitstop, 0.055);
+        this.shake = Math.max(this.shake, 0.24);
+        const rg = new THREE.RingGeometry(0.4, 0.72, 18); rg.rotateX(-Math.PI / 2);
+        const rm = new THREE.Mesh(rg, new THREE.MeshBasicMaterial({ color: 0xffe480, transparent: true, opacity: 0.9, depthWrite: false }));
+        rm.position.set(e.pos.x, e.pos.y + 0.35, e.pos.z); rm.userData.noNormal = true; this.scene.add(rm);
+        this.rings.push({ mesh: rm, t: 0, max: 0.22, radius: 1.9 });
+      }
+    }
     if (opts.stun && e.type !== 'stag') e.stun = Math.max(e.stun, opts.stun);
-    if (opts.slow) e.slow = Math.max(e.slow || 0, opts.slow);
     p.dmgDealt += dmg;
-    this.ui.dmgNum(e.pos.x, e.pos.y + 1.2 * e.m.root.scale.x + (e.type === 'stag' ? 2.5 : 0), e.pos.z, dmg, (hit.crit || opts.aerial) ? 'crit' : hit.fire ? 'fire' : '');
-    this.fx.burst(e.pos.x, e.pos.y + 0.6, e.pos.z, hit.crit ? 8 : 4, { c: hit.fire ? [0xffb040, 0xff7030] : [0xffffff, 0xfff2b0], s: 0.1, speed: 5, up: 3, life: 0.35 });
-    if (p.stats.lifeOnHit) this.heal(p.stats.lifeOnHit, false);
-    if (opts.leech) this.heal(opts.leech, false);
+    this.ui.dmgNum(e.pos.x, e.pos.y + 1.2 * e.m.root.scale.x + (e.type === 'stag' ? 2.5 : 0), e.pos.z, dmg, (hit.crit || opts.aerial) ? 'crit' : hit.fire ? 'fire' : opts.isDoT ? 'heal' : '');
+    this.fx.burst(e.pos.x, e.pos.y + 0.6, e.pos.z, hit.crit ? 12 : opts.isDoT ? 3 : 6, { c: hit.fire ? [0xffb040, 0xff7030] : hit.crit ? [0xffe47a, 0xffffff, 0xff9a50] : [0xffffff, 0xfff2b0], s: hit.crit ? 0.13 : 0.1, speed: hit.crit ? 6.5 : 5, up: 3.5, life: 0.38 });
+    if (p.stats.lifeOnHit && !opts.isDoT) this.heal(p.stats.lifeOnHit, false);
+    if (opts.leech && !opts.isDoT) this.heal(opts.leech, false);
     if (opts.hitstop) this.hitstop = Math.max(this.hitstop, opts.hitstop);
     if (e.hp <= 0) this.killEnemy(e);
   }
@@ -552,16 +600,15 @@ export class Game {
     e.dead = true; this.audio.sfx(e.type === 'stag' ? 'bossDie' : 'enemyDie');
     this.scene.remove(e.m.root);
     const col = { slime: [0x7fc35a, 0xb5e080], thorn: [0x8a5a3b, 0x6aa84a], boar: [0x9a6a4a, 0x5a3b2c], moth: [0xb48ae0, 0xffd27a], skyray: [0x58d4e8, 0xffe480], stag: [0xffb050, 0xe8dcc8] }[e.type];
-    this.puffs.burst(e.pos.x, 0.4, e.pos.z, e.type === 'stag' ? 40 : 10, { c: col, s: 0.22, speed: 4, up: 4, life: 0.8 });
+    this.puffs.burst(e.pos.x, 0.4, e.pos.z, e.type === 'stag' ? 40 : 12, { c: col, s: 0.24, speed: 4.5, up: 4.5, life: 0.8 });
     this.puffs.burst(e.pos.x, 0.3, e.pos.z, 6, { c: 0xffffff, s: 0.4, speed: 1.5, up: 1, g: -1, life: 0.8, grow: 1.4, drag: 3 });
-    this.shake = Math.max(this.shake, e.type === 'stag' ? 1 : 0.18);
+    this.shake = Math.max(this.shake, e.type === 'stag' ? 1 : 0.22);
     const p = this.player; p.kills++;
     this.onKillMeta(e); awardKill(this, e);
     p.flask.prog += (e.elite ? 1 : 0.25) * (this.meta.has('fortune') ? 0.5 : 1);
     while (p.flask.prog >= 1 && p.flask.charges < p.flask.max) { p.flask.prog -= 1; p.flask.charges++; }
     if (p.flask.charges >= p.flask.max) p.flask.prog = 0;
     if (this.has('feast')) this.heal(4 * p.boons.filter(b => b === 'feast').length, false);
-    // drops
     const r = Math.random();
     const dropChance = e.elite ? 1 : e.type === 'stag' ? 1 : 0.075;
     if (r < dropChance && this.field) this.dropItem(e.pos.x,e.pos.z,makeItem(Math.random,Math.floor(this.meta.p.level/4),e.elite?2:1));
@@ -574,19 +621,33 @@ export class Game {
     p.hp = Math.min(p.stats.maxHp, p.hp + v);
     if (show && p.hp > before) this.ui.dmgNum(p.pos.x, 1.6, p.pos.z, `+${Math.round(p.hp - before)}`, 'heal');
   }
-  hurtPlayer(dmg, src) {
+  hurtPlayer(dmg, src, statusKind = null) {
     const p = this.player;
     if (p.iframes > 0 || p.roll > 0 || this.state !== 'play' || this.depth < 0) return;
     const air = p.y - this.world.gh(p.pos.x, p.pos.z);
-    if (air > 0.8 && !p.gliding) return; // jumping dodges ground attacks
-    if (src && Math.abs(src.y - p.y) > 1.7 && air <= 0.8) return; // different height level
+    if (air > 0.8 && !p.gliding) return;
+    if (src && Math.abs(src.y - p.y) > 1.7 && air <= 0.8) return;
     if (this.recallT > 0) { this.recallT = 0; this.ui.toast('受到攻擊，回城中斷！', '#ff8a8a'); }
     this.audio.sfx('hurt');
-    dmg = Math.round(dmg * (1 - p.stats.armor / 100) * (this.meta.has('fragile') ? 1.35 : 1));
+    const shockMul = p.statuses?.shock > 0 ? 1.2 : 1;
+    dmg = Math.round(dmg * shockMul * (1 - p.stats.armor / 100) * (this.meta.has('fragile') ? 1.35 : 1));
     p.hp -= dmg; p.iframes = 0.6;
-    this.hurtFlash = 0.5; this.shake = Math.max(this.shake, 0.35); this.hitstop = 0.06;
+    this.hurtFlash = 0.5; this.shake = Math.max(this.shake, 0.38); this.hitstop = 0.06;
+    // 劇烈衝擊液體瓶（左右晃動＋水花四濺）
+    const dirSign = src ? Math.sign(p.pos.x - src.x || 1) : 1;
+    this.ui.hpVial?.impulse(dirSign * 2.4, 2.0);
+    this.ui.mpVial?.impulse(dirSign * 1.4, 1.2);
+    // 異常狀態感染（中毒、冰凍／緩速、灼燒、感電）
+    if (statusKind && p.statuses && Math.random() < 0.45) {
+      if (statusKind === 'poison') { p.statuses.poison = Math.max(p.statuses.poison, 6); this.ui.toast('🧪 中毒！血瓶冒出黏稠毒泡', '#8cf07a'); }
+      else if (statusKind === 'freeze') {
+        if (p.statuses.chill > 0) { p.statuses.freeze = 1.0; p.statuses.chill = 0; this.ui.toast('❄️ 遭到冰凍！', '#8eeeff'); }
+        else { p.statuses.chill = 4.5; this.ui.toast('🧊 寒霜緩速！', '#8eeeff'); }
+      } else if (statusKind === 'burn') { p.statuses.burn = Math.max(p.statuses.burn, 4.5); this.ui.toast('🔥 陷入灼燒！', '#ff9a50'); }
+      else if (statusKind === 'shock') { p.statuses.shock = Math.max(p.statuses.shock, 5.0); this.ui.toast('⚡ 陷入感電（易傷 +20%）！', '#c88cff'); }
+    }
     this.ui.dmgNum(p.pos.x, 1.5, p.pos.z, dmg, 'hurt');
-    this.fx.burst(p.pos.x, 0.6, p.pos.z, 8, { c: [0xff5a5a, 0xffffff], s: 0.1, speed: 4, life: 0.4 });
+    this.fx.burst(p.pos.x, 0.6, p.pos.z, 10, { c: [0xff5a5a, 0xffffff], s: 0.11, speed: 4.5, life: 0.4 });
     if (this.has('bramble')) for (const e of this.enemies) if (!e.dead && e.pos.distanceTo(p.pos) < 2.5) this.hitEnemy(e, { dmg: 20, crit: false });
     if (src) { tmp3.subVectors(p.pos, src).setY(0).normalize(); p.vel.addScaledVector(tmp3, 6); }
     if (p.hp <= 0) { p.hp = 0; this.die(); }
@@ -749,8 +810,15 @@ export class Game {
       if (!this._noManaT || this.time - this._noManaT > 1) { this.ui.toast('法力不足', '#7fb2ff'); this._noManaT = this.time; }
       return;
     }
-    if (def.mana) p.mana -= def.mana;
-    p.skillCds[slotIdx] = Math.max(0.12, def.cd * (1 - p.stats.cdr / 100) * (1 - mod.cdr));
+    if (def.mana) { p.mana -= def.mana; this.ui.mpVial?.impulse((Math.random() - 0.5) * 1.4, 1.3); }
+    // 連續施放 3 次技能觸發「魔力過載／狂暴」：液體瓶劇烈沸騰頂起瓶塞，技能傷害 +25%！
+    p.castCombo = (p.castComboT > 0 ? p.castCombo : 0) + 1; p.castComboT = 4.2;
+    if (p.castCombo >= 3 && p.statuses && p.statuses.overload <= 0) {
+      p.statuses.overload = 5.5;
+      this.ui.toast('💢 魔力過載！液體沸騰頂開瓶塞（傷害 +25%）', '#ffd85a');
+      this.ui.hpVial?.impulse(0, 1.8); this.ui.mpVial?.impulse(0, 2.2);
+    }
+    p.skillCds[slotIdx] = Math.max(0.12, def.cd * (1 - p.stats.cdr / 100) * (1 - mod.cdr) * (p.statuses?.overload > 0 ? 0.8 : 1));
     const run = (echoScale = 1) => this.execPuzzleSkill(def.id, mod, echoScale);
     run(1);
     for (let i = 1; i <= mod.echo; i++) setTimeout(() => { if (this.state === 'play') run(0.65); }, i * 240);
@@ -976,12 +1044,12 @@ export class Game {
   }
 
   moveEntity(pos, dx, dz, r, y = 0) {
-    // axis-separated movement on walk grid + circular & AABB obstacles
+    // 所有怪物皆可在全陸地（含高台與斜坡地形）自由上下移動
     const W = this.world;
     const nx = pos.x + dx;
-    if (W.isWalk(nx + Math.sign(dx) * r * 0.6, pos.z)) pos.x = nx;
+    if (W.isLand(nx + Math.sign(dx) * r * 0.6, pos.z)) pos.x = nx;
     const nz = pos.z + dz;
-    if (W.isWalk(pos.x, nz + Math.sign(dz) * r * 0.6)) pos.z = nz;
+    if (W.isLand(pos.x, nz + Math.sign(dz) * r * 0.6)) pos.z = nz;
     for (const o of W.obstacles) {
       if (Math.abs((o.h || 0) - y) > 1.3) continue;
       const ox = pos.x - o.x, oz = pos.z - o.z, d = Math.hypot(ox, oz), m = o.r + r * 0.7;
@@ -1207,8 +1275,10 @@ export class Game {
     // portal sign
     const sign = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.5, 0.1), toonMat({ color: 0xfff1d0 }));
     const ex = this.exits[0]; sign.position.set(ex.x, 3.4, ex.z); sign.rotation.y = ex.g.rotation.y; g.add(sign);
-    // 南碼頭渡船與城鎮建築合理矩形物理碰撞（AABB）
-    const ferry = buildFerryBoat(); ferry.position.set(0, 0.05, 13.8); g.add(ferry);
+    // 南岸木造碼頭棧橋（由南岸 z=19 延伸入深海 z=27.6）＋ 渡船停泊於深水盡頭
+    const pierData = buildWoodenPier(19.0, 27.6, 5.2); g.add(pierData.group);
+    this.world.pierBounds.push(pierData.bounds);
+    const ferry = buildFerryBoat(); ferry.position.set(0, -0.02, 29.8); g.add(ferry);
     const chest = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.75, 0.75), toonMat({ color: 0x9a643a }));
     chest.position.set(3.6, 0.38, 7.4); chest.castShadow = true; g.add(chest);
     this.worldBoxes.push(
@@ -1222,8 +1292,8 @@ export class Game {
       { kind: 'enter_tavern', label: '推門進入楓之酒館（室內）', x: -10.5, z: -2.5, top: 2.5 },
       { kind: 'guild', label: '燈谷公會大廳（加入公會／討伐）', x: 6.5, z: -6.5, top: 2.5 },
       { kind: 'ascend', label: '星燈覺醒祭壇（二轉職業覺醒）', x: -2.2, z: -6.5, top: 2.6 },
-      { kind: 'ferry_harbor', label: '乘船前往海風港鎮（3D 航行）', x: 0, z: 11.8, top: 2.5 },
-      { kind: 'open_stash', label: '燈谷公共倉庫（重力整理箱）', x: 3.6, z: 7.4, top: 2.2 },
+      { kind: 'ferry_harbor', label: '登船前往海風港鎮（南碼頭啟航）', x: 0, z: 26.2, top: 2.8 },
+      { kind: 'open_stash', label: '燈谷公共倉庫（城鎮限定重力整理箱）', x: 3.6, z: 7.4, top: 2.2 },
       { kind: 'open_cosmetics', label: '造型衣櫃（更換外觀造型）', x: -3.2, z: 7.4, top: 2.2 },
     );
     this.updateHome();
@@ -1234,17 +1304,18 @@ export class Game {
     const hb = buildHarborTown(this);
     this.townGroup = hb.group; this.scene.add(hb.group);
     this.world.obstacles.push(...hb.obstacles);
+    if (hb.pierBounds) this.world.pierBounds.push(hb.pierBounds);
     this.worldBoxes.push(...hb.boxes);
     this.spots = hb.spots;
     if (!this.net.url) {
       const harborBots = [
-        ['老船長 浪花', 2, ['海風港鎮的渡船隨時為旅人起航！', '北邊的三塊木牌通往浮空遺跡、珊瑚灣與沉沒電光都。'], [1.8, 11.2, 1.4]],
-        ['裁縫師 歐蕾', 4, ['要不要試試海風草帽或滑翔星翼？', '造型工坊裡的外觀都會即時顯示在身上喔！'], [-7.2, 5.2, 1.5]],
-        ['倉管員 阿桶', 6, ['倉庫跟你的背包一樣，可以把東西丟進去堆疊整理！', '按搖一搖可以把壓在底下的裝備震出來。'], [7.2, -1.8, 1.4]],
+        ['老船長 浪花', 2, ['海風港鎮的渡船已停泊在南碼頭盡頭！', '北邊的三塊木牌通往浮空遺跡、珊瑚灣與沉沒電光都。'], [1.8, 22.5, 1.4], 'captain'],
+        ['裁縫師 歐蕾', 4, ['要不要試試海風草帽或滑翔星翼？', '造型工坊裡的外觀都會即時顯示在身上喔！'], [-7.2, 5.2, 1.5], 'cat'],
+        ['倉管員 阿桶', 6, ['倉庫只有城鎮裡才能開啟，貴重物品放在這裡最安心！', '按搖一搖可以把壓在底下的裝備震出來。'], [7.2, -1.8, 1.4], 'smith'],
       ];
-      harborBots.forEach(([name, col, lines, home], i) => {
+      harborBots.forEach(([name, col, lines, home, arch], i) => {
         const id = 'hbot' + i;
-        const r = this.addRemote(id, name, col);
+        const r = this.addRemote(id, name, col, arch);
         r.bot = true; r.lines = lines; r.home = home; r.x = r.tx = home[0]; r.z = r.tz = home[1]; r.wait = 1 + i;
         this.bots.push(id);
       });
@@ -1258,16 +1329,18 @@ export class Game {
     this.homeModel.position.set(-6,0,10); this.townGroup.add(this.homeModel);
   }
   spawnBots() {
-    const defs = [['米糕 (鎮民)', 1, ['歡迎來到燈谷鎮！', '北邊的拱門通往燈谷，小心鹿王。', '空白鍵連按兩下可以跳，按住第二下就能滑翔喔。']],
-      ['阿杏 (鎮民)', 5, ['頂著懸崖不放就能攀爬，但會耗體力。', '聽說傳奇裝備很稀有……', '多喝蜜藥瓶，少受傷。']],
-      ['老燈 (鎮民)', 3, ['一個人也能走完，找朋友一起更熱鬧。', '輸入 Enter 可以聊天。', '噓……森林深處有東西在動。']]];
-    defs.push(['酒館老闆娘 楓', 4, ['今天的蘋果酒剛釀好！', '冒險回來記得來坐坐。', '聽說有人在雪原看見發光的鹿角。'], [-10, -4, 1.5]],
-      ['市集商人 豆豆', 2, ['新鮮的漿果，一個銅幣！', '下次我會進一些好裝備。', '傘下的位子最涼快。'], [8, 2.5, 2]],
-      ['守門人 石頭', 6, ['北門外就是燈谷，祝你好運。', '別在懸崖邊逗留太久。', '回來的路，燈會替你亮著。'], [0, -11.5, 1.2]],
-      ['園丁 小芽', 7, ['白色小花最近開得特別好。', '水池裡有小魚喔。', '踩到花圃我會哭的。'], [-4, 9.5, 2]]);
-    defs.forEach(([name, col, lines, home], i) => {
+    const defs = [
+      ['鐘錶匠 米糕', 1, ['歡迎來到燈谷鎮！我的發條懷錶說今天適合遠行。', '北邊拱門通往超大的晨光草原，南邊木棧橋可以搭船喔！'], null, 'clockmaker'],
+      ['草藥師 阿杏', 5, ['小心霧潮沼澤的毒霧，中毒時血瓶會冒出綠泡泡喔！', '喝蘋果酒或蜂王蜜可以立刻解除異常狀態。'], null, 'cat'],
+      ['守夜人 老燈', 3, ['雙燈照路，黑夜裡也別忘了看清楚腳下的高台。', '連續放三次技能會觸發魔力過載，瓶塞都會被頂起來呢！'], null, 'owl'],
+      ['酒館主廚 楓', 4, ['今天的楓糖蘋果酒剛釀好！', '推門進來酒館坐坐，烤火就能回復所有體力。'], [-10, -4, 1.5], 'chef'],
+      ['行腳商 豆豆', 2, ['背著大行囊走遍九大區域！不同物品在背包裡形狀都不一樣喔。', '想把多餘裝備存起來，記得找城鎮裡的公共倉庫箱。'], [8, 2.5, 2], 'peddler'],
+      ['鐵匠 石頭', 6, ['北門外就是燈谷！現在所有怪物都會爬上高台追擊，小心別被圍攻。', '打中冰凍的敵人會觸發碎冰暴擊！'], [0, -11.5, 1.2], 'smith'],
+      ['碼頭舵手 小潮', 7, ['順著木棧橋走到南邊盡頭就能登船前往海風港鎮！', '海風港的燈塔在夜裡特別漂亮。'], [1.5, 20.8, 1.2], 'captain'],
+    ];
+    defs.forEach(([name, col, lines, home, arch], i) => {
       const id = 'bot' + i; const a = Math.random() * 6.28;
-      const r = this.addRemote(id, name, col); r.bot = true; r.lines = lines; r.x = r.tx = Math.cos(a) * 4 + 2; r.z = r.tz = Math.sin(a) * 4 + 1; r.wait = Math.random() * 3; if (home) { r.home = home; r.x = r.tx = home[0]; r.z = r.tz = home[1]; }
+      const r = this.addRemote(id, name, col, arch); r.bot = true; r.lines = lines; r.x = r.tx = Math.cos(a) * 4 + 2; r.z = r.tz = Math.sin(a) * 4 + 1; r.wait = Math.random() * 3; if (home) { r.home = home; r.x = r.tx = home[0]; r.z = r.tz = home[1]; }
       this.bots.push(id);
     });
   }
@@ -1295,8 +1368,8 @@ export class Game {
       for (const id of [...this.remotes.keys()]) if (!seen.has(id) && !String(id).startsWith('bot')) this.removeRemote(id);
     });
   }
-  addRemote(id, name, col) {
-    const hood = HOODS[col % HOODS.length]; const m = buildPlayer(hood[0], hood[1], 0xf0d070);
+  addRemote(id, name, col, archetype = 'villager') {
+    const hood = HOODS[col % HOODS.length]; const m = buildNPC(archetype, hood[0], hood[1], 0xf0d070);
     m.root.scale.setScalar(1.25); this.scene.add(m.root);
     const tag = document.createElement('div'); tag.className = 'ptag'; tag.textContent = name;
     const bub = document.createElement('div'); bub.className = 'pbub';
@@ -1389,7 +1462,7 @@ export class Game {
       if (Math.random() < dt * 16) this.puffs.emit(bx + (Math.random() - 0.5) * 1.4, 0.05, bz - 1.8, { c: 0xdff8ff, s: 0.24, g: -0.2, life: 0.6, grow: 1.2 });
       if (k >= 1 && !s.done) {
         s.done = true;
-        this.ui.wipe(() => s.dest === 'harbor' ? this.enterHarbor() : this.enterTown());
+        this.ui.wipe(() => s.dest === 'harbor' ? this.enterHarbor('pier') : this.enterTown('pier'));
       }
       this.animatePlayer(dt); this.updateCamera(dt); this.fx.update(dt); this.puffs.update(dt); this.ui.update(this);
       return;
@@ -1425,8 +1498,29 @@ export class Game {
       }
       const spd = 5.4 * (1 + S.moveSpd / 100);
       p.wall = false; p.wallH = 0;
+      // 玩家異常狀態倒數與持續效果（中毒、冰凍、緩速、灼燒、感電、過載）
+      if (p.statuses) {
+        const st = p.statuses;
+        p.castComboT = Math.max(0, (p.castComboT || 0) - dt);
+        if (p.castComboT <= 0) p.castCombo = 0;
+        for (const k of ['poison', 'freeze', 'chill', 'burn', 'shock', 'overload']) st[k] = Math.max(0, (st[k] || 0) - dt);
+        if (st.poison > 0 || st.burn > 0) {
+          p.statusTick = (p.statusTick || 0) + dt;
+          if (p.statusTick >= 1.0) {
+            p.statusTick = 0;
+            const dot = Math.max(2, Math.round(S.maxHp * (st.poison > 0 ? 0.03 : 0.035)));
+            p.hp = Math.max(1, p.hp - dot);
+            this.ui.dmgNum(p.pos.x, p.y + 1.5, p.pos.z, dot, st.poison > 0 ? 'heal' : 'fire');
+            this.fx.burst(p.pos.x, p.y + 0.8, p.pos.z, 5, { c: st.poison > 0 ? [0x6fe06a, 0xa86ae0] : [0xff7a30, 0xffd25a], s: 0.1, speed: 2, up: 2, life: 0.45 });
+          }
+        }
+      }
       p.sprinting = false;
-      if (p.roll > 0) {
+      const frozen = (p.statuses?.freeze || 0) > 0;
+      const chillMul = (p.statuses?.chill || 0) > 0 ? 0.65 : 1;
+      if (frozen) {
+        p.vel.multiplyScalar(0.75);
+      } else if (p.roll > 0) {
         p.roll -= dt;
         this.movePlayer(p.rollDir.x * 13 * dt, p.rollDir.z * 13 * dt);
         if (Math.random() < 0.5) this.puffs.emit(p.pos.x, p.y + 0.1, p.pos.z, { c: 0xf4ecd8, s: 0.18, g: -0.4, life: 0.4, grow: 1 });
@@ -1434,7 +1528,7 @@ export class Game {
         const attacking = p.swingT > 0;
         const canSprint = !!(this.keys.shift && mv.lengthSq() > 0.01 && !p.air && !p.climbing && !attacking && p.stamina > 2);
         if (canSprint) { p.sprinting = true; p.stamina = Math.max(0, p.stamina - 16 * dt * this.meta.staminaK); }
-        const f = (attacking ? 0.55 : 1) * (p.climbing ? 0.22 : 1) * (p.gliding ? 1.35 : 1) * (canSprint ? 1.35 : 1);
+        const f = chillMul * (attacking ? 0.55 : 1) * (p.climbing ? 0.22 : 1) * (p.gliding ? 1.35 : 1) * (canSprint ? 1.35 : 1);
         p.vel.x = lerp(p.vel.x, mv.x * spd * f, 1 - Math.exp(-dt * (p.air ? 6 : 14)));
         p.vel.z = lerp(p.vel.z, mv.y * spd * f, 1 - Math.exp(-dt * (p.air ? 6 : 14)));
         this.movePlayer(p.vel.x * dt, p.vel.z * dt);
@@ -1445,6 +1539,25 @@ export class Game {
           if (p.stepT > Math.PI) { p.stepT -= Math.PI; this.audio.sfx('step'); }
           if (Math.random() < dt * (canSprint ? 10 : 4)) this.puffs.emit(p.pos.x, p.y + 0.05, p.pos.z, { c: 0xf4ecd8, s: canSprint ? 0.16 : 0.12, g: -0.3, life: 0.35, grow: 1 });
         } else p.walkT = 0;
+      }
+      // 2D 流體物理瓶慣性連動：衝刺急停或急轉彎時液體跟著左右劇烈晃動
+      const accX = (p.vel.x - (p.prevVx || 0)) / Math.max(dt, 0.016);
+      const accZ = (p.vel.z - (p.prevVz || 0)) / Math.max(dt, 0.016);
+      if (Math.hypot(accX, accZ) > 12) {
+        const impX = clamp(accX * 0.025, -1.6, 1.6), impY = clamp(Math.abs(accZ) * 0.014, 0, 1.0);
+        this.ui.hpVial?.impulse(impX, impY); this.ui.mpVial?.impulse(impX * 0.8, impY * 0.7);
+      }
+      p.prevVx = p.vel.x; p.prevVz = p.vel.z;
+      // 樹木碰撞與攻擊互動落葉效果
+      if (!this.interior && this.world.trees?.length && (mv.lengthSq() > 0.01 || p.swingT > 0)) {
+        const reach = p.swingT > 0 ? 3.2 : 1.15;
+        for (const tr of this.world.trees) {
+          if (this.time - (tr.rustleT || 0) < 0.7) continue;
+          if (Math.hypot(p.pos.x - tr.x, p.pos.z - tr.z) < tr.r + reach) {
+            tr.rustleT = this.time;
+            this.fx.burst(tr.x, tr.y + 2.1, tr.z, p.swingT > 0 ? 9 : 4, { c: [tr.leafCol, 0xffe480], s: 0.11, speed: 2.2, up: 0.8, g: 2.2, life: 1.1 });
+          }
+        }
       }
       this.updateVertical(dt, mv);
       p.swingT = Math.max(0, p.swingT - dt);
@@ -1596,15 +1709,15 @@ export class Game {
   }
   goExit(x) {
     if (this.state !== 'play') return;
-    if (x.type === 'town') { this.state = 'transition'; this.audio.sfx('warp'); this.ui.wipe(() => this.lastTown === -2 ? this.enterHarbor() : this.enterTown()); return; }
-    if (x.type === 'nextField') { this.state = 'transition'; this.audio.sfx('warp'); this.ui.wipe(() => this.enterField(this.field + 1)); return; }
+    if (x.type === 'town') { this.state = 'transition'; this.audio.sfx('warp'); this.ui.wipe(() => this.lastTown === -2 ? this.enterHarbor() : this.enterTown('north')); return; }
+    if (x.type === 'nextField') { this.state = 'transition'; this.audio.sfx('warp'); this.ui.wipe(() => this.enterField(this.field + 1, 'south')); return; }
     if (x.type === 'dungeon') {
       if (this.meta.p.keys < 1) {
         if (!this.keyHint || this.time > this.keyHint) { this.ui.toast('需要鑰石 · 擊敗精英可取得'); this.keyHint = this.time + 3; } return;
       }
       this.meta.p.keys--; this.meta.save();
     }
-    if (x.type === 'run') { this.state = 'transition'; this.ui.wipe(() => this.enterField(1)); return; }
+    if (x.type === 'run') { this.state = 'transition'; this.ui.wipe(() => this.enterField(1, 'south')); return; }
     if (x.type === 'dungeon') { this.state = 'transition'; this.audio.sfx('warp'); this.ui.wipe(() => this.startRun()); return; }
     this.state = 'transition'; this.audio.sfx('warp');
     this.ui.wipe(() => { this.state = 'play'; this.loadRoom(this.depth + 1, x.type); });
@@ -1617,10 +1730,24 @@ export class Game {
       if (e.dead) continue;
       e.t += dt; e.flash = Math.max(0, e.flash - dt); e.stun = Math.max(0, e.stun - dt); e.hitCd = Math.max(0, e.hitCd - dt);
       e.slow = Math.max(0, e.slow - dt); e.vuln = Math.max(0, (e.vuln || 0) - dt);
+      e.squash = Math.max(0, (e.squash || 0) - dt * 2.2);
+      // 怪物異常狀態結算（冰凍定身、中毒／灼燒 DoT、感電易傷）
+      e.statuses = e.statuses || { poison: 0, freeze: 0, burn: 0, shock: 0 };
+      const est = e.statuses;
+      for (const k of ['poison', 'freeze', 'burn', 'shock']) est[k] = Math.max(0, (est[k] || 0) - dt);
+      if (est.poison > 0 || est.burn > 0) {
+        e.dotT = (e.dotT || 0) + dt;
+        if (e.dotT >= 0.85) {
+          e.dotT = 0;
+          const dotDmg = Math.max(3, Math.round(e.maxHp * (est.poison > 0 ? 0.045 : 0.055)));
+          this.hitEnemy(e, { dmg: dotDmg, crit: false, fire: est.burn > 0 }, 0, 0, { isDoT: true });
+          if (e.dead) continue;
+        }
+      }
       const toP = tmp2.set(p.pos.x - e.pos.x, p.pos.z - e.pos.z); const dist = toP.length();
       const dirP = toP.clone().normalize();
       let mvx = 0, mvz = 0;
-      const spd = e.spd * (e.slow > 0 ? 0.45 : 1);
+      const spd = est.freeze > 0 ? 0 : e.spd * (e.slow > 0 ? 0.45 : 1);
       // knockback
       if (e.knock.lengthSq() > 0.01) { this.moveEntity(e.pos, e.knock.x * dt, e.knock.z * dt, e.r); e.knock.multiplyScalar(Math.exp(-dt * 9)); }
       const follow = (s = 1) => {
@@ -1729,17 +1856,25 @@ export class Game {
           this.hitEnemy(e, this.rollDamage(1.4), 0, 0, { aerial: true, hitstop: 0.04 });
           e.hitCd = 0.6;
         } else if (!e.flying || e.groundedT > 0 || Math.abs(p.y - e.pos.y) < 1.1) {
-          this.hurtPlayer(e.dmg * (e.type === 'stag' ? 0.8 : 1), e.pos); e.hitCd = 0.8;
+          this.hurtPlayer(e.dmg * (e.type === 'stag' ? 0.8 : 1), e.pos, e.statusAffinity || (e.type === 'slime' ? 'poison' : null)); e.hitCd = 0.8;
         }
       }
-      // visuals
+      // visuals（怪物平滑爬坡貼合地形高度＋受擊壓扁彈回＋異常狀態色彩提示）
       const flyH = (e.flying && e.groundedT <= 0) ? (e.alt + Math.sin(e.t * 3.2 + e.ph) * 0.25) : 0;
-      e.pos.y = W.groundY(e.pos.x, e.pos.z) + flyH;
+      const targetY = W.gh(e.pos.x, e.pos.z) + flyH;
+      e.pos.y = lerp(e.pos.y || targetY, targetY, 1 - Math.exp(-dt * 16));
       e.m.root.position.set(e.pos.x, e.pos.y, e.pos.z);
       if (e.m.shadowRing) e.m.shadowRing.position.y = -flyH + 0.06;
       e.m.root.rotation.y = e.facing;
+      if (e.squash > 0) e.m.body.scale.set(1 + e.squash * 0.7, 1 - e.squash * 0.55, 1 + e.squash * 0.7);
+      else if (e.type !== 'slime' && e.state !== 'aim') e.m.body.scale.set(1, 1, 1);
       const fl = e.flash > 0 ? 1 : 0;
-      e.m.mat.emissive.setRGB(fl * 0.9, fl * 0.85, fl * 0.8);
+      if (fl) e.m.mat.emissive.setRGB(0.95, 0.9, 0.85);
+      else if (est.freeze > 0) e.m.mat.emissive.setRGB(0.18, 0.52, 0.78);
+      else if (est.poison > 0) e.m.mat.emissive.setRGB(0.18, 0.52, 0.22);
+      else if (est.burn > 0) e.m.mat.emissive.setRGB(0.65, 0.22, 0.08);
+      else if (est.shock > 0) e.m.mat.emissive.setRGB(0.45, 0.25, 0.72);
+      else e.m.mat.emissive.setRGB(0, 0, 0);
       if (e.stun > 0) e.m.body.rotation.z = Math.sin(this.time * 20) * 0.1; else e.m.body.rotation.z = 0;
     }
     this.enemies = this.enemies.filter(e => !e.dead);

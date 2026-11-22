@@ -183,10 +183,13 @@ export class World {
     this.group = new THREE.Group();
     scene.add(this.group);
     this.walk = new Uint8Array(GW * GW);
+    this.land = new Uint8Array(GW * GW);
     this.height = new Float32Array(GW * GW);
     this.flow = new Int32Array(GW * GW);
     this.obstacles = [];
     this.lanterns = [];
+    this.trees = [];
+    this.pierBounds = [];
     this.waterMat = null;
   }
 
@@ -195,10 +198,15 @@ export class World {
     if (i < 0 || j < 0 || i >= GW || j >= GW) return -1;
     return j * GW + i;
   }
-  isWalk(x, z) { const k = this.idx(x, z); return k >= 0 && this.walk[k] === 1; }
-  groundY(x, z) { const k = this.idx(x, z); return k < 0 ? -2 : Math.max(this.height[k], -0.3); }
-  // smooth bilinear height for the 3D-moving player
+  isPier(x, z) {
+    for (const p of this.pierBounds) if (x >= p.x0 && x <= p.x1 && z >= p.z0 && z <= p.z1) return p;
+    return null;
+  }
+  isWalk(x, z) { if (this.isPier(x, z)) return true; const k = this.idx(x, z); return k >= 0 && this.walk[k] === 1; }
+  groundY(x, z) { const pr = this.isPier(x, z); if (pr) return pr.y; const k = this.idx(x, z); return k < 0 ? -2 : Math.max(this.height[k], -0.3); }
   gh(x, z) {
+    const pr = this.isPier(x, z);
+    if (pr) return pr.y;
     const fx = (x + this.half) / this.res, fz = (z + this.half) / this.res;
     const i = Math.floor(fx), j = Math.floor(fz);
     if (i < 0 || j < 0 || i >= GW - 1 || j >= GW - 1) return -2;
@@ -206,7 +214,7 @@ export class World {
     const h = (H[k] * (1 - tx) + H[k + 1] * tx) * (1 - tz) + (H[k + GW] * (1 - tx) + H[k + GW + 1] * tx) * tz;
     return Math.max(h, -0.3);
   }
-  isLand(x, z) { const k = this.idx(x, z); return k >= 0 && this.height[k] > -0.2 && this.RR[k] < 1.0; }
+  isLand(x, z) { if (this.isPier(x, z)) return true; const k = this.idx(x, z); return k >= 0 && this.height[k] > -0.2 && this.RR[k] < 1.0; }
 
   clear() {
     this.waterMat?.uniforms.uShore.value.dispose();
@@ -216,6 +224,8 @@ export class World {
     this.scene.add(this.group);
     this.obstacles = [];
     this.lanterns = [];
+    this.trees = [];
+    this.pierBounds = [];
   }
 
   generate(seed, biome, opts = {}) {
@@ -292,12 +302,28 @@ export class World {
         }
         if (ok && d > 9 && z < 4) cands.push({ x, z, d, a: Math.atan2(z, x) });
       }
-      if (opts.town) cands.sort((a, b) => Math.hypot(a.x, a.z + 18) - Math.hypot(b.x, b.z + 18)); else cands.sort((a, b) => b.d - a.d);
-      for (const c of cands) {
-        if (exits.length >= exitCount) break;
-        if (exits.every(e => Math.hypot(e.x - c.x, e.z - c.z) > 9)) exits.push(c);
+      if (opts.cardinalExits && exitCount >= 2) {
+        const pickNear = (tx, tz) => {
+          let best = null, bd = 1e9;
+          for (const c of cands) {
+            if (exits.some(e => Math.hypot(e.x - c.x, e.z - c.z) < 12)) continue;
+            const d = Math.hypot(c.x - tx, c.z - tz);
+            if (d < bd) { bd = d; best = c; }
+          }
+          return best;
+        };
+        const R0 = R * 0.72;
+        const nEx = pickNear(0, -R0) || cands[0]; if (nEx) exits.push({ ...nEx, dir: 'north' });
+        const sEx = pickNear(0, R0 * 0.85) || cands[1]; if (sEx) exits.push({ ...sEx, dir: 'south' });
+        if (exitCount >= 3) { const eEx = pickNear(R0, 0) || cands[2]; if (eEx) exits.push({ ...eEx, dir: 'east' }); }
+      } else {
+        if (opts.town) cands.sort((a, b) => Math.hypot(a.x, a.z + 18) - Math.hypot(b.x, b.z + 18)); else cands.sort((a, b) => b.d - a.d);
+        for (const c of cands) {
+          if (exits.length >= exitCount) break;
+          if (exits.every(e => Math.hypot(e.x - c.x, e.z - c.z) > 9)) exits.push(c);
+        }
       }
-      if (exits.length === 0 && exitCount > 0) exits.push({ x: 0, z: -6 });
+      if (exits.length === 0 && exitCount > 0) exits.push({ x: 0, z: -6, dir: 'north' });
     }
     this.exits = exits;
     // spawn point: walkable near centre-south
@@ -444,9 +470,11 @@ export class World {
         if (kk.some(q2 => T[q2] !== t)) continue;
         if (r() < 0.75) {
           const s = 0.7 + r() * 0.45;
-          if (r() < pineBias) pines[Math.floor(r() * 2)].push({ x, y, z, s, ry: r() * 6 });
+          const isPine = r() < pineBias;
+          if (isPine) pines[Math.floor(r() * 2)].push({ x, y, z, s, ry: r() * 6 });
           else rounds[Math.floor(r() * 3)].push({ x, y, z, s, ry: r() * 6 });
           this.obstacles.push({ x, z, r: 0.4 * s + 0.15, h: y });
+          this.trees.push({ x, y, z, r: 1.45 * s, leafCol: isPine ? P.pine[0] : P.leaf[0], rustleT: 0 });
         } else if (r() < 0.5) rocks.push({ x, y, z, s: 0.6 + r() * 0.9, ry: r() * 6 });
         else bushes.push({ x, y, z, s: 0.8 + r() * 0.6, ry: r() * 6 });
       } else if (t === 1 && rr < 1.0) {
@@ -458,9 +486,11 @@ export class World {
         if (!isW && rr > 0.95) { if (roll < 0.15) rocks.push({ x, y: y - 0.1, z, s: 0.5 + r() * 0.6, ry: r() * 6 }); continue; }
         if (roll < 0.035 && !occupied(x, z, 1.2)) {
           const s = 0.75 + r() * 0.5;
-          if (r() < pineBias) pines[Math.floor(r() * 2)].push({ x, y, z, s, ry: r() * 6 });
+          const isPine = r() < pineBias;
+          if (isPine) pines[Math.floor(r() * 2)].push({ x, y, z, s, ry: r() * 6 });
           else rounds[Math.floor(r() * 3)].push({ x, y, z, s, ry: r() * 6 });
           if (isW) this.obstacles.push({ x, z, r: 0.45 * s + 0.2, h: y });
+          this.trees.push({ x, y, z, r: 1.55 * s, leafCol: isPine ? P.pine[0] : P.leaf[0], rustleT: 0 });
         } else if (roll < 0.06 && !occupied(x, z, 1)) {
           const s = 0.5 + r() * 0.9;
           rocks.push({ x, y, z, s, ry: r() * 6 });
@@ -500,10 +530,10 @@ export class World {
         this.obstacles.push({ x, z, r: 0.25, h: 0 });
       }
     }
-    inst(pineT[0], pines[0], { wind: [0.10, 0.9, 2.4] }); inst(pineT[1], pines[1], { wind: [0.10, 0.9, 2.4] });
-    rounds.forEach((l, i) => inst(roundT[i], l, { wind: [0.12, 0.9, 2.2] }));
+    inst(pineT[0], pines[0], { wind: [0.20, 0.7, 2.2] }); inst(pineT[1], pines[1], { wind: [0.20, 0.7, 2.2] });
+    rounds.forEach((l, i) => inst(roundT[i], l, { wind: [0.24, 0.8, 2.0] }));
     inst(rockGeo(P, r), rocks);
-    inst(bushGeo(P, r), bushes, { wind: [0.10, 0.1, 0.8] });
+    inst(bushGeo(P, r), bushes, { wind: [0.18, 0.08, 0.75] });
     inst(grassGeo(P.grassDark), grass, { cast: false, wind: [0.32, 0.0, 0.42] });
     inst(grassGeo(P.leaf[0]), grass2, { cast: false, wind: [0.32, 0.0, 0.42] });
     inst(flowerGeo(), flowers, { cast: false, wind: [0.25, 0.0, 0.3] });
@@ -524,6 +554,7 @@ export class World {
       this.group.add(lm);
     }
     this.T = T; this.RR = RR;
+    for (let k = 0; k < GW * GW; k++) this.land[k] = (T[k] >= 1 && RR[k] < 0.96) ? 1 : 0;
     this.paths = paths;
     return { spawn, exits };
   }
@@ -606,7 +637,7 @@ export class World {
           gl_FragColor = vec4(col, 1.0);
         }`,
     });
-    const g = new THREE.PlaneGeometry(760, 760); g.rotateX(-Math.PI / 2);
+    const g = new THREE.PlaneGeometry(1500, 1500); g.rotateX(-Math.PI / 2);
     const w = new THREE.Mesh(g, mat);
     w.position.y = WATER_Y; w.renderOrder = -1;
     w.receiveShadow = false;
@@ -614,13 +645,13 @@ export class World {
     this.waterMat = mat;
   }
 
-  // BFS distance field toward target for enemy navigation
+  // BFS distance field toward target for enemy navigation (traverses plateaus & hills)
   computeFlow(tx, tz) {
     const F = this.flow; F.fill(-1);
     const s = this.idx(tx, tz); if (s < 0) return;
     const q = new Int32Array(GW * GW); let h = 0, t = 0;
     q[t++] = s; F[s] = 0;
-    const W = this.walk;
+    const W = this.land;
     while (h < t) {
       const k = q[h++]; const d = F[k] + 1;
       const n1 = k + 1, n2 = k - 1, n3 = k + GW, n4 = k - GW;

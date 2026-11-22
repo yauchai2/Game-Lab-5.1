@@ -9,6 +9,7 @@ import { dayInfo, findSecondClass, drawRegionMap } from './world_alive.js';
 import { COSMETICS } from './harbor.js';
 import { applyCosmetics } from './models.js';
 import { PhysicsContainer, ensurePhysicsStorage, useBagItem, transferBagItem } from './physbag.js';
+import { FluidVial } from './vials.js';
 import { t } from './i18n.js';
 import * as THREE from 'three';
 import { RARITY, SLOTS, itemLines, itemScore, BOONS } from './loot.js';
@@ -25,6 +26,9 @@ export class UI {
   }
   bind(game) {
     this.game = game;
+    this.atStash = false;
+    if ($('hpCanvas')) this.hpVial = new FluidVial($('hpCanvas'), 'hp');
+    if ($('mpCanvas')) this.mpVial = new FluidVial($('mpCanvas'), 'mp');
     game.settings = loadSettings(); buildPanels(game); buildSettingsUI(game); applySettings(game);
     $('btnMute').onclick = () => { game.audio.init(); const m = game.audio.toggleMute(); $('btnMute').textContent = m ? '🔇' : '🔊'; };
     $('btnMute').textContent = game.audio.muted ? '🔇' : '🔊';
@@ -66,11 +70,13 @@ export class UI {
       act.textContent = item.kind === 'gear' ? t(lang, 'equipItem') : t(lang, 'useItem');
       act.onclick = () => { useBagItem(game, item, fromKey); this.syncPhysBags(game); this.renderInv(game, true); };
       btns.appendChild(act);
-      const otherKey = fromKey === 'bagItems' ? 'stashItems' : 'bagItems';
-      const mv = document.createElement('button'); mv.className = 'btn small'; mv.style.background = 'var(--teal)';
-      mv.textContent = otherKey === 'stashItems' ? t(lang, 'toStash') : t(lang, 'toBag');
-      mv.onclick = () => { transferBagItem(game, item, fromKey, otherKey); this.syncPhysBags(game); showSel(boxId, btnsId, null, fromKey); };
-      btns.appendChild(mv);
+      if (this.atStash) {
+        const otherKey = fromKey === 'bagItems' ? 'stashItems' : 'bagItems';
+        const mv = document.createElement('button'); mv.className = 'btn small'; mv.style.background = 'var(--teal)';
+        mv.textContent = otherKey === 'stashItems' ? t(lang, 'toStash') : t(lang, 'toBag');
+        mv.onclick = () => { transferBagItem(game, item, fromKey, otherKey); this.syncPhysBags(game); showSel(boxId, btnsId, null, fromKey); };
+        btns.appendChild(mv);
+      }
     };
     if (bagCv) {
       this.bagPhys = new PhysicsContainer(bagCv, {
@@ -90,11 +96,28 @@ export class UI {
     const ss = $('btnShakeStash'); if (ss) ss.onclick = () => { this.stashPhys?.shake(); game.audio.sfx('roll'); };
     const bc = $('btnInvClose'); if (bc) bc.onclick = () => this.toggleInv(game);
     document.querySelectorAll('[data-invtab]').forEach(btn => {
-      btn.onclick = () => { this.setInvTab(game, btn.dataset.invtab); game.audio.sfx('ui'); };
+      btn.onclick = () => {
+        if (btn.dataset.invtab === 'stash' && !this.atStash) {
+          game.audio.sfx('ui');
+          this.toast(t(game.settings?.lang, 'stashLocked'), '#ffd85a');
+          return;
+        }
+        this.setInvTab(game, btn.dataset.invtab); game.audio.sfx('ui');
+      };
     });
   }
+  openInvTab(game, tab) {
+    const mapped = tab === 'cosmetics' ? 'cos' : tab;
+    this.atStash = (mapped === 'stash');
+    this.invOpen = true;
+    $('inv').classList.remove('hide');
+    this.setInvTab(game, mapped);
+  }
   setInvTab(game, tab) {
+    if (tab === 'stash' && !this.atStash) tab = 'bag';
     this.invTab = tab;
+    const stBtn = document.querySelector('[data-invtab="stash"]');
+    if (stBtn) stBtn.style.display = this.atStash ? '' : 'none';
     document.querySelectorAll('[data-invtab]').forEach(b => b.classList.toggle('on', b.dataset.invtab === tab));
     ['bag', 'gear', 'stash', 'cos'].forEach(k => {
       const pane = $('pane-' + k);
@@ -103,6 +126,11 @@ export class UI {
     if (tab === 'bag' || tab === 'stash') this.syncPhysBags(game);
     if (tab === 'gear') this.renderInv(game, true);
     if (tab === 'cos') this.renderCosmetics(game);
+  }
+  refreshLanguage(game) {
+    const lang = game.settings?.lang || 'zh-TW';
+    const bi = $('bagSelInfo'); if (bi && !this.bagPhys?.selectedUid) bi.textContent = t(lang, 'bagEmpty');
+    if (this.invOpen && this.invTab === 'gear') this.renderInv(game, true);
   }
   syncPhysBags(game) {
     const st = ensurePhysicsStorage(game.meta.p);
@@ -232,16 +260,32 @@ export class UI {
     { const st = $('stam'); if (!st.children.length) for (let i = 0; i < 10; i++) st.appendChild(document.createElement('i'));
       const n = p.stamina / 10; for (let i = 0; i < 10; i++) st.children[i].classList.toggle('empty', i + 0.5 > n);
       st.classList.toggle('hide', p.stamina >= 99.5 && !p.air && !p.climbing); }
-    $('hpFill').style.height = (p.hp / S.maxHp * 100) + '%';
-    $('mpFill').style.height = (p.mana / S.mana * 100) + '%';
+    const st = p.statuses || {};
+    const vialStates = { poison: st.poison > 0, freeze: st.freeze > 0, chill: st.chill > 0, shock: st.shock > 0, overload: st.overload > 0, frenzy: st.overload > 0 || (p.hp / S.maxHp < 0.28) };
+    if (this.hpVial) { this.hpVial.step(1 / 60, p.hp / S.maxHp, vialStates); this.hpVial.draw(); }
+    if (this.mpVial) { this.mpVial.step(1 / 60, p.mana / S.mana, vialStates); this.mpVial.draw(); }
     $('hpText').textContent = `${Math.ceil(p.hp)}/${S.maxHp}`;
     $('mpText').textContent = `${Math.floor(p.mana)}/${S.mana}`;
+    const sbEl = $('statusBar');
+    if (sbEl) {
+      const lang = g.settings?.lang || 'zh-TW';
+      const pills = [];
+      if (st.poison > 0) pills.push(`<span class="st-pill st-poison">${t(lang, 'statusPoison')} ${Math.ceil(st.poison)}s</span>`);
+      if (st.freeze > 0) pills.push(`<span class="st-pill st-freeze">${t(lang, 'statusFreeze')} ${st.freeze.toFixed(1)}s</span>`);
+      else if (st.chill > 0) pills.push(`<span class="st-pill st-chill">${t(lang, 'statusChill')} ${Math.ceil(st.chill)}s</span>`);
+      if (st.burn > 0) pills.push(`<span class="st-pill st-burn">${t(lang, 'statusBurn')} ${Math.ceil(st.burn)}s</span>`);
+      if (st.shock > 0) pills.push(`<span class="st-pill st-shock">${t(lang, 'statusShock')} ${Math.ceil(st.shock)}s</span>`);
+      if (st.overload > 0) pills.push(`<span class="st-pill st-overload">${t(lang, 'statusOverload')} ${Math.ceil(st.overload)}s</span>`);
+      const html = pills.join('');
+      if (sbEl._last !== html) { sbEl.innerHTML = html; sbEl._last = html; }
+    }
     const cd = (id, cur, max, locked) => {
       const el = $(id); if (!el) return;
       el.classList.toggle('locked', !!locked);
       const c = el.querySelector('.cd'); if (c) c.style.height = (max > 0 ? Math.min(1, cur / max) * 100 : 0) + '%';
     };
     const hotbar = p.hotbar || [];
+    const lang = g.settings?.lang || 'zh-TW';
     for (let i = 0; i < 4; i++) {
       const el = $('sk-s' + i); if (!el) continue;
       const sk = hotbar[i];
@@ -254,7 +298,7 @@ export class UI {
         const maxCd = sk.def.cd * (1 - S.cdr / 100) * (1 - sk.mod.cdr);
         cd('sk-s' + i, p.skillCds?.[i] || 0, Math.max(0.1, maxCd), false);
       } else {
-        ic.textContent = '—'; sn.textContent = '空位'; sup.hidden = true; el.title = '按 K 開啟技能拼圖放入主動技能';
+        ic.textContent = '—'; sn.textContent = t(lang, 'skEmpty'); sup.hidden = true; el.title = t(lang, 'puzzle');
         cd('sk-s' + i, 0, 1, true);
       }
     }
@@ -283,7 +327,7 @@ export class UI {
         drawRegionMap(g, $('regionMapCanvas'));
       }
     }
-    $('killInfo').textContent = '擊敗 ' + p.kills;
+    $('killInfo').textContent = `${t(lang, 'kills')} ${p.kills}`;
     const target = $('fieldTarget');
     let nearest = null, distance = 7;
     if (g.field && g.state === 'play') for (const enemy of g.enemies) {
@@ -346,8 +390,9 @@ export class UI {
   toggleInv(g, tab) {
     if (tab && this.invOpen && this.invTab !== tab) { this.setInvTab(g, tab); return; }
     this.invOpen = !this.invOpen;
+    this.atStash = false;
     $('inv').classList.toggle('hide', !this.invOpen);
-    if (this.invOpen) this.setInvTab(g, tab || this.invTab || 'bag');
+    if (this.invOpen) this.setInvTab(g, tab || (this.invTab === 'stash' ? 'bag' : this.invTab) || 'bag');
   }
   renderInv(g, force) {
     if (!force && (this._invT = (this._invT || 0) + 1) % 15) return;

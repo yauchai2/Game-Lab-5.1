@@ -350,3 +350,79 @@ export function applyCosmetics(model, cos = {}) {
   const auraCols = { none: 0xffd36e, gold: 0xffe26a, ocean: 0x6ee8ff, sakura: 0xffa6c9, violet: 0xc88cff };
   if (model.lantern?.material) model.lantern.material.color.setHex(auraCols[cos.aura] || 0xffd36e);
 }
+
+// 多樣化 3D NPC 造型工廠（貓耳草藥師、白鬍船長、高帽鐘錶匠、巨背行腳商、雙燈貓頭鷹守夜人、大廚、鐵匠）
+export function buildNPC(archetype = 'villager', hood = 0x2f8a7e, hoodDark = 0x23695f, scarfCol = 0xf0d070) {
+  const m = buildPlayer(hood, hoodDark, scarfCol);
+  const hg = new THREE.Group(), bg = new THREE.Group();
+  m.head.add(hg); m.body.add(bg);
+  if (archetype === 'cat') {
+    hg.add(mesh(mergeGeometries([
+      part(new THREE.ConeGeometry(0.11, 0.28, 4), 0xf4c28c, -0.17, 0.34, 0.02, 0, 0, 0.25),
+      part(new THREE.ConeGeometry(0.11, 0.28, 4), 0xf4c28c, 0.17, 0.34, 0.02, 0, 0, -0.25),
+      part(new THREE.ConeGeometry(0.06, 0.16, 4), 0xff9aae, -0.17, 0.33, 0.06, 0, 0, 0.25),
+      part(new THREE.ConeGeometry(0.06, 0.16, 4), 0xff9aae, 0.17, 0.33, 0.06, 0, 0, -0.25),
+    ])));
+    bg.add(mesh(mergeGeometries([
+      part(new THREE.CylinderGeometry(0.18, 0.15, 0.34, 7), 0x8f6039, 0, 0.45, -0.32),
+      part(new THREE.IcosahedronGeometry(0.14, 0), 0x62c45e, -0.05, 0.68, -0.32),
+      part(new THREE.IcosahedronGeometry(0.11, 0), 0xff96b8, 0.08, 0.66, -0.30),
+    ])));
+  } else if (archetype === 'captain') {
+    hg.add(mesh(mergeGeometries([
+      part(new THREE.CylinderGeometry(0.32, 0.3, 0.18, 10), 0xfff8e8, 0, 0.31, 0),
+      part(new THREE.BoxGeometry(0.46, 0.06, 0.22), 0x2a3b5c, 0, 0.23, 0.18),
+      part(new THREE.BoxGeometry(0.14, 0.06, 0.04), 0xffd24a, 0, 0.31, 0.31),
+      part(new THREE.ConeGeometry(0.2, 0.28, 6), 0xf0ede6, 0, -0.14, 0.22, Math.PI, 0, 0),
+    ])));
+  } else if (archetype === 'clockmaker') {
+    hg.add(mesh(mergeGeometries([
+      part(new THREE.CylinderGeometry(0.36, 0.36, 0.05, 10), 0x3b2c38, 0, 0.26, 0),
+      part(new THREE.CylinderGeometry(0.24, 0.26, 0.44, 10), 0x3b2c38, 0, 0.48, 0),
+      part(new THREE.CylinderGeometry(0.27, 0.27, 0.06, 10), 0xffc84a, 0, 0.32, 0),
+      part(new THREE.TorusGeometry(0.06, 0.016, 4, 8), 0xffd85a, 0.08, 0.02, 0.33),
+    ])));
+    bg.add(mesh(mergeGeometries([
+      part(new THREE.TorusGeometry(0.24, 0.05, 5, 8), 0xd4a44a, 0, 0.55, -0.32),
+    ])));
+  } else if (archetype === 'peddler') {
+    bg.add(mesh(mergeGeometries([
+      part(new THREE.BoxGeometry(0.52, 0.78, 0.4), 0x8d5e3a, 0, 0.65, -0.36),
+      part(new THREE.CylinderGeometry(0.14, 0.14, 0.56, 7), 0xd96459, 0, 1.12, -0.36, 0, 0, Math.PI / 2),
+      part(new THREE.CylinderGeometry(0.12, 0.14, 0.16, 6), 0x555c68, 0.3, 0.45, -0.36),
+    ])));
+    const extraLamp = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.18, 0.14), new THREE.MeshBasicMaterial({ color: 0xffd86b }));
+    extraLamp.position.set(-0.32, 0.92, -0.36); bg.add(extraLamp);
+  } else if (archetype === 'owl') {
+    hg.add(mesh(mergeGeometries([
+      part(new THREE.ConeGeometry(0.09, 0.22, 4), 0x5c4a6b, -0.2, 0.32, 0.05, 0, 0, 0.4),
+      part(new THREE.ConeGeometry(0.09, 0.22, 4), 0x5c4a6b, 0.2, 0.32, 0.05, 0, 0, -0.4),
+      part(new THREE.ConeGeometry(0.07, 0.14, 4), 0xf0b23a, 0, -0.02, 0.34, Math.PI / 2, 0, 0),
+    ])));
+    bg.add(mesh(mergeGeometries([
+      part(new THREE.BoxGeometry(0.75, 0.06, 0.06), 0x5a3b2c, 0, 0.8, -0.22),
+    ])));
+    for (const sx of [-0.36, 0.36]) {
+      const l = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.18, 0.14), new THREE.MeshBasicMaterial({ color: sx < 0 ? 0xffd86b : 0x7ae8ff }));
+      l.position.set(sx, 0.68, -0.22); bg.add(l);
+    }
+  } else if (archetype === 'chef') {
+    hg.add(mesh(mergeGeometries([
+      part(new THREE.CylinderGeometry(0.24, 0.22, 0.22, 8), 0xfffbf0, 0, 0.32, 0),
+      part(new THREE.SphereGeometry(0.28, 8, 6), 0xfffbf0, 0, 0.48, 0),
+    ])));
+    bg.add(mesh(mergeGeometries([
+      part(new THREE.BoxGeometry(0.46, 0.44, 0.06), 0xfff8eb, 0, 0.36, 0.26),
+    ])));
+  } else if (archetype === 'smith') {
+    hg.add(mesh(mergeGeometries([
+      part(new THREE.BoxGeometry(0.32, 0.1, 0.08), 0x3b2a2a, 0, 0.14, 0.29),
+      part(new THREE.CylinderGeometry(0.06, 0.06, 0.05, 6), 0x8ae8ff, -0.09, 0.14, 0.32, Math.PI / 2, 0, 0),
+      part(new THREE.CylinderGeometry(0.06, 0.06, 0.05, 6), 0x8ae8ff, 0.09, 0.14, 0.32, Math.PI / 2, 0, 0),
+    ])));
+    bg.add(mesh(mergeGeometries([
+      part(new THREE.BoxGeometry(0.48, 0.48, 0.08), 0x5c3c2e, 0, 0.34, 0.26),
+    ])));
+  }
+  return m;
+}

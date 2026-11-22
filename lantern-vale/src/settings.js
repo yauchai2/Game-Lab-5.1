@@ -14,10 +14,10 @@ export const DEFAULTS = {
   keybinds: { ...KEY_PRESETS.arpg },
 };
 
-export function formatKey(k) {
+export function formatKey(k, lang = 'zh-TW') {
   if (!k) return '—';
-  if (k === 'rmb') return '右鍵';
-  if (k === ' ') return '空白';
+  if (k === 'rmb') return lang === 'en' ? 'RMB' : lang === 'ja' ? '右' : '右鍵';
+  if (k === ' ') return lang === 'en' ? 'Space' : lang === 'ja' ? 'Space' : '空白';
   return k.toUpperCase();
 }
 
@@ -30,12 +30,13 @@ export function saveSettings(s) { try { localStorage.setItem('lv_settings', JSON
 export function syncHotbarKeyLabels(g) {
   if (typeof document === 'undefined') return;
   const kb = g.settings?.keybinds || DEFAULTS.keybinds;
+  const lang = g.settings?.lang || 'zh-TW';
   for (let i = 0; i < 4; i++) {
     const el = document.querySelector(`#sk-s${i} .key`);
-    if (el) el.textContent = formatKey(kb['sk' + i]);
+    if (el) el.textContent = formatKey(kb['sk' + i], lang);
   }
-  const rf = document.querySelector('#sk-r .key'); if (rf) rf.textContent = formatKey(kb.flask);
-  const rh = document.querySelector('#sk-recall .key'); if (rh) rh.textContent = formatKey(kb.recall);
+  const rf = document.querySelector('#sk-r .key'); if (rf) rf.textContent = formatKey(kb.flask, lang);
+  const rh = document.querySelector('#sk-recall .key'); if (rh) rh.textContent = formatKey(kb.recall, lang);
 }
 
 export function applySettings(g) {
@@ -48,24 +49,57 @@ export function applySettings(g) {
   const chat = document.getElementById('chat'); if (chat) chat.style.display = s.chat ? '' : 'none';
   applyDOMLanguage(s.lang || 'zh-TW');
   syncHotbarKeyLabels(g);
+  g.ui?.refreshLanguage?.(g);
 }
 
-const ROWS = {
-  audio: [['master', '主音量', 'num'], ['music', '音樂', 'num'], ['sfx', '音效', 'num']],
-  video: [['pixel', '像素大小', ['', '', '細', '標準', '粗']], ['camAngle', '鏡頭視角', ['斜 45°（PoE 2 推薦）', '高俯視 55°（經典）', '低仰角 36°（宏偉風景）']], ['wind', '風吹草動', ['關', '微風', '強風']], ['water', '水波特效', ['關', '開']], ['shafts', '光柱與風線', ['關', '開']], ['shake', '畫面震動', ['關', '開']], ['dmg', '傷害數字', ['關', '開']], ['chat', '聊天視窗', ['關', '開']]],
+function getRows(lang) {
+  const off = t(lang, 'optOff'), on = t(lang, 'optOn');
+  return {
+    audio: [
+      ['master', t(lang, 'rowMaster'), 'num'],
+      ['music', t(lang, 'rowMusic'), 'num'],
+      ['sfx', t(lang, 'rowSfx'), 'num'],
+    ],
+    video: [
+      ['pixel', t(lang, 'rowPixel'), ['', '', t(lang, 'optFine'), t(lang, 'optStd'), t(lang, 'optCoarse')]],
+      ['camAngle', t(lang, 'rowCamAngle'), [t(lang, 'cam45'), t(lang, 'cam55'), t(lang, 'cam36')]],
+      ['wind', t(lang, 'rowWind'), [off, t(lang, 'optBreeze'), t(lang, 'optGale')]],
+      ['water', t(lang, 'rowWater'), [off, on]],
+      ['shafts', t(lang, 'rowShafts'), [off, on]],
+      ['shake', t(lang, 'rowShake'), [off, on]],
+      ['dmg', t(lang, 'rowDmg'), [off, on]],
+      ['chat', t(lang, 'rowChat'), [off, on]],
+    ],
+  };
+}
+
+function getBindLabels(lang) {
+  return [
+    ['sk0', t(lang, 'bindSk0')], ['sk1', t(lang, 'bindSk1')], ['sk2', t(lang, 'bindSk2')], ['sk3', t(lang, 'bindSk3')],
+    ['flask', t(lang, 'bindFlask')], ['recall', t(lang, 'bindRecall')],
+  ];
+}
+
+const STATIC_KEYS = {
+  'zh-TW': [
+    ['WASD', '移動'], ['Shift', '疾步衝刺'], ['左鍵', '主武器攻擊'],
+    ['空白', '翻滾／連按跳躍滑翔／攀爬'], ['I', '物理背包／裝備／外觀'],
+    ['K', '技能拼圖'], ['M', '世界總圖（導航）'], ['Tab', '地區小地圖'],
+    ['F', '互動／採集／推門／登船／開城鎮倉庫'], ['B', '野外營火'], ['P', '拍照模式'], ['Esc', '設定'],
+  ],
+  en: [
+    ['WASD', 'Move'], ['Shift', 'Sprint'], ['LMB', 'Primary Attack'],
+    ['Space', 'Roll / Double-Tap Jump & Glide / Climb'], ['I', 'Physics Bag / Gear / Cosmetics'],
+    ['K', 'Skill Puzzle'], ['M', 'World Map (Waypoint)'], ['Tab', 'Region Minimap'],
+    ['F', 'Interact / Gather / Board Ferry / Town Stash'], ['B', 'Field Campfire'], ['P', 'Photo Mode'], ['Esc', 'Settings'],
+  ],
+  ja: [
+    ['WASD', '移動'], ['Shift', 'ダッシュ'], ['左クリック', '通常攻撃'],
+    ['Space', '回避／2回押しでジャンプ＆滑空／崖登り'], ['I', '物理リュック／装備／見た目'],
+    ['K', 'スキルパズル'], ['M', 'ワールドマップ（ナビ）'], ['Tab', '地域ミニマップ'],
+    ['F', '調べる／採集／乗船／街の倉庫'], ['B', '焚き火'], ['P', 'フォトモード'], ['Esc', '設定'],
+  ],
 };
-
-const BIND_LABELS = [
-  ['sk0', '技能欄 1'], ['sk1', '技能欄 2'], ['sk2', '技能欄 3'], ['sk3', '技能欄 4'],
-  ['flask', '蜜藥瓶回血'], ['recall', '快捷回城（歸途海螺）'],
-];
-
-const STATIC_KEYS = [
-  ['WASD', '移動'], ['Shift', '疾步衝刺'], ['左鍵', '主武器攻擊'],
-  ['空白', '翻滾／連按跳躍滑翔／攀爬'], ['I', '物理背包／裝備／倉庫／外觀'],
-  ['K', '技能拼圖'], ['M', '世界總圖（設導航目標，不可直接傳送）'], ['Tab', '地區小地圖'],
-  ['F', '互動／採集／推門／登船'], ['B', '野外營火'], ['P', '拍照模式'], ['Esc', '設定'],
-];
 
 export function buildSettingsUI(g) {
   const root = document.getElementById('settings'), body = root.querySelector('.sbody'), tabs = root.querySelector('.stabs');
@@ -84,10 +118,10 @@ export function buildSettingsUI(g) {
     render();
   };
   const render = () => {
+    const lang = g.settings.lang || 'zh-TW';
     tabs.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
     body.innerHTML = '';
     if (tab === 'keys') {
-      const lang = g.settings.lang || 'zh-TW';
       const preRow = document.createElement('div');
       preRow.className = 'srow';
       preRow.style.flexWrap = 'wrap'; preRow.style.gap = '6px';
@@ -97,12 +131,12 @@ export function buildSettingsUI(g) {
         preRow.appendChild(b);
       });
       body.appendChild(preRow);
-      BIND_LABELS.forEach(([id, label]) => {
+      getBindLabels(lang).forEach(([id, label]) => {
         const r = document.createElement('div'); r.className = 'srow';
         const cur = g.settings.keybinds[id];
         r.innerHTML = `<span class="sl">${label}</span><span class="sv"></span>`;
         const b = document.createElement('button'); b.className = 'arr wide';
-        b.textContent = listeningKey === id ? t(lang, 'pressKey') : formatKey(cur);
+        b.textContent = listeningKey === id ? t(lang, 'pressKey') : formatKey(cur, lang);
         b.onclick = () => {
           listeningKey = id; render();
           addEventListener('keydown', onRebind, true);
@@ -110,7 +144,7 @@ export function buildSettingsUI(g) {
         r.querySelector('.sv').appendChild(b);
         body.appendChild(r);
       });
-      STATIC_KEYS.forEach(([k, d]) => {
+      (STATIC_KEYS[lang] || STATIC_KEYS['zh-TW']).forEach(([k, d]) => {
         const r = document.createElement('div'); r.className = 'srow';
         r.innerHTML = `<span><b class="kb">${k}</b></span><span>${d}</span>`;
         body.appendChild(r);
@@ -118,21 +152,21 @@ export function buildSettingsUI(g) {
       return;
     }
     if (tab === 'about') {
-      body.innerHTML = '<div class="sabout">燈谷行 Lantern Vale<br>像素風 3D 動作冒險原型<br>風格靈感：A Short Hike、孤山獨影等。所有角色與素材皆為原創。<br><br>設定、物理背包、倉庫與外觀皆自動儲存在瀏覽器。</div>';
-      const b = document.createElement('button'); b.className = 'btn'; b.textContent = '重設所有設定';
+      body.innerHTML = `<div class="sabout">${t(lang, 'aboutText')}</div>`;
+      const b = document.createElement('button'); b.className = 'btn'; b.textContent = t(lang, 'resetSettings');
       b.onclick = () => { g.settings = { ...DEFAULTS, keybinds: { ...KEY_PRESETS.arpg } }; saveSettings(g.settings); applySettings(g); render(); };
       body.appendChild(b); return;
     }
     if (tab === 'video') {
       const lr = document.createElement('div'); lr.className = 'srow';
-      lr.innerHTML = `<span class="sl">${t(g.settings.lang, 'language')}</span><span class="sv"></span>`;
-      const curIdx = Math.max(0, LANGS.findIndex(x => x.id === g.settings.lang));
+      lr.innerHTML = `<span class="sl">${t(lang, 'language')}</span><span class="sv"></span>`;
+      const curIdx = Math.max(0, LANGS.findIndex(x => x.id === lang));
       const b = document.createElement('button'); b.className = 'arr wide'; b.textContent = LANGS[curIdx].label;
       b.onclick = () => set('lang', LANGS[(curIdx + 1) % LANGS.length].id);
       lr.querySelector('.sv').appendChild(b);
       body.appendChild(lr);
     }
-    ROWS[tab].forEach(([key, label, opts]) => {
+    getRows(lang)[tab].forEach(([key, label, opts]) => {
       const r = document.createElement('div'); r.className = 'srow'; const v = g.settings[key];
       const lo = opts === 'num' ? 0 : (key === 'pixel' ? 2 : 0), hi = opts === 'num' ? 10 : (key === 'pixel' ? 4 : opts.length - 1);
       const txt = opts === 'num' ? String(v) : opts[v];
@@ -141,8 +175,8 @@ export function buildSettingsUI(g) {
       body.appendChild(r);
     });
     if (tab === 'audio') {
-      const r = document.createElement('div'); r.className = 'srow'; r.innerHTML = '<span class="sl">靜音</span><span class="sv"></span>';
-      const b = document.createElement('button'); b.className = 'arr wide'; b.textContent = g.audio.muted ? '已靜音 · 點擊開啟' : '開啟中 · 點擊靜音';
+      const r = document.createElement('div'); r.className = 'srow'; r.innerHTML = `<span class="sl">${t(lang, 'rowMute')}</span><span class="sv"></span>`;
+      const b = document.createElement('button'); b.className = 'arr wide'; b.textContent = g.audio.muted ? t(lang, 'muteOn') : t(lang, 'muteOff');
       b.onclick = () => { g.audio.init(); g.audio.toggleMute(); document.getElementById('btnMute').textContent = g.audio.muted ? '🔇' : '🔊'; render(); };
       r.querySelector('.sv').appendChild(b); body.appendChild(r);
     }

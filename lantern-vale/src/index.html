@@ -34,12 +34,15 @@ html,body{margin:0;height:100%;overflow:hidden;background:#1a1426;color:var(--in
 .scales button.on{background:var(--gold)}
 /* ---------- HUD ---------- */
 #hud{position:fixed;inset:0;pointer-events:none}
-.orb{position:absolute;bottom:18px;width:104px;height:104px;border-radius:50%;border:4px solid var(--ink);background:#3a2d44;overflow:hidden;box-shadow:0 4px 0 var(--ink),inset 0 0 0 4px rgba(255,255,255,.15)}
-.orb .fill{position:absolute;left:0;right:0;bottom:0;transition:height .15s}
-#hpOrb{left:22px}#hpOrb .fill{background:repeating-linear-gradient(180deg,#f0566a 0 6px,#e0455a 6px 12px)}
-#mpOrb{right:22px}#mpOrb .fill{background:repeating-linear-gradient(180deg,#5aa0f0 0 6px,#4b8fe0 6px 12px)}
-.orb .shine{position:absolute;left:18px;top:14px;width:22px;height:14px;border-radius:50%;background:rgba(255,255,255,.55)}
-.orb .txt{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;text-shadow:0 2px 0 var(--ink);font-size:15px}
+.vial{position:absolute;bottom:14px;width:82px;height:126px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;pointer-events:none}
+#hpOrb{left:20px}#mpOrb{right:20px}
+.vial canvas{width:82px;height:124px;image-rendering:pixelated;filter:drop-shadow(0 4px 0 rgba(43,29,34,.85))}
+.vial .txt{position:absolute;bottom:18px;left:0;right:0;text-align:center;color:#fff;font-weight:900;text-shadow:0 2px 0 var(--ink),-1px 0 0 var(--ink),1px 0 0 var(--ink);font-size:13px}
+.vial .vtag{position:absolute;bottom:3px;font-size:10px;font-weight:900;color:#ffe9a0;text-shadow:0 1px 0 var(--ink);letter-spacing:1px}
+#statusBar{position:absolute;bottom:98px;left:50%;transform:translateX(-50%);display:flex;gap:6px;flex-wrap:wrap;justify-content:center;pointer-events:none}
+.st-pill{padding:3px 9px;border-radius:12px;border:2px solid var(--ink);font-size:12px;font-weight:900;color:#fff;text-shadow:0 1px 0 var(--ink);box-shadow:0 2px 0 var(--ink)}
+.st-poison{background:#3a9e52}.st-freeze{background:#46a8e0}.st-chill{background:#5c9cc8}.st-burn{background:#e05a30}.st-shock{background:#a66ae0}.st-overload{background:#d93a54;animation:pulseSt .45s infinite alternate}
+@keyframes pulseSt{from{transform:scale(1)}to{transform:scale(1.08)}}
 #skills{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);display:flex;gap:8px;padding:8px 10px}
 .sk{position:relative;width:56px;height:56px;border:3px solid var(--ink);border-radius:8px;background:var(--paper2);display:flex;align-items:center;justify-content:center;font-size:24px;overflow:hidden}
 .sk .k{position:absolute;left:2px;top:0;font-size:11px;color:var(--ink);opacity:.75}
@@ -303,8 +306,9 @@ body.photo-mode #hud > *:not(#photoBadge){opacity:0!important;pointer-events:non
   <div id="hoverBadge" class="hide"></div>
   <div id="photoBadge" class="hide">📷 拍照純淨模式 · 按 P 恢復介面</div>
   <div id="boss" class="hide"><div class="name"></div><div class="bar"><div class="fill"></div></div></div>
-  <div class="orb" id="hpOrb"><div class="fill" id="hpFill"></div><div class="shine"></div><div class="txt" id="hpText"></div></div>
-  <div class="orb" id="mpOrb"><div class="fill" id="mpFill"></div><div class="shine"></div><div class="txt" id="mpText"></div></div>
+  <div id="statusBar"></div>
+  <div class="vial" id="hpOrb"><canvas id="hpCanvas" width="82" height="124"></canvas><div class="txt" id="hpText"></div><div class="vtag">HP</div></div>
+  <div class="vial" id="mpOrb"><canvas id="mpCanvas" width="82" height="124"></canvas><div class="txt" id="mpText"></div><div class="vtag">MP</div></div>
   <div id="skills" class="panel">
     <div class="sk" id="sk-s0" title="拼圖技能 1"><span class="k key">右鍵</span><span class="ic">—</span><span class="sname">空位</span><span class="sup" hidden></span><div class="cd"></div></div>
     <div class="sk" id="sk-s1" title="拼圖技能 2"><span class="k key">Q</span><span class="ic">—</span><span class="sname">空位</span><span class="sup" hidden></span><div class="cd"></div></div>

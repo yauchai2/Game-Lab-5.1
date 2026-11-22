@@ -48,6 +48,44 @@ export function buildFerryBoat() {
   return g;
 }
 
+// ======================== 2.5 3D 木造碼頭棧橋（從海岸延伸入深海，附木樁、繫船柱與暖黃燈柱） ========================
+export function buildWoodenPier(startZ = 18.5, endZ = 27.6, width = 5.4) {
+  const g = new THREE.Group();
+  const len = endZ - startZ;
+  const midZ = (startZ + endZ) / 2;
+  const parts = [
+    part(new THREE.BoxGeometry(width, 0.28, len), 0xa87448, 0, 0.14, midZ),
+  ];
+  // 橫向木板紋理與深水木樁
+  const planks = Math.max(6, Math.round(len / 0.85));
+  for (let i = 0; i < planks; i++) {
+    const pz = startZ + (i + 0.5) * (len / planks);
+    parts.push(part(new THREE.BoxGeometry(width + 0.08, 0.06, 0.62), i % 2 ? 0xb88454 : 0x9b693f, 0, 0.28, pz));
+  }
+  const hw = width / 2 - 0.25;
+  for (let z = startZ + 0.6; z <= endZ - 0.3; z += 2.8) {
+    for (const sx of [-hw, hw]) {
+      parts.push(part(new THREE.CylinderGeometry(0.18, 0.22, 2.4, 6), 0x5c3a26, sx, -0.35, z));
+      parts.push(part(new THREE.CylinderGeometry(0.22, 0.22, 0.35, 6), 0x7a5136, sx, 0.52, z)); // 繫船柱
+    }
+  }
+  // 棧橋左右麻繩欄杆與盡頭燈柱
+  for (const sx of [-hw, hw]) {
+    parts.push(part(new THREE.BoxGeometry(0.1, 0.08, len - 1.2), 0xd4b684, sx, 0.72, midZ - 0.4));
+    parts.push(part(new THREE.CylinderGeometry(0.08, 0.1, 2.4, 6), 0x4b3224, sx, 1.35, endZ - 0.5));
+  }
+  const m = new THREE.Mesh(mergeGeometries(parts), toonMat({ vertexColors: true }));
+  m.castShadow = true; m.receiveShadow = true;
+  g.add(m);
+  for (const sx of [-hw, hw]) {
+    const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.38, 0.32), new THREE.MeshBasicMaterial({ color: 0xffd86b }));
+    lamp.position.set(sx, 2.48, endZ - 0.5);
+    g.add(lamp);
+  }
+  const bounds = { x0: -width / 2 - 0.15, x1: width / 2 + 0.15, z0: startZ - 0.8, z1: endZ + 0.2, y: 0.3 };
+  return { group: g, bounds, tipZ: endZ };
+}
+
 // ======================== 3. 第二城鎮：海風港鎮（Sea-Breeze Harbor） ========================
 export function buildHarborTown(g) {
   const grp = new THREE.Group();
@@ -55,20 +93,13 @@ export function buildHarborTown(g) {
   const obs = [];   // 圓形碰撞
   const addBox = (x, z, hw, hd) => boxes.push({ x, z, hw, hd, h: 0 });
 
-  // 海港主碼頭木棧道（延伸向南側海面）
-  const pier = new THREE.Mesh(mergeGeometries([
-    part(new THREE.BoxGeometry(5.6, 0.32, 9.5), 0xb88252, 0, 0.12, 10.5),
-    part(new THREE.BoxGeometry(0.28, 1.1, 0.28), 0x6b4530, -2.5, 0.4, 6.5),
-    part(new THREE.BoxGeometry(0.28, 1.1, 0.28), 0x6b4530, 2.5, 0.4, 6.5),
-    part(new THREE.BoxGeometry(0.28, 1.1, 0.28), 0x6b4530, -2.5, 0.4, 14.5),
-    part(new THREE.BoxGeometry(0.28, 1.1, 0.28), 0x6b4530, 2.5, 0.4, 14.5),
-  ]), toonMat({ vertexColors: true }));
-  pier.receiveShadow = true; pier.castShadow = true;
-  grp.add(pier);
+  // 海港主碼頭木棧橋（由南岸 z=16.5 延伸出海至 z=27.6）
+  const pierData = buildWoodenPier(16.5, 27.6, 5.6);
+  grp.add(pierData.group);
 
-  // 停泊中的渡船
+  // 停泊於碼頭深水盡頭的渡船
   const boat = buildFerryBoat();
-  boat.position.set(0, 0.05, 16.2);
+  boat.position.set(0, -0.02, 29.8);
   grp.add(boat);
 
   // 紅白條紋燈塔（海風港鎮地標）
@@ -110,7 +141,7 @@ export function buildHarborTown(g) {
   });
 
   const spots = [
-    { kind: 'ferry_town', label: '乘船返航燈谷鎮（3D 航行）', x: 0, z: 13.5, top: 2.5 },
+    { kind: 'ferry_town', label: '登船返航燈谷鎮（碼頭啟航）', x: 0, z: 26.2, top: 2.8 },
     { kind: 'open_stash', label: '海風港公共倉庫（重力整理箱）', x: 8.5, z: -2.2, top: 2.5 },
     { kind: 'open_cosmetics', label: '海鷗造型工坊（更換外觀造型）', x: -8.5, z: 6.2, top: 2.5 },
     { kind: 'market', label: '海風漁市拍賣行', x: 7.2, z: 5.8, top: 2.4 },
@@ -131,7 +162,7 @@ export function buildHarborTown(g) {
     grp.add(post);
   });
 
-  return { group: grp, spots, obstacles: obs, boxes, boat };
+  return { group: grp, spots, obstacles: obs, boxes, boat, pierBounds: pierData.bounds };
 }
 
 // ======================== 4. 全區域宏偉地標與建築裝飾（Zones 1–9，靈感源自巨型天環、八角古泉與碧藍聖樹礁島） ========================

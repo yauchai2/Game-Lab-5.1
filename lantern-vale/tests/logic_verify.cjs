@@ -9,22 +9,26 @@ const createGuild = require('../server/guild.cjs');
   const frontier = await import(src('frontier.js'));
   const lodge = await import(src('lodge.js'));
 
-  // 1. Nine enlarged persistent regions (2x grand scale) & aerial beast assignments
+  // 1. Nine ultra-grand persistent regions (2x expanded again: 240–400) & status affinities
   assert.equal(frontier.FIELDS.length, 10);
   assert.deepEqual(
     frontier.FIELDS.slice(1).map(f => [f.name, f.level, f.size]),
     [
-      ['晨光草原', 1, 120],
-      ['低語森林', 5, 180],
-      ['霧潮沼澤', 10, 120],
-      ['霜冬雪原', 15, 180],
-      ['燼煙火岩區', 20, 120],
-      ['古樹林', 25, 200],
-      ['浮空遺跡群', 12, 160],
-      ['珊瑚潮汐灣', 18, 160],
-      ['沉沒電光都', 24, 160],
+      ['晨光草原', 1, 240],
+      ['低語森林', 5, 360],
+      ['霧潮沼澤', 10, 240],
+      ['霜冬雪原', 15, 360],
+      ['燼煙火岩區', 20, 240],
+      ['古樹林', 25, 400],
+      ['浮空遺跡群', 12, 320],
+      ['珊瑚潮汐灣', 18, 320],
+      ['沉沒電光都', 24, 320],
     ],
   );
+  assert.equal(frontier.FIELDS[3].status, 'poison');
+  assert.equal(frontier.FIELDS[4].status, 'freeze');
+  assert.equal(frontier.FIELDS[5].status, 'burn');
+  assert.equal(frontier.FIELDS[9].status, 'shock');
   assert.equal(frontier.FIELDS[7].beast, 'skyray', 'Zone 7 features aerial skyray mobs');
   assert.equal(frontier.FIELDS[8].beast, 'skyray', 'Zone 8 features aerial skyray mobs');
 
@@ -159,35 +163,52 @@ const createGuild = require('../server/guild.cjs');
     assert.ok(puzzle.ACTIVE_GEMS[id], `Flashy creative skill ${id} registered in puzzle gems`);
   }
 
-  // 9. i18n, Physics Backpack/Stash, Cosmetics, Harbor & Custom Keybinds
+  // 9. Full i18n, Multi-Shape Physics Backpack, Town-Only Stash, 2D Fluid Vials & Custom Keybinds
   const i18n = await import(src('i18n.js'));
   assert.equal(i18n.LANGS.length, 3, 'Three languages supported (zh-TW, en, ja)');
   assert.equal(i18n.t('en', 'bag'), 'Physics Bag');
-  assert.equal(i18n.t('ja', 'stash'), '倉庫');
+  assert.equal(i18n.t('en', 'tabVideo'), 'Video');
+  assert.equal(i18n.t('ja', 'stash'), '街の倉庫');
+  assert.ok(i18n.t('en', 'stashLocked').includes('not carried'), 'Town-only stash warning localized');
 
   const physbag = await import(src('physbag.js'));
+  assert.equal(physbag.shapeForItem({ kind: 'gear', slot: 'staff' }).shape, 'capsule');
+  assert.equal(physbag.shapeForItem({ kind: 'gear', slot: 'cloak' }).shape, 'rect');
+  assert.equal(physbag.shapeForItem({ kind: 'gear', slot: 'charm' }).shape, 'diamond');
   const bagProfile = {};
   const store = physbag.ensurePhysicsStorage(bagProfile);
   assert.ok(store.bag.length >= 3, 'Starter supplies populated in physics backpack');
-  assert.ok(store.stash.length >= 2, 'Starter items populated in physics stash');
+  assert.ok(new Set(store.bag.map(x => x.shape)).size >= 3, 'Backpack items have distinct physical shapes');
   const fakeCanvas = { width: 320, height: 240, getContext: () => ({}), addEventListener: () => {} };
   const pc = new physbag.PhysicsContainer(fakeCanvas);
   pc.sync(store.bag);
   const y0 = pc.bodies[0].y;
   for (let i = 0; i < 40; i++) pc.step(1 / 60);
-  assert.ok(pc.bodies[0].y > y0, 'Gravity pulls physics backpack items downward');
+  assert.ok(pc.bodies[0].y > y0, 'Gravity pulls multi-shape physics backpack items downward');
   pc.shake();
   assert.ok(pc.bodies[0].vy < 0, 'Shake launches physics items upward for reorganizing');
+
+  // 10. 2D Fluid-Physics HP/MP Glass Vials (slosh, splashes, poison bubbles, overload cork rattling)
+  const vials = await import(src('vials.js'));
+  const hpVial = new vials.FluidVial(null, 'hp');
+  hpVial.impulse(2.0, 1.5);
+  assert.ok(hpVial.splashes.length > 0, 'Impulse creates fluid splash droplets');
+  for (let i = 0; i < 30; i++) hpVial.step(1 / 60, 0.75, { poison: true });
+  assert.ok(hpVial.bubbles.some(b => b.kind === 'poison'), 'Poison status generates viscous toxic bubbles');
+  for (let i = 0; i < 40; i++) hpVial.step(1 / 60, 0.85, { overload: true });
+  assert.ok(hpVial.corkY < 0 || Math.abs(hpVial.corkVy) > 0, 'Overload boiling rattles the cork stopper');
 
   const harbor = await import(src('harbor.js'));
   assert.equal(harbor.COSMETICS.hats.length, 5, 'Five 3D hat cosmetics defined');
   assert.equal(harbor.COSMETICS.backs.length, 4, 'Four 3D back cosmetics defined');
   assert.equal(harbor.COSMETICS.auras.length, 5, 'Five weapon/lantern aura cosmetics defined');
+  const pier = harbor.buildWoodenPier(19, 27.6, 5.2);
+  assert.ok(pier.bounds.z1 > 27, 'Wooden pier extends past town shoreline into open water');
 
   const settings = await import(src('settings.js'));
   assert.deepEqual(Object.keys(settings.KEY_PRESETS), ['arpg', 'poe', 'mmo']);
   assert.equal(settings.KEY_PRESETS.arpg.recall, 'h', 'Default recall hotkey is H');
   assert.equal(settings.DEFAULTS.camAngle, 0, 'Default camera angle is PoE 2 45-degree oblique');
 
-  console.log('ALL LOGIC, PUZZLE, CLASS, WORLD-ALIVE, PHYSBAG, HARBOR & GUILD SERVER CHECKS PASSED');
+  console.log('ALL 10 LOGIC, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
 })();

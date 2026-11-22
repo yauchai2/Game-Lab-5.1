@@ -9,15 +9,15 @@ import { addGearToBag } from './physbag.js';
 export const GOODS = { wood: '香杉木', ore: '星紋礦', fish: '溪銀魚' };
 export const FIELDS = [
   null,
-  { name: '晨光草原', level: 1, biome: 0, size: 120, beast: 'slime', dungeon: '草原洞窟' },
-  { name: '低語森林', level: 5, biome: 1, size: 180, beast: 'thorn', dungeon: '古木樹洞', grass: 0x719456 },
-  { name: '霧潮沼澤', level: 10, biome: 0, size: 120, beast: 'moth', dungeon: '沼澤遺跡', grass: 0x718c6f, fog: 0xa1b9ad },
-  { name: '霜冬雪原', level: 15, biome: 2, size: 180, beast: 'boar', dungeon: '寒霜冰窟', fog: 0xdde8f4 },
-  { name: '燼煙火岩區', level: 20, biome: 3, size: 120, beast: 'boar', dungeon: '燼岩熔爐', grass: 0xad7153 },
-  { name: '古樹林', level: 25, biome: 1, size: 200, beast: 'thorn', dungeon: '鹿王樹心', grass: 0x477252 },
-  { name: '浮空遺跡群', level: 12, biome: 0, size: 160, beast: 'skyray', dungeon: '星穹古塔', grass: 0x7bc87a },
-  { name: '珊瑚潮汐灣', level: 18, biome: 0, size: 160, beast: 'skyray', dungeon: '潮汐海蝕洞', grass: 0xe8d089 },
-  { name: '沉沒電光都', level: 24, biome: 2, size: 160, beast: 'thorn', dungeon: '水沒變電塔', grass: 0x5c9ab0, fog: 0x7eb8d4 },
+  { name: '晨光草原', level: 1, biome: 0, size: 240, beast: 'slime', dungeon: '草原洞窟', status: 'poison' },
+  { name: '低語森林', level: 5, biome: 1, size: 360, beast: 'thorn', dungeon: '古木樹洞', grass: 0x719456, status: 'poison' },
+  { name: '霧潮沼澤', level: 10, biome: 0, size: 240, beast: 'moth', dungeon: '沼澤遺跡', grass: 0x718c6f, fog: 0xa1b9ad, status: 'poison' },
+  { name: '霜冬雪原', level: 15, biome: 2, size: 360, beast: 'boar', dungeon: '寒霜冰窟', fog: 0xdde8f4, status: 'freeze' },
+  { name: '燼煙火岩區', level: 20, biome: 3, size: 240, beast: 'boar', dungeon: '燼岩熔爐', grass: 0xad7153, status: 'burn' },
+  { name: '古樹林', level: 25, biome: 1, size: 400, beast: 'thorn', dungeon: '鹿王樹心', grass: 0x477252, status: 'poison' },
+  { name: '浮空遺跡群', level: 12, biome: 0, size: 320, beast: 'skyray', dungeon: '星穹古塔', grass: 0x7bc87a, status: 'shock' },
+  { name: '珊瑚潮汐灣', level: 18, biome: 0, size: 320, beast: 'skyray', dungeon: '潮汐海蝕洞', grass: 0xe8d089, status: 'freeze' },
+  { name: '沉沒電光都', level: 24, biome: 2, size: 320, beast: 'thorn', dungeon: '水沒變電塔', grass: 0x5c9ab0, fog: 0x7eb8d4, status: 'shock' },
 ];
 export const progressDefaults = {
   level: 1, xp: 0, coins: 15, keys: 1, goods: { wood: 0, ore: 0, fish: 0 }, graves: {}, timers: {},
@@ -97,19 +97,37 @@ function addSpot(g, kind, label, x, z) {
 }
 export function setupField(g, restored = false) {
   const f = FIELDS[g.field], r = mulberry32(919 + g.field);
-  const spawnCount = f.size >= 160 ? 11 : 9;
-  g.fieldSpawns = Array.from({length: spawnCount}, () => g.world.randomWalkable(r, g.player.pos, 10));
+  // 聚落式怪物密度：4–5 個高密度魔物營地（每營 4–6 隻＋精英頭領）＋ 零散巡邏怪 ＋ 1 隻傳奇守護獸
+  const campCount = f.size >= 320 ? 5 : 4;
+  const spawns = [];
+  for (let c = 0; c < campCount; c++) {
+    const center = g.world.randomWalkable(r, g.player.pos, 16);
+    const packSize = 4 + Math.floor(r() * 3);
+    for (let k = 0; k < packSize; k++) {
+      const ang = (k / packSize) * Math.PI * 2 + r() * 0.6;
+      const dist = k === 0 ? 0 : 2.5 + r() * 4.5;
+      const px = center.x + Math.cos(ang) * dist, pz = center.z + Math.sin(ang) * dist;
+      const valid = g.world.isLand(px, pz) ? { x: px, z: pz } : center;
+      spawns.push({ ...valid, campLeader: k === 0, dense: true });
+    }
+  }
+  for (let s = 0; s < 3; s++) spawns.push({ ...g.world.randomWalkable(r, g.player.pos, 14), campLeader: false });
+  spawns.push({ ...g.world.randomWalkable(r, g.player.pos, 26), legendary: true });
+  g.fieldSpawns = spawns;
   for (const kind of Object.keys(GOODS)) {
-    const point = g.world.randomWalkable(r, g.player.pos, 4);
-    const verb = { wood: '砍伐', ore: '開採', fish: '垂釣' }[kind];
-    addSpot(g, kind, verb + GOODS[kind], point.x, point.z);
+    const count = f.size >= 320 ? 3 : 2;
+    for (let n = 0; n < count; n++) {
+      const point = g.world.randomWalkable(r, g.player.pos, 6 + n * 14);
+      const verb = { wood: '砍伐', ore: '開採', fish: '垂釣' }[kind];
+      addSpot(g, kind, verb + GOODS[kind], point.x, point.z);
+    }
   }
   const grave = g.meta.p.graves[g.field];
   if (grave) addSpot(g,'grave','取回墓碑素材',grave.x,grave.z);
   spawnSkyFeatures(g);
   buildZoneLandmarks(g);
   g.fieldClock = restored ? 1 : 0; g.dueling = false;
-  g.ui.banner(f.name, restored ? '【常駐區域 · 已延續先前探索進度】' : '【常駐普通地圖】等級 ' + f.level + ' 起 · 廣闊世界自由探索');
+  g.ui.banner(f.name, restored ? '【常駐區域 · 已延續先前探索進度】' : '【常駐超大地圖】等級 ' + f.level + ' 起 · 含魔物聚落與異常生態');
 }
 export function tickField(g, dt) {
   g.fieldClock -= dt;
@@ -122,13 +140,14 @@ export function tickField(g, dt) {
     if (active) g.ui.toast(g.field===4?'暴風雪來臨 · 採集量提升':'山谷豐收 · 採集量提升', '#fff1ae');
     if (g.scene.fog && g.scene.fog.isFog) { g.scene.fog.near = active ? 28 : 38; g.scene.fog.far = active ? 88 : 112; }
   }
-  const lastIdx = g.fieldSpawns.length - 1;
   g.fieldSpawns.forEach((pos,i) => {
     if (g.enemies.some(e => !e.dead && e.spawnIndex === i) || g.meta.p.timers[g.field + ':mob:' + i] > now) return;
-    const legendary = i === lastIdx;
-    const isSky = !legendary && (f.beast === 'skyray' || i % 4 === 2);
-    const e = g.spawnEnemy(legendary ? 'stag' : isSky ? 'skyray' : f.beast, pos, i >= lastIdx - 1);
-    e.spawnIndex = i; e.legendary = legendary; e.level = Math.min(30, f.level + Math.floor(i / 2));
+    const legendary = !!pos.legendary;
+    const isSky = !legendary && (f.beast === 'skyray' || i % 5 === 2);
+    const isElite = legendary || !!pos.campLeader;
+    const e = g.spawnEnemy(legendary ? 'stag' : isSky ? 'skyray' : f.beast, pos, isElite);
+    e.spawnIndex = i; e.legendary = legendary; e.level = Math.min(30, f.level + Math.floor(i / 4));
+    e.statusAffinity = f.status || 'poison';
     const rankScale=1+(e.level-f.level)*.08;
     e.hp=Math.ceil(e.hp*rankScale);e.maxHp=e.hp;e.dmg*=rankScale;
     if (legendary) g.ui.bossBar(true, f.name + '守護獸');
