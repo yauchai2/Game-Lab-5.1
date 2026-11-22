@@ -1,7 +1,8 @@
 import * as THREE from 'three';
-import { World, toonMat, HALF } from './world.js';
+import { World, toonMat, HALF, windU } from './world.js';
 import { BIOMES, mulberry32, clamp, lerp, angleLerp, rand, pick } from './util.js';
 import { buildTownScenery } from './town.js';
+import { loadSettings, applySettings, buildSettingsUI } from './settings.js';
 import { buildPlayer, buildSlime, buildThorn, buildBoar, buildMoth, buildStag, buildArch, buildHouse, buildFountain, buildBoard, buildStall } from './models.js';
 import { Net } from './net.js';
 const EMOTES = ['嗨～', '♥', '哈哈', 'zZ'];
@@ -128,8 +129,8 @@ export class Game {
         if (k === 'f') this.tryPickup();
         if (['1', '2', '3', '4'].includes(k)) this.emote(+k - 1);
         if (k === 'enter' || k === 't') { if (this.ui.focusChat?.()) e.preventDefault(); }
-        if (k === 'tab' || k === 'i') this.ui.toggleInv(this);
-        if (k === 'escape') this.ui.toggleInv(this);
+        if ((k === 'tab' || k === 'i') && !this.ui.setOpen) this.ui.toggleInv(this);
+        if (k === 'escape') { if (this.ui.setOpen) this.ui.closeSettings(); else if (this.ui.invOpen) this.ui.toggleInv(this); else this.ui.toggleSettings(); }
       } else if (this.state === 'boon' && ['1', '2', '3'].includes(k)) this.ui.pickBoonIndex(+k - 1);
     });
     addEventListener('keyup', e => { const k = CODE[e.code] ?? e.key.toLowerCase(); this.keys[k] = false; this.keys[e.key.toLowerCase()] = false; });
@@ -814,7 +815,7 @@ export class Game {
       if (S.regen) this.heal(S.regen * dt, false);
       if (p.specials.has('mossRegen')) this.heal(S.maxHp * 0.02 * dt, false);
       if (p.healOver > 0) { p.healOver -= dt; this.heal(p.healRate * dt, false); }
-      if (!this.ui.invOpen) {
+      if (!this.ui.invOpen && !this.ui.setOpen) {
         if (this.mouse.l) this.tryAttack();
         if (this.mouse.r) this.tryBolt();
       }
@@ -1181,6 +1182,7 @@ export class Game {
     }
     // water & motes
     if (this.world.waterMat) this.world.waterMat.uniforms.uTime.value = this.time;
+    windU.uTime.value = this.time; if (this.world.waterMat) this.world.waterMat.uniforms.uWater.value = this.settings.water ? 1 : 0;
     const snow = this.biome.key === 'snow';
     for (const mo of this.motes) {
       const u = mo.userData;
@@ -1233,7 +1235,7 @@ export class Game {
     this.camPos.z = lerp(this.camPos.z, tz, 1 - Math.exp(-dt * 5));
     this.camY = lerp(this.camY || 0, this.state === 'title' ? 0 : p.y * 0.85, 1 - Math.exp(-dt * 4));
     this.shake = Math.max(0, this.shake - dt * 2.2);
-    const s = this.shake * this.shake * 0.6;
+    const s = this.shake * this.shake * 0.6 * (this.settings.shake ? 1 : 0);
     const dist = this.camDistOverride || (this.state === 'title' ? 34 : 29);
     this.camera.position.set(this.camPos.x + (Math.random() - 0.5) * s, this.camY + dist * 0.8, this.camPos.z + dist * 0.58 + (Math.random() - 0.5) * s);
     this.camera.lookAt(this.camPos.x, this.camY, this.camPos.z);

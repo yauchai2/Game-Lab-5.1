@@ -1,3 +1,4 @@
+import { loadSettings, applySettings, buildSettingsUI } from './settings.js';
 import * as THREE from 'three';
 import { RARITY, SLOTS, itemLines, itemScore, BOONS } from './loot.js';
 
@@ -12,7 +13,9 @@ export class UI {
   }
   bind(game) {
     this.game = game;
+    game.settings = loadSettings(); buildSettingsUI(game); applySettings(game);
     $('btnMute').onclick = () => { game.audio.init(); const m = game.audio.toggleMute(); $('btnMute').textContent = m ? '🔇' : '🔊'; };
+    $('btnMute').textContent = game.audio.muted ? '🔇' : '🔊';
     let saved = {}; try { saved = JSON.parse(localStorage.getItem('lv_prof') || '{}'); } catch (e) { /* ignore */ }
     $('inName').value = saved.name || ''; game.hoodIdx = saved.hood || 0;
     const swatch = $('swatches'); const HC = ['#2f8a7e', '#d9543a', '#6a6ad0', '#e0a030', '#c060b0', '#58a858', '#4aa0d8', '#8a6a50'];
@@ -57,6 +60,7 @@ export class UI {
     return [(v3.x * 0.5 + 0.5) * innerWidth, (-v3.y * 0.5 + 0.5) * innerHeight];
   }
   dmgNum(x, y, z, val, cls) {
+    if (this.game && this.game.settings && !this.game.settings.dmg) return;
     const el = document.createElement('div');
     el.className = 'num ' + (cls || '');
     el.textContent = cls === 'crit' ? `${val}!` : val;

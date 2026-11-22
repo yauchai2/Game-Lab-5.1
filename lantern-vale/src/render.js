@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { windPatch } from './world.js';
 
 // Low-resolution render -> post pass (outline, cloud shadows, light shafts, grade) -> nearest upscale via CSS.
 export class Pipeline {
@@ -18,13 +19,13 @@ export class Pipeline {
         tColor: { value: null }, tDepth: { value: null }, tNormal: { value: null },
         uRes: { value: new THREE.Vector2() }, uTime: { value: 0 },
         uNear: { value: 1 }, uFar: { value: 100 }, uInvVP: { value: new THREE.Matrix4() },
-        uGrade: { value: new THREE.Vector3(1, 1, 1) }, uShaft: { value: new THREE.Vector3(1, 0.9, 0.6) },
+        uGrade: { value: new THREE.Vector3(1, 1, 1) }, uShaft: { value: new THREE.Vector3(1, 0.9, 0.6) }, uShaftK: { value: 1 },
         uCam: { value: new THREE.Vector3() }, uHurt: { value: 0 }, uFade: { value: 0 }, uSat: { value: 1.08 },
         uOutline: { value: new THREE.Vector3(0.16, 0.10, 0.22) },
       },
       vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.0,1.0); }`,
       fragmentShader: `
-        uniform sampler2D tColor, tDepth, tNormal; uniform vec2 uRes; uniform float uTime, uNear, uFar, uHurt, uFade, uSat;
+        uniform sampler2D tColor, tDepth, tNormal; uniform vec2 uRes; uniform float uTime, uNear, uFar, uHurt, uFade, uSat, uShaftK;
         uniform mat4 uInvVP; uniform vec3 uGrade, uShaft, uCam, uOutline; varying vec2 vUv;
         float lin(float d){ float z=d*2.0-1.0; return 2.0*uNear*uFar/(uFar+uNear-z*(uFar-uNear)); }
         float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
@@ -60,11 +61,11 @@ export class Pipeline {
           float sh = smoothstep(0.55, 1.0, noise(vec2(s*5.0 + uTime*0.03, 0.5))) * 0.7
                    + smoothstep(0.7, 1.0, noise(vec2(s*13.0 - uTime*0.02, 3.0))) * 0.35;
           sh *= smoothstep(-0.1, 0.9, 1.0 - vUv.y*0.7 + vUv.x*0.3);
-          col += uShaft * sh * 0.11;
+          col += uShaft * sh * 0.11 * uShaftK;
           // thin wind streaks (sparse)
           float ws = sp.x*0.55 - sp.y*0.9 + uTime*0.015;
           float wl = step(0.995, noise(vec2(ws*80.0, floor(uTime*0.3)))) * step(0.7, noise(vec2(vUv.x*3.0+uTime*0.2, vUv.y*3.0)));
-          col += wl*0.25;
+          col += wl*0.25*uShaftK;
           // --- grade: warm lift, saturation, vignette
           col *= uGrade;
           float lum = dot(col, vec3(0.299,0.587,0.114));
@@ -108,12 +109,19 @@ export class Pipeline {
     r.setRenderTarget(this.rt); r.render(scene, camera);
     // normal pass (no shadows needed)
     const sm = r.shadowMap.autoUpdate; r.shadowMap.autoUpdate = false;
-    scene.overrideMaterial = this.normalMat;
-    const hidden = [];
-    scene.traverse(o => { if (o.userData.noNormal && o.visible) { o.visible = false; hidden.push(o); } });
+    const hidden = [], swapped = [], nm = this.normalMat, cache = this.windNormals || (this.windNormals = new Map());
+    scene.traverse(o => {
+      if (o.userData.noNormal && o.visible) { o.visible = false; hidden.push(o); return; }
+      if (!o.material || o.material === nm) return;
+      const w = o.material.userData && o.material.userData.wind;
+      let m = nm;
+      if (w) { const key = w.join(','); m = cache.get(key); if (!m) { m = windPatch(new THREE.MeshNormalMaterial(), w); cache.set(key, m); } }
+      swapped.push(o, o.material); o.material = m;
+    });
     r.setRenderTarget(this.rtN); r.render(scene, camera);
+    for (let i = 0; i < swapped.length; i += 2) swapped[i].material = swapped[i + 1];
     hidden.forEach(o => o.visible = true);
-    scene.overrideMaterial = null; r.shadowMap.autoUpdate = sm;
+    r.shadowMap.autoUpdate = sm;
     u.tColor.value = this.rt.texture; u.tDepth.value = this.rt.depthTexture; u.tNormal.value = this.rtN.texture;
     u.uTime.value = t; u.uNear.value = camera.near; u.uFar.value = camera.far;
     u.uInvVP.value.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse).invert();
