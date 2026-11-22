@@ -207,13 +207,20 @@ html,body{image-rendering:pixelated;-webkit-font-smoothing:none;font-smooth:neve
 .creator input,.creator select{font:inherit;min-width:0;width:100%;box-sizing:border-box;background:#fff3d4;color:#48352d;border:1px solid #927659;padding:4px}.creator header select{width:auto}
 .cloak{grid-column:1/-1}.swatches [aria-pressed=true]{outline:2px solid #412f28;outline-offset:1px}#title details{width:min(530px,92vw);box-sizing:border-box}summary{cursor:pointer}
 @media(max-width:500px){.creator{padding:10px}.charbody{gap:8px}.portraitwell{padding:4px}#portrait{width:90px;height:100px}.fields{min-width:0}.portraitwell .btn{font-size:12px}}
+#btnMap{right:108px;font:inherit;font-weight:bold}
+#worldMap{width:min(690px,94vw);box-sizing:border-box;max-height:94dvh;overflow:auto;background:#fff4d9;color:#49372d;border:3px solid #513e34;padding:12px;box-shadow:4px 5px 0 #463b32;font-family:inherit}
+#worldMap::backdrop{background:#282a26b8}#worldMap header{display:flex;align-items:center;justify-content:space-between;margin:0 0 10px}
+#worldMap h2{font-size:22px;margin:0}.map-close{border:1px solid #907353;background:#f2dfb8;color:#49372d;width:32px;height:32px;cursor:pointer}
+.atlas{position:relative;aspect-ratio:5/3;border:2px solid #826e51;overflow:hidden}.atlas svg{display:block;width:100%;height:100%}.atlas button{position:absolute;transform:translate(-50%,-50%);line-height:1.25;font-family:inherit;font-weight:bold;font-size:clamp(12px,2vw,17px);background:#fff2d4;border:1px solid #947959;color:#43362c;padding:3px 6px;white-space:nowrap;cursor:pointer}.atlas button[aria-pressed=true]{background:#543e30;color:#fff5d9}.atlas button.here:before{content:'●';color:#e38f3c;margin-right:3px}
+.map-info{display:grid;gap:4px;margin-top:10px}.map-location{font-size:13px;color:#715c45}.region-detail{font-size:14px}
+@media(max-width:520px){.atlas{aspect-ratio:1.45}.atlas button{font-size:14px;padding:4px}.atlas button:after{content:"";position:absolute;inset:-8px -2px}.map-close{width:40px;height:40px}#hud .mute{top:51px}#netBox{top:94px}#boss{top:116px}.map-info{min-height:86px}}
 </style>
 </head>
 <body>
 <canvas id="view"></canvas>
 
 <div id="hud" class="hide">
-  <button id="btnSet" class="mute set" title="設定 (Esc)">⚙</button><button id="btnMute" class="mute" title="靜音 (M)">🔊</button>
+  <button id="btnMap" class="mute" title="世界地圖 (M)">地圖</button><button id="btnSet" class="mute set" title="設定 (Esc)">⚙</button><button id="btnMute" class="mute" title="靜音">🔊</button>
   <div id="stam"></div>
   <div id="topbar" class="panel"><span id="roomInfo"></span><span id="killInfo"></span><span id="shardInfo"></span></div>
   <div id="boss" class="hide"><div class="name"></div><div class="bar"><div class="fill"></div></div></div>
@@ -253,7 +260,7 @@ html,body{image-rendering:pixelated;-webkit-font-smoothing:none;font-smooth:neve
       <b>左鍵</b><span>杖擊（按住連擊）</span>
       <b>右鍵</b><span>餘燼彈（消耗法力）</span>
             <b>空白</b><span>單擊＝翻滾（無敵）；連按兩下＝跳起，按住第二下＝滑翔；頂著懸崖＝攀爬</span>
-      <b>M</b><span>音效開關</span>
+      <b>M</b><span>世界地圖</span>
       <b>Enter</b><span>聊天；1–4 表情</span>
       <b>Q / E</b><span>技能（從天賦解鎖）</span>
       <b>R</b><span>蜜藥瓶回血（擊殺補充）</span>
@@ -265,6 +272,8 @@ html,body{image-rendering:pixelated;-webkit-font-smoothing:none;font-smooth:neve
   <button id="btnSetTitle" class="btn small" style="background:var(--teal)">⚙ 設定</button>
 </div>
 
+<dialog id="worldMap" aria-labelledby="atlasTitle"><header><h2 id="atlasTitle">燈谷世界地圖</h2><button class="map-close" autofocus aria-label="關閉地圖">✕</button></header>
+<div class="atlas"></div><div class="map-info"><span class="map-location"></span><strong class="region-name"></strong><span class="region-detail"></span></div></dialog>
 <div id="settings" class="modal hide"><div class="panel setp">
   <h3>設定</h3>
   <div class="stabs"><button data-tab="video">畫面</button><button data-tab="audio">音訊</button><button data-tab="keys">操作</button><button data-tab="about">關於</button></div>

@@ -116,6 +116,13 @@ export class Game {
       Space: ' ', ShiftLeft: 'shift', ShiftRight: 'shift', KeyQ: 'q', KeyE: 'e', KeyR: 'r', KeyF: 'f', KeyI: 'i', KeyM: 'm', Tab: 'tab', Escape: 'escape', Enter: 'enter', KeyT: 't', Digit1: '1', Digit2: '2', Digit3: '3', Digit4: '4' };
     const typing = () => { const a = document.activeElement; return a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA'); };
     addEventListener('keydown', e => {
+      if (this.ui.mapDialog?.open) {
+        if (e.code === 'KeyM' || e.code === 'Escape') {
+          e.preventDefault();
+          if (!e.repeat) this.ui.mapDialog.close();
+        }
+        return;
+      }
       if (this.state === 'title' && document.activeElement?.closest('#title') && e.code !== 'Escape') return;
       if (typing()) { if (e.code === 'Escape' || e.code === 'Enter') this.ui.chatKey?.(e); return; }
       const k = CODE[e.code] ?? e.key.toLowerCase();
@@ -123,7 +130,7 @@ export class Game {
       const fresh = !this.keys[k]; this.keys[k] = true;
       this.audio.init();
       if (!fresh) return;
-      if (k === 'm') { this.ui.toast(this.audio.toggleMute() ? '音效：關' : '音效：開', '#fff'); return; }
+      if (k === 'm') { if (!e.repeat) this.ui.openMap?.(); return; }
       if (this.state === 'play') {
         if (k === ' ') {
           const now = performance.now(), dbl = now - (this.lastSpace || 0) < 280; this.lastSpace = now;
@@ -878,6 +885,7 @@ export class Game {
 
   // ---------------- update ----------------
   update(dt) {
+    if (this.ui.mapDialog?.open) return;
     this.time += dt;
     if (this.chimneys && this.townGroup) { this.smokeT -= dt; if (this.smokeT <= 0) { this.smokeT = 0.35; const c = this.chimneys[(Math.random() * this.chimneys.length) | 0];
       if (c) this.puffs.burst(c.x, c.y, c.z, 1, { c: 0xeeeae2, s: 0.28, speed: 0.15, up: 0.9, g: -0.6, life: 2.4, grow: 2.2, drag: 0.6 }); } }

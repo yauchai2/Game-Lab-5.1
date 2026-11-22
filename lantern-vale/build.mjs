@@ -1,6 +1,6 @@
 import * as esbuild from 'esbuild';
 import fs from 'fs';
-const r = await esbuild.build({ entryPoints: ['src/main.js'], bundle: true, minify: true, format: 'iife', write: false, target: 'es2020' });
+const r = await esbuild.build({ entryPoints: ['src/main.js'], bundle: true, loader: { '.svg': 'text' }, minify: true, format: 'iife', write: false, target: 'es2020' });
 const js = r.outputFiles[0].text.replace(/<\/script/g, '<\\/script');
 const html = fs.readFileSync('src/index.html', 'utf8').replace('/*__GAME__*/', () => js);
 fs.mkdirSync('dist', { recursive: true });
