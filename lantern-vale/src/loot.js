@@ -128,3 +128,45 @@ export function rollBoons(r, taken, skills, n = 3) {
   }
   return out;
 }
+
+// ---------- 存檔用序列化（fmt 是函式，不能直接 JSON） ----------
+const IMP_FMT = { baseDmg: v => `基礎傷害 +${v}`, maxHp: v => `+${v} 最大生命`, crit: v => `+${v}% 暴擊率` };
+const fmtOf = k => AFFIXES.find(a => a.k === k)?.fmt || IMP_FMT[k] || (v => `${k} +${v}`);
+export function serializeItem(it) {
+  if (!it) return null;
+  return { slot: it.slot, rarity: it.rarity, tier: it.tier, name: it.name, base: it.base, special: it.special, desc: it.desc,
+    implicit: it.implicit ? { k: it.implicit.k, v: it.implicit.v } : null, mods: it.mods.map(m => ({ k: m.k, v: m.v })), reforged: it.reforged || 0 };
+}
+export function deserializeItem(o) {
+  if (!o) return null;
+  return { id: _id++, slot: o.slot, rarity: o.rarity, tier: o.tier, name: o.name, base: o.base, special: o.special, desc: o.desc, reforged: o.reforged || 0,
+    implicit: o.implicit ? { ...o.implicit, fmt: IMP_FMT[o.implicit.k] || fmtOf(o.implicit.k) } : null,
+    mods: o.mods.map(m => ({ k: m.k, v: m.v, fmt: fmtOf(m.k) })) };
+}
+// ---------- 鐵匠：重鑄／增幅／升階 ----------
+function rollMod(r, it, taken) {
+  const pool = AFFIXES.filter(a => a.slots.includes(it.slot) && !taken.includes(a.k) && (!a.rare || it.rarity === 2));
+  if (!pool.length) return null;
+  const a = pool[Math.floor(r() * pool.length)];
+  return { k: a.k, v: Math.round(a.roll(it.tier) * rand(r, 0.75, 1.15)), fmt: a.fmt };
+}
+export const FORGE = {
+  reroll: { name: '重鑄詞綴', desc: '重新隨機所有詞綴（傳奇裝備不可）', cost: it => 25 + it.tier * 10, ok: it => it.rarity < 3 && it.mods.length > 0 },
+  add: { name: '增幅詞綴', desc: '新增一條詞綴（上限 4 條）', cost: it => 50 + it.tier * 12, ok: it => it.rarity < 3 && it.mods.length < 4 },
+  tier: { name: '提升階級', desc: '階級 +1，數值依新階級重新計算', cost: it => 70 + it.tier * 20, ok: it => it.tier < 6 },
+  upgrade: { name: '晉升稀有度', desc: '普通→魔法→稀有，並補足詞綴', cost: it => 60 + it.tier * 15, ok: it => it.rarity < 2 },
+};
+export function forgeItem(kind, it, r = Math.random) {
+  const n = { ...it, mods: it.mods.map(m => ({ ...m })), reforged: (it.reforged || 0) + 1 };
+  if (kind === 'reroll') { const cnt = n.mods.length; n.mods = []; for (let i = 0; i < cnt; i++) { const m = rollMod(r, n, n.mods.map(x => x.k)); if (m) n.mods.push(m); } }
+  else if (kind === 'add') { const m = rollMod(r, n, n.mods.map(x => x.k)); if (m) n.mods.push(m); }
+  else if (kind === 'tier') {
+    n.tier++; const cnt = n.mods.length; n.mods = []; for (let i = 0; i < cnt; i++) { const m = rollMod(r, n, n.mods.map(x => x.k)); if (m) n.mods.push(m); }
+    const imp = n.implicit && IMPLICIT[n.slot] ? IMPLICIT[n.slot](n.tier) : null; if (imp && n.rarity < 3) n.implicit = imp;
+  } else if (kind === 'upgrade') {
+    n.rarity++; const want = n.rarity === 1 ? 2 : 4; while (n.mods.length < want) { const m = rollMod(r, n, n.mods.map(x => x.k)); if (!m) break; n.mods.push(m); }
+    const base = SLOTS[n.slot].bases[Math.min(3, Math.floor(n.tier / 2))];
+    n.name = n.rarity === 1 ? `${pick(r, PREFIX)}${base}` : `${pick(r, PREFIX)}${pick(r, SUFFIX)}`;
+  }
+  return n;
+}

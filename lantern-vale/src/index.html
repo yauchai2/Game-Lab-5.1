@@ -186,6 +186,19 @@ html,body{image-rendering:pixelated;-webkit-font-smoothing:none;font-smooth:neve
 .kb{display:inline-block;min-width:64px;text-align:center;background:var(--ink);color:var(--paper);padding:0 6px;font-weight:400}
 .sabout{line-height:1.8;font-size:15px;padding:8px 6px}
 .sfoot{display:flex;justify-content:space-between;align-items:center;margin-top:12px}
+
+/* ======== 城鎮互動面板 / 傳家寶 ======== */
+#topbar #shardInfo{margin-left:14px;color:#c2840a}
+#spotHint{position:fixed;transform:translate(-50%,-100%);pointer-events:none;white-space:nowrap}
+.pshards{text-align:center;font-size:15px;margin-bottom:6px;color:#6a4a30}.pshards b{color:#d8402a}
+.prow{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:8px 10px;border-bottom:2px dotted rgba(59,42,42,.25)}
+.prow:hover{background:rgba(255,207,74,.22)}.prow .pl small,.psmall,.pitem small{color:#7a5a46;font-size:13px}
+.pbar{height:8px;background:#d9c7a0;box-shadow:var(--box);margin:4px 0;width:200px}.pbar i{display:block;height:100%;background:#58a858}
+.pdone{color:#58a858}.phr{height:10px}.psmall{padding:8px 4px;text-align:center}
+.pitem{border:3px solid;padding:8px 12px;margin:4px 4px 10px;background:var(--paper2);font-size:15px}
+.btn.small[disabled]{opacity:.45;cursor:default;transform:none}.btn.small.on{background:#58a858}
+.heir{max-width:min(620px,94vw);display:flex;flex-wrap:wrap;gap:4px;justify-content:center;background:rgba(255,246,222,.92);padding:8px;box-shadow:var(--box)}
+.heirInfo{width:100%;text-align:center;font-size:14px;color:var(--ink)}.heirBtn{background:var(--paper2)!important;text-shadow:0 2px 0 #3b2a2a}
 </style>
 </head>
 <body>
@@ -194,20 +207,21 @@ html,body{image-rendering:pixelated;-webkit-font-smoothing:none;font-smooth:neve
 <div id="hud" class="hide">
   <button id="btnSet" class="mute set" title="設定 (Esc)">⚙</button><button id="btnMute" class="mute" title="靜音 (M)">🔊</button>
   <div id="stam"></div>
-  <div id="topbar" class="panel"><span id="roomInfo"></span><span id="killInfo"></span></div>
+  <div id="topbar" class="panel"><span id="roomInfo"></span><span id="killInfo"></span><span id="shardInfo"></span></div>
   <div id="boss" class="hide"><div class="name"></div><div class="bar"><div class="fill"></div></div></div>
   <div class="orb" id="hpOrb"><div class="fill" id="hpFill"></div><div class="shine"></div><div class="txt" id="hpText"></div></div>
   <div class="orb" id="mpOrb"><div class="fill" id="mpFill"></div><div class="shine"></div><div class="txt" id="mpText"></div></div>
   <div id="skills" class="panel">
     <div class="sk" id="sk-lmb" title="杖擊"><span class="k">左鍵</span>杖<div class="cd"></div></div>
     <div class="sk" id="sk-rmb" title="餘燼彈"><span class="k">右鍵</span>焰<div class="cd"></div></div>
-    <div class="sk" id="sk-roll" title="翻滾"><span class="k">Shift</span>滾<div class="cd"></div></div>
+    <div class="sk" id="sk-roll" title="翻滾"><span class="k">空白</span>滾<div class="cd"></div></div>
     <div class="sk" id="sk-q" title="根鬚重擊"><span class="k">Q</span>根<div class="cd"></div></div>
     <div class="sk" id="sk-e" title="螢火群"><span class="k">E</span>螢<div class="cd"></div></div>
     <div class="sk" id="sk-r" title="蜜藥瓶"><span class="k">R</span>壺<span class="cnt"></span><div class="cd"></div></div>
   </div>
   <div id="tip" class="panel hide"></div>
   <div id="exitHint" class="exitHint" style="display:none"></div>
+  <div id="spotHint" class="exitHint" style="display:none"></div>
   <div id="nums"></div>
   <div id="tags"></div><div class="ptag me" id="myTag"></div><div class="pbub" id="myBub"></div>
   <div id="netBox"><span id="netStat" class="net hide"></span><span id="onlineN"></span></div>
@@ -226,8 +240,7 @@ html,body{image-rendering:pixelated;-webkit-font-smoothing:none;font-smooth:neve
       <b>WASD</b><span>移動</span>
       <b>左鍵</b><span>杖擊（按住連擊）</span>
       <b>右鍵</b><span>餘燼彈（消耗法力）</span>
-      <b>Shift</b><span>翻滾閃避（無敵）</span>
-      <b>空白</b><span>跳躍；空中按住＝滑翔；頂著懸崖＝攀爬（耗體力）</span>
+            <b>空白</b><span>單擊＝翻滾（無敵）；連按兩下＝跳起，按住第二下＝滑翔；頂著懸崖＝攀爬</span>
       <b>M</b><span>音效開關</span>
       <b>Enter</b><span>聊天；1–4 表情</span>
       <b>Q / E</b><span>技能（從天賦解鎖）</span>
@@ -251,13 +264,14 @@ html,body{image-rendering:pixelated;-webkit-font-smoothing:none;font-smooth:neve
   <div class="sbody"></div>
   <div class="sfoot"><button class="btn small" id="btnClose">繼續遊戲</button><span class="hint">Esc 開關設定</span></div>
 </div></div>
+<div id="panelM" class="modal hide"><div class="panel setp"><h3></h3><div class="pshards"></div><div class="pbody"></div><div class="sfoot"><button class="btn small" id="btnPanelClose">關閉</button><span class="hint">Esc 關閉</span></div></div></div>
 <div id="boons" class="modal hide"><h2>選擇一份祝福</h2><div class="cards"></div></div>
 <div id="inv" class="modal hide"><div class="panel">
   <div><h3>裝備</h3><div id="invEquip"></div></div>
   <div><h3>屬性</h3><div id="invStats"></div><h3 style="margin-top:14px">天賦</h3><div id="invBoons"></div><div class="hint" style="margin-top:12px">按 Tab 或 Esc 關閉</div></div>
 </div></div>
-<div id="dead" class="modal hide"><h2>燈火熄滅了……</h2><div class="panel" style="padding:12px 18px" id="deadSum"></div><div style="display:flex;gap:12px"><button class="btn" id="btnRetry">再次出發</button><button class="btn" id="btnTown2" style="background:var(--teal)">回燈谷鎮</button></div></div>
-<div id="win" class="modal hide"><h2>山谷重新亮起來了！</h2><div class="panel" style="padding:12px 18px" id="winSum"></div><div style="display:flex;gap:12px"><button class="btn" id="btnAgain">再走一趟</button><button class="btn" id="btnTown3" style="background:var(--teal)">回燈谷鎮</button></div></div>
+<div id="dead" class="modal hide"><h2>燈火熄滅了……</h2><div class="panel" style="padding:12px 18px" id="deadSum"></div><div class="heir" id="deadHeir"></div><div style="display:flex;gap:12px"><button class="btn" id="btnRetry">再次出發</button><button class="btn" id="btnTown2" style="background:var(--teal)">回燈谷鎮</button></div></div>
+<div id="win" class="modal hide"><h2>山谷重新亮起來了！</h2><div class="panel" style="padding:12px 18px" id="winSum"></div><div class="heir" id="winHeir"></div><div style="display:flex;gap:12px"><button class="btn" id="btnAgain">再走一趟</button><button class="btn" id="btnTown3" style="background:var(--teal)">回燈谷鎮</button></div></div>
 <div id="wipe"></div>
 <script>/*__GAME__*/</script>
 </body>

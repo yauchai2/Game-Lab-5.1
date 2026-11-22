@@ -1,3 +1,4 @@
+import { buildPanels } from './panels.js';
 import { loadSettings, applySettings, buildSettingsUI } from './settings.js';
 import * as THREE from 'three';
 import { RARITY, SLOTS, itemLines, itemScore, BOONS } from './loot.js';
@@ -13,7 +14,7 @@ export class UI {
   }
   bind(game) {
     this.game = game;
-    game.settings = loadSettings(); buildSettingsUI(game); applySettings(game);
+    game.settings = loadSettings(); buildPanels(game); buildSettingsUI(game); applySettings(game);
     $('btnMute').onclick = () => { game.audio.init(); const m = game.audio.toggleMute(); $('btnMute').textContent = m ? '🔇' : '🔊'; };
     $('btnMute').textContent = game.audio.muted ? '🔇' : '🔊';
     let saved = {}; try { saved = JSON.parse(localStorage.getItem('lv_prof') || '{}'); } catch (e) { /* ignore */ }
@@ -95,6 +96,26 @@ export class UI {
     el.textContent = { item: '前路：稀有裝備', boon: '前路：天賦祝福', heal: '前路：溫泉休憩', run: '出發：燈谷冒險' }[near.type];
     el.className = 'exitHint ' + near.type;
   }
+  spotHint(g) {
+    const el = $('spotHint'), s = this.panelOpen || this.invOpen || this.setOpen ? null : g.nearSpot();
+    if (!s) { el.style.display = 'none'; return; }
+    const [sx, sy] = this.screenPos(s.x, s.top || 2.6, s.z);
+    el.style.display = 'block'; el.style.left = sx + 'px'; el.style.top = sy + 'px';
+    el.textContent = s.kind === 'talk' ? `[F] 與 ${s.label} 交談` : `[F] ${s.label}`;
+  }
+  heirUI(g, id) {
+    const box = $(id); box.innerHTML = '';
+    const sh = g.bankedShards ?? 0;
+    const info = document.createElement('div'); info.className = 'heirInfo';
+    info.textContent = `星砂 +${sh}${g.lostShards ? `（陣亡損失 ${g.lostShards}）` : ''} · 挑一件裝備作為傳家寶，下次出發就帶著它：`; box.appendChild(info);
+    const cur = g.meta.p.heirloom;
+    for (const it of Object.values(g.player.equip)) if (it) {
+      const b = document.createElement('button'); b.className = 'btn small heirBtn'; b.style.color = RARITY[it.rarity].color;
+      b.textContent = it.name + (cur && cur.name === it.name ? ' ✔' : '');
+      b.onclick = () => { g.meta.setHeirloom(it); g.audio.sfx('pickup'); this.heirUI(g, id); };
+      box.appendChild(b);
+    }
+  }
   update(g) {
     // floating numbers
     for (const n of this.nums) {
@@ -129,6 +150,7 @@ export class UI {
     const stage = Math.floor(g.depth / 3) + 1, room = g.depth % 3 + 1;
     $('roomInfo').textContent = g.depth < 0 ? '燈谷鎮 · 安全區' : g.depth === 9 ? '最終 · 鹿王林地' : `${g.biome.name}  ${stage}-${room}`;
     $('killInfo').textContent = `擊敗 ${p.kills}`;
+    { const M = g.meta; $('shardInfo').textContent = `✦ ${M.p.shards}${M.runShards ? ` (+${M.runShards})` : ''}` + (g.depth >= 0 && M.p.mods.length ? ' · ' + M.activeMods().map(m => m.name).join('') : ''); }
     // ground item tooltip
     const d = g.state === 'play' && !this.invOpen ? g.nearestDrop() : null;
     const tip = $('tip');
@@ -185,8 +207,8 @@ export class UI {
     const p = g.player; const secs = Math.round((performance.now() - g.runStart) / 1000);
     return `抵達 ${Math.floor(g.depth / 3) + 1}-${g.depth % 3 + 1} · 擊敗 ${p.kills} · 總傷害 ${p.dmgDealt} · ${Math.floor(secs / 60)}分${secs % 60}秒`;
   }
-  showDead(g) { $('deadSum').textContent = this.runSummary(g); $('dead').classList.remove('hide'); this.saveBest(g); }
-  showWin(g) { $('winSum').textContent = this.runSummary(g); $('win').classList.remove('hide'); this.saveBest(g, true); }
+  showDead(g) { this.heirUI(g, 'deadHeir'); $('deadSum').textContent = this.runSummary(g); $('dead').classList.remove('hide'); this.saveBest(g); }
+  showWin(g) { this.heirUI(g, 'winHeir'); $('winSum').textContent = this.runSummary(g); $('win').classList.remove('hide'); this.saveBest(g, true); }
   saveBest(g, won) {
     try {
       const best = JSON.parse(localStorage.getItem('lv_best') || '{"depth":0,"wins":0}');

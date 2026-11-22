@@ -81,6 +81,31 @@ function stall(awning) { const g = new THREE.Group(), p = [B(2.4, 0.8, 1.0, 0x8a
   for (let k = 0; k < 6; k++) p.push(B(0.46, 0.08, 1.8, k % 2 ? 0xfff6e2 : awning, -1.15 + k * 0.46, 1.95 - 0.04, 0, 0.22, 0, 0));
   const cols = [0xe0453a, 0xf4c542, 0x86bd3f, 0xff9a3a]; for (let k = 0; k < 7; k++) p.push(part(new THREE.IcosahedronGeometry(0.14, 0), cols[k % 4], -0.9 + k * 0.3, 0.9, 0.05)); p.push(barrel(1.7, 0.2), crate(-1.7, 0.1, 0.5)); g.add(M(p)); return g; }
 
+
+// ---- 互動設施：任務布告欄、鐵匠鋪（鐵砧＋爐火）、地圖桌 ----
+export function buildBoard() {
+  const g = new THREE.Group(), P = [];
+  P.push(B(0.2, 2.4, 0.2, 0x6a4a30, -0.9, 1.2, 0), B(0.2, 2.4, 0.2, 0x6a4a30, 0.9, 1.2, 0));
+  P.push(B(2.2, 1.3, 0.14, 0xa8794a, 0, 1.55, 0), B(2.4, 0.14, 0.3, 0x7a5436, 0, 2.5, 0));
+  [[-0.55, 1.8, 0xfff1d0], [0.1, 1.6, 0xffe0a0], [0.6, 1.9, 0xf6d6d6], [-0.2, 1.3, 0xd8ecc8], [0.62, 1.35, 0xfff1d0]].forEach(([x, y, c], i) => P.push(B(0.42, 0.52, 0.03, c, x, y, 0.09, 0, 0, (i - 2) * 0.07), B(0.06, 0.06, 0.04, 0xd8402a, x, y + 0.2, 0.12)));
+  g.add(M(P)); g.userData.top = 3.0; return g;
+}
+export function buildForge() {
+  const g = new THREE.Group(), P = [], A = [];
+  P.push(B(2.4, 0.9, 1.4, 0x9a9488, 0, 0.45, 0), B(2.0, 0.12, 1.1, 0x6a645a, 0, 0.96, 0));
+  P.push(B(0.9, 0.7, 0.9, 0x6a4a30, -0.6, 1.3, 0, 0, 0.3, 0), B(0.8, 0.12, 0.5, 0x45403a, 0.55, 1.08, 0), B(0.5, 0.18, 0.34, 0x45403a, 0.55, 0.92 + 0.3, 0), B(0.25, 0.22, 0.25, 0x45403a, 0.55, 1.28, 0));
+  P.push(B(0.3, 2.6, 0.3, 0x8a847a, 1.1, 1.3, -0.5), B(0.34, 0.2, 0.34, 0x5a544a, 1.1, 2.6, -0.5));
+  g.add(M(P));
+  const coal = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.12, 0.6), new THREE.MeshBasicMaterial({ color: 0xff7a30 })); coal.position.set(-0.6, 1.66, 0); coal.userData.noNormal = true; g.add(coal); g.userData.coal = coal;
+  g.userData.top = 3.0; return g;
+}
+export function buildMapTable() {
+  const g = new THREE.Group(), P = [];
+  P.push(B(2.2, 0.14, 1.5, 0x9a6a42, 0, 1.0, 0));
+  for (const x of [-0.95, 0.95]) for (const z of [-0.6, 0.6]) P.push(B(0.14, 1.0, 0.14, 0x6a4a30, x, 0.5, z));
+  P.push(B(1.7, 0.03, 1.1, 0xf3e2c0, 0, 1.09, 0), B(0.9, 0.03, 0.05, 0xc0402a, 0.1, 1.11, 0.1, 0, 0.5, 0), B(0.05, 0.03, 0.7, 0x3a7aa8, -0.4, 1.11, -0.05, 0, 0.2, 0), B(0.18, 0.18, 0.18, 0xd8402a, 0.5, 1.2, -0.3));
+  g.add(M(P)); g.userData.top = 2.0; return g;
+}
 export function buildTownScenery({ gh, rng }) {
   const g = new THREE.Group(), obstacles = [], chimneys = [], r = rng || Math.random;
   const place = (o, x, z, ry = 0, obs = 0, yoff = 0) => { o.position.set(x, gh(x, z) + yoff, z); o.rotation.y = ry; g.add(o); if (obs) obstacles.push({ x, z, r: obs, h: 0 }); if (o.userData.chimney) { const c = o.userData.chimney, cs = Math.cos(ry), sn = Math.sin(ry); chimneys.push({ x: x + c[0] * cs + c[2] * sn, y: o.position.y + c[1], z: z - c[0] * sn + c[2] * cs }); } return o; };
@@ -120,5 +145,10 @@ export function buildTownScenery({ gh, rng }) {
   [[-19, -12], [18, 8], [-18, 12], [20, -2], [-3, -22], [-19, 5]].forEach(([x, z], i) => place(i % 2 ? blossom(0xf59ac0) : cypress(1.3), x, z, 0, 0.5));
   [[-4, -20], [4, -20], [-7.5, -17], [7.5, -17], [-20, -5], [-21, 8], [19, 14], [-12, 17]].forEach(([x, z]) => place(cypress(1 + r() * 0.3), x, z, 0, 0.45));
   place(blossom(), -17, -15, 0, 0.6); place(blossom(0xf7b0cf), 14, 15, 0, 0.6);
-  return { group: g, obstacles, chimneys };
+  const spots = [];
+  const spot = (o, x, z, ry, kind, label, rr = 1.1) => { place(o, x, z, ry, rr); spots.push({ x, z, kind, label, top: o.userData.top, o }); };
+  spot(buildBoard(), -4.5, 6.8, faceCenter(-4.5, 6.8), 'quest', '任務布告欄', 1.2);
+  spot(buildForge(), 12.5, -3.5, faceCenter(12.5, -3.5), 'forge', '鐵匠鋪', 1.5);
+  spot(buildMapTable(), 2.8, -10.5, 0, 'map', '出發地圖桌', 1.2);
+  return { group: g, obstacles, chimneys, spots };
 }
