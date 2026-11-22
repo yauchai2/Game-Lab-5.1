@@ -124,8 +124,12 @@ export class Game {
       if (!fresh) return;
       if (k === 'm') { this.ui.toast(this.audio.toggleMute() ? '音效：關' : '音效：開', '#fff'); return; }
       if (this.state === 'play') {
-        if (k === 'shift') this.tryRoll();
-        if (k === ' ') this.tryJump();
+        if (k === ' ') {
+          const now = performance.now(), dbl = now - (this.lastSpace || 0) < 280; this.lastSpace = now;
+          if (this.player.air || this.player.climbing) this.tryJump();          // 空中/攀爬：維持原本行為（按住滑翔）
+          else if (dbl) { this.lastSpace = 0; this.player.roll = 0; this.tryJump(); } // 連按兩下：取消翻滾、跳起（按住第二下＝滑翔）
+          else this.tryRoll();                                                  // 單擊：翻滾
+        }
         if (k === 'q') this.trySlam();
         if (k === 'e') this.tryWisp();
         if (k === 'r') this.tryFlask();
@@ -763,7 +767,7 @@ export class Game {
     if (!this.net.url) this.spawnBots();
   }
   spawnBots() {
-    const defs = [['米糕 (鎮民)', 1, ['歡迎來到燈谷鎮！', '北邊的拱門通往燈谷，小心鹿王。', '空白鍵可以跳，按住就能滑翔喔。']],
+    const defs = [['米糕 (鎮民)', 1, ['歡迎來到燈谷鎮！', '北邊的拱門通往燈谷，小心鹿王。', '空白鍵連按兩下可以跳，按住第二下就能滑翔喔。']],
       ['阿杏 (鎮民)', 5, ['頂著懸崖不放就能攀爬，但會耗體力。', '聽說傳奇裝備很稀有……', '多喝蜜藥瓶，少受傷。']],
       ['老燈 (鎮民)', 3, ['一個人也能走完，找朋友一起更熱鬧。', '輸入 Enter 可以聊天。', '噓……森林深處有東西在動。']]];
     defs.push(['酒館老闆娘 楓', 4, ['今天的蘋果酒剛釀好！', '冒險回來記得來坐坐。', '聽說有人在雪原看見發光的鹿角。'], [-10, -4, 1.5]],
