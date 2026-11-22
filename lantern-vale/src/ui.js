@@ -103,7 +103,9 @@ export class UI {
     this.nums = this.nums.filter(n => n.t <= 0.85);
     if (g.state === 'title') return;
     const p = g.player, S = p.stats;
-    $('stamFill').style.width = (p.stamina) + '%'; $('stam').classList.toggle('hide', p.stamina >= 99.5 && !p.air && !p.climbing);
+    { const st = $('stam'); if (!st.children.length) for (let i = 0; i < 10; i++) st.appendChild(document.createElement('i'));
+      const n = p.stamina / 10; for (let i = 0; i < 10; i++) st.children[i].classList.toggle('empty', i + 0.5 > n);
+      st.classList.toggle('hide', p.stamina >= 99.5 && !p.air && !p.climbing); }
     $('hpFill').style.height = (p.hp / S.maxHp * 100) + '%';
     $('mpFill').style.height = (p.mana / S.mana * 100) + '%';
     $('hpText').textContent = `${Math.ceil(p.hp)}/${S.maxHp}`;

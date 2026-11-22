@@ -150,6 +150,23 @@ html,body{image-rendering:pixelated;-webkit-font-smoothing:none;font-smooth:neve
 .keys b{border-radius:0;background:var(--ink);box-shadow:0 2px 0 var(--shadow)}
 /* 過場：像素方塊式淡出 */
 #wipe{transition:clip-path .45s steps(8,end)}
+
+/* ======== 第二輪：深棕面板＋羽毛體力（參考 reference/ui） ======== */
+:root{ --brown:#5a3826; --brown2:#7a4c33; --orange:#ffa83a; --cream:#fff2d6; }
+#topbar{left:12px;top:12px;transform:none;background:var(--brown);color:var(--cream);box-shadow:none!important;border-radius:8px!important;padding:6px 12px;margin:0;font-size:15px;gap:12px}
+#topbar #killInfo{color:var(--orange)}
+.mute{background:var(--brown);color:var(--cream);box-shadow:none!important;border-radius:8px!important}
+.toast{background:var(--brown);color:var(--cream)!important;padding:6px 16px 8px;border-radius:8px;text-shadow:none;font-size:18px;box-shadow:0 3px 0 rgba(0,0,0,.25)}
+#stam{left:26px;bottom:128px;transform:none;width:auto;height:auto;display:flex;gap:4px;background:none;box-shadow:none;overflow:visible}
+#stam i{display:block;width:14px;height:30px;background:linear-gradient(90deg,#ffcf4a 0 45%,#ffe9a0 45% 55%,#f2a62e 55%);
+  clip-path:polygon(50% 0,80% 18%,100% 50%,80% 85%,50% 100%,20% 85%,0 50%,20% 18%);transition:opacity .1s,filter .1s}
+#stam i.empty{opacity:.28;filter:grayscale(.6) brightness(.7)}
+#chat{bottom:168px}.chatHint{display:none}#chat:focus-within .chatHint{display:block}
+.card:hover,.sk:hover{outline:4px solid var(--gold);outline-offset:2px}
+.card:hover:before{content:'\25B6';position:absolute;left:-26px;top:50%;color:#fff;text-shadow:0 2px 0 var(--ink);font-size:20px}
+.tip2,#tip{background:var(--brown)!important;color:var(--cream);border-radius:10px!important;box-shadow:0 4px 0 rgba(0,0,0,.3)!important}
+#tip .ibase,#tip .hint{color:#e8cfa8}#tip .sep{background:var(--cream)}
+.exitHint.item{color:#9a5a00}
 </style>
 </head>
 <body>
@@ -157,7 +174,7 @@ html,body{image-rendering:pixelated;-webkit-font-smoothing:none;font-smooth:neve
 
 <div id="hud" class="hide">
   <button id="btnMute" class="mute" title="靜音 (M)">🔊</button>
-  <div id="stam"><div id="stamFill"></div></div>
+  <div id="stam"></div>
   <div id="topbar" class="panel"><span id="roomInfo"></span><span id="killInfo"></span></div>
   <div id="boss" class="hide"><div class="name"></div><div class="bar"><div class="fill"></div></div></div>
   <div class="orb" id="hpOrb"><div class="fill" id="hpFill"></div><div class="shine"></div><div class="txt" id="hpText"></div></div>
