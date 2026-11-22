@@ -2,13 +2,24 @@
 import { CLASSES, ACTIVE_GEMS, SUPPORT_GEMS } from './puzzle.js';
 import { SECOND_CLASSES } from './world_alive.js';
 import { FIELDS } from './frontier.js';
-import { BOONS } from './loot.js';
+import { BOONS, TIERS } from './loot.js';
 import { BAG_RECIPES } from './physbag.js';
+import { MOUNTS } from './mounts.js';
 
-export const GAME_VERSION = 'v0.7.0';
+export const GAME_VERSION = 'v0.8.0';
 export const DONATE_URL = 'https://ko-fi.com/'; // 可隨時改為個人贊助頁面或 ECPay 連結
 
 export const CHANGELOG = [
+  {
+    ver: 'v0.8.0', date: '2026-11-22',
+    items: [
+      { tag: '重要', text: '新增「3D 坐騎與里程碑解鎖系統」（林間巨鹿、雲絨角獸、星翼浮鰩，按 G 鍵隨時召喚／收起）與「T1–T6 裝備與物品分級」。' },
+      { tag: '重要', text: '大型建築、巨樹、拱門與瞭望塔遮擋人物視野時，透過鏡頭射線自動半透明透視，徹底解決視線遮擋！' },
+      { tag: '新增', text: '全面美化野外場景層次：植被與花草依地圖面積大幅加密，新增巨樹、巨石苔岩、遺跡八角噴泉斷柱聖壇、木造瞭望塔與海岸遮陽傘野餐區。' },
+      { tag: '新增', text: '野外怪物聚落提升至 9–13 群（55–95 隻），清怪爽感大幅升級；強化雙層揮擊弧光、施法符文陣與連鎖光束特效。' },
+      { tag: '修正', text: '物理背包頂部即時顯示「已穿戴裝備欄」，點選背包或裝備皆完整呈現 T1–T6 分級、詞綴詳情與戰力比較；世界地圖加入跳動「📍 你在這裡」玩家定位標記。' },
+    ],
+  },
   {
     ver: 'v0.7.0', date: '2026-11-22',
     items: [
@@ -101,6 +112,7 @@ export function bindCodexUI(game) {
       const tabs = [
         ['gems', '💎 技能寶石'],
         ['classes', '🛡️ 職業與二轉'],
+        ['mounts', '🦌 坐騎與分級'],
         ['recipes', '⚗️ 背包碰撞合成'],
         ['mech', '⚙️ 異常與機制'],
         ['zones', '🗺️ 區域與生態'],
@@ -129,6 +141,9 @@ export function bindCodexUI(game) {
         Object.entries(SECOND_CLASSES).forEach(([, list]) => {
           list.forEach(sc => cards.push({ icon: sc.icon, name: sc.name, sub: '二轉覺醒職業', desc: sc.desc, color: '#9c7ae8' }));
         });
+      } else if (wikiTab === 'mounts') {
+        MOUNTS.forEach(m => cards.push({ icon: m.icon, name: `[T${m.tier}] ${m.name}`, sub: `解鎖里程碑：${m.milestone}`, desc: m.perk + '（遊戲中按 G 鍵召喚／收起）', color: '#ffd85a' }));
+        TIERS.slice(1).forEach(ti => cards.push({ icon: '🏷️', name: `${ti.tag} · ${ti.name}`, sub: `裝備與補給分級倍率 ×${ti.mult}`, desc: '裝備掉落、鍛造升階與物理背包合成皆具備 T1–T6 階級標示。', color: ti.color }));
       } else if (wikiTab === 'recipes') {
         BAG_RECIPES.forEach(r => cards.push({
           icon: r.out.icon, name: r.out.name, sub: `碰撞合成：${r.label}`,

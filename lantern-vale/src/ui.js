@@ -13,7 +13,8 @@ import { bindCodexUI } from './codex.js';
 import { FluidVial } from './vials.js';
 import { t } from './i18n.js';
 import * as THREE from 'three';
-import { RARITY, SLOTS, itemLines, itemScore, BOONS } from './loot.js';
+import { RARITY, SLOTS, itemLines, itemScore, BOONS, deserializeItem, tierInfo } from './loot.js';
+import { mountStatuses } from './mounts.js';
 
 const $ = id => document.getElementById(id);
 const v3 = new THREE.Vector3();
@@ -37,6 +38,7 @@ export class UI {
     const pzBtn = $('sk-puzzle'); if (pzBtn) pzBtn.onclick = () => { if (this.puzzleOpen) this.closePuzzle(); else this.openPuzzle(); };
     const bagBtn = $('sk-bag'); if (bagBtn) bagBtn.onclick = () => this.toggleInv(game, 'bag');
     const recBtn = $('sk-recall'); if (recBtn) recBtn.onclick = () => game.startRecall?.();
+    const mntBtn = $('sk-mount'); if (mntBtn) mntBtn.onclick = () => game.toggleMount?.();
     const dayBtn = $('dayInfo'); if (dayBtn) dayBtn.onclick = () => { game.dayTime = ((game.dayTime || 0) + 0.25) % 1; const d = dayInfo(game.dayTime); game.ui.toast(`時間推進至 ${d.icon} ${d.label}`, '#ffe9a0'); };
     for (let i = 0; i < 4; i++) { const el = $('sk-s' + i); if (el) el.onclick = () => game.castHotbar(i); }
     this._bindInvTabs(game);
@@ -65,11 +67,17 @@ export class UI {
       if (!info || !btns) return;
       const lang = game.settings?.lang || 'zh-TW';
       if (!item) { info.textContent = t(lang, 'bagEmpty'); btns.innerHTML = ''; return; }
-      info.innerHTML = `<b>${item.icon || ''} ${item.name}</b><br><small>${item.desc || (item.kind === 'gear' ? '點擊裝備即可穿戴至對應欄位' : '物理背包物品')}</small>`;
+      if (item.kind === 'gear' && item.item) {
+        const gear = deserializeItem(item.item);
+        info.innerHTML = this.itemHTML(gear, game.player.equip[gear.slot]);
+      } else {
+        const ti = tierInfo(item.tier || 1);
+        info.innerHTML = `<div><span class="tier-tag" style="color:${ti.color}">${ti.tag} ${ti.name}</span><b>${item.icon || ''} ${item.name}</b></div><div style="margin-top:4px;font-size:12.5px">${item.desc || '物理背包物品'}</div>`;
+      }
       btns.innerHTML = '';
       const act = document.createElement('button'); act.className = 'btn small';
       act.textContent = item.kind === 'gear' ? t(lang, 'equipItem') : t(lang, 'useItem');
-      act.onclick = () => { useBagItem(game, item, fromKey); this.syncPhysBags(game); this.renderInv(game, true); };
+      act.onclick = () => { useBagItem(game, item, fromKey); this.syncPhysBags(game); this.renderBagEquipStrip(game); this.renderInv(game, true); showSel(boxId, btnsId, null, fromKey); };
       btns.appendChild(act);
       if (this.atStash) {
         const otherKey = fromKey === 'bagItems' ? 'stashItems' : 'bagItems';
@@ -83,7 +91,7 @@ export class UI {
       this.bagPhys = new PhysicsContainer(bagCv, {
         theme: 'bag',
         onSelect: it => showSel('bagSelInfo', 'bagBtns', it, 'bagItems'),
-        onDoubleClick: it => { useBagItem(game, it, 'bagItems'); this.syncPhysBags(game); this.renderInv(game, true); },
+        onDoubleClick: it => { useBagItem(game, it, 'bagItems'); this.syncPhysBags(game); this.renderBagEquipStrip(game); this.renderInv(game, true); },
         onSynthesize: (a, b, mx, my) => { synthesizeBagItems(game, a, b, 'bagItems', mx, my); this.syncPhysBags(game); showSel('bagSelInfo', 'bagBtns', null, 'bagItems'); },
       });
     }
@@ -109,6 +117,47 @@ export class UI {
       };
     });
   }
+  renderBagEquipStrip(game) {
+    const el = $('bagEquipStrip'); if (!el) return;
+    const eq = game.player.equip;
+    el.innerHTML = Object.keys(SLOTS).map(k => {
+      const it = eq[k];
+      if (!it) return `<button type="button" class="eq-mini" data-eqslot="${k}"><b>${SLOTS[k].icon} ${SLOTS[k].name}</b><br><span style="opacity:.6">（空欄位）</span></button>`;
+      const ti = tierInfo(it.tier || 1), R = RARITY[it.rarity];
+      return `<button type="button" class="eq-mini" data-eqslot="${k}"><span class="tier-tag" style="color:${ti.color}">${ti.tag}</span><b style="color:${R.color};text-shadow:0 1px 0 #2b1d22">${it.name}</b><br><small>${SLOTS[k].name} · 戰力 ${itemScore(it)}</small></button>`;
+    }).join('');
+    el.querySelectorAll('.eq-mini').forEach(b => {
+      b.onclick = () => {
+        const it = eq[b.dataset.eqslot], info = $('bagSelInfo'), btns = $('bagBtns');
+        if (!info) return;
+        if (btns) btns.innerHTML = '';
+        info.innerHTML = it ? `<div style="font-size:11px;color:#7a5a46;margin-bottom:3px">🛡️ 目前已穿戴裝備詳情</div>` + this.itemHTML(it) : '此裝備欄位目前為空。';
+      };
+    });
+  }
+  renderMounts(game) {
+    const root = $('mountsRoot'); if (!root) return;
+    const list = mountStatuses(game.meta.p);
+    const curId = game.meta.p.mountId || list.find(m => m.status.unlocked)?.id;
+    root.innerHTML = `<div style="margin-bottom:10px;font-size:13px;color:#5a3826">達成對應冒險里程碑即可永久解鎖坐騎！遊戲中按 <b>G 鍵</b>（或下方坐騎鈕）隨時召喚／收起。</div><div class="mount-grid">${list.map(m => {
+      const u = m.status.unlocked, on = u && curId === m.id;
+      return `<div class="mount-card ${on ? 'on' : ''} ${u ? '' : 'locked'}">
+        <div style="display:flex;align-items:center;gap:8px"><span style="font-size:28px">${m.icon}</span><div><span class="tier-tag" style="color:#ffd85a">T${m.tier}</span><b>${m.name}</b><div style="font-size:11px;color:#7a5a46">${m.status.text}</div></div></div>
+        <div class="mount-prog"><i style="width:${Math.round(m.status.prog * 100)}%"></i></div>
+        <div style="font-size:12px"><b>里程碑：</b>${m.milestone}</div>
+        <div style="font-size:12px;color:#2c5a9a"><b>坐騎特性：</b>${m.perk}</div>
+        <div>${u ? `<button type="button" class="btn small" data-mid="${m.id}">${on ? '✓ 使用中（點此召喚）' : '選擇並召喚'}</button>` : '<span style="font-size:12px;opacity:.7">🔒 尚未達成里程碑</span>'}</div>
+      </div>`;
+    }).join('')}</div>`;
+    root.querySelectorAll('[data-mid]').forEach(b => {
+      b.onclick = () => {
+        game.meta.p.mountId = b.dataset.mid; game.meta.save();
+        if (game.mount) game.toggleMount(true);
+        this.toggleInv(game);
+        game.toggleMount();
+      };
+    });
+  }
   openInvTab(game, tab) {
     const mapped = tab === 'cosmetics' ? 'cos' : tab;
     this.atStash = (mapped === 'stash');
@@ -122,12 +171,14 @@ export class UI {
     const stBtn = document.querySelector('[data-invtab="stash"]');
     if (stBtn) stBtn.style.display = this.atStash ? '' : 'none';
     document.querySelectorAll('[data-invtab]').forEach(b => b.classList.toggle('on', b.dataset.invtab === tab));
-    ['bag', 'gear', 'stash', 'cos'].forEach(k => {
+    ['bag', 'gear', 'mounts', 'stash', 'cos'].forEach(k => {
       const pane = $('pane-' + k);
       if (pane) pane.classList.toggle('hide', k !== tab);
     });
-    if (tab === 'bag' || tab === 'stash') this.syncPhysBags(game);
+    if (tab === 'bag') { this.syncPhysBags(game); this.renderBagEquipStrip(game); }
+    if (tab === 'stash') this.syncPhysBags(game);
     if (tab === 'gear') this.renderInv(game, true);
+    if (tab === 'mounts') this.renderMounts(game);
     if (tab === 'cos') this.renderCosmetics(game);
   }
   refreshLanguage(game) {
@@ -378,14 +429,14 @@ export class UI {
     if (this.invOpen && this.invTab === 'gear') this.renderInv(g);
   }
   itemHTML(it, cur) {
-    const R = RARITY[it.rarity];
+    const R = RARITY[it.rarity], ti = tierInfo(it.tier || 1);
     const lines = itemLines(it).map(l => `<div class="${l.imp ? 'imp' : l.special ? 'spc' : 'mod'}">${l.t}</div>`).join('');
     let cmp = '';
     if (cur !== undefined) {
       const diff = itemScore(it) - itemScore(cur);
-      cmp = `<div class="cmp ${diff >= 0 ? 'up' : 'down'}">${cur ? (diff >= 0 ? `▲ 比目前好 ${diff}` : `▼ 比目前差 ${-diff}`) : '▲ 空欄位'}</div><div class="hint">[F] 裝備（舊裝備自動收入物理背包）</div>`;
+      cmp = `<div class="cmp ${diff >= 0 ? 'up' : 'down'}">${cur ? (diff >= 0 ? `▲ 比目前好 ${diff}` : `▼ 比目前差 ${-diff}`) : '▲ 空欄位'}</div><div class="hint">雙擊或點擊按鈕裝備（舊裝備自動收入物理背包）</div>`;
     }
-    return `<div class="iname" style="color:${R.color}">${it.name}</div><div class="ibase">${R.name} · ${SLOTS[it.slot].name} · ${it.base}</div><div class="sep"></div>${lines}${cmp}`;
+    return `<div class="iname" style="color:${R.color}"><span class="tier-tag" style="color:${ti.color}">${ti.tag}</span>${it.name}</div><div class="ibase">${ti.name} · ${R.name} · ${SLOTS[it.slot].name} · ${it.base} · 戰力 ${itemScore(it)}</div><div class="sep"></div>${lines}${cmp}`;
   }
   toggleRegionMap(g) {
     this.regionMapOpen = !this.regionMapOpen;

@@ -7,6 +7,17 @@ export const RARITY = [
   { key: 'unique', name: '傳奇', color: '#ff9a4a', beam: 0xff9a4a },
 ];
 
+export const TIERS = [
+  null,
+  { tier: 1, tag: 'T1', name: '旅人階', color: '#d8d2c5', mult: 1.0 },
+  { tier: 2, tag: 'T2', name: '精鋼階', color: '#8ad896', mult: 1.25 },
+  { tier: 3, tag: 'T3', name: '星銀階', color: '#7fc4ff', mult: 1.55 },
+  { tier: 4, tag: 'T4', name: '秘光階', color: '#c88cff', mult: 1.9 },
+  { tier: 5, tag: 'T5', name: '傳世階', color: '#ffd85a', mult: 2.3 },
+  { tier: 6, tag: 'T6', name: '穹頂階', color: '#ff8a50', mult: 2.75 },
+];
+export function tierInfo(tier = 1) { return TIERS[Math.max(1, Math.min(6, Math.round(tier || 1)))] || TIERS[1]; }
+
 export const SLOTS = {
   staff: { name: '法杖', icon: '杖', bases: ['樺木短杖', '苔紋手杖', '燈芯長杖', '古橡法杖'] },
   cloak: { name: '斗篷', icon: '袍', bases: ['亞麻斗篷', '羊毛披風', '雨林蓑衣', '星紋大氅'] },
@@ -139,7 +150,7 @@ export function serializeItem(it) {
 }
 export function deserializeItem(o) {
   if (!o) return null;
-  return { id: _id++, slot: o.slot, rarity: o.rarity, tier: o.tier, name: o.name, base: o.base, special: o.special, desc: o.desc, reforged: o.reforged || 0,
+  return { id: _id++, slot: o.slot, rarity: o.rarity, tier: o.tier || 1, name: o.name, base: o.base, special: o.special, desc: o.desc, reforged: o.reforged || 0,
     implicit: o.implicit ? { ...o.implicit, fmt: IMP_FMT[o.implicit.k] || fmtOf(o.implicit.k) } : null,
     mods: o.mods.map(m => ({ k: m.k, v: m.v, fmt: fmtOf(m.k) })) };
 }

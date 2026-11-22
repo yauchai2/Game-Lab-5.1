@@ -231,8 +231,19 @@ const createGuild = require('../server/guild.cjs');
   assert.equal(upgraded.item.rarity, 1, 'Two same-rarity gears collide and fuse into higher rarity');
 
   const codex = await import(src('codex.js'));
-  assert.equal(codex.GAME_VERSION, 'v0.7.0', 'Codex exports current version v0.7.0');
-  assert.ok(codex.CHANGELOG.length >= 4, 'Changelog contains structured version history');
+  assert.equal(codex.GAME_VERSION, 'v0.8.0', 'Codex exports current version v0.8.0');
+  assert.ok(codex.CHANGELOG.length >= 5, 'Changelog contains structured version history');
 
-  console.log('ALL 11 LOGIC, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
+  // 12. Tier System (T1-T6) & 3D Mount Milestone System
+  const loot = await import(src('loot.js'));
+  assert.equal(loot.tierInfo(1).tag, 'T1');
+  assert.equal(loot.tierInfo(5).name, '傳世階');
+  const mounts = await import(src('mounts.js'));
+  assert.equal(mounts.MOUNTS.length, 3, 'Three original mounts defined');
+  assert.equal(mounts.activeMountDef({ level: 1, kills: 0 }), null, 'New player starts with mounts locked');
+  assert.equal(mounts.activeMountDef({ level: 5, kills: 0 }).id, 'stag', 'Lv.5 unlocks Forest Stag mount');
+  assert.equal(mounts.activeMountDef({ level: 1, visitedFields: [1, 2, 3], mountId: 'alpaca' }).id, 'alpaca', 'Exploring 3 fields unlocks Cloud Alpaca mount');
+  assert.equal(mounts.activeMountDef({ level: 10, secondClass: 'sunblade', mountId: 'manta' }).id, 'manta', 'Second-class awakening unlocks Starwing Manta mount');
+
+  console.log('ALL 12 LOGIC, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
 })();

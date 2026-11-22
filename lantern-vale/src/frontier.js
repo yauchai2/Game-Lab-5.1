@@ -61,7 +61,7 @@ export function awardKill(g, enemy) {
       g.ui.toast(`獲得拼圖寶石：${ALL_GEMS[gemId].name}`, '#c08cff');
     }
     g.ui.toast(GOODS[material] + (enemy.elite ? ' +3 · 鑰石 +1' : ' +1'), '#ffe5a5');
-    if (enemy.spawnIndex != null) p.timers[g.field + ':mob:' + enemy.spawnIndex] = Date.now() + (enemy.legendary ? 120000 : 25000);
+    if (enemy.spawnIndex != null) p.timers[g.field + ':mob:' + enemy.spawnIndex] = Date.now() + (enemy.legendary ? 90000 : 16000);
   }
   g.meta.save();
 }
@@ -97,27 +97,30 @@ function addSpot(g, kind, label, x, z) {
 }
 export function setupField(g, restored = false) {
   const f = FIELDS[g.field], r = mulberry32(919 + g.field);
-  // 聚落式怪物密度：4–5 個高密度魔物營地（每營 4–6 隻＋精英頭領）＋ 零散巡邏怪 ＋ 1 隻傳奇守護獸
-  const campCount = f.size >= 320 ? 5 : 4;
+  // 記錄已探索區域（供坐騎里程碑解鎖判定）
+  g.meta.p.visitedFields = g.meta.p.visitedFields || [];
+  if (!g.meta.p.visitedFields.includes(g.field)) { g.meta.p.visitedFields.push(g.field); g.meta.save(); }
+  // 高密度刷怪爽感：9–13 個魔物聚落（每群 5–8 隻＋精英頭領，總計 55–95 隻魔物！）
+  const campCount = f.size >= 360 ? 13 : f.size >= 300 ? 11 : 9;
   const spawns = [];
   for (let c = 0; c < campCount; c++) {
-    const center = g.world.randomWalkable(r, g.player.pos, 16);
-    const packSize = 4 + Math.floor(r() * 3);
+    const center = g.world.randomWalkable(r, g.player.pos, 12);
+    const packSize = 5 + Math.floor(r() * 4);
     for (let k = 0; k < packSize; k++) {
-      const ang = (k / packSize) * Math.PI * 2 + r() * 0.6;
-      const dist = k === 0 ? 0 : 2.5 + r() * 4.5;
+      const ang = (k / packSize) * Math.PI * 2 + r() * 0.55;
+      const dist = k === 0 ? 0 : 1.8 + r() * 3.8;
       const px = center.x + Math.cos(ang) * dist, pz = center.z + Math.sin(ang) * dist;
       const valid = g.world.isLand(px, pz) ? { x: px, z: pz } : center;
       spawns.push({ ...valid, campLeader: k === 0, dense: true });
     }
   }
-  for (let s = 0; s < 3; s++) spawns.push({ ...g.world.randomWalkable(r, g.player.pos, 14), campLeader: false });
+  for (let s = 0; s < 8; s++) spawns.push({ ...g.world.randomWalkable(r, g.player.pos, 11), campLeader: false });
   spawns.push({ ...g.world.randomWalkable(r, g.player.pos, 26), legendary: true });
   g.fieldSpawns = spawns;
   for (const kind of Object.keys(GOODS)) {
-    const count = f.size >= 320 ? 3 : 2;
+    const count = f.size >= 320 ? 5 : 3;
     for (let n = 0; n < count; n++) {
-      const point = g.world.randomWalkable(r, g.player.pos, 6 + n * 14);
+      const point = g.world.randomWalkable(r, g.player.pos, 6 + n * 12);
       const verb = { wood: '砍伐', ore: '開採', fish: '垂釣' }[kind];
       addSpot(g, kind, verb + GOODS[kind], point.x, point.z);
     }
@@ -127,7 +130,7 @@ export function setupField(g, restored = false) {
   spawnSkyFeatures(g);
   buildZoneLandmarks(g);
   g.fieldClock = restored ? 1 : 0; g.dueling = false;
-  g.ui.banner(f.name, restored ? '【常駐區域 · 已延續先前探索進度】' : '【常駐超大地圖】等級 ' + f.level + ' 起 · 含魔物聚落與異常生態');
+  g.ui.banner(f.name, restored ? '【常駐區域 · 已延續先前探索進度】' : `【常駐超大地圖】Lv.${f.level}+ · ${spawns.length} 隻魔物聚落出沒`);
 }
 export function tickField(g, dt) {
   g.fieldClock -= dt;

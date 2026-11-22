@@ -190,6 +190,7 @@ export class World {
     this.lanterns = [];
     this.trees = [];
     this.pierBounds = [];
+    this.occludables = [];
     this.waterMat = null;
   }
 
@@ -226,6 +227,7 @@ export class World {
     this.lanterns = [];
     this.trees = [];
     this.pierBounds = [];
+    this.occludables = [];
   }
 
   generate(seed, biome, opts = {}) {
@@ -460,7 +462,10 @@ export class World {
     const nearPath = (x, z, d) => paths.some(([p0, p1]) => distSeg(x, z, p0, p1) < d);
     const pineBias = P.key === 'snow' ? 0.8 : P.key === 'autumn' ? 0.45 : P.key === 'ember' ? 0.5 : 0.55;
 
-    for (let tries = 0; tries < 2600; tries++) {
+    const areaScale = Math.max(1, (this.half / 30) * 1.4);
+    const propTries = Math.min(6800, Math.round(2600 * areaScale));
+    const treeRate = opts.size >= 200 ? 0.11 : 0.045;
+    for (let tries = 0; tries < propTries; tries++) {
       const x = rand(r, -this.half + 1, this.half - 1), z = rand(r, -this.half + 1, this.half - 1);
       const k = this.idx(x, z); if (k < 0) continue;
       const t = T[k], y = H[k], rr = RR[k];
@@ -468,42 +473,43 @@ export class World {
         // dense canopy on plateaus — only on flat tops
         const kk = [k + 1, k - 1, k + GW, k - GW, k + 2, k - 2, k + 2 * GW, k - 2 * GW];
         if (kk.some(q2 => T[q2] !== t)) continue;
-        if (r() < 0.75) {
-          const s = 0.7 + r() * 0.45;
+        if (r() < 0.78) {
+          const s = 0.75 + r() * 0.65;
           const isPine = r() < pineBias;
           if (isPine) pines[Math.floor(r() * 2)].push({ x, y, z, s, ry: r() * 6 });
           else rounds[Math.floor(r() * 3)].push({ x, y, z, s, ry: r() * 6 });
           this.obstacles.push({ x, z, r: 0.4 * s + 0.15, h: y });
           this.trees.push({ x, y, z, r: 1.45 * s, leafCol: isPine ? P.pine[0] : P.leaf[0], rustleT: 0 });
-        } else if (r() < 0.5) rocks.push({ x, y, z, s: 0.6 + r() * 0.9, ry: r() * 6 });
-        else bushes.push({ x, y, z, s: 0.8 + r() * 0.6, ry: r() * 6 });
+        } else if (r() < 0.5) rocks.push({ x, y, z, s: 0.7 + r() * 1.1, ry: r() * 6 });
+        else bushes.push({ x, y, z, s: 0.85 + r() * 0.65, ry: r() * 6 });
       } else if (t === 1 && rr < 1.0) {
         const isW = walk[k];
         if (opts.town && Math.hypot(x, z) < 16) continue;
         if (opts.raid && Math.hypot(x, z) < 8) continue;
-        if (isW && (nearExitOrSpawn(x, z, 3.5) || nearPath(x, z, 1.4))) continue;
+        if (isW && (nearExitOrSpawn(x, z, 3.8) || nearPath(x, z, 1.8))) continue;
         const roll = r();
-        if (!isW && rr > 0.95) { if (roll < 0.15) rocks.push({ x, y: y - 0.1, z, s: 0.5 + r() * 0.6, ry: r() * 6 }); continue; }
-        if (roll < 0.035 && !occupied(x, z, 1.2)) {
-          const s = 0.75 + r() * 0.5;
+        if (!isW && rr > 0.95) { if (roll < 0.22) rocks.push({ x, y: y - 0.1, z, s: 0.6 + r() * 0.85, ry: r() * 6 }); continue; }
+        if (roll < treeRate && !occupied(x, z, 1.3)) {
+          const s = 0.8 + r() * 0.7;
           const isPine = r() < pineBias;
           if (isPine) pines[Math.floor(r() * 2)].push({ x, y, z, s, ry: r() * 6 });
           else rounds[Math.floor(r() * 3)].push({ x, y, z, s, ry: r() * 6 });
           if (isW) this.obstacles.push({ x, z, r: 0.45 * s + 0.2, h: y });
           this.trees.push({ x, y, z, r: 1.55 * s, leafCol: isPine ? P.pine[0] : P.leaf[0], rustleT: 0 });
-        } else if (roll < 0.06 && !occupied(x, z, 1)) {
-          const s = 0.5 + r() * 0.9;
+        } else if (roll < treeRate + 0.045 && !occupied(x, z, 1.1)) {
+          const s = 0.6 + r() * 1.15;
           rocks.push({ x, y, z, s, ry: r() * 6 });
           if (isW && s > 0.8) this.obstacles.push({ x, z, r: 0.5 * s, h: y });
-        } else if (roll < 0.1) bushes.push({ x, y, z, s: 0.6 + r() * 0.5, ry: r() * 6 });
-        else if (roll < 0.11 && !occupied(x, z, 1)) {
-          if (P.key === 'ember' || r() < 0.5) { pillars.push({ x, y, z, s: 0.9 + r() * 0.3, ry: r() * 6 }); if (isW) this.obstacles.push({ x, z, r: 0.5, h: y }); }
-          else { logs.push({ x, y, z, s: 0.9, ry: r() * 6 }); }
-        } else if (roll < 0.125) shrooms.push({ x, y, z, s: 0.8 + r() * 0.8, ry: r() * 6 });
+        } else if (roll < treeRate + 0.11) bushes.push({ x, y, z, s: 0.65 + r() * 0.6, ry: r() * 6 });
+        else if (roll < treeRate + 0.13 && !occupied(x, z, 1.1)) {
+          if (P.key === 'ember' || r() < 0.5) { pillars.push({ x, y, z, s: 0.95 + r() * 0.4, ry: r() * 6 }); if (isW) this.obstacles.push({ x, z, r: 0.5, h: y }); }
+          else { logs.push({ x, y, z, s: 0.95, ry: r() * 6 }); }
+        } else if (roll < treeRate + 0.15) shrooms.push({ x, y, z, s: 0.85 + r() * 0.85, ry: r() * 6 });
       }
     }
-    // grass & flowers in clumps (cheap instancing)
-    for (let i = 0; i < 260; i++) {
+    // grass & flowers in clumps (scaled with map area for lush A Short Hike vibe)
+    const clumpCount = Math.min(920, Math.round(260 * areaScale));
+    for (let i = 0; i < clumpCount; i++) {
       const cx = rand(r, -this.half + 2, this.half - 2), cz = rand(r, -this.half + 2, this.half - 2);
       const k = this.idx(cx, cz); if (k < 0 || T[k] === 0 || RR[k] > 0.96) continue;
       const isFlower = r() < 0.3;
@@ -556,7 +562,127 @@ export class World {
     this.T = T; this.RR = RR;
     for (let k = 0; k < GW * GW; k++) this.land[k] = (T[k] >= 1 && RR[k] < 0.96) ? 1 : 0;
     this.paths = paths;
+    if (!opts.town && !opts.raid && (opts.size || 60) >= 120) this.buildScenicLandmarks(P, r, spawn, exits, paths);
     return { spawn, exits };
+  }
+
+  // 多層次特別景觀建築與自然地標：巨樹、巨石、遺跡八角噴泉石柱、木造瞭望塔、海岸遮陽傘與林間營地
+  buildScenicLandmarks(P, r, spawn, exits, paths) {
+    const placeSpot = (minD = 14) => {
+      for (let i = 0; i < 120; i++) {
+        const p = this.randomWalkable(r, spawn, minD);
+        if (exits.some(e => Math.hypot(e.x - p.x, e.z - p.z) < 11)) continue;
+        if (this.obstacles.some(o => Math.hypot(o.x - p.x, o.z - p.z) < o.r + 3.8)) continue;
+        return p;
+      }
+      return null;
+    };
+    const addLandmark = (grp, x, z, obstR = 2.0, occlude = true) => {
+      const y = this.gh(x, z);
+      grp.position.set(x, y, z);
+      this.group.add(grp);
+      if (obstR > 0) this.obstacles.push({ x, z, r: obstR, h: y });
+      if (occlude) this.occludables.push(grp);
+      return grp;
+    };
+    const scScale = this.half >= 160 ? 2 : 1;
+    // 1. 巨樹（Colossal Ancient Trees，帶板根、雙層巨冠與暖色吊燈）
+    for (let i = 0; i < 4 * scScale; i++) {
+      const pt = placeSpot(16); if (!pt) continue;
+      const g = new THREE.Group();
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 1.15, 5.8, 7), toonMat({ color: P.trunk }));
+      trunk.position.y = 2.9; trunk.castShadow = true; trunk.receiveShadow = true; g.add(trunk);
+      for (let b = 0; b < 4; b++) {
+        const root = new THREE.Mesh(new THREE.ConeGeometry(0.55, 2.2, 5), toonMat({ color: P.trunk }));
+        const a = b * 1.57 + r() * 0.4;
+        root.position.set(Math.cos(a) * 0.9, 0.7, Math.sin(a) * 0.9); root.rotation.z = -Math.cos(a) * 0.55; root.rotation.x = Math.sin(a) * 0.55;
+        g.add(root);
+      }
+      const canopyCols = [P.leaf[0], P.leaf[1] || P.pine[0], P.leaf[2] || P.pine[1]];
+      for (let c = 0; c < 6; c++) {
+        const ca = c * 1.05, cr = c === 0 ? 0 : 1.85 + r() * 0.7;
+        const dome = new THREE.Mesh(new THREE.IcosahedronGeometry(c === 0 ? 2.8 : 1.9 + r() * 0.4, 1), toonMat({ color: canopyCols[c % canopyCols.length] }));
+        dome.position.set(Math.cos(ca) * cr, (c === 0 ? 7.2 : 5.6 + r() * 1.1), Math.sin(ca) * cr);
+        dome.castShadow = true; dome.receiveShadow = true; g.add(dome);
+      }
+      const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.38, 0.32), new THREE.MeshBasicMaterial({ color: 0xffdc7a }));
+      lamp.position.set(1.25, 3.6, 0.4); g.add(lamp);
+      addLandmark(g, pt.x, pt.z, 1.35, true);
+    }
+    // 2. 巨石與層狀苔岩（Towering Megalith Boulders）
+    for (let i = 0; i < 5 * scScale; i++) {
+      const pt = placeSpot(14); if (!pt) continue;
+      const g = new THREE.Group();
+      const main = new THREE.Mesh(new THREE.DodecahedronGeometry(2.3 + r() * 0.9, 0), toonMat({ color: P.rock }));
+      main.scale.set(1.15, 1.35, 1.0); main.position.y = 1.6; main.rotation.set(r() * 0.3, r() * 6, r() * 0.3);
+      main.castShadow = true; main.receiveShadow = true; g.add(main);
+      const cap = new THREE.Mesh(new THREE.DodecahedronGeometry(1.5, 0), toonMat({ color: P.grass }));
+      cap.scale.set(1.1, 0.45, 1.1); cap.position.y = 3.2; g.add(cap);
+      for (let s = 0; s < 2; s++) {
+        const sub = new THREE.Mesh(new THREE.DodecahedronGeometry(1.1 + r() * 0.4, 0), toonMat({ color: P.rockDark }));
+        sub.position.set((s ? 1 : -1) * 1.8, 0.7, (r() - 0.5) * 1.4); sub.castShadow = true; g.add(sub);
+      }
+      addLandmark(g, pt.x, pt.z, 2.3, true);
+    }
+    // 3. 遺跡八角水池與斷柱聖壇（致敬參考圖：八角石池、清澈水心與四根苔蘚斷柱）
+    for (let i = 0; i < 2 * scScale; i++) {
+      const pt = placeSpot(20); if (!pt) continue;
+      const g = new THREE.Group();
+      const basin = new THREE.Mesh(new THREE.CylinderGeometry(3.6, 3.9, 0.75, 8), toonMat({ color: 0xc8c2b4 }));
+      basin.position.y = 0.38; basin.receiveShadow = true; basin.castShadow = true; g.add(basin);
+      const water = new THREE.Mesh(new THREE.CylinderGeometry(3.05, 3.05, 0.8, 8), new THREE.MeshBasicMaterial({ color: 0x58b8dc }));
+      water.position.y = 0.4; g.add(water);
+      const core = new THREE.Mesh(new THREE.BoxGeometry(1.15, 1.25, 1.15), toonMat({ color: 0xb2ac9e }));
+      core.position.y = 0.72; core.castShadow = true; g.add(core);
+      const orb = new THREE.Mesh(new THREE.OctahedronGeometry(0.42, 0), new THREE.MeshBasicMaterial({ color: 0x9cf2ff }));
+      orb.position.y = 1.65; g.add(orb);
+      for (let c = 0; c < 4; c++) {
+        const a = c * 1.57 + 0.4, ch = 2.6 + (c % 2) * 1.4;
+        const col = new THREE.Mesh(new THREE.BoxGeometry(0.85, ch, 0.85), toonMat({ color: c % 2 ? 0xc2bcb0 : 0x9fa398 }));
+        col.position.set(Math.cos(a) * 4.7, ch / 2, Math.sin(a) * 4.7); col.castShadow = true; g.add(col);
+        const moss = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.25, 0.95), toonMat({ color: P.grass }));
+        moss.position.set(Math.cos(a) * 4.7, ch + 0.08, Math.sin(a) * 4.7); g.add(moss);
+      }
+      addLandmark(g, pt.x, pt.z, 3.6, true);
+    }
+    // 4. 山谷木造瞭望塔（Cozy Wooden Lookout Watchtower）
+    for (let i = 0; i < 2; i++) {
+      const pt = placeSpot(22); if (!pt) continue;
+      const g = new THREE.Group();
+      for (const [lx, lz] of [[-1.1, -1.1], [1.1, -1.1], [-1.1, 1.1], [1.1, 1.1]]) {
+        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.24, 5.2, 0.24), toonMat({ color: 0x7c5032 }));
+        leg.position.set(lx, 2.6, lz); leg.castShadow = true; g.add(leg);
+      }
+      const deck = new THREE.Mesh(new THREE.BoxGeometry(2.9, 0.26, 2.9), toonMat({ color: 0xa87446 }));
+      deck.position.y = 3.6; deck.castShadow = true; g.add(deck);
+      const roof = new THREE.Mesh(new THREE.ConeGeometry(2.5, 1.8, 4), toonMat({ color: 0xc95a42 }));
+      roof.position.y = 5.9; roof.rotation.y = Math.PI / 4; roof.castShadow = true; g.add(roof);
+      const beacon = new THREE.Mesh(new THREE.OctahedronGeometry(0.32, 0), new THREE.MeshBasicMaterial({ color: 0xffe480 }));
+      beacon.position.y = 4.4; g.add(beacon);
+      addLandmark(g, pt.x, pt.z, 1.65, true);
+    }
+    // 5. A Short Hike 風格林間野餐休憩點＆沙灘遮陽傘（木桌、遮陽傘、營火與圓木椅）
+    const umbCols = [0xff5e78, 0x3fa7d6, 0xffc857, 0x6fd08c];
+    for (let i = 0; i < 3 * scScale; i++) {
+      const pt = placeSpot(14); if (!pt) continue;
+      const g = new THREE.Group();
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.4, 5), toonMat({ color: 0xf0e6d2 }));
+      pole.position.set(-1.1, 1.2, -0.4); g.add(pole);
+      const canopy = new THREE.Mesh(new THREE.ConeGeometry(1.55, 0.65, 6), toonMat({ color: umbCols[i % umbCols.length] }));
+      canopy.position.set(-1.1, 2.35, -0.4); canopy.castShadow = true; g.add(canopy);
+      const top = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.14, 0.9), toonMat({ color: 0xc24838 }));
+      top.position.set(0.6, 0.72, 0); top.castShadow = true; g.add(top);
+      const bench1 = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.12, 0.3), toonMat({ color: 0xa63c2e }));
+      bench1.position.set(0.6, 0.42, 0.72); g.add(bench1);
+      const bench2 = bench1.clone(); bench2.position.z = -0.72; g.add(bench2);
+      for (let f = -1; f <= 1; f++) {
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.8, 0.14), toonMat({ color: 0xb07c48 }));
+        post.position.set(f * 1.1, 0.4, -1.8); g.add(post);
+      }
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.1, 0.08), toonMat({ color: 0xc8925a }));
+      rail.position.set(0, 0.62, -1.8); g.add(rail);
+      addLandmark(g, pt.x, pt.z, 1.3, false);
+    }
   }
 
   buildWater(P, T, H) {

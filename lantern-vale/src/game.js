@@ -17,7 +17,8 @@ import { Meta } from './meta.js';
 import { buildPanels } from './panels.js';
 const EMOTES = ['嗨～', '♥', '哈哈', 'zZ'];
 import { HOODS } from './characters.js';
-import { makeItem, itemLines, itemScore, RARITY, SLOTS, rollBoons, BOONS } from './loot.js';
+import { makeItem, itemLines, itemScore, RARITY, SLOTS, rollBoons, BOONS, tierInfo } from './loot.js';
+import { activeMountDef, buildMountMesh } from './mounts.js';
 
 const V2 = THREE.Vector2, V3 = THREE.Vector3;
 const tmp2 = new V2(), tmp3 = new V3();
@@ -113,7 +114,7 @@ export class Game {
     this.playerName = '旅人'; this.hoodIdx = 0; this.posT = 0;
     this.dayTime = 0.28; this.isNight = false; this.campfires = []; this.prisms = []; this.interior = null; this.photoMode = false;
     this.recallT = 0; this.sailing = null; this.lastTown = -1; this.waypoint = null; this.worldBoxes = [];
-    this.zoneStates = new Map(); this.camZoom = 1.0; this.camYaw = 0; this.camDrag = null; this.exitCooldown = 0; this.groundZones = []; this.physProps = [];
+    this.zoneStates = new Map(); this.camZoom = 1.0; this.camYaw = 0; this.camDrag = null; this.exitCooldown = 0; this.groundZones = []; this.physProps = []; this.mount = null; this.beams = []; this._fadedMats = new Map();
     this.bindInput();
     this.setupNet(); bindGuild(this);
     // title scene: a pretty room in the background
@@ -157,6 +158,7 @@ export class Game {
         if (this.sailing) return;
         if (k === 'p' && !this.ui.panelOpen && !this.ui.setOpen && !this.ui.invOpen) { this.togglePhotoMode(); return; }
         if (k === 'b' && !this.ui.panelOpen && !this.ui.setOpen && !this.ui.invOpen) { this.placeCampfire(); return; }
+        if (k === 'g' && !this.ui.panelOpen && !this.ui.setOpen && !this.ui.invOpen && !this.ui.codexOpen) { this.toggleMount(); return; }
         if (k === 'tab' && !this.ui.panelOpen && !this.ui.setOpen) { this.ui.toggleRegionMap?.(this); return; }
         if (k === 'k' && !this.ui.panelOpen && !this.ui.setOpen && !this.ui.invOpen) { this.ui.openPuzzle?.(); return; }
         if (k === ' ') {
@@ -393,6 +395,8 @@ export class Game {
     for (const pr of this.prisms || []) { this.scene.remove(pr.mesh); } this.prisms = [];
     for (const gz of this.groundZones || []) { this.scene.remove(gz.mesh); } this.groundZones = [];
     for (const pp of this.physProps || []) { this.scene.remove(pp.mesh); } this.physProps = [];
+    for (const bm of this.beams || []) { this.scene.remove(bm.mesh); } this.beams = [];
+    this._fadedMats?.clear();
     for (const e of this.enemies) this.scene.remove(e.m.root);
     for (const a of [...this.projs, ...this.eprojs, ...this.decals, ...this.slashes, ...this.rings]) this.scene.remove(a.mesh);
     for (const d of this.drops) this.scene.remove(d.g);
@@ -788,15 +792,38 @@ export class Game {
     if (p.specials.has('sweepWave')) this.fireProj(p.pos, dir, { speed: 13, mult: 0.8, pierce: 99, color: 0xfff2c0, size: 0.4, wave: true, life: 0.6 });
   }
   makeSlash(pos, dir, range) {
-    const geo = new THREE.RingGeometry(range * 0.45, range, 14, 1, -1.2, 2.4);
-    geo.rotateX(-Math.PI / 2);
-    const mat = new THREE.MeshBasicMaterial({ color: 0xfff8e0, transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide });
+    const wp = this.meta.p.weapon;
+    const accent = { staff: 0xffd26a, bow: 0x8ef0ff, blades: 0xff8ab8, shield: 0xa0e8ff }[wp] || 0xffe480;
+    const ang = Math.atan2(dir.x, dir.y) - Math.PI / 2;
+    const addArc = (r0, r1, col, op, dur, yOff) => {
+      const geo = new THREE.RingGeometry(r0, r1, 18, 1, -1.25, 2.5);
+      geo.rotateX(-Math.PI / 2);
+      const mat = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: op, depthWrite: false, side: THREE.DoubleSide });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(pos.x, (pos.y || 0) + yOff, pos.z);
+      mesh.rotation.y = ang; mesh.userData.noNormal = true;
+      this.scene.add(mesh);
+      this.slashes.push({ mesh, t: dur, max: dur });
+    };
+    addArc(range * 0.42, range * 1.04, accent, 0.55, 0.22, 0.52);
+    addArc(range * 0.62, range * 0.96, 0xfffdf2, 0.92, 0.14, 0.58);
+    for (let i = 0; i < 6; i++) {
+      const a = Math.atan2(dir.x, dir.y) + (i - 2.5) * 0.38;
+      const d = range * (0.7 + Math.random() * 0.3);
+      this.fx.emit(pos.x + Math.sin(a) * d, (pos.y || 0) + 0.55, pos.z + Math.cos(a) * d, { c: i % 2 ? accent : 0xffffff, s: 0.08, vx: Math.sin(a) * 3, vz: Math.cos(a) * 3, vy: 1.5, life: 0.24 });
+    }
+  }
+  spawnBeam(x1, y1, z1, x2, y2, z2, color = 0xffe07a) {
+    const dx = x2 - x1, dy = y2 - y1, dz = z2 - z1, len = Math.hypot(dx, dy, dz);
+    if (len < 0.05) return;
+    const geo = new THREE.CylinderGeometry(0.06, 0.06, len, 5);
+    const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.92, depthWrite: false });
     const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.set(pos.x, 0.55, pos.z);
-    mesh.rotation.y = Math.atan2(dir.x, dir.y) - Math.PI / 2;
+    mesh.position.set((x1 + x2) / 2, (y1 + y2) / 2, (z1 + z2) / 2);
+    mesh.quaternion.setFromUnitVectors(new V3(0, 1, 0), new V3(dx / len, dy / len, dz / len));
     mesh.userData.noNormal = true;
     this.scene.add(mesh);
-    this.slashes.push({ mesh, t: 0.16, max: 0.16 });
+    this.beams.push({ mesh, t: 0.22, max: 0.22 });
   }
   shockRing(x, z, radius, hit, color, stun = 0, opts = {}) {
     const geo = new THREE.RingGeometry(0.85, 1, 32); geo.rotateX(-Math.PI / 2);
@@ -840,6 +867,12 @@ export class Game {
   execPuzzleSkill(id, mod, scale = 1) {
     const p = this.player, dir = this.aimDir();
     p.facing = Math.atan2(dir.x, dir.y);
+    const runeCol = { bolt: 0xffb347, slam: 0xffe3a0, wisp: 0xfff27a, rain: 0x6cb8ff, trap: 0x6fe06a, whirl: 0xff8ab0, mark: 0xd06cff, meteor: 0xff6a30, nova: 0x7ae8ff, prism: 0xffe07a, phantom: 0xb48ae0 }[id] || 0xffe07a;
+    const rg = new THREE.RingGeometry(0.75, 1.0, 24); rg.rotateX(-Math.PI / 2);
+    const rm = new THREE.Mesh(rg, new THREE.MeshBasicMaterial({ color: runeCol, transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide }));
+    rm.position.set(p.pos.x, p.y + 0.14, p.pos.z); rm.userData.noNormal = true; this.scene.add(rm);
+    this.rings.push({ mesh: rm, t: 0, max: 0.34, radius: 2.1 });
+    this.fx.burst(p.pos.x, p.y + 0.4, p.pos.z, 8, { c: [runeCol, 0xffffff], s: 0.09, speed: 3.5, up: 2.5, life: 0.38 });
     this.meta.p.deeds = this.meta.p.deeds || {}; this.meta.p.deeds.casts = (this.meta.p.deeds.casts || 0) + 1;
     const slow = mod.frost ? 2.2 : 0, leech = mod.leech || 0;
     const areaMul = (1 + p.stats.area / 100) * (1 + mod.area);
@@ -1087,8 +1120,12 @@ export class Game {
       pos.z = clamp(pos.z + dz, -this.interior.halfD, this.interior.halfD);
       return;
     }
+    const hoverWater = !!this.mount?.def?.hoverWater;
     const ok = (cx, cz) => {
-      if (!W.isLand(cx, cz)) return false;
+      if (!W.isLand(cx, cz)) {
+        if (hoverWater && Math.abs(cx) < W.half - 2 && Math.abs(cz) < W.half - 2) return true;
+        return false;
+      }
       const g = W.gh(cx, cz);
       if (g > p.y + 0.55 && !p.climbing) { p.wall = true; p.wallH = Math.max(p.wallH || 0, g); return false; }
       return true;
@@ -1147,11 +1184,34 @@ export class Game {
     p.pos.y = p.y;
     if (p.y < -0.1 && !W.isLand(p.pos.x, p.pos.z)) { p.pos.x = p.lastLow.x; p.pos.z = p.lastLow.z; p.y = W.gh(p.pos.x, p.pos.z); }
   }
+  toggleMount(forceOff = false) {
+    if (this.interior || this.sailing) { if (!forceOff) this.ui.toast('此處無法召喚坐騎', '#ffe08a'); return; }
+    if (this.mount) {
+      this.scene.remove(this.mount.mesh.root);
+      this.mount = null;
+      if (!forceOff) { this.audio.sfx('sit'); this.ui.toast('已收起坐騎', '#e8dcc8'); }
+      return;
+    }
+    if (forceOff) return;
+    const def = activeMountDef(this.meta.p);
+    if (!def) {
+      this.ui.toast('🔒 尚未解鎖坐騎！達 Lv.5 或擊敗 20 隻魔物即可解鎖「林間巨鹿」（按 I 查看坐騎里程碑）', '#ffd85a');
+      return;
+    }
+    const mesh = buildMountMesh(def.id);
+    mesh.root.position.set(this.player.pos.x, this.player.y, this.player.pos.z);
+    this.scene.add(mesh.root);
+    this.mount = { def, mesh };
+    this.player.sitting = null;
+    this.audio.sfx('boon');
+    this.fx.burst(this.player.pos.x, this.player.y + 0.8, this.player.pos.z, 16, { c: [def.accent, 0xffffff], s: 0.13, speed: 4.5, up: 3, life: 0.55 });
+    this.ui.toast(`${def.icon} 已召喚坐騎：${def.name}（${def.perk}）`, '#ffe480');
+  }
   tryJump() {
     const p = this.player;
     if (p.climbing) { p.climbing = false; p.air = true; p.vy = 6.5; this.audio.sfx('jump'); return; }
     if (p.air || p.roll > 0) return;
-    p.air = true; p.vy = 8.2; this.audio.sfx('jump');
+    p.air = true; p.vy = 8.2 + (this.mount?.def?.jumpBonus || 0); this.audio.sfx('jump');
     this.puffs.burst(p.pos.x, p.y + 0.1, p.pos.z, 4, { c: 0xf4ecd8, s: 0.2, speed: 1.5, up: 0.3, g: -0.3, life: 0.35, grow: 1, drag: 3 });
   }
 
@@ -1594,7 +1654,8 @@ export class Game {
       }
       p.sprinting = false;
       const frozen = (p.statuses?.freeze || 0) > 0;
-      const chillMul = (p.statuses?.chill || 0) > 0 ? 0.65 : 1;
+      const mountDef = this.mount?.def || null;
+      const chillMul = (!mountDef?.immuneChill && (p.statuses?.chill || 0) > 0) ? 0.65 : 1;
       if (p.sitting) {
         if (mv.lengthSq() > 0.05 || p.roll > 0 || p.swingT > 0) { p.sitting = null; this.audio.sfx('sit'); }
         else {
@@ -1613,9 +1674,16 @@ export class Game {
         if (Math.random() < 0.5) this.puffs.emit(p.pos.x, p.y + 0.1, p.pos.z, { c: 0xf4ecd8, s: 0.18, g: -0.4, life: 0.4, grow: 1 });
       } else {
         const attacking = p.swingT > 0;
-        const canSprint = !!(this.keys.shift && mv.lengthSq() > 0.01 && !p.air && !p.climbing && !attacking && p.stamina > 2);
-        if (canSprint) { p.sprinting = true; p.stamina = Math.max(0, p.stamina - 16 * dt * this.meta.staminaK); }
-        const f = chillMul * (attacking ? 0.55 : 1) * (p.climbing ? 0.22 : 1) * (p.gliding ? 1.35 : 1) * (canSprint ? 1.35 : 1);
+        const canSprint = !!(this.keys.shift && mv.lengthSq() > 0.01 && !p.air && !p.climbing && !attacking && (mountDef || p.stamina > 2));
+        if (canSprint) { p.sprinting = true; if (!mountDef) p.stamina = Math.max(0, p.stamina - 16 * dt * this.meta.staminaK); }
+        const mountSpd = mountDef ? mountDef.speedMult : 1;
+        const f = chillMul * mountSpd * (attacking ? 0.55 : 1) * (p.climbing ? 0.22 : 1) * (p.gliding ? 1.35 : 1) * (canSprint ? 1.25 : 1);
+        if (mountDef?.ramKnockback && mv.lengthSq() > 0.2) {
+          for (const e of this.enemies) if (!e.dead && e.type !== 'stag' && e.pos.distanceTo(p.pos) < e.r + 1.0) {
+            const dx = e.pos.x - p.pos.x, dz = e.pos.z - p.pos.z, d = Math.hypot(dx, dz) || 1;
+            e.knock.x += (dx / d) * 6; e.knock.z += (dz / d) * 6;
+          }
+        }
         p.vel.x = lerp(p.vel.x, mv.x * spd * f, 1 - Math.exp(-dt * (p.air ? 6 : 14)));
         p.vel.z = lerp(p.vel.z, mv.y * spd * f, 1 - Math.exp(-dt * (p.air ? 6 : 14)));
         this.movePlayer(p.vel.x * dt, p.vel.z * dt);
@@ -1733,6 +1801,7 @@ export class Game {
     this.updateMisc(dt);
     this.animatePlayer(dt);
     this.updateCamera(dt);
+    this.updateOcclusion(dt);
     this.updateHover();
     this.fx.update(dt); this.puffs.update(dt);
     this.updateNet(dt);
@@ -1785,7 +1854,8 @@ export class Game {
       badge.style.left = (this.mouse.x + 18) + 'px'; badge.style.top = (this.mouse.y - 12) + 'px';
       badge.classList.add('show');
     } else if (hitD) {
-      badge.textContent = `✦ ${RARITY[hitD.item.rarity].name} ${hitD.item.name} · [F] 拾取`;
+      const ti = tierInfo(hitD.item.tier || 1);
+      badge.textContent = `✦ [${ti.tag}] ${RARITY[hitD.item.rarity].name} ${hitD.item.name} · [F] 拾取`;
       badge.style.left = (this.mouse.x + 18) + 'px'; badge.style.top = (this.mouse.y - 12) + 'px';
       badge.classList.add('show');
     } else if (hitS) {
@@ -2085,7 +2155,7 @@ export class Game {
           if (pr.chain > 0) {
             let best = null, bd = 7;
             for (const o of this.enemies) if (!o.dead && !pr.hit.has(o)) { const dd = o.pos.distanceTo(e.pos); if (dd < bd) { bd = dd; best = o; } }
-            if (best) { pr.chain--; const nd = new V2(best.pos.x - e.pos.x, best.pos.z - e.pos.z).normalize(); const sp = Math.hypot(pr.vx, pr.vz); pr.vx = nd.x * sp; pr.vz = nd.y * sp; pr.life = 0.8; continue; }
+            if (best) { pr.chain--; this.spawnBeam(e.pos.x, e.pos.y + 0.7, e.pos.z, best.pos.x, best.pos.y + 0.7, best.pos.z, pr.color || 0xffe07a); const nd = new V2(best.pos.x - e.pos.x, best.pos.z - e.pos.z).normalize(); const sp = Math.hypot(pr.vx, pr.vz); pr.vx = nd.x * sp; pr.vz = nd.y * sp; pr.life = 0.8; continue; }
           }
           if ((pr.pierce || 0) <= 0) { pr.life = 0; break; } else pr.pierce--;
         }
@@ -2122,6 +2192,8 @@ export class Game {
     this.slashes = this.slashes.filter(s => s.t > 0);
     for (const r of this.rings) { r.t += dt; const k = r.t / r.max; r.mesh.scale.setScalar(Math.max(0.01, k * r.radius)); r.mesh.material.opacity = 0.9 * (1 - k); if (k >= 1) this.scene.remove(r.mesh); }
     this.rings = this.rings.filter(r => r.t < r.max);
+    for (const bm of this.beams || []) { bm.t -= dt; bm.mesh.material.opacity = Math.max(0, bm.t / bm.max); if (bm.t <= 0) this.scene.remove(bm.mesh); }
+    this.beams = (this.beams || []).filter(bm => bm.t > 0);
     // drops
     for (const d of this.drops) {
       if (d.vy !== 0 || d.y > (d.kind === 'orb' ? 0.3 : 0.5)) {
@@ -2212,8 +2284,21 @@ export class Game {
 
   animatePlayer(dt) {
     const p = this.player, m = p.m;
-    m.root.position.set(p.pos.x, p.y, p.pos.z);
+    const seatY = this.mount ? this.mount.mesh.seatY : 0;
+    const mBob = this.mount ? (this.mount.def.id === 'manta' ? Math.sin(this.time * 4.5) * 0.14 : (p.walkT > 0 ? Math.abs(Math.sin(p.walkT)) * 0.1 : 0)) : 0;
+    m.root.position.set(p.pos.x, p.y + seatY + mBob, p.pos.z);
     m.root.rotation.y = p.facing;
+    if (this.mount) {
+      const mt = this.mount.mesh;
+      mt.root.position.set(p.pos.x, p.y + (this.mount.def.id === 'manta' ? mBob : 0), p.pos.z);
+      mt.root.rotation.y = p.facing;
+      const stride = p.walkT > 0 ? Math.sin(p.walkT * 1.15) : 0;
+      mt.legs.forEach((lg, idx) => { lg.rotation.x = stride * (idx % 2 ? 0.55 : -0.55); });
+      mt.wings.forEach((wg, idx) => { wg.rotation.z = Math.sin(this.time * 7) * 0.28 * (idx === 0 ? 1 : -1); });
+      if (p.walkT > 0 && Math.random() < dt * 10) {
+        this.fx.emit(p.pos.x, p.y + 0.25, p.pos.z, { c: this.mount.def.accent, s: 0.09, g: -0.5, up: 0.8, life: 0.45 });
+      }
+    }
     const moving = p.walkT > 0 && !p.air;
     const sw = Math.sin(p.walkT);
     m.legL.position.z = moving ? sw * (p.sprinting ? 0.17 : 0.12) : 0; m.legR.position.z = moving ? -sw * (p.sprinting ? 0.17 : 0.12) : 0;
@@ -2289,5 +2374,48 @@ export class Game {
     this.camera.lookAt(this.camPos.x, this.camY + (preset.fov >= 34 ? 0.5 : 0), this.camPos.z);
     this.sun.position.set(this.camPos.x - 12, 26, this.camPos.z + 8);
     this.sun.target.position.set(this.camPos.x, 0, this.camPos.z);
+  }
+
+  // 大型建築／巨樹／拱門遮擋人物視野時，透過鏡頭→玩家射線自動半透明透視
+  updateOcclusion(dt) {
+    if (this.state !== 'play' || this.interior) return;
+    const targets = [...(this.world?.occludables || []), ...(this.exits || []).map(x => x.g)];
+    if (this.townGroup) targets.push(this.townGroup);
+    const hitMats = new Set();
+    if (targets.length) {
+      const p = this.player;
+      const camP = this.camera.position;
+      const offsets = [[0, 1.0, 0], [-0.45, 0.9, 0], [0.45, 0.9, 0]];
+      for (const [ox, oy, oz] of offsets) {
+        const tgt = new V3(p.pos.x + ox, p.y + oy, p.pos.z + oz);
+        const dir = tgt.clone().sub(camP);
+        const maxDist = dir.length() - 0.5;
+        if (maxDist <= 0.5) continue;
+        dir.normalize();
+        this.ray.set(camP, dir);
+        this.ray.far = maxDist;
+        const hits = this.ray.intersectObjects(targets, true);
+        for (const h of hits) {
+          const m = h.object;
+          if (!m.isMesh || m.userData?.noNormal) continue;
+          const mats = Array.isArray(m.material) ? m.material : [m.material];
+          for (const mat of mats) if (mat && 'opacity' in mat) hitMats.add(mat);
+        }
+      }
+      this.ray.far = Infinity;
+    }
+    for (const mat of hitMats) {
+      if (!this._fadedMats.has(mat)) this._fadedMats.set(mat, { origTrans: mat.transparent, origDepth: mat.depthWrite });
+      mat.transparent = true; mat.depthWrite = false;
+      mat.opacity = lerp(mat.opacity ?? 1, 0.24, 1 - Math.exp(-dt * 14));
+    }
+    for (const [mat, orig] of [...this._fadedMats.entries()]) {
+      if (hitMats.has(mat)) continue;
+      mat.opacity = lerp(mat.opacity ?? 1, 1, 1 - Math.exp(-dt * 12));
+      if (mat.opacity > 0.98) {
+        mat.opacity = 1; mat.transparent = orig.origTrans; mat.depthWrite = orig.origDepth;
+        this._fadedMats.delete(mat);
+      }
+    }
   }
 }

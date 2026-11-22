@@ -239,7 +239,19 @@ html,body{image-rendering:pixelated;-webkit-font-smoothing:none;font-smooth:neve
 #worldMap::backdrop{background:#282a26b8}#worldMap header{display:flex;align-items:center;justify-content:space-between;margin:0 0 10px}
 #worldMap h2{font-size:22px;margin:0}.map-close{border:2px solid #513e34;background:#f2dfb8;color:#49372d;width:32px;height:32px;cursor:pointer;font-family:inherit}
 #worldMap button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}#worldMap .map-close:focus{outline:none}#worldMap .map-close:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
-.atlas{position:relative;aspect-ratio:5/3;border:2px solid #826e51;overflow:hidden}.atlas svg{display:block;width:100%;height:100%}.atlas button{position:absolute;transform:translate(-50%,-50%);line-height:1.25;font-family:inherit;font-weight:bold;font-size:clamp(12px,2vw,17px);background:#fff2d4;border:1px solid #947959;color:#43362c;padding:3px 6px;white-space:nowrap;cursor:pointer}.atlas button[aria-pressed=true]{background:#543e30;color:#fff5d9}.atlas button.here:before{content:'●';color:#e38f3c;margin-right:3px}
+.atlas{position:relative;aspect-ratio:5/3;border:2px solid #826e51;overflow:hidden}.atlas svg{display:block;width:100%;height:100%}.atlas button{position:absolute;transform:translate(-50%,-50%);line-height:1.25;font-family:inherit;font-weight:bold;font-size:clamp(12px,2vw,17px);background:#fff2d4;border:1px solid #947959;color:#43362c;padding:3px 6px;white-space:nowrap;cursor:pointer}.atlas button[aria-pressed=true]{background:#543e30;color:#fff5d9}.atlas button.here{outline:3px solid #ff5a3c;background:#ffe9a0;color:#3b2218;z-index:2}.atlas button.here:before{content:'📍';margin-right:3px}
+.player-pin{position:absolute;transform:translate(-50%,-135%);background:#d93a49;color:#fff8e4;border:2px solid #2b1812;padding:2px 8px;font-size:12px;font-weight:900;white-space:nowrap;pointer-events:none;z-index:5;box-shadow:0 3px 0 rgba(43,24,18,.65);animation:pinBounce .85s infinite alternate}
+.player-pin:after{content:'';position:absolute;left:50%;bottom:-7px;margin-left:-5px;border:5px solid transparent;border-top-color:#2b1812}
+@keyframes pinBounce{from{transform:translate(-50%,-130%)}to{transform:translate(-50%,-155%)}}
+.tier-tag{display:inline-block;padding:0 5px;margin-right:5px;font-size:11px;font-weight:900;background:#2b1d22;border:1px solid currentColor;border-radius:3px;vertical-align:1px}
+#bagEquipStrip{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
+.eq-mini{background:#f3e3c3;border:2px solid #7a5a46;padding:6px 8px;cursor:pointer;text-align:left;font-family:inherit;font-size:12px;line-height:1.35;color:#2b1d22}
+.eq-mini:hover{background:#ffe9a0;outline:2px solid #e8734a}
+.mount-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.mount-card{background:#fff8e6;border:2px solid #7a5a46;padding:10px;display:flex;flex-direction:column;gap:6px;font-size:13px}
+.mount-card.on{outline:3px solid #e8734a;background:#fff3cf}
+.mount-card.locked{opacity:.78;filter:grayscale(.35)}
+.mount-prog{height:8px;background:#d8c4a0;border:1px solid #5a3826;overflow:hidden}.mount-prog i{display:block;height:100%;background:#58a858}
 .map-info{display:grid;gap:4px;margin-top:10px}.map-location{font-size:13px;color:#715c45}.region-detail{font-size:14px}
 @media(max-width:520px){.atlas{aspect-ratio:1.45}.atlas button{font-size:14px;padding:4px}.atlas button:after{content:"";position:absolute;inset:-8px -2px}.map-close{width:40px;height:40px}#hud .mute{top:51px}#netBox{top:94px}#boss{top:116px}.map-info{min-height:86px}}
 .map-actions{display:flex;gap:8px;justify-content:flex-end}.map-actions [hidden]{display:none}.map-actions button{margin-top:7px}
@@ -338,6 +350,7 @@ body.photo-mode #hud > *:not(#photoBadge){opacity:0!important;pointer-events:non
     <div class="sk" id="sk-s2" title="拼圖技能 3"><span class="k key">E</span><span class="ic">—</span><span class="sname">空位</span><span class="sup" hidden></span><div class="cd"></div></div>
     <div class="sk" id="sk-s3" title="拼圖技能 4"><span class="k key">C</span><span class="ic">—</span><span class="sname">空位</span><span class="sup" hidden></span><div class="cd"></div></div>
     <div class="sk" id="sk-r" title="蜜藥瓶"><span class="k key">R</span><span class="ic">🧪</span><span class="sname">藥瓶</span><span class="cnt"></span><div class="cd"></div></div>
+    <button type="button" class="sk" id="sk-mount" title="召喚／收起坐騎 (G)"><span class="k key">G</span><span class="ic">🦌</span><span class="sname">坐騎</span></button>
     <button type="button" class="sk" id="sk-recall" title="快捷回城 (H)"><span class="k key">H</span><span class="ic">🐚</span><span class="sname" data-i18n="recall">回城</span><div class="cd"></div></button>
     <button type="button" class="sk" id="sk-bag" title="物理背包與裝備 (I)"><span class="k">I</span><span class="ic">🎒</span><span class="sname" data-i18n="bag">背包</span></button>
     <button type="button" class="sk pz-open" id="sk-puzzle" title="技能拼圖與寶石商人 (K)"><span class="k">K</span><span class="ic">💎</span><span class="sname" data-i18n="puzzle">拼圖</span></button>
@@ -423,15 +436,18 @@ body.photo-mode #hud > *:not(#photoBadge){opacity:0!important;pointer-events:non
   <div class="inv-tabs">
     <button type="button" data-invtab="bag" class="on">🎒 <span data-i18n="bag">物理背包</span></button>
     <button type="button" data-invtab="gear">⚔️ <span data-i18n="gear">裝備與屬性</span></button>
+    <button type="button" data-invtab="mounts">🦌 坐騎里程碑</button>
     <button type="button" data-invtab="stash">📦 <span data-i18n="stash">倉庫</span></button>
     <button type="button" data-invtab="cos">✨ <span data-i18n="cosmetics">外觀造型</span></button>
     <button type="button" id="btnInvClose" style="margin-left:auto">✕</button>
   </div>
   <div class="inv-pane" id="pane-bag">
+    <div style="font-size:12px;color:#6a4a30;margin-bottom:4px">🛡️ 目前已穿戴裝備（點擊可檢視詳細詞綴）：</div>
+    <div id="bagEquipStrip"></div>
     <div class="phys-wrap">
       <canvas id="bagCanvas" class="phys-cv" width="340" height="250"></canvas>
       <div class="phys-side">
-        <div id="bagSelInfo" class="pz-info">拖曳物品可拋擲，點擊選取操作；按「搖一搖」重新重力堆疊！</div>
+        <div id="bagSelInfo" class="pz-info">拖曳相容物品可物理碰撞合成；點擊任何物品檢視詳細數值與裝備比較！</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap" id="bagBtns"></div>
         <button type="button" class="btn small" id="btnShakeBag">🎲 搖一搖整理</button>
       </div>
@@ -441,6 +457,7 @@ body.photo-mode #hud > *:not(#photoBadge){opacity:0!important;pointer-events:non
     <div><h3>裝備</h3><div id="invEquip"></div></div>
     <div><h3>屬性</h3><div id="invStats"></div><h3 style="margin-top:14px">天賦</h3><div id="invBoons"></div></div>
   </div>
+  <div class="inv-pane hide" id="pane-mounts"><div id="mountsRoot"></div></div>
   <div class="inv-pane hide" id="pane-stash">
     <div class="phys-wrap">
       <canvas id="stashCanvas" class="phys-cv" width="340" height="250"></canvas>

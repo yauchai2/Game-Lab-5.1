@@ -8,19 +8,19 @@ export const BAG_RECIPES = [
     id: 'berry_cider',
     match: (a, b) => (a.icon === '🍓' && b.icon === '🍺') || (a.icon === '🍺' && b.icon === '🍓'),
     label: '🍓 山谷甜莓 + 🍺 楓糖蘋果酒',
-    out: { kind: 'consumable', shape: 'flask', hw: 17, hh: 24, icon: '🍹', name: '微醺莓果特調', desc: '回復 80% 生命與法力、淨化全異常並提振速度！', color: '#ff70a6', r: 20, heal: 0.8, mana: 0.8, cure: true },
+    out: { kind: 'consumable', tier: 2, shape: 'flask', hw: 17, hh: 24, icon: '🍹', name: '微醺莓果特調', desc: '回復 80% 生命與法力、淨化全異常並提振速度！', color: '#ff70a6', r: 20, heal: 0.8, mana: 0.8, cure: true },
   },
   {
     id: 'honey_pie',
     match: (a, b) => (a.icon === '🍓' && b.icon === '🍯') || (a.icon === '🍯' && b.icon === '🍓'),
     label: '🍓 山谷甜莓 + 🍯 陳年蜂王蜜箱',
-    out: { kind: 'consumable', shape: 'crate', hw: 23, hh: 21, icon: '🥧', name: '旅人蜂蜜莓果派', desc: '立即回滿生命與法力、淨化全異常並獲得滿溢能量！', color: '#ffbe4a', r: 22, heal: 1, mana: 1, cure: true },
+    out: { kind: 'consumable', tier: 3, shape: 'crate', hw: 23, hh: 21, icon: '🥧', name: '旅人蜂蜜莓果派', desc: '立即回滿生命與法力、淨化全異常並獲得滿溢能量！', color: '#ffbe4a', r: 22, heal: 1, mana: 1, cure: true },
   },
   {
     id: 'tide_charm',
     match: (a, b) => (a.icon === '🐚' && b.icon === '🍺') || (a.icon === '🍺' && b.icon === '🐚'),
     label: '🐚 海風回城螺 + 🍺 楓糖蘋果酒',
-    out: { kind: 'consumable', shape: 'diamond', hw: 20, hh: 22, icon: '🧿', name: '星潮過載護符', desc: '立即回復 70% 法力並觸發 8 秒「魔力過載」沸騰狀態！', color: '#7ae8ff', r: 20, mana: 0.7, overload: 8 },
+    out: { kind: 'consumable', tier: 3, shape: 'diamond', hw: 20, hh: 22, icon: '🧿', name: '星潮過載護符', desc: '立即回復 70% 法力並觸發 8 秒「魔力過載」沸騰狀態！', color: '#7ae8ff', r: 20, mana: 0.7, overload: 8 },
   },
 ];
 
@@ -301,7 +301,8 @@ export class PhysicsContainer {
     }
     if (this.hover) {
       const d = this.hover.data;
-      const txt = d.name;
+      const tierNum = d.item?.tier || d.tier || 1;
+      const txt = `[T${tierNum}] ${d.name}`;
       ctx.font = 'bold 12px sans-serif';
       const tw = ctx.measureText(txt).width + 14;
       const tx = Math.max(6, Math.min(W - tw - 6, this.hover.x - tw / 2));

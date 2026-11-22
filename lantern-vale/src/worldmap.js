@@ -82,6 +82,10 @@ export function bindWorldMap(game) {
     button.onclick = () => select(reg);
     atlas.appendChild(button); buttons.push(button);
   });
+  const playerPin = document.createElement('div');
+  playerPin.className = 'player-pin';
+  playerPin.textContent = '📍 你在這裡';
+  atlas.appendChild(playerPin);
 
   function open() {
     if (game.state !== 'play' || game.ui.invOpen || game.ui.panelOpen || game.ui.setOpen) return;
@@ -89,14 +93,21 @@ export function bindWorldMap(game) {
     const lang = game.settings?.lang || 'zh-TW';
     const isHarbor = game.depth === -2;
     const isTown = game.depth === -1;
+    const inDungeon = !isHarbor && !isTown && !game.field;
     dialog.querySelector('.map-location').textContent =
-      (isHarbor ? '所在位置 · 海風港鎮（第二城鎮）' : isTown ? '所在位置 · 燈谷鎮（主城）' : game.field ? `所在位置 · ${FIELDS[game.field].name}` : `所在位置 · 副本第 ${game.depth + 1} 層`)
+      (isHarbor ? '📍 你目前位於 · 海風港鎮（第二城鎮）' : isTown ? '📍 你目前位於 · 燈谷鎮（主城）' : game.field ? `📍 你目前位於 · ${FIELDS[game.field].name}` : `📍 你目前位於 · 副本第 ${game.depth + 1} 層`)
       + ' ｜ ' + t(lang, 'noDirectTp');
     buttons.forEach((b, j) => {
       const r = WORLD_REGIONS[j];
-      b.classList.toggle('here', (isHarbor && r.id === 100) || (isTown && r.id === 0) || (game.field && r.id === game.field));
+      b.classList.toggle('here', (isHarbor && r.id === 100) || (isTown && r.id === 0) || (game.field && r.id === game.field) || (inDungeon && r.id === (game.originField || 1)));
     });
-    const curReg = WORLD_REGIONS.find(r => (isHarbor && r.id === 100) || (isTown && r.id === 0) || (game.field && r.id === game.field)) || WORLD_REGIONS[0];
+    const curReg = WORLD_REGIONS.find(r => (isHarbor && r.id === 100) || (isTown && r.id === 0) || (game.field && r.id === game.field) || (inDungeon && r.id === (game.originField || 1))) || WORLD_REGIONS[0];
+    const half = game.world?.half || 30;
+    const ox = Math.max(-3.5, Math.min(3.5, ((game.player?.pos?.x || 0) / half) * 3.5));
+    const oy = Math.max(-3.5, Math.min(3.5, ((game.player?.pos?.z || 0) / half) * 3.5));
+    playerPin.style.left = (curReg.x + ox) + '%';
+    playerPin.style.top = (curReg.y + oy) + '%';
+    playerPin.textContent = inDungeon ? `📍 你在副本 (${game.depth + 1}F)` : `📍 你在這裡（${game.playerName || '旅人'}）`;
     select(curReg);
     dialog.showModal();
   }
