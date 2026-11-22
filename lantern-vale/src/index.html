@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>燈谷行 Lantern Vale</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#2b1d33; --paper:#fff6e2; --paper2:#f3e3c3; --accent:#e2573b; --teal:#2f8a7e; --gold:#ffd85a;
+  --hp:#e0455a; --mp:#4b8fe0;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --paper:#fff6e2; } }
+:root[data-theme="dark"]{ --paper:#fff6e2; }
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:#1a1426;color:var(--ink);font-family:'DotGothic16',ui-monospace,monospace;user-select:none}
+#view{position:fixed;inset:0;image-rendering:pixelated;image-rendering:crisp-edges;cursor:crosshair}
+.hide{display:none!important}
+.panel{background:var(--paper);border:3px solid var(--ink);border-radius:10px;box-shadow:0 4px 0 var(--ink)}
+/* ---------- title ---------- */
+#title{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:linear-gradient(180deg,rgba(30,20,50,.15),rgba(30,20,50,.55))}
+#title h1{margin:0;font-size:clamp(44px,8vw,92px);color:var(--paper);text-shadow:0 5px 0 var(--ink),0 0 30px rgba(255,200,120,.5);letter-spacing:.08em;font-weight:400}
+#title .en{color:var(--gold);font-size:clamp(14px,2vw,20px);letter-spacing:.4em;text-shadow:0 2px 0 var(--ink);margin-top:-12px}
+#title .box{padding:16px 22px;max-width:min(560px,92vw);font-size:15px;line-height:1.7}
+.keys{display:grid;grid-template-columns:auto 1fr;gap:4px 14px}
+.keys b{display:inline-block;min-width:54px;text-align:center;background:var(--ink);color:var(--paper);border-radius:5px;padding:0 6px;font-weight:400}
+.btn{font-family:inherit;font-size:22px;padding:10px 34px;background:var(--accent);color:var(--paper);border:3px solid var(--ink);border-radius:10px;box-shadow:0 4px 0 var(--ink);cursor:pointer}
+.btn:hover{transform:translateY(-2px);box-shadow:0 6px 0 var(--ink)}
+.btn:active{transform:translateY(2px);box-shadow:0 2px 0 var(--ink)}
+.scales{display:flex;gap:6px;align-items:center;color:var(--paper);text-shadow:0 2px 0 var(--ink);font-size:14px}
+.scales button{font-family:inherit;background:var(--paper2);border:2px solid var(--ink);border-radius:6px;padding:2px 10px;cursor:pointer}
+.scales button.on{background:var(--gold)}
+/* ---------- HUD ---------- */
+#hud{position:fixed;inset:0;pointer-events:none}
+.orb{position:absolute;bottom:18px;width:104px;height:104px;border-radius:50%;border:4px solid var(--ink);background:#3a2d44;overflow:hidden;box-shadow:0 4px 0 var(--ink),inset 0 0 0 4px rgba(255,255,255,.15)}
+.orb .fill{position:absolute;left:0;right:0;bottom:0;transition:height .15s}
+#hpOrb{left:22px}#hpOrb .fill{background:repeating-linear-gradient(180deg,#f0566a 0 6px,#e0455a 6px 12px)}
+#mpOrb{right:22px}#mpOrb .fill{background:repeating-linear-gradient(180deg,#5aa0f0 0 6px,#4b8fe0 6px 12px)}
+.orb .shine{position:absolute;left:18px;top:14px;width:22px;height:14px;border-radius:50%;background:rgba(255,255,255,.55)}
+.orb .txt{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;text-shadow:0 2px 0 var(--ink);font-size:15px}
+#skills{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);display:flex;gap:8px;padding:8px 10px}
+.sk{position:relative;width:56px;height:56px;border:3px solid var(--ink);border-radius:8px;background:var(--paper2);display:flex;align-items:center;justify-content:center;font-size:24px;overflow:hidden}
+.sk .k{position:absolute;left:2px;top:0;font-size:11px;color:var(--ink);opacity:.75}
+.sk .cd{position:absolute;left:0;right:0;bottom:0;background:rgba(43,29,51,.6)}
+.sk.locked{filter:grayscale(1) brightness(.75)}
+.sk .cnt{position:absolute;right:3px;bottom:1px;font-size:12px}
+#topbar{position:absolute;top:12px;left:50%;transform:translateX(-50%);padding:4px 16px;font-size:16px;display:flex;gap:16px;white-space:nowrap}
+#boss{position:absolute;top:56px;left:50%;transform:translateX(-50%);width:min(560px,80vw);text-align:center}
+#boss .name{color:var(--paper);text-shadow:0 2px 0 var(--ink);font-size:18px;margin-bottom:4px}
+#boss .bar{height:16px;border:3px solid var(--ink);border-radius:8px;background:#3a2d44;overflow:hidden}
+#boss .fill{height:100%;background:linear-gradient(180deg,#ffb050,#e0703a);transition:width .2s}
+#tip{position:absolute;right:20px;bottom:150px;width:290px;padding:12px 14px;font-size:14px;line-height:1.55}
+.iname{font-size:18px;text-shadow:0 1px 0 var(--ink),1px 0 0 var(--ink),-1px 0 0 var(--ink),0 -1px 0 var(--ink)}
+.ibase{font-size:12px;opacity:.7}
+.sep{height:2px;background:var(--ink);opacity:.2;margin:6px 0}
+.imp{color:#6a5a7a}.mod{color:#2c5a9a}.spc{color:#c0561e}
+.cmp{margin-top:6px}.cmp.up{color:#2f8a4e}.cmp.down{color:#b8443a}
+.hint{margin-top:4px;font-size:12px;opacity:.75}
+#nums{position:absolute;inset:0;overflow:hidden}
+.num{position:absolute;left:0;top:0;color:#fff;font-size:18px;text-shadow:0 2px 0 var(--ink),2px 0 0 var(--ink),-2px 0 0 var(--ink),0 -2px 0 var(--ink);white-space:nowrap}
+.num.crit{color:var(--gold);font-size:26px}.num.fire{color:#ffb050}.num.hurt{color:#ff6a6a;font-size:22px}.num.heal{color:#7fe08a}
+#toasts{position:absolute;bottom:120px;flex-direction:column-reverse;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:6px}
+.toast{font-size:18px;text-shadow:0 2px 0 var(--ink),2px 0 0 var(--ink),-2px 0 0 var(--ink),0 -2px 0 var(--ink);animation:toast 2.6s forwards}
+@keyframes toast{0%{opacity:0;transform:translateY(8px)}10%{opacity:1;transform:none}80%{opacity:1}100%{opacity:0}}
+#banner{position:absolute;top:24%;left:50%;transform:translate(-50%,-50%);text-align:center;opacity:0;pointer-events:none}
+#banner h2{margin:0;font-size:clamp(30px,5vw,54px);font-weight:400;color:var(--paper);text-shadow:0 4px 0 var(--ink)}
+#banner p{margin:4px 0 0;color:var(--gold);font-size:18px;text-shadow:0 2px 0 var(--ink)}
+#banner.show{animation:banner 2.8s forwards}
+@keyframes banner{0%{opacity:0;transform:translate(-50%,-30%)}15%{opacity:1;transform:translate(-50%,-50%)}75%{opacity:1}100%{opacity:0}}
+.exitHint{position:absolute;transform:translate(-50%,-100%);padding:4px 10px;background:var(--paper);border:3px solid var(--ink);border-radius:8px;font-size:15px;white-space:nowrap}
+.exitHint:after{content:'';position:absolute;left:50%;bottom:-9px;margin-left:-6px;border:6px solid transparent;border-top-color:var(--ink)}
+.exitHint.item{color:#9a6a00}.exitHint.boon{color:#7a4ac0}.exitHint.heal{color:#c03a4a}
+/* ---------- modals ---------- */
+.modal{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:rgba(26,20,38,.55);pointer-events:auto}
+.modal h2{margin:0;color:var(--paper);font-weight:400;font-size:clamp(28px,4vw,40px);text-shadow:0 4px 0 var(--ink)}
+.cards{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;padding:0 16px}
+.card{position:relative;font-family:inherit;width:210px;min-height:230px;padding:16px;background:var(--paper);border:3px solid var(--ink);border-radius:12px;box-shadow:0 5px 0 var(--ink);cursor:pointer;text-align:center;color:var(--ink)}
+.card:hover{transform:translateY(-6px);box-shadow:0 11px 0 var(--ink);background:#fffaf0}
+.bicon{width:64px;height:64px;margin:4px auto 10px;border-radius:50%;background:#c08cff;border:3px solid var(--ink);display:flex;align-items:center;justify-content:center;font-size:30px;color:var(--paper);text-shadow:0 2px 0 var(--ink)}
+.bname{font-size:20px;margin-bottom:8px}.bdesc{font-size:14px;line-height:1.6;opacity:.85}
+.card .key{position:absolute;top:6px;left:8px;font-size:12px;opacity:.5}
+#inv .panel{padding:16px 18px;width:min(860px,94vw);max-height:86vh;overflow:auto;display:grid;grid-template-columns:1.4fr 1fr;gap:16px}
+#invEquip{display:flex;flex-direction:column;gap:10px}
+.slot{display:flex;gap:10px;align-items:flex-start;padding:8px;border:2px dashed rgba(43,29,51,.3);border-radius:8px;font-size:13px;line-height:1.5}
+.slot .iname{font-size:15px}
+.slotname{flex:none;width:36px;height:36px;border-radius:6px;background:var(--ink);color:var(--paper);display:flex;align-items:center;justify-content:center;font-size:18px}
+.empty{opacity:.5}
+#invStats{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;font-size:14px}
+#invStats div{display:flex;justify-content:space-between;border-bottom:1px dotted rgba(43,29,51,.3)}
+#invStats b{font-weight:400;color:#2c5a9a}
+.chip{display:inline-block;margin:3px;padding:2px 8px;border-radius:12px;background:#ece0ff;border:2px solid var(--ink);font-size:13px}
+h3{margin:0 0 8px;font-weight:400;font-size:18px}
+#wipe{position:fixed;inset:0;background:#1a1426;clip-path:circle(0% at 50% 50%);transition:clip-path .45s ease-in;pointer-events:none}
+#wipe.in{clip-path:circle(75% at 50% 50%)}
+@media (max-width:700px){ .orb{width:72px;height:72px} .sk{width:42px;height:42px;font-size:18px} #tip{width:240px;bottom:110px} }
+</style>
+</head>
+<body>
+<canvas id="view"></canvas>
+
+<div id="hud" class="hide">
+  <div id="topbar" class="panel"><span id="roomInfo"></span><span id="killInfo"></span></div>
+  <div id="boss" class="hide"><div class="name"></div><div class="bar"><div class="fill"></div></div></div>
+  <div class="orb" id="hpOrb"><div class="fill" id="hpFill"></div><div class="shine"></div><div class="txt" id="hpText"></div></div>
+  <div class="orb" id="mpOrb"><div class="fill" id="mpFill"></div><div class="shine"></div><div class="txt" id="mpText"></div></div>
+  <div id="skills" class="panel">
+    <div class="sk" id="sk-lmb" title="杖擊"><span class="k">左鍵</span>杖<div class="cd"></div></div>
+    <div class="sk" id="sk-rmb" title="餘燼彈"><span class="k">右鍵</span>焰<div class="cd"></div></div>
+    <div class="sk" id="sk-roll" title="翻滾"><span class="k">空白</span>滾<div class="cd"></div></div>
+    <div class="sk" id="sk-q" title="根鬚重擊"><span class="k">Q</span>根<div class="cd"></div></div>
+    <div class="sk" id="sk-e" title="螢火群"><span class="k">E</span>螢<div class="cd"></div></div>
+    <div class="sk" id="sk-r" title="蜜藥瓶"><span class="k">R</span>壺<span class="cnt"></span><div class="cd"></div></div>
+  </div>
+  <div id="tip" class="panel hide"></div>
+  <div id="exitHint" class="exitHint" style="display:none"></div>
+  <div id="nums"></div>
+  <div id="toasts"></div>
+  <div id="banner"><h2></h2><p></p></div>
+</div>
+
+<div id="title">
+  <h1>燈谷行</h1>
+  <div class="en">LANTERN VALE</div>
+  <div class="box panel">
+    提著燈籠的小旅人「燈芯」，要穿越被餘燼侵蝕的山谷，喚醒沉睡的古樹鹿王。每次旅程地形、敵人和戰利品都不同。
+    <div class="sep"></div>
+    <div class="keys">
+      <b>WASD</b><span>移動</span>
+      <b>左鍵</b><span>杖擊（按住連擊）</span>
+      <b>右鍵</b><span>餘燼彈（消耗法力）</span>
+      <b>空白</b><span>翻滾閃避（無敵）</span>
+      <b>Q / E</b><span>技能（從天賦解鎖）</span>
+      <b>R</b><span>蜜藥瓶回血（擊殺補充）</span>
+      <b>F</b><span>撿起並裝備地上的物品</span>
+      <b>Tab</b><span>角色與裝備</span>
+    </div>
+  </div>
+  <button class="btn" id="btnStart">開始旅程</button>
+  <div class="scales">像素大小：<button data-scale="2">細</button><button data-scale="3" class="on">標準</button><button data-scale="4">粗</button></div>
+</div>
+
+<div id="boons" class="modal hide"><h2>選擇一份祝福</h2><div class="cards"></div></div>
+<div id="inv" class="modal hide"><div class="panel">
+  <div><h3>裝備</h3><div id="invEquip"></div></div>
+  <div><h3>屬性</h3><div id="invStats"></div><h3 style="margin-top:14px">天賦</h3><div id="invBoons"></div><div class="hint" style="margin-top:12px">按 Tab 或 Esc 關閉</div></div>
+</div></div>
+<div id="dead" class="modal hide"><h2>燈火熄滅了……</h2><div class="panel" style="padding:12px 18px" id="deadSum"></div><button class="btn" id="btnRetry">再次出發</button></div>
+<div id="win" class="modal hide"><h2>山谷重新亮起來了！</h2><div class="panel" style="padding:12px 18px" id="winSum"></div><button class="btn" id="btnAgain">再走一趟</button></div>
+<div id="wipe"></div>
+<script>/*__GAME__*/</script>
+</body>
+</html>
