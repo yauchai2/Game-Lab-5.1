@@ -1,3 +1,4 @@
+import { progressDefaults } from './frontier.js';
 // 跨局進度（MMO 風格）：貨幣、金羽毛、每日委託、出發詞綴、傳家寶
 import { serializeItem, deserializeItem } from './loot.js';
 
@@ -23,7 +24,7 @@ const QUEST_POOL = [
 const today = () => new Date().toISOString().slice(0, 10);
 function seeded(seed) { let s = [...seed].reduce((h, c) => (h * 33 + c.charCodeAt(0)) >>> 0, 5381); return () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296; }
 
-export const DEFAULT_PROFILE = { shards: 0, feathers: 0, shells: 0, heirloom: null, mods: [], quests: null, best: { depth: 0, wins: 0 }, kills: 0, runs: 0 };
+export const DEFAULT_PROFILE = { ...progressDefaults, shards: 0, feathers: 0, shells: 0, heirloom: null, mods: [], quests: null, best: { depth: 0, wins: 0 }, kills: 0, runs: 0 };
 
 export class Meta {
   constructor(slot = 0) { this.key = slot ? 'lv_profile_' + slot : 'lv_profile'; this.p = this.load(); this.rollQuests(); this.runShards = 0; }

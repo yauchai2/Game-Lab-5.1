@@ -1,9 +1,12 @@
+import { Weather } from './weather.js';
+import { bindGuild, updateRaid } from './guild.js';
+import { FIELDS, fieldBiome, awardKill, setupField, tickField, useFieldSpot, leaveGrave, rememberGear, restoreGear } from './frontier.js';
 import * as THREE from 'three';
 import { World, toonMat, HALF, windU } from './world.js';
 import { BIOMES, mulberry32, clamp, lerp, angleLerp, rand, pick } from './util.js';
 import { buildTownScenery } from './town.js';
 import { loadSettings, applySettings, buildSettingsUI } from './settings.js';
-import { buildPlayer, buildSlime, buildThorn, buildBoar, buildMoth, buildStag, buildArch, buildHouse, buildFountain, buildBoard, buildStall } from './models.js';
+import { showWeapon, buildPlayer, buildSlime, buildThorn, buildBoar, buildMoth, buildStag, buildArch, buildHouse, buildFountain, buildBoard, buildStall } from './models.js';
 import { Net } from './net.js';
 import { Meta } from './meta.js';
 import { buildPanels } from './panels.js';
@@ -93,7 +96,7 @@ export class Game {
     this.world = new World(this.scene);
     this.fx = new Particles(this.scene, 700, false);
     this.puffs = new Particles(this.scene, 300, true);
-    this.motes = [];
+    this.weather = new Weather(this.scene);
     this.enemies = []; this.projs = []; this.eprojs = []; this.drops = []; this.decals = []; this.exits = []; this.slashes = []; this.rings = [];
     this.keys = {}; this.mouse = { x: 0, y: 0, l: false, r: false }; this.aim = new V3();
     this.ray = new THREE.Raycaster(); this.plane = new THREE.Plane(new V3(0, 1, 0), 0);
@@ -104,7 +107,7 @@ export class Game {
     this.meta = new Meta(); this.pickups = []; this.spots = []; this.talked = new Set();
     this.playerName = '旅人'; this.hoodIdx = 0; this.posT = 0;
     this.bindInput();
-    this.setupNet();
+    this.setupNet(); bindGuild(this);
     // title scene: a pretty room in the background
     this.player = this.makePlayer();
     this.loadRoom(0, null, true);
@@ -116,6 +119,7 @@ export class Game {
       Space: ' ', ShiftLeft: 'shift', ShiftRight: 'shift', KeyQ: 'q', KeyE: 'e', KeyR: 'r', KeyF: 'f', KeyI: 'i', KeyM: 'm', Tab: 'tab', Escape: 'escape', Enter: 'enter', KeyT: 't', Digit1: '1', Digit2: '2', Digit3: '3', Digit4: '4' };
     const typing = () => { const a = document.activeElement; return a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA'); };
     addEventListener('keydown', e => {
+      if (this.raid && e.code === 'Escape') { this.net.send({t:'raidLeave'}); return; }
       if (this.ui.mapDialog?.open) {
         if (e.code === 'KeyM' || e.code === 'Escape') {
           e.preventDefault();
@@ -123,7 +127,7 @@ export class Game {
         }
         return;
       }
-      if (this.state === 'title' && document.activeElement?.closest('#title') && e.code !== 'Escape') return;
+      if (this.state === 'title' && e.code !== 'Escape') return;
       if (typing()) { if (e.code === 'Escape' || e.code === 'Enter') this.ui.chatKey?.(e); return; }
       const k = CODE[e.code] ?? e.key.toLowerCase();
       if (['tab', ' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) e.preventDefault();
@@ -171,6 +175,7 @@ export class Game {
     };
     p.equip.staff = makeItem(mulberry32(5), 0, 0, 'staff');
     const hl = this.meta.heirloom; if (hl) p.equip[hl.slot] = hl;
+    restoreGear(this, p);
     return p;
   }
   recalc() {
@@ -179,6 +184,15 @@ export class Game {
     if (this.character?.job === 1) s.moveSpd += 8;
     else if (this.character?.job === 2) s.addFire += 3;
     else s.armor += 5;
+    const profile = this.meta.p;
+    showWeapon(p.m, profile.weapon);
+    const attackName={staff:'杖',bow:'弓',blades:'刃',shield:'盾'}[profile.weapon] || '杖';
+    const attackSlot=document.getElementById('sk-lmb');attackSlot.childNodes[1].nodeValue=attackName;attackSlot.title=attackName+'擊';
+    s.maxHp += (profile.level - 1) * 5; s.baseDmg += profile.level - 1;
+    if (profile.weapon === 'blades') s.atkSpd += 40;
+    if (profile.weapon === 'shield') s.armor += 15;
+    if (profile.gem) { s.addFire += 4; p.skills.slam = true; }
+    if (profile.mealUntil > Date.now()) s.regen += 2;
     const specials = new Set();
     for (const it of Object.values(p.equip)) if (it) {
       for (const m of [it.implicit, ...it.mods]) if (m) s[m.k] = (s[m.k] || 0) + m.v;
@@ -199,17 +213,29 @@ export class Game {
   has(id) { return this.player.boons.includes(id); }
 
   // ---------------- run / rooms ----------------
+  enterField(id) {
+    if (!FIELDS[id]) return;
+    if (!this.field && this.depth >= 0 && !this.runEnded) this.bankRun(1);
+    this.worldEvent=null; this.field = id; this.originField = id; this.state = 'play';
+    this.loadRoom(FIELDS[id].biome * 3, null);
+    setupField(this);
+  }
   startRun() {
+    this.originField = this.field || 1;
+    this.field = 0;
     for (const e of this.enemies) this.scene.remove(e.m.root);
     this.scene.remove(this.player.m.root);
     this.player = this.makePlayer();
     this.recalc(); this.player.hp = this.player.stats.maxHp; this.player.mana = this.player.stats.mana;
     this.runSeed = this.party ? [...this.party].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % 1000000 : (Math.random() * 1e6) | 0;
+    this.runSeed += (this.originField-1)*997;
     this.runStart = performance.now(); this.meta.runShards = 0; this.meta.p.runs++; this.meta.save(); this.runEnded = false;
     this.state = 'play';
     this.loadRoom(0, null);
   }
   enterTown() {
+    if (this.state === 'play' && !this.field && this.depth >= 0 && this.runStart && !this.runEnded) this.bankRun(1);
+    this.field = 0;
     for (const e of this.enemies) this.scene.remove(e.m.root);
     this.scene.remove(this.player.m.root);
     this.player = this.makePlayer(); this.recalc();
@@ -217,9 +243,9 @@ export class Game {
     this.state = 'play'; this.player.m.root.visible = true;
     this.loadRoom(-1, null);
   }
-  get zone() { return this.state === 'title' ? 'title' : this.depth < 0 ? 'town' : `run:${this.party || 'solo' + (this.net.id || '')}:${this.depth}`; }
-  biomeFor(depth) { return depth >= 9 ? 3 : Math.floor(depth / 3); }
-  loadRoom(depth, reward, title = false) {
+  get zone() { if (this.field) return 'field:' + this.field; return this.state === 'title' ? 'title' : this.depth < 0 ? 'town' : `run:${this.party || 'solo' + (this.net.id || '')}:${this.depth}`; }
+  biomeFor(depth) { return depth >= 9 ? 3 : ((Math.floor(depth / 3) + (FIELDS[this.originField]?.biome || 0)) % 4); }
+  loadRoom(depth, reward, title = false, extra = {}) {
     this.depth = depth; this.reward = reward;
     for (const e of this.enemies) this.scene.remove(e.m.root);
     for (const a of [...this.projs, ...this.eprojs, ...this.decals, ...this.slashes, ...this.rings]) this.scene.remove(a.mesh);
@@ -235,11 +261,14 @@ export class Game {
     if (this.townGroup) { this.scene.remove(this.townGroup); this.townGroup = null; this.chimneys = null; }
     for (const b of this.bots) this.removeRemote(b); this.bots = [];
     const bi = (title || town) ? 0 : this.biomeFor(depth);
-    const B = BIOMES[bi]; this.biome = B;
-    const boss = depth === 9 && !title;
-    const seed = title ? 4242 : town ? 9001 : (this.runSeed || 1) + depth * 101;
+    const B = this.field ? fieldBiome(this.field) : BIOMES[bi]; this.biome = B;
+    this.boss = null; this.ui.bossBar(false);
+    const weather = FIELDS[this.field]?.fog;
+    this.scene.fog = weather ? new THREE.FogExp2(weather, this.field === 4 ? .029 : .041) : null;
+    const boss = depth === 9 && !title && !this.field;
+    const seed = this.field ? 7201 + this.field * 319 : title ? 4242 : town ? 9001 : (this.runSeed || 1) + depth * 101;
     this.rng = mulberry32(seed + 77);
-    const { spawn, exits } = this.world.generate(seed, B, { boss, town, exitCount: town ? 1 : boss ? 0 : (depth === 0 ? 2 : (this.rng() < 0.5 ? 2 : 3)) });
+    const { spawn, exits } = this.world.generate(seed, B, { boss, town, raid: !!extra.raid, size: FIELDS[this.field]?.size, exitCount: extra.raid ? 0 : this.field ? 1 : town ? 1 : boss ? 0 : (depth === 0 ? 2 : (this.rng() < 0.5 ? 2 : 3)) });
     // lights per biome
     this.sun.color.set(B.sun); this.sun.intensity = B.sunI * 2.3;
     this.hemi.color.set(B.sky); this.hemi.groundColor.set(B.ground); this.hemi.intensity = B.ambient * 1.75;
@@ -253,24 +282,16 @@ export class Game {
     const types = ['item', 'boon', 'heal'];
     const pool = depth === 0 ? ['boon', 'item'] : types.slice().sort(() => this.rng() - 0.5);
     if (town) { this.makeExit(exits[0], 'run'); this.exits[0].on = true; this.buildTown(); }
+    else if (this.field) { this.makeExit(exits[0], 'dungeon'); this.exits[0].on = true; }
     else exits.forEach((e, i) => this.makeExit(e, pool[i % pool.length]));
-    // motes (fireflies / pollen / snow)
-    for (const mo of this.motes) this.scene.remove(mo);
-    this.motes = [];
-    const moteGeo = new THREE.BoxGeometry(0.07, 0.07, 0.07);
-    const moteCol = B.key === 'snow' ? 0xffffff : B.key === 'ember' ? 0xffa050 : 0xfff2a0;
-    for (let i = 0; i < (B.key === 'snow' ? 140 : 60); i++) {
-      const mo = new THREE.Mesh(moteGeo, new THREE.MeshBasicMaterial({ color: moteCol }));
-      mo.userData = { noNormal: true, ph: Math.random() * 10, base: new V3(rand(Math.random, -22, 22), rand(Math.random, 0.5, B.key === 'snow' ? 8 : 3), rand(Math.random, -22, 22)) };
-      this.scene.add(mo); this.motes.push(mo);
-    }
+    this.weather.reset(B);
     // waves
     this.waves = [];
     if (town) {
       this.cleared = true; this.waveIdx = 0; this.waves = [];
       this.ui.banner('燈谷鎮', '與旅人交談，準備出發');
       this.fade = 1;
-    } else if (!title) {
+    } else if (this.field) { this.waveIdx = 0; this.cleared = true; this.fade = 1; } else if (!title) {
       if (boss) this.waves = [{ boss: true }];
       else {
         const nW = depth === 0 ? 1 : 2 + (depth >= 5 ? 1 : 0);
@@ -281,7 +302,7 @@ export class Game {
       this.ui.banner(boss ? '古樹鹿王的林地' : B.name, boss ? '最終之戰' : `第 ${stage} 區 · 第 ${room} 間`);
       this.fade = 1;
     } else { this.cleared = true; this.waveIdx = 0; }
-    if (!town && !title) { this.meta.event('depth', depth + 1); if (depth + 1 > this.meta.p.best.depth) { this.meta.p.best.depth = depth + 1; this.meta.save(); } this.placePickups(); }
+    if (!town && !title && !this.field) { this.meta.event('depth', depth + 1); if (depth + 1 > this.meta.p.best.depth) { this.meta.p.best.depth = depth + 1; this.meta.save(); } this.placePickups(); }
     p.y = 0; p.vy = 0; p.air = false; p.climbing = false; p.stamina = 100; p.lastLow.set(p.pos.x, 0, p.pos.z);
     this.world.computeFlow(p.pos.x, p.pos.z);
     this.musicKey = title ? 'title' : town ? 'town' : boss ? 'boss' : B.key; this.audio.setMusic(this.musicKey, 0);
@@ -291,7 +312,7 @@ export class Game {
     const g = buildArch(this.biome);
     g.position.set(e.x, 0, e.z);
     const toC = Math.atan2(-e.x, -e.z); g.rotation.y = toC;
-    const col = { item: 0xffd85a, boon: 0xc08cff, heal: 0xff6b6b, run: 0x6fe0d0 }[type];
+    const col = { item: 0xffd85a, boon: 0xc08cff, heal: 0xff6b6b, dungeon: 0xb399ec, run: 0x6fe0d0 }[type];
     const disc = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 2.2), new THREE.ShaderMaterial({
       uniforms: { uT: { value: 0 }, uC: { value: new THREE.Color(col) }, uOn: { value: 0 } }, transparent: true, depthWrite: false, side: THREE.DoubleSide,
       vertexShader: decalVS,
@@ -332,7 +353,7 @@ export class Game {
   }
 
   spawnEnemy(type, pos, elite) {
-    const d = this.depth, scale = 1 + d * 0.22;
+    const d = this.field ? FIELDS[this.field].level / 2 : this.depth, scale = 1 + d * 0.22;
     const DEF = {
       slime: { hp: 30, spd: 2.7, dmg: 9, r: 0.45, build: () => buildSlime(pick(this.rng, [0x7fc35a, 0x9bd06a, 0x6fb86a])) },
       thorn: { hp: 26, spd: 2.2, dmg: 10, r: 0.4, build: buildThorn },
@@ -347,7 +368,7 @@ export class Game {
     this.scene.add(m.root);
     const e = {
       type, m, pos: new V3(pos.x, 0, pos.z), vel: new V3(), knock: new V3(), facing: Math.random() * 6,
-      hp: DEF.hp * scale * (elite ? 2.6 : 1) * (type === 'stag' ? 1 / scale * 1.0 : 1), dmg: DEF.dmg * (1 + d * 0.12) * (elite ? 1.3 : 1),
+      hp: DEF.hp * scale * (elite ? 2.6 : 1) * (type === 'stag' && !this.field ? 1 / scale : 1), dmg: DEF.dmg * (1 + d * 0.12) * (elite ? 1.3 : 1),
       spd: DEF.spd * (elite ? 1.15 : 1), r: DEF.r * s, state: 'move', t: 0, cd: 1 + Math.random() * 1.5, stun: 0, slow: 0, flash: 0, elite, ph: Math.random() * 10,
       hitCd: 0,
     };
@@ -384,6 +405,8 @@ export class Game {
     if (e.hp <= 0) this.killEnemy(e);
   }
   killEnemy(e) {
+    if (e.dead) return;
+    if (e.rival) { this.dueling=false; this.ui.toast('演武勝利'); }
     e.dead = true; this.audio.sfx(e.type === 'stag' ? 'bossDie' : 'enemyDie');
     this.scene.remove(e.m.root);
     const col = { slime: [0x7fc35a, 0xb5e080], thorn: [0x8a5a3b, 0x6aa84a], boar: [0x9a6a4a, 0x5a3b2c], moth: [0xb48ae0, 0xffd27a], stag: [0xffb050, 0xe8dcc8] }[e.type];
@@ -391,7 +414,7 @@ export class Game {
     this.puffs.burst(e.pos.x, 0.3, e.pos.z, 6, { c: 0xffffff, s: 0.4, speed: 1.5, up: 1, g: -1, life: 0.8, grow: 1.4, drag: 3 });
     this.shake = Math.max(this.shake, e.type === 'stag' ? 1 : 0.18);
     const p = this.player; p.kills++;
-    this.onKillMeta(e);
+    this.onKillMeta(e); awardKill(this, e);
     p.flask.prog += (e.elite ? 1 : 0.25) * (this.meta.has('fortune') ? 0.5 : 1);
     while (p.flask.prog >= 1 && p.flask.charges < p.flask.max) { p.flask.prog -= 1; p.flask.charges++; }
     if (p.flask.charges >= p.flask.max) p.flask.prog = 0;
@@ -399,9 +422,10 @@ export class Game {
     // drops
     const r = Math.random();
     const dropChance = e.elite ? 1 : e.type === 'stag' ? 1 : 0.075;
-    if (r < dropChance) this.dropItem(e.pos.x, e.pos.z, makeItem(Math.random, this.depth + this.meta.dropBonus, e.type === 'stag' ? 3 : e.elite ? (Math.random() < 0.3 ? 3 : 2) : null));
+    if (r < dropChance && this.field) this.dropItem(e.pos.x,e.pos.z,makeItem(Math.random,Math.floor(this.meta.p.level/4),e.elite?2:1));
+    else if (r < dropChance) this.dropItem(e.pos.x, e.pos.z, makeItem(Math.random, this.depth + this.meta.dropBonus, e.type === 'stag' ? 3 : e.elite ? (Math.random() < 0.3 ? 3 : 2) : null));
     if (Math.random() < 0.16) this.dropOrb(e.pos.x, e.pos.z);
-    if (e.type === 'stag') { this.boss = null; this.ui.bossBar(false); setTimeout(() => this.victory(), 2500); }
+    if (e.type === 'stag') { this.boss = null; this.ui.bossBar(false); if (!this.field) { const seed = this.runSeed; setTimeout(() => { if (!this.field && this.state === 'play' && this.depth === 9 && this.runSeed === seed) this.victory(); }, 2500); } }
   }
   heal(v, show = true) {
     const p = this.player; const before = p.hp;
@@ -425,10 +449,15 @@ export class Game {
     if (p.hp <= 0) { p.hp = 0; this.die(); }
   }
   die() {
-    this.state = 'dead'; this.bankRun(0.5); this.audio.sfx('dead'); this.audio.setMusic('title', 0);
+    if (this.state !== 'play') return;
+    this.state = 'dead'; if (!this.field) this.bankRun(1);
+    const lost = leaveGrave(this); this.audio.sfx('dead'); this.audio.setMusic('title', 0);
     this.puffs.burst(this.player.pos.x, 0.5, this.player.pos.z, 20, { c: [0x2f8a7e, 0xd9543a, 0xffd36e], s: 0.2, speed: 4, life: 1 });
     this.player.m.root.visible = false;
-    setTimeout(() => this.ui.showDead(this), 900);
+    setTimeout(() => {
+      this.enterTown();
+      this.ui.banner('在燈谷鎮甦醒', lost ? '墓碑保管了 ' + lost + ' 份素材 · ' + FIELDS[this.originField || 1].name : '裝備與星砂已保留');
+    }, 900);
   }
   victory() { this.bankRun(1); this.meta.p.best.wins++; this.meta.save(); this.audio.sfx('win'); this.state = 'win'; this.ui.showWin(this); }
 
@@ -464,7 +493,7 @@ export class Game {
     const d = this.nearestDrop(); if (!d) return;
     const p = this.player, it = d.item;
     const old = p.equip[it.slot]; this.audio.sfx('pickup');
-    p.equip[it.slot] = it;
+    p.equip[it.slot] = it; rememberGear(this);
     this.scene.remove(d.g); this.drops.splice(this.drops.indexOf(d), 1);
     if (old) this.dropItem(p.pos.x, p.pos.z, old);
     const hpFrac = p.hp / p.stats.maxHp;
@@ -498,6 +527,9 @@ export class Game {
     p.cds.atk = 1 / aps;
     const dir = this.aimDir(); p.facing = Math.atan2(dir.x, dir.y);
     p.swing = 1; p.swingT = 0.22; p.swingCount++; this.audio.sfx('swing');
+    if (this.meta.p.weapon === 'bow') {
+      this.fireProj(p.pos, dir, { speed: 21, mult: .85, color: 0xebd69f, size: .08, life: .75 }); return;
+    }
     const range = 2.3 * (1 + p.stats.area / 100);
     let mult = 1;
     if (p.galeBuff) { mult += 0.6; p.galeBuff = false; }
@@ -710,7 +742,7 @@ export class Game {
     m.p.kills++;
     let n = e.type === 'stag' ? 120 : e.elite ? 6 + d : (Math.random() < 0.4 ? 1 + (d >> 1) : 0);
     n = Math.round(n * m.shardMult);
-    if (n > 0) { m.runShards += n; if (e.elite || e.type === 'stag') this.ui.toast(`✦ 星砂 +${n}`, '#ffe08a'); }
+    if (n > 0) { if (this.field) m.p.shards += n; else m.runShards += n; if (e.elite || e.type === 'stag') this.ui.toast(`✦ 星砂 +${n}`, '#ffe08a'); }
   }
   bankRun(frac) {
     if (this.runEnded) return; this.runEnded = true;
@@ -751,14 +783,15 @@ export class Game {
     this.pickups = this.pickups.filter(k => !k.got);
   }
   nearSpot() {
-    if (this.depth !== -1) return null;
+    if (this.depth !== -1 && !this.field) return null;
     const p = this.player; let best = null, bd = 2.8;
-    for (const s of this.spots) { const d = Math.hypot(s.x - p.pos.x, s.z - p.pos.z); if (d < bd) { bd = d; best = { ...s, bx: s.x, bz: s.z }; } }
+    for (const s of this.spots) { if (s.mesh?.visible === false) continue; const d = Math.hypot(s.x - p.pos.x, s.z - p.pos.z); if (d < bd) { bd = d; best = { ...s, bx: s.x, bz: s.z }; } }
     for (const r of this.remotes.values()) if (r.bot) { const d = Math.hypot(r.x - p.pos.x, r.z - p.pos.z); if (d < Math.min(bd, 2.2)) { bd = d; best = { kind: 'talk', label: r.name.replace(' (鎮民)', ''), x: r.x, z: r.z, top: 2.4, bot: r }; } }
     return best;
   }
   tryInteract() {
     const s = this.nearSpot(); if (!s) return false;
+    if (this.field) return useFieldSpot(this, s);
     if (s.kind === 'talk') { const r = s.bot; this.say(r.id, r.lines[(Math.random() * r.lines.length) | 0]); r.tf = Math.atan2(this.player.pos.x - r.x, this.player.pos.z - r.z); r.wait = Math.max(r.wait, 4);
       if (!this.talked.has(r.id)) { this.talked.add(r.id); this.meta.event('talk'); } this.audio.sfx('ui'); return true; }
     this.audio.sfx('ui'); this.ui.openPanel(s.kind); return true;
@@ -774,8 +807,17 @@ export class Game {
     // portal sign
     const sign = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.5, 0.1), toonMat({ color: 0xfff1d0 }));
     const ex = this.exits[0]; sign.position.set(ex.x, 3.4, ex.z); sign.rotation.y = ex.g.rotation.y; g.add(sign);
+    this.spots.push({kind:'market',label:'溪畔拍賣行',x:8,z:4,top:2.5}, {kind:'home',label:'旅人小屋',x:-6,z:8,top:2.5});
+    this.updateHome();
     // offline villagers
     if (!this.net.url) this.spawnBots();
+  }
+  updateHome() {
+    if (!this.townGroup) return;
+    if (this.homeModel) this.townGroup.remove(this.homeModel);
+    const rank = this.meta.p.home;
+    this.homeModel = buildHouse([0x84705a,0xa6754f,0x64885b,0xdeae69][rank], 0xf4dcaa, 2.3+rank*.4, 2.2);
+    this.homeModel.position.set(-6,0,10); this.townGroup.add(this.homeModel);
   }
   spawnBots() {
     const defs = [['米糕 (鎮民)', 1, ['歡迎來到燈谷鎮！', '北邊的拱門通往燈谷，小心鹿王。', '空白鍵連按兩下可以跳，按住第二下就能滑翔喔。']],
@@ -794,7 +836,7 @@ export class Game {
   // ---------------- multiplayer ----------------
   setupNet() {
     const n = this.net;
-    n.on('status', s => { this.ui.netStatus(s); if (!s.ok && this.depth === -1 && !this.bots.length && s.reason !== 'no-server') this.spawnBots(); });
+    n.on('status', s => { if (s.ok) this.identifyGuild(); else { this.wallet=null; this.exitRaid?.(); } this.ui.netStatus(s); if (!s.ok && this.depth === -1 && !this.bots.length && s.reason !== 'no-server') this.spawnBots(); });
     n.on('welcome', m => { for (const h of m.history || []) this.ui.addChat(h.name, h.text, false, h.zone); this.ui.addChat('', `已連線，你的編號 #${m.id}`, true); });
     n.on('online', m => this.ui.setOnline(m.n));
     n.on('sys', m => this.ui.addChat('', m.text, true));
@@ -802,6 +844,7 @@ export class Game {
     n.on('emote', m => { if (this.remotes.has(m.id)) this.say(m.id, EMOTES[m.e % EMOTES.length]); });
     n.on('gone', m => this.removeRemote(m.id));
     n.on('snap', m => {
+      if(this.raid) return;
       const seen = new Set();
       for (const p of m.players) {
         seen.add(p.id);
@@ -885,8 +928,10 @@ export class Game {
 
   // ---------------- update ----------------
   update(dt) {
+    if (this.raid) { updateRaid(this,dt); return; }
     if (this.ui.mapDialog?.open) return;
     this.time += dt;
+    if (this.meta.p.mealUntil && this.meta.p.mealUntil <= Date.now()) { this.meta.p.mealUntil=0; this.recalc(); this.meta.save(); }
     if (this.chimneys && this.townGroup) { this.smokeT -= dt; if (this.smokeT <= 0) { this.smokeT = 0.35; const c = this.chimneys[(Math.random() * this.chimneys.length) | 0];
       if (c) this.puffs.burst(c.x, c.y, c.z, 1, { c: 0xeeeae2, s: 0.28, speed: 0.15, up: 0.9, g: -0.6, life: 2.4, grow: 2.2, drag: 0.6 }); } }
     if (this.hitstop > 0) { this.hitstop -= dt; dt *= 0.08; }
@@ -906,25 +951,29 @@ export class Game {
         if (this.mouse.l) this.tryAttack();
         if (this.mouse.r) this.tryBolt();
       }
-      // movement (3D: walk, jump, climb walls, glide)
+      // movement (3D: walk, sprint, jump, climb walls, glide)
       const mv = this.moveInput();
       const spd = 5.4 * (1 + S.moveSpd / 100);
       p.wall = false; p.wallH = 0;
+      p.sprinting = false;
       if (p.roll > 0) {
         p.roll -= dt;
         this.movePlayer(p.rollDir.x * 13 * dt, p.rollDir.z * 13 * dt);
         if (Math.random() < 0.5) this.puffs.emit(p.pos.x, p.y + 0.1, p.pos.z, { c: 0xf4ecd8, s: 0.18, g: -0.4, life: 0.4, grow: 1 });
       } else {
         const attacking = p.swingT > 0;
-        const f = (attacking ? 0.55 : 1) * (p.climbing ? 0.22 : 1) * (p.gliding ? 1.35 : 1);
+        const canSprint = !!(this.keys.shift && mv.lengthSq() > 0.01 && !p.air && !p.climbing && !attacking && p.stamina > 2);
+        if (canSprint) { p.sprinting = true; p.stamina = Math.max(0, p.stamina - 16 * dt * this.meta.staminaK); }
+        const f = (attacking ? 0.55 : 1) * (p.climbing ? 0.22 : 1) * (p.gliding ? 1.35 : 1) * (canSprint ? 1.35 : 1);
         p.vel.x = lerp(p.vel.x, mv.x * spd * f, 1 - Math.exp(-dt * (p.air ? 6 : 14)));
         p.vel.z = lerp(p.vel.z, mv.y * spd * f, 1 - Math.exp(-dt * (p.air ? 6 : 14)));
         this.movePlayer(p.vel.x * dt, p.vel.z * dt);
         if (mv.lengthSq() > 0.01 && !attacking) p.facing = angleLerp(p.facing, Math.atan2(mv.x, mv.y), 1 - Math.exp(-dt * 14));
         if (mv.lengthSq() > 0.01 && !p.air && !p.climbing) {
-          p.walkT += dt * 11; p.stepT += dt * 11;
+          const stride = canSprint ? 15 : 11;
+          p.walkT += dt * stride; p.stepT += dt * stride;
           if (p.stepT > Math.PI) { p.stepT -= Math.PI; this.audio.sfx('step'); }
-          if (Math.random() < dt * 4) this.puffs.emit(p.pos.x, p.y + 0.05, p.pos.z, { c: 0xf4ecd8, s: 0.12, g: -0.3, life: 0.35, grow: 1 });
+          if (Math.random() < dt * (canSprint ? 10 : 4)) this.puffs.emit(p.pos.x, p.y + 0.05, p.pos.z, { c: 0xf4ecd8, s: canSprint ? 0.16 : 0.12, g: -0.3, life: 0.35, grow: 1 });
         } else p.walkT = 0;
       }
       this.updateVertical(dt, mv);
@@ -948,6 +997,7 @@ export class Game {
         });
         if (p.wispT <= 0) { for (const w of p.wisps) this.scene.remove(w.mesh); p.wisps = []; }
       }
+      if (this.field) tickField(this, dt);
       // waves
       if (!this.cleared) {
         const alive = this.enemies.some(e => !e.dead) || this.decals.some(d => d.onDone);
@@ -1001,7 +1051,14 @@ export class Game {
   }
   goExit(x) {
     if (this.state !== 'play') return;
-    if (x.type === 'run') { this.state = 'transition'; this.audio.sfx('warp'); this.ui.wipe(() => this.startRun()); return; }
+    if (x.type === 'dungeon') {
+      if (this.meta.p.keys < 1) {
+        if (!this.keyHint || this.time > this.keyHint) { this.ui.toast('需要鑰石 · 擊敗精英可取得'); this.keyHint = this.time + 3; } return;
+      }
+      this.meta.p.keys--; this.meta.save();
+    }
+    if (x.type === 'run') { this.state = 'transition'; this.ui.wipe(() => this.enterField(1)); return; }
+    if (x.type === 'dungeon') { this.state = 'transition'; this.audio.sfx('warp'); this.ui.wipe(() => this.startRun()); return; }
     this.state = 'transition'; this.audio.sfx('warp');
     this.ui.wipe(() => { this.state = 'play'; this.loadRoom(this.depth + 1, x.type); });
   }
@@ -1024,7 +1081,7 @@ export class Game {
         if (dist > 1.5 && W.flowDir(e.pos.x, e.pos.z, fd)) { mvx = fd.x * spd * s; mvz = fd.y * spd * s; }
         else { mvx = dirP.x * spd * s; mvz = dirP.y * spd * s; }
       };
-      if (e.stun > 0 || !playing) {
+      if (e.stun > 0 || !playing || (this.field && dist > (e.legendary ? 9 : 12))) {
         // idle
       } else if (e.type === 'slime') {
         follow(0.6 + 0.6 * Math.max(0, Math.sin(e.t * 6 + e.ph)));
@@ -1110,7 +1167,7 @@ export class Game {
       if (e.stun > 0) e.m.body.rotation.z = Math.sin(this.time * 20) * 0.1; else e.m.body.rotation.z = 0;
     }
     this.enemies = this.enemies.filter(e => !e.dead);
-    if (this.boss) this.ui.bossBar(true, null, this.boss.hp / this.boss.maxHp);
+    if (this.boss) this.ui.bossBar(!this.field || this.boss.pos.distanceTo(p.pos)<10, null, this.boss.hp / this.boss.maxHp);
   }
 
   updateBoss(e, dt, dist, dirP, follow, setMv) {
@@ -1272,18 +1329,7 @@ export class Game {
     // water & motes
     if (this.world.waterMat) this.world.waterMat.uniforms.uTime.value = this.time;
     windU.uTime.value = this.time; if (this.world.waterMat) this.world.waterMat.uniforms.uWater.value = this.settings.water ? 1 : 0;
-    const snow = this.biome.key === 'snow';
-    for (const mo of this.motes) {
-      const u = mo.userData;
-      if (snow) {
-        u.base.y -= dt * 1.2; u.base.x += dt * 0.5;
-        if (u.base.y < 0) { u.base.y = 8; u.base.x = this.camPos.x + rand(Math.random, -22, 22); u.base.z = this.camPos.z + rand(Math.random, -18, 18); }
-        mo.position.set(u.base.x + Math.sin(this.time + u.ph) * 0.3, u.base.y, u.base.z);
-      } else {
-        mo.position.set(u.base.x + Math.sin(this.time * 0.5 + u.ph) * 1.2, u.base.y + Math.sin(this.time * 0.9 + u.ph * 2) * 0.4, u.base.z + Math.cos(this.time * 0.4 + u.ph) * 1.2);
-        mo.visible = Math.sin(this.time * 1.5 + u.ph * 3) > -0.3;
-      }
-    }
+    this.weather.update(this.time,dt,this.camPos,this.field===4 && this.worldEvent);
     // lantern flicker
     this.lampLight.position.set(p.pos.x, p.y + 1.6, p.pos.z);
     this.lampLight.intensity = 1.6 + Math.sin(this.time * 9) * 0.15 + Math.sin(this.time * 23) * 0.1;

@@ -1,3 +1,5 @@
+import { FIELDS } from './frontier.js';
+import { bindTouch } from './touch.js';
 import { bindWorldMap } from './worldmap.js';
 import { bindCharacters } from './characters.js';
 import { buildPanels } from './panels.js';
@@ -19,7 +21,7 @@ export class UI {
     game.settings = loadSettings(); buildPanels(game); buildSettingsUI(game); applySettings(game);
     $('btnMute').onclick = () => { game.audio.init(); const m = game.audio.toggleMute(); $('btnMute').textContent = m ? '🔇' : '🔊'; };
     $('btnMute').textContent = game.audio.muted ? '🔇' : '🔊';
-    bindWorldMap(game);
+    bindWorldMap(game); bindTouch(game);
     const enterCharacter = bindCharacters(game);
     $('btnTown2').onclick = () => { $('dead').classList.add('hide'); game.party = ''; game.enterTown(); };
     $('btnTown3').onclick = () => { $('win').classList.add('hide'); game.enterTown(); };
@@ -93,7 +95,8 @@ export class UI {
     if (!near) { el.style.display = 'none'; return; }
     const [sx, sy] = this.screenPos(near.x, 4.4, near.z);
     el.style.display = 'block'; el.style.left = sx + 'px'; el.style.top = sy + 'px';
-    el.textContent = { item: '前路：稀有裝備', boon: '前路：天賦祝福', heal: '前路：溫泉休憩', run: '出發：燈谷冒險' }[near.type];
+    el.textContent = { item: '前路：稀有裝備', boon: '前路：天賦祝福', heal: '前路：溫泉休憩', run: '前往晨光草原', dungeon: '消耗 1 鑰石 · 進入副本' }[near.type];
+    if(near.type==='dungeon') el.textContent=FIELDS[g.field].dungeon+' · 鑰石 ×1';
     el.className = 'exitHint ' + near.type;
   }
   spotHint(g) {
@@ -148,9 +151,42 @@ export class UI {
     $('sk-r').classList.toggle('locked', p.flask.charges === 0);
     $('sk-r').querySelector('.cd').style.height = (p.flask.charges >= p.flask.max ? 0 : (1 - p.flask.prog) * 100) + '%';
     const stage = Math.floor(g.depth / 3) + 1, room = g.depth % 3 + 1;
-    $('roomInfo').textContent = g.depth < 0 ? '燈谷鎮 · 安全區' : g.depth === 9 ? '最終 · 鹿王林地' : `${g.biome.name}  ${stage}-${room}`;
-    $('killInfo').textContent = `擊敗 ${p.kills}`;
-    { const M = g.meta; $('shardInfo').textContent = `✦ ${M.p.shards}${M.runShards ? ` (+${M.runShards})` : ''}` + (g.depth >= 0 && M.p.mods.length ? ' · ' + M.activeMods().map(m => m.name).join('') : ''); }
+    $('roomInfo').textContent = g.field ? g.biome.name + ' · Lv.' + g.meta.p.level : g.depth < 0 ? '燈谷鎮 · 安全區' : g.depth === 9 ? '最終 · 鹿王林地' : `${g.biome.name}  ${stage}-${room}`;
+    $('killInfo').textContent = '擊敗 ' + p.kills;
+    const target=$('fieldTarget');
+    let nearest=null, distance=7;
+    if (g.field && g.state==='play') for(const enemy of g.enemies) {
+      const d=enemy.pos.distanceTo(p.pos);
+      if(!enemy.dead && d<distance){nearest=enemy;distance=d;}
+    }
+    target.hidden=!nearest;
+    if(nearest) target.textContent=(nearest.rival?'演武旅人':nearest.legendary?'傳奇':nearest.elite?'精英':'普通')+' · Lv.'+nearest.level+'　'+Math.ceil(nearest.hp)+' / '+Math.ceil(nearest.maxHp);
+    const M = g.meta, pr = M.p;
+    $('shardInfo').textContent = `✦ ${pr.shards}${M.runShards ? ` (+${M.runShards})` : ''}` + (g.depth >= 0 && pr.mods.length ? ' · ' + M.activeMods().map(m => m.name).join('') : '');
+    const coinEl = $('coinInfo'); if (coinEl) coinEl.textContent = `🪙 ${pr.coins}`;
+    const mealEl = $('mealInfo');
+    if (mealEl) {
+      const left = pr.mealUntil ? Math.ceil((pr.mealUntil - Date.now()) / 1000) : 0;
+      mealEl.hidden = left <= 0;
+      if (left > 0) mealEl.textContent = `🐟 回血 ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+    }
+    const xpFill = $('xpFill');
+    if (xpFill) xpFill.style.width = (pr.level >= 30 ? 100 : Math.min(100, pr.xp / (pr.level * 40) * 100)) + '%';
+    const compass = $('fieldCompass');
+    if (compass) {
+      if (g.field && g.state === 'play') {
+        const grave = pr.graves[g.field];
+        const poi = grave ? { x: grave.x, z: grave.z, label: '🪦 墓碑' }
+          : (g.exits[0] ? { x: g.exits[0].x, z: g.exits[0].z, label: '⛩ ' + FIELDS[g.field].dungeon } : null);
+        if (poi) {
+          const dx = poi.x - p.pos.x, dz = poi.z - p.pos.z, d = Math.round(Math.hypot(dx, dz));
+          const dirs = ['東', '東南', '南', '西南', '西', '西北', '北', '東北'];
+          const dir = dirs[Math.round(Math.atan2(dz, dx) / (Math.PI / 4) + 8) % 8];
+          compass.hidden = false;
+          compass.textContent = `${poi.label} · ${dir} ${d}m`;
+        } else compass.hidden = true;
+      } else compass.hidden = true;
+    }
     // ground item tooltip
     const d = g.state === 'play' && !this.invOpen ? g.nearestDrop() : null;
     const tip = $('tip');
@@ -180,7 +216,11 @@ export class UI {
       const it = p.equip[k];
       return `<div class="slot"><div class="slotname">${SLOTS[k].icon}</div><div>${it ? this.itemHTML(it) : '<div class="empty">（空）</div>'}</div></div>`;
     }).join('');
+    const progress=g.meta.p;
     const rows = [
+      ['等級 / 經驗', progress.level===30?'30 · 滿級':progress.level+' · '+progress.xp+'/'+(progress.level*40)],
+      ['金幣 / 鑰石',progress.coins+' / '+progress.keys],
+      ['木材 / 礦石 / 魚',progress.goods.wood+' / '+progress.goods.ore+' / '+progress.goods.fish],
       ['生命', `${Math.ceil(p.hp)} / ${S.maxHp}`], ['法力', `${S.mana}`], ['基礎傷害', `${S.baseDmg + S.addFire}`], ['傷害加成', `+${S.dmgPct}%`],
       ['攻擊速度', `+${S.atkSpd}%`], ['暴擊', `${S.crit}% × ${S.critMult}%`], ['範圍', `+${S.area}%`], ['移動速度', `+${S.moveSpd}%`],
       ['冷卻縮減', `${S.cdr}%`], ['減傷', `${S.armor}%`], ['擊中回復', `${S.lifeOnHit}`], ['餘燼彈數', `${S.proj}`],

@@ -1,0 +1,113 @@
+// Persistent online wallets and a shared, server-simulated boss arena.
+const { DatabaseSync } = require('node:sqlite');
+const { createHash } = require('node:crypto');
+const { mkdirSync } = require('node:fs');
+const path = require('node:path');
+
+module.exports = function createGuild(filename) {
+  if (filename !== ':memory:') mkdirSync(path.dirname(filename), { recursive:true });
+  const db = new DatabaseSync(filename);
+  db.exec(`PRAGMA journal_mode=WAL;
+    CREATE TABLE IF NOT EXISTS members(id TEXT PRIMARY KEY, coins INTEGER NOT NULL DEFAULT 0, amber INTEGER NOT NULL DEFAULT 0);
+    CREATE TABLE IF NOT EXISTS lots(id INTEGER PRIMARY KEY, seller TEXT NOT NULL, price INTEGER NOT NULL);
+  `);
+  const rooms = new Map(), online = new Map();
+  const send = (me, msg) => { if (me.ws.readyState===1) me.ws.send(JSON.stringify(msg)); };
+  function wallet(me) {
+    if (!me.member) return;
+    const balance = db.prepare('SELECT coins,amber FROM members WHERE id=?').get(me.member);
+    const lots = db.prepare('SELECT id,price,seller=? AS mine FROM lots ORDER BY price,id LIMIT 50').all(me.member);
+    send(me,{t:'wallet',...balance,lots});
+  }
+  function leave(me) {
+    const room = me.raid; if (!room) return;
+    room.members.delete(me.id); me.raid=null;
+    if (!room.members.size) rooms.delete(room.code);
+    send(me,{t:'raidExit'});
+  }
+  function disconnect(me) { leave(me); if (online.get(me.member)===me) online.delete(me.member); }
+  function trade(me,m) {
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      if (m.op==='list' && Number.isSafeInteger(m.price) && m.price>0 && m.price<=9999) {
+        const count=db.prepare('SELECT count(*) AS n FROM lots WHERE seller=?').get(me.member).n;
+        if (count<10 && db.prepare('UPDATE members SET amber=amber-1 WHERE id=? AND amber>=1').run(me.member).changes) {
+          db.prepare('INSERT INTO lots(seller,price) VALUES(?,?)').run(me.member,m.price);
+        }
+      } else if ((m.op==='buy'||m.op==='cancel') && Number.isSafeInteger(m.id)) {
+        const lot=db.prepare('SELECT * FROM lots WHERE id=?').get(m.id);
+        if (lot && m.op==='cancel' && lot.seller===me.member) {
+          db.prepare('UPDATE members SET amber=amber+1 WHERE id=?').run(me.member);
+          db.prepare('DELETE FROM lots WHERE id=?').run(m.id);
+        } else if (lot && m.op==='buy' && lot.seller!==me.member && db.prepare('UPDATE members SET coins=coins-?,amber=amber+1 WHERE id=? AND coins>=?').run(lot.price,me.member,lot.price).changes) {
+          db.prepare('UPDATE members SET coins=coins+? WHERE id=?').run(lot.price-Math.ceil(lot.price*.1),lot.seller);
+          db.prepare('DELETE FROM lots WHERE id=?').run(m.id);
+        }
+      }
+      db.exec('COMMIT');
+    } catch(e) { db.exec('ROLLBACK'); throw e; }
+    for (const member of online.values()) wallet(member);
+  }
+  function message(me,m) {
+    if (m.t==='guildHello') {
+      if (me.member || typeof m.secret!=='string' || !/^[a-f0-9]{64}$/.test(m.secret)) return;
+      const id=createHash('sha256').update(m.secret).digest('hex');
+      if (online.has(id)) { send(me,{t:'guildNotice',text:'此角色已在另一個視窗連線。'}); return; }
+      me.member=id; online.set(id,me);
+      db.prepare('INSERT OR IGNORE INTO members(id) VALUES(?)').run(id); wallet(me); return;
+    }
+    if (!me.member) return;
+    if (m.t==='raidInput') {
+      const fighter=me.raid?.members.get(me.id);
+      if (fighter) {
+        fighter.dx=Number.isFinite(m.x)?Math.sign(m.x):0; fighter.dz=Number.isFinite(m.z)?Math.sign(m.z):0;
+        fighter.attack=m.attack===true; fighter.inputAt=Date.now();
+      }
+      return;
+    }
+    if (m.t==='raidLeave') { leave(me); return; }
+    if (Date.now()-(me.guildAt||0)<180) return;
+    me.guildAt=Date.now();
+    if (m.t==='trade') { trade(me,m); return; }
+    if (m.t!=='raidJoin'||me.raid) return;
+    const code=String(m.code||'').trim().slice(0,12) || ('個人-'+me.id);
+    let room=rooms.get(code);
+    if (!room) {
+      room={code,members:new Map(),hp:144,x:0,z:0,clock:0,pulse:0}; rooms.set(code,room);
+    }
+    if (room.members.size>=4) {send(me,{t:'guildNotice',text:'此組隊副本已滿。'});return;}
+    room.members.set(me.id,{me,x:0,z:4,dx:0,dz:0,hp:100,attack:false,cooldown:0,damage:0});
+    me.raid=room;send(me,{t:'raidStart',code});
+  }
+  function tick() {
+    const now=Date.now();
+    for (const room of rooms.values()) {
+      room.clock++;
+      const impact=room.clock%40===0;
+      for (const f of room.members.values()) {
+        if (f.hp<=0) continue;
+        if (now-(f.inputAt||0)>550) {f.dx=f.dz=0;f.attack=false;}
+        const length=Math.hypot(f.dx,f.dz)||1;
+        f.x=Math.max(-4.6,Math.min(4.6,f.x+f.dx/length*.45));
+        f.z=Math.max(-4.6,Math.min(4.6,f.z+f.dz/length*.45));
+        f.cooldown=Math.max(0,f.cooldown-1);
+        const dist=Math.hypot(f.x-room.x,f.z-room.z);
+        if (f.attack&&!f.cooldown&&dist<3) {room.hp-=8;f.damage+=8;f.cooldown=5;}
+        if (impact&&dist<3.4) f.hp=Math.max(0,f.hp-16);
+      }
+      const members=[...room.members.values()];
+      const snapshot={t:'raidFrame',hp:Math.max(0,room.hp),warn:room.clock%40>=30,
+        members:members.map(f=>({id:f.me.id,name:f.me.name,hp:f.hp,x:f.x,z:f.z}))};
+      for(const f of members) send(f.me,snapshot);
+      if(room.hp>0 && members.some(f=>f.hp>0)) continue;
+      const won=room.hp<=0;
+      db.exec('BEGIN IMMEDIATE');
+      try {
+        if(won) for(const f of members) if(f.damage>0) db.prepare('UPDATE members SET coins=coins+12,amber=amber+1 WHERE id=?').run(f.me.member);
+        db.exec('COMMIT');
+      } catch(e) {db.exec('ROLLBACK');throw e;}
+      for(const f of members) {leave(f.me);wallet(f.me);send(f.me,{t:'guildNotice',text:won && f.damage>0?'守護獸已平息 · 公會幣 +12、琥珀 +1':won?'隊友已平息守護獸':'隊伍已返回燈谷鎮'});}
+    }
+  }
+  return {message,disconnect,tick};
+};

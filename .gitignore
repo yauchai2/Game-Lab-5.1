@@ -2,3 +2,6 @@ node_modules/
 dist/
 *.tgz
 .DS_Store
+
+lantern-vale/server/data/
+lantern-vale/shots/

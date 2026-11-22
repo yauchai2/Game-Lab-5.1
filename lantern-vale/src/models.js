@@ -225,3 +225,31 @@ export function buildStall(color) {
   ])));
   return g;
 }
+
+// Original equipment silhouettes share the staff pivot so existing swing animation still applies.
+export function showWeapon(model, style) {
+  if (model.weaponStyle===style) return;
+  model.weaponStyle=style;
+  if (!model.weaponForms) {
+    const make=parts=>mesh(mergeGeometries(parts));
+    model.weaponForms={
+      bow:make([
+        part(new THREE.TorusGeometry(.38,.035,4,12,Math.PI),0x945f37,0,.28,0,0,0,Math.PI/2),
+        part(new THREE.BoxGeometry(.013,.76,.013),0xf2e2b9,0,.28,0),
+      ]),
+      shield:make([
+        part(new THREE.CylinderGeometry(.32,.27,.09,6),0x8d5d43,0,.12,.1,Math.PI/2),
+        part(new THREE.CylinderGeometry(.24,.24,.1,6),0xe0b570,0,.12,.13,Math.PI/2),
+      ]),
+      blades:make([
+        part(new THREE.OctahedronGeometry(.17),0xbcd4cf,0,.21,0),
+        part(new THREE.BoxGeometry(.17,.045,.085),0xb18a49,0,.02,0),
+      ]),
+    };
+    model.offhand=model.weaponForms.blades.clone();model.offhand.position.set(-.35,.46,.12);model.body.add(model.offhand);
+    for(const form of Object.values(model.weaponForms)) model.staff.add(form);
+  }
+  for(const child of model.staff.children) child.visible=style==='staff';
+  for(const [id,form] of Object.entries(model.weaponForms)) form.visible=id===style;
+  model.offhand.visible=style==='blades';
+}

@@ -179,7 +179,7 @@ function logGeo(P) {
 // ---------- World ----------
 export class World {
   constructor(scene) {
-    this.scene = scene;
+    this.scene = scene; this.half = HALF; this.res = RES;
     this.group = new THREE.Group();
     scene.add(this.group);
     this.walk = new Uint8Array(GW * GW);
@@ -191,7 +191,7 @@ export class World {
   }
 
   idx(x, z) {
-    const i = Math.round((x + HALF) / RES), j = Math.round((z + HALF) / RES);
+    const i = Math.round((x + this.half) / this.res), j = Math.round((z + this.half) / this.res);
     if (i < 0 || j < 0 || i >= GW || j >= GW) return -1;
     return j * GW + i;
   }
@@ -199,7 +199,7 @@ export class World {
   groundY(x, z) { const k = this.idx(x, z); return k < 0 ? -2 : Math.max(this.height[k], -0.3); }
   // smooth bilinear height for the 3D-moving player
   gh(x, z) {
-    const fx = (x + HALF) / RES, fz = (z + HALF) / RES;
+    const fx = (x + this.half) / this.res, fz = (z + this.half) / this.res;
     const i = Math.floor(fx), j = Math.floor(fz);
     if (i < 0 || j < 0 || i >= GW - 1 || j >= GW - 1) return -2;
     const tx = fx - i, tz = fz - j, H = this.height, k = j * GW + i;
@@ -209,8 +209,9 @@ export class World {
   isLand(x, z) { const k = this.idx(x, z); return k >= 0 && this.height[k] > -0.2 && this.RR[k] < 1.0; }
 
   clear() {
+    this.waterMat?.uniforms.uShore.value.dispose();
     this.scene.remove(this.group);
-    this.group.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material && o.material.dispose) o.material.dispose(); });
+    this.group.traverse(o => { if (o.isInstancedMesh) o.dispose(); if (o.geometry) o.geometry.dispose(); if (o.material && o.material.dispose) o.material.dispose(); });
     this.group = new THREE.Group();
     this.scene.add(this.group);
     this.obstacles = [];
@@ -219,11 +220,12 @@ export class World {
 
   generate(seed, biome, opts = {}) {
     this.clear();
+    this.half = (opts.size || 60) / 2; this.res = this.half * 2 / (GW - 1);
     const P = biome;
     this.P = P;
     const r = mulberry32(seed * 7919 + 13);
     const N = new Noise(seed);
-    const R = opts.town ? 25 : opts.boss ? 17 : 18 + r() * 4;
+    const R = opts.size ? this.half * .76 : opts.town ? 25 : opts.boss ? 17 : 18 + r() * 4;
     const ax = opts.town ? 1 : 0.8 + r() * 0.4, az = opts.town ? 1 : 0.8 + r() * 0.4;
     const nAmp = opts.town ? 0.16 : 0.55;
     const so = r() * 100;
@@ -232,7 +234,7 @@ export class World {
     const H = this.height;
 
     for (let j = 0; j < GW; j++) for (let i = 0; i < GW; i++) {
-      const x = -HALF + i * RES, z = -HALF + j * RES, k = j * GW + i;
+      const x = -this.half + i * this.res, z = -this.half + j * this.res, k = j * GW + i;
       const rr = Math.hypot(x * ax, z * az) / R + (N.fbm(x * 0.07 + so, z * 0.07) - 0.5) * nAmp;
       RR[k] = rr;
       let t = rr < 1 ? 1 : 0;
@@ -281,7 +283,7 @@ export class World {
       // candidate walkable cells far from centre, pick spread apart (north-ish half)
       const cands = [];
       for (let k = 0; k < GW * GW; k++) if (walk[k]) {
-        const i = k % GW, j = (k / GW) | 0, x = -HALF + i * RES, z = -HALF + j * RES;
+        const i = k % GW, j = (k / GW) | 0, x = -this.half + i * this.res, z = -this.half + j * this.res;
         const d = Math.hypot(x, z);
         // need open space around
         let ok = true;
@@ -301,7 +303,7 @@ export class World {
     // spawn point: walkable near centre-south
     let spawn = { x: 0, z: 0 };
     { let bd = 1e9; for (let k = 0; k < GW * GW; k++) if (walk[k]) {
-      const x = -HALF + (k % GW) * RES, z = -HALF + ((k / GW) | 0) * RES;
+      const x = -this.half + (k % GW) * this.res, z = -this.half + ((k / GW) | 0) * this.res;
       const d = Math.hypot(x, z - 5); if (d < bd) { bd = d; spawn = { x, z }; } } }
     this.spawn = spawn;
     const paths = exits.map(e => [spawn, e]);
@@ -314,7 +316,7 @@ export class World {
     // carve guaranteed wide corridors spawn -> exits (fixes pinched/blocked routes), then re-flood
     for (let k = 0; k < GW * GW; k++) {
       if (RR[k] > 0.95 || T[k] === 1) continue;
-      const x = -HALF + (k % GW) * RES, z = -HALF + ((k / GW) | 0) * RES;
+      const x = -this.half + (k % GW) * this.res, z = -this.half + ((k / GW) | 0) * this.res;
       let dp = 9; for (const [p0, p1] of paths) dp = Math.min(dp, distSeg(x, z, p0, p1));
       if (dp < 2.1) T[k] = 1;
     }
@@ -322,7 +324,7 @@ export class World {
     this.T = T;
     // heights
     for (let k = 0; k < GW * GW; k++) {
-      const i = k % GW, j = (k / GW) | 0, x = -HALF + i * RES, z = -HALF + j * RES;
+      const i = k % GW, j = (k / GW) | 0, x = -this.half + i * this.res, z = -this.half + j * this.res;
       const t = T[k], rr = RR[k];
       const nz = N.n2(x * 0.6, z * 0.6);
       if (t === 0 || t === 1) {
@@ -338,8 +340,8 @@ export class World {
     for (let k = 0; k < GW * GW; k++) {
       const i = k % GW, j = (k / GW) | 0;
       const edge = i === 0 || j === 0 || i === GW - 1 || j === GW - 1;
-      vx[k] = -HALF + i * RES + (edge ? 0 : (r() - 0.5) * RES * 0.55);
-      vz[k] = -HALF + j * RES + (edge ? 0 : (r() - 0.5) * RES * 0.55);
+      vx[k] = -this.half + i * this.res + (edge ? 0 : (r() - 0.5) * this.res * 0.55);
+      vz[k] = -this.half + j * this.res + (edge ? 0 : (r() - 0.5) * this.res * 0.55);
     }
     const C = (h) => new THREE.Color(h);
     const cGrass = C(P.grass), cGL = C(P.grassLight), cGD = C(P.grassDark), cPl = C(P.plateau),
@@ -433,7 +435,7 @@ export class World {
     const pineBias = P.key === 'snow' ? 0.8 : P.key === 'autumn' ? 0.45 : P.key === 'ember' ? 0.5 : 0.55;
 
     for (let tries = 0; tries < 2600; tries++) {
-      const x = rand(r, -HALF + 1, HALF - 1), z = rand(r, -HALF + 1, HALF - 1);
+      const x = rand(r, -this.half + 1, this.half - 1), z = rand(r, -this.half + 1, this.half - 1);
       const k = this.idx(x, z); if (k < 0) continue;
       const t = T[k], y = H[k], rr = RR[k];
       if (t >= 2) {
@@ -450,6 +452,7 @@ export class World {
       } else if (t === 1 && rr < 1.0) {
         const isW = walk[k];
         if (opts.town && Math.hypot(x, z) < 16) continue;
+        if (opts.raid && Math.hypot(x, z) < 8) continue;
         if (isW && (nearExitOrSpawn(x, z, 3.5) || nearPath(x, z, 1.4))) continue;
         const roll = r();
         if (!isW && rr > 0.95) { if (roll < 0.15) rocks.push({ x, y: y - 0.1, z, s: 0.5 + r() * 0.6, ry: r() * 6 }); continue; }
@@ -471,7 +474,7 @@ export class World {
     }
     // grass & flowers in clumps (cheap instancing)
     for (let i = 0; i < 260; i++) {
-      const cx = rand(r, -HALF + 2, HALF - 2), cz = rand(r, -HALF + 2, HALF - 2);
+      const cx = rand(r, -this.half + 2, this.half - 2), cz = rand(r, -this.half + 2, this.half - 2);
       const k = this.idx(cx, cz); if (k < 0 || T[k] === 0 || RR[k] > 0.96) continue;
       const isFlower = r() < 0.3;
       const cnt = 3 + Math.floor(r() * 6);
@@ -541,7 +544,7 @@ export class World {
     }
     const data = new Uint8Array(GW * GW * 4);
     for (let k = 0; k < GW * GW; k++) {
-      const v = clamp(D[k] * RES / 8, 0, 1); // 0..8 world units
+      const v = clamp(D[k] * this.res / 8, 0, 1); // 0..8 world units
       data[k * 4] = v * 255; data[k * 4 + 1] = clamp((H[k] - WATER_Y + 1.5) / 1.5, 0, 1) * 255; data[k * 4 + 2] = 0; data[k * 4 + 3] = 255;
     }
     const tex = new THREE.DataTexture(data, GW, GW, THREE.RGBAFormat);
@@ -550,7 +553,7 @@ export class World {
       uniforms: {
         uShore: { value: tex }, uTime: { value: 0 }, uWater: { value: 1 },
         uDeep: { value: new THREE.Vector3(...P.waterDeep) }, uShallow: { value: new THREE.Vector3(...P.waterShallow) },
-        uLine: { value: new THREE.Vector3(...P.waterLine) }, uHalf: { value: HALF },
+        uLine: { value: new THREE.Vector3(...P.waterLine) }, uHalf: { value: this.half },
       },
       vertexShader: `varying vec3 vW; void main(){ vec4 w = modelMatrix*vec4(position,1.0); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }`,
       fragmentShader: `
@@ -635,13 +638,13 @@ export class World {
       const f = this.flow[nk]; if (f >= 0 && f < best) { best = f; bk = nk; }
     }
     if (bk < 0) return false;
-    out.set(-HALF + (bk % GW) * RES - x, -HALF + ((bk / GW) | 0) * RES - z).normalize();
+    out.set(-this.half + (bk % GW) * this.res - x, -this.half + ((bk / GW) | 0) * this.res - z).normalize();
     return true;
   }
 
   randomWalkable(r, minDistFrom, minD) {
     for (let i = 0; i < 400; i++) {
-      const x = rand(r, -HALF, HALF), z = rand(r, -HALF, HALF);
+      const x = rand(r, -this.half, this.half), z = rand(r, -this.half, this.half);
       if (!this.isWalk(x, z)) continue;
       if (minDistFrom && Math.hypot(x - minDistFrom.x, z - minDistFrom.z) < minD) continue;
       if (this.obstacles.some(o => Math.hypot(o.x - x, o.z - z) < o.r + 0.6)) continue;

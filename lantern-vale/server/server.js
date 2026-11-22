@@ -2,6 +2,7 @@
 // Run:  npm i ws  &&  node server/server.js   (then open http://localhost:8080 — share your LAN/public URL with friends)
 const http = require('http'), fs = require('fs'), path = require('path');
 const { WebSocketServer } = require('ws');
+const guild = require('./guild.cjs')(process.env.LV_DATABASE || path.join(__dirname, 'data', 'guild.sqlite'));
 const PORT = +process.env.PORT || 8080;
 const GAME = path.join(__dirname, '..', 'game', 'index.html');
 const server = http.createServer((req, res) => {
@@ -24,7 +25,9 @@ wss.on('connection', ws => {
   broadcast({ t: 'online', n: players.size });
   ws.on('message', raw => {
     let m; try { m = JSON.parse(raw); } catch (e) { return; }
-    if (m.t === 'hello') { me.name = clean(m.name, 12) || me.name; me.col = (+m.color | 0) % 8; broadcast({ t: 'sys', text: `${me.name} 來到了燈谷` }); }
+    if (!m || typeof m !== 'object') return;
+    if (['guildHello','trade','raidJoin','raidLeave','raidInput'].includes(m.t)) { guild.message(me,m); return; }
+    if (m.t === 'hello') { me.name = clean(m.name, 12) || me.name; me.col = Math.max(0, (+m.color | 0) % 8); broadcast({ t: 'sys', text: `${me.name} 來到了燈谷` }); }
     else if (m.t === 'pos') { me.zone = clean(m.zone, 40); me.x = num(m.x); me.y = num(m.y); me.z = num(m.z); me.f = num(m.f); me.a = m.a | 0; }
     else if (m.t === 'chat') {
       const now = Date.now(); me.chatT = me.chatT.filter(t => now - t < 8000); if (me.chatT.length >= 5) return; me.chatT.push(now);
@@ -32,10 +35,11 @@ wss.on('connection', ws => {
       const msg = { t: 'chat', id: me.id, name: me.name, text, zone: me.zone }; history.push(msg); if (history.length > 30) history.shift(); broadcast(msg);
     } else if (m.t === 'emote') broadcast({ t: 'emote', id: me.id, e: m.e | 0 }, p => p.zone === me.zone);
   });
-  ws.on('close', () => { players.delete(me.id); broadcast({ t: 'online', n: players.size }); broadcast({ t: 'gone', id: me.id }); });
+  ws.on('close', () => { guild.disconnect(me); players.delete(me.id); broadcast({ t: 'online', n: players.size }); broadcast({ t: 'gone', id: me.id }); });
   ws.on('error', () => { });
 });
 setInterval(() => { // 10 Hz snapshots, per zone
+  guild.tick();
   const zones = new Map();
   for (const p of players.values()) { if (!zones.has(p.zone)) zones.set(p.zone, []); zones.get(p.zone).push(p); }
   for (const list of zones.values()) for (const me of list) {
@@ -43,4 +47,4 @@ setInterval(() => { // 10 Hz snapshots, per zone
     me.ws.send(JSON.stringify({ t: 'snap', players: list.filter(o => o !== me).map(o => ({ id: o.id, name: o.name, col: o.col, x: o.x, y: o.y, z: o.z, f: o.f, a: o.a })) }));
   }
 }, 100);
-server.listen(PORT, () => console.log(`Lantern Vale server on http://localhost:${PORT}`));
+server.listen(PORT, () => console.log(`Lantern Vale server on http://localhost:${server.address().port}`));

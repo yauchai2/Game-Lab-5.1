@@ -1,3 +1,6 @@
+import { rememberGear } from './frontier.js';
+import { drawExchange } from './guild.js';
+import { buildLodge } from './lodge.js';
 // 城鎮互動面板：任務布告欄 / 鐵匠鋪 / 出發地圖桌（A Short Hike 風格的奶油色清單）
 import { RARITY, SLOTS, itemLines, FORGE, forgeItem } from './loot.js';
 import { MODS, MOD_MAX } from './meta.js';
@@ -8,7 +11,7 @@ const esc = t => String(t).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', 
 export function buildPanels(g) {
   const root = $('panelM'), body = root.querySelector('.pbody'), title = root.querySelector('h3'), foot = root.querySelector('.pshards');
   let kind = null, sel = null;
-  const M = g.meta;
+  let M;
   const head = () => { foot.innerHTML = `✦ 星砂 <b>${M.p.shards}</b>　🪶 金羽毛 <b>${M.p.feathers}</b>　🐚 貝殼 <b>${M.p.shells}</b>`; };
   const row = (html, btn) => `<div class="prow"><div class="pl">${html}</div>${btn || ''}</div>`;
 
@@ -42,7 +45,7 @@ export function buildPanels(g) {
     body.querySelectorAll('[data-forge]').forEach(b => b.onclick = () => {
       const k = b.dataset.forge, f = FORGE[k], cur = M.heirloom; if (!cur || !f.ok(cur) || M.p.shards < f.cost(cur)) return;
       M.p.shards -= f.cost(cur); const n = forgeItem(k, cur); M.setHeirloom(n);
-      g.player.equip[n.slot] = M.heirloom; g.recalc(); g.audio.sfx('pickup'); g.ui.toast(`${f.name}完成`, RARITY[n.rarity].color); render();
+      g.player.equip[n.slot] = M.heirloom; rememberGear(g); g.recalc(); g.audio.sfx('pickup'); g.ui.toast(`${f.name}完成`, RARITY[n.rarity].color); render();
     });
   }
 
@@ -57,8 +60,17 @@ export function buildPanels(g) {
     body.querySelectorAll('[data-mod]').forEach(b => b.onclick = () => { if (!M.toggleMod(b.dataset.mod)) g.ui.toast(`最多同時啟用 ${MOD_MAX} 個詞綴`, '#ff9a8a'); else g.audio.sfx('ui'); render(); });
   }
 
-  function render() { head(); ({ quest: renderQuest, forge: renderForge, map: renderMap })[kind](); }
-  g.ui.openPanel = k => { kind = k; g.ui.panelOpen = true; root.classList.remove('hide'); render(); };
-  g.ui.closePanel = () => { g.ui.panelOpen = false; root.classList.add('hide'); };
+  function render() { M = g.meta; head();
+    if (kind === 'exchange') { drawExchange(g,body,title); return; }
+    if (['home','market','workshop'].includes(kind)) { buildLodge(g, body, title, kind); return; }
+    ({ quest: renderQuest, forge: renderForge, map: renderMap })[kind]();
+    if (kind === 'forge') {
+      const b = document.createElement('button'); b.className = 'btn small'; b.textContent = '素材鍛造與武器';
+      b.onclick = () => g.ui.openPanel('workshop'); body.prepend(b);
+    }
+  }
+  g.ui.openPanel = k => { kind = k; g.ui.guildMarketOpen=k==='exchange'; g.ui.panelOpen = true; root.classList.remove('hide'); render(); };
+  g.ui.drawGuildMarket=()=>drawExchange(g,body,title);
+  g.ui.closePanel = () => { g.ui.guildMarketOpen=false; g.ui.panelOpen = false; root.classList.add('hide'); };
   $('btnPanelClose').onclick = () => g.ui.closePanel();
 }
