@@ -32,8 +32,14 @@ export class UI {
     if ($('hpCanvas')) this.hpVial = new FluidVial($('hpCanvas'), 'hp');
     if ($('mpCanvas')) this.mpVial = new FluidVial($('mpCanvas'), 'mp');
     game.settings = loadSettings(); buildPanels(game); buildSettingsUI(game); applySettings(game);
-    $('btnMute').onclick = () => { game.audio.init(); const m = game.audio.toggleMute(); $('btnMute').textContent = m ? '🔇' : '🔊'; };
-    $('btnMute').textContent = game.audio.muted ? '🔇' : '🔊';
+    const menuBtn = $('btnMenu'), menuPop = $('menuPop');
+    if (menuBtn && menuPop) {
+      menuBtn.onclick = e => { e.stopPropagation(); game.audio.sfx('ui'); menuPop.classList.toggle('hide'); };
+      menuPop.addEventListener('click', () => menuPop.classList.add('hide'));
+      addEventListener('click', e => { if (!menuPop.contains(e.target) && e.target !== menuBtn) menuPop.classList.add('hide'); });
+    }
+    $('btnMute').onclick = () => { game.audio.init(); const m = game.audio.toggleMute(); $('btnMute').textContent = m ? '🔇 音效：關' : '🔊 音效：開'; };
+    $('btnMute').textContent = game.audio.muted ? '🔇 音效：關' : '🔊 音效：開';
     bindWorldMap(game); bindTouch(game); bindPuzzleUI(game); bindCodexUI(game);
     const pzBtn = $('sk-puzzle'); if (pzBtn) pzBtn.onclick = () => { if (this.puzzleOpen) this.closePuzzle(); else this.openPuzzle(); };
     const bagBtn = $('sk-bag'); if (bagBtn) bagBtn.onclick = () => this.toggleInv(game, 'bag');
@@ -210,9 +216,9 @@ export class UI {
   }
   netStatus(s) {
     const el = $('netStat');
-    if (s.ok) { el.textContent = '● 線上'; el.className = 'net on'; }
-    else { el.textContent = s.reason === 'no-server' ? '○ 離線模式（鎮民 NPC 陪你）' : '○ 連線中斷'; el.className = 'net off'; if (s.reason === 'closed') this.addChat('', '與伺服器的連線中斷了', true); }
-    $('netStat').classList.remove('hide');
+    if (s.ok) { el.textContent = '● 線上'; el.className = 'net on'; el.classList.remove('hide'); }
+    else if (s.reason === 'no-server') { el.classList.add('hide'); }
+    else { el.textContent = '○ 連線中斷'; el.className = 'net off'; el.classList.remove('hide'); if (s.reason === 'closed') this.addChat('', '與伺服器的連線中斷了', true); }
   }
   setOnline(n) { $('onlineN').textContent = `線上 ${n} 人`; }
   addChat(name, text, sys, zone) {
@@ -384,6 +390,18 @@ export class UI {
       }
     }
     $('killInfo').textContent = `${t(lang, 'kills')} ${p.kills}`;
+    const cbEl = $('comboBadge');
+    if (cbEl) {
+      const cnt = g.combo?.count || 0;
+      const show = cnt >= 2 && (g.combo?.timer || 0) > 0;
+      cbEl.classList.toggle('hide', !show);
+      if (show && cbEl._last !== cnt) {
+        cbEl._last = cnt;
+        cbEl.innerHTML = `🔥 ${cnt} 連擊！<small>攻速 +${Math.min(30, cnt * 2)}% · 暴擊 +${Math.min(22, Math.round(cnt * 1.5))}%</small>`;
+        cbEl.style.transform = 'scale(1.12)';
+        setTimeout(() => { cbEl.style.transform = 'scale(1)'; }, 110);
+      }
+    }
     const target = $('fieldTarget');
     let nearest = null, distance = 7;
     if (g.field && g.state === 'play') for (const enemy of g.enemies) {

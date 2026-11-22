@@ -114,7 +114,7 @@ export class Game {
     this.playerName = '旅人'; this.hoodIdx = 0; this.posT = 0;
     this.dayTime = 0.28; this.isNight = false; this.campfires = []; this.prisms = []; this.interior = null; this.photoMode = false;
     this.recallT = 0; this.sailing = null; this.lastTown = -1; this.waypoint = null; this.worldBoxes = [];
-    this.zoneStates = new Map(); this.camZoom = 1.0; this.camYaw = 0; this.camDrag = null; this.exitCooldown = 0; this.groundZones = []; this.physProps = []; this.mount = null; this.beams = []; this._fadedMats = new Map();
+    this.zoneStates = new Map(); this.camZoom = 1.0; this.camYaw = 0.62; this.exitCooldown = 0; this.groundZones = []; this.physProps = []; this.mount = null; this.beams = []; this._fadedMats = new Map(); this.combo = { count: 0, timer: 0 }; this.glideTrails = [];
     this.bindInput();
     this.setupNet(); bindGuild(this);
     // title scene: a pretty room in the background
@@ -181,25 +181,17 @@ export class Game {
         if (!usedBind && ['1', '2', '3', '4'].includes(k)) this.emote(+k - 1);
         if (k === 'enter' || (k === 't' && !usedBind)) { if (this.ui.focusChat?.()) e.preventDefault(); }
         if (k === 'i' && !this.ui.setOpen && !this.ui.panelOpen) this.ui.toggleInv(this);
-        if (k === '/') { this.camYaw = 0; this.ui.toast('🎥 視角已回正', '#fff8e4'); }
         if (k === 'escape') { if (this.ui.codexOpen) this.ui.closeCodex?.(); else if (this.photoMode) this.togglePhotoMode(); else if (this.ui.regionMapOpen) this.ui.toggleRegionMap?.(this); else if (this.ui.panelOpen) this.ui.closePanel(); else if (this.ui.setOpen) this.ui.closeSettings(); else if (this.ui.invOpen) this.ui.toggleInv(this); else this.ui.toggleSettings(); }
       } else if (this.state === 'boon' && ['1', '2', '3'].includes(k)) this.ui.pickBoonIndex(+k - 1);
     });
     addEventListener('keyup', e => { const k = CODE[e.code] ?? e.key.toLowerCase(); this.keys[k] = false; this.keys[e.key.toLowerCase()] = false; });
     const cv = this.pipe.renderer.domElement;
-    addEventListener('mousemove', e => {
-      this.mouse.x = e.clientX; this.mouse.y = e.clientY;
-      if (this.camDrag) {
-        const dx = e.clientX - this.camDrag.x;
-        this.camYaw = clamp(this.camDrag.yaw - dx * 0.0045, -0.62, 0.62);
-      }
-    });
+    addEventListener('mousemove', e => { this.mouse.x = e.clientX; this.mouse.y = e.clientY; });
     cv.addEventListener('mousedown', e => {
       this.audio.init(); window.focus(); if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
-      if (e.button === 1) { e.preventDefault(); this.camDrag = { x: e.clientX, yaw: this.camYaw }; return; }
       if (e.button === 0) this.mouse.l = true; if (e.button === 2) this.mouse.r = true; cv.classList.add('aiming');
     });
-    addEventListener('mouseup', e => { if (e.button === 1) this.camDrag = null; if (e.button === 0) this.mouse.l = false; if (e.button === 2) this.mouse.r = false; if (!this.mouse.l && !this.mouse.r) cv.classList.remove('aiming'); });
+    addEventListener('mouseup', e => { if (e.button === 0) this.mouse.l = false; if (e.button === 2) this.mouse.r = false; if (!this.mouse.l && !this.mouse.r) cv.classList.remove('aiming'); });
     addEventListener('contextmenu', e => e.preventDefault());
     cv.addEventListener('wheel', e => {
       if (this.state !== 'play' || this.ui.invOpen || this.ui.setOpen || this.ui.panelOpen || this.ui.puzzleOpen || this.ui.mapDialog?.open) return;
@@ -547,8 +539,9 @@ export class Game {
   // ---------------- combat ----------------
   rollDamage(mult, fire = false) {
     const s = this.player.stats;
+    const comboCrit = Math.min(22.5, (this.combo?.count || 0) * 1.5);
     let dmg = (s.baseDmg + s.addFire) * (1 + s.dmgPct / 100) * mult;
-    const crit = Math.random() * 100 < s.crit;
+    const crit = Math.random() * 100 < (s.crit + comboCrit);
     if (crit) dmg *= s.critMult / 100;
     return { dmg: Math.round(dmg * (0.9 + Math.random() * 0.2)), crit, fire };
   }
@@ -622,13 +615,21 @@ export class Game {
     this.puffs.burst(e.pos.x, 0.3, e.pos.z, 6, { c: 0xffffff, s: 0.4, speed: 1.5, up: 1, g: -1, life: 0.8, grow: 1.4, drag: 3 });
     this.shake = Math.max(this.shake, e.type === 'stag' ? 1 : 0.22);
     const p = this.player; p.kills++;
+    // 清怪連擊系統（Kill-Streak Combo）：6 秒內連續擊殺疊加攻速、暴擊與掉寶率！
+    this.combo = this.combo || { count: 0, timer: 0 };
+    this.combo.count++; this.combo.timer = 6.0;
+    if ([5, 10, 20, 30, 50].includes(this.combo.count)) {
+      this.audio.sfx('perfect');
+      this.fx.burst(p.pos.x, p.y + 1.0, p.pos.z, 16, { c: [0xffd85a, 0xff7a50, 0xffffff], s: 0.13, speed: 5, up: 3.5, life: 0.55 });
+    }
     this.onKillMeta(e); awardKill(this, e);
     p.flask.prog += (e.elite ? 1 : 0.25) * (this.meta.has('fortune') ? 0.5 : 1);
     while (p.flask.prog >= 1 && p.flask.charges < p.flask.max) { p.flask.prog -= 1; p.flask.charges++; }
     if (p.flask.charges >= p.flask.max) p.flask.prog = 0;
     if (this.has('feast')) this.heal(4 * p.boons.filter(b => b === 'feast').length, false);
     const r = Math.random();
-    const dropChance = e.elite ? 1 : e.type === 'stag' ? 1 : 0.075;
+    const comboDrop = Math.min(0.12, this.combo.count * 0.008);
+    const dropChance = e.elite ? 1 : e.type === 'stag' ? 1 : (0.08 + comboDrop);
     if (r < dropChance && this.field) this.dropItem(e.pos.x,e.pos.z,makeItem(Math.random,Math.floor(this.meta.p.level/4),e.elite?2:1));
     else if (r < dropChance) this.dropItem(e.pos.x, e.pos.z, makeItem(Math.random, this.depth + this.meta.dropBonus, e.type === 'stag' ? 3 : e.elite ? (Math.random() < 0.3 ? 3 : 2) : null));
     if (Math.random() < 0.16) this.dropOrb(e.pos.x, e.pos.z);
@@ -749,7 +750,8 @@ export class Game {
   aimDir() { const p = this.player; tmp2.set(this.aim.x - p.pos.x, this.aim.z - p.pos.z); if (tmp2.lengthSq() < 0.01) tmp2.set(Math.sin(p.facing), Math.cos(p.facing)); return tmp2.normalize().clone(); }
   tryAttack() {
     const p = this.player; if (p.cds.atk > 0 || p.roll > 0) return;
-    const aps = 2.0 * (1 + p.stats.atkSpd / 100);
+    const comboSpd = Math.min(30, (this.combo?.count || 0) * 2);
+    const aps = 2.0 * (1 + (p.stats.atkSpd + comboSpd) / 100);
     p.cds.atk = 1 / aps;
     const dir = this.aimDir(); p.facing = Math.atan2(dir.x, dir.y);
     p.swing = 1; p.swingT = 0.22; p.swingCount++; this.audio.sfx('swing');
@@ -2207,11 +2209,24 @@ export class Game {
       d.gem.rotation.y += dt * 2;
       if (d.kind === 'orb' && this.state === 'play') {
         const dx = p.pos.x - d.g.position.x, dz = p.pos.z - d.g.position.z, dist = Math.hypot(dx, dz);
-        if (dist < 2.5 && d.vy === 0 && Math.abs(d.g.position.y - p.y) < 1.6) { d.g.position.x += dx / dist * dt * 8; d.g.position.z += dz / dist * dt * 8; }
-        if (dist < 0.6 && Math.abs(d.g.position.y - p.y) < 1.6) { this.audio.sfx('orb'); this.heal(p.stats.maxHp * 0.12); d.taken = true; this.scene.remove(d.g); }
+        if (dist < 5.5 && d.vy === 0 && Math.abs(d.g.position.y - p.y) < 2.2) { d.g.position.x += dx / dist * dt * 11; d.g.position.z += dz / dist * dt * 11; }
+        if (dist < 0.75 && Math.abs(d.g.position.y - p.y) < 1.8) { this.audio.sfx('orb'); this.heal(p.stats.maxHp * 0.14); d.taken = true; this.scene.remove(d.g); }
       }
     }
     this.drops = this.drops.filter(d => !d.taken);
+    // 連擊計時倒數＋海面浮標微幅起伏＋滑翔／坐騎白色氣流尾跡
+    if (this.combo?.timer > 0) { this.combo.timer -= dt; if (this.combo.timer <= 0) { this.combo.count = 0; this.combo.timer = 0; } }
+    for (const b of this.world?.buoys || []) {
+      b.mesh.position.y = b.y0 + Math.sin(this.time * 2.2 + b.ph) * 0.08;
+      b.mesh.rotation.z = Math.sin(this.time * 1.6 + b.ph) * 0.09;
+    }
+    if (this.state === 'play' && (p.gliding || (this.mount && p.walkT > 0))) {
+      const rx = Math.cos(p.facing) * 0.52, rz = -Math.sin(p.facing) * 0.52;
+      if (Math.random() < dt * (p.gliding ? 32 : 16)) {
+        this.fx.emit(p.pos.x + rx, p.y + (p.gliding ? 0.95 : 0.65), p.pos.z + rz, { c: 0xffffff, s: 0.075, g: 0, life: 0.42 });
+        this.fx.emit(p.pos.x - rx, p.y + (p.gliding ? 0.95 : 0.65), p.pos.z - rz, { c: 0xffffff, s: 0.075, g: 0, life: 0.42 });
+      }
+    }
     // 持續性場上技能區域（星羽箭雨區、劇毒孢子霧、熔岩火海、極光冰陣）
     for (const gz of this.groundZones || []) {
       gz.life -= dt; gz.tick -= dt;
@@ -2342,17 +2357,13 @@ export class Game {
     const p = this.player;
     let tx = p.pos.x, tz = p.pos.z;
     if (this.state === 'title') { tx = Math.sin(this.time * 0.08) * 6; tz = Math.cos(this.time * 0.06) * 4; }
-    // 取消鏡頭隨滑鼠平移；支援 Z / X 或按住滑鼠中鍵微調左右旋轉視角（±35°，按 / 回正）
-    if (this.state === 'play' && !this.ui.panelOpen && !this.ui.invOpen && !this.ui.codexOpen) {
-      if (this.keys['z']) this.camYaw = clamp(this.camYaw - dt * 1.15, -0.62, 0.62);
-      if (this.keys['x']) this.camYaw = clamp(this.camYaw + dt * 1.15, -0.62, 0.62);
-    }
-    this.camPos.x = lerp(this.camPos.x, tx, 1 - Math.exp(-dt * 6));
-    this.camPos.z = lerp(this.camPos.z, tz, 1 - Math.exp(-dt * 6));
+    // 鎖定最佳立體斜角鏡頭（camYaw = 0.62，無需 Z/X 手動調整，畫面層次與景深最佳）
+    this.camYaw = 0.62;
+    this.camPos.x = lerp(this.camPos.x, tx, 1 - Math.exp(-dt * 6.5));
+    this.camPos.z = lerp(this.camPos.z, tz, 1 - Math.exp(-dt * 6.5));
     this.camY = lerp(this.camY || 0, this.state === 'title' ? 0 : p.y * 0.85, 1 - Math.exp(-dt * 4));
     this.shake = Math.max(0, this.shake - dt * 2.2);
     const s = this.shake * this.shake * 0.6 * (this.settings.shake ? 1 : 0);
-    // 3 種鏡頭仰角預設（預設 0：PoE 2 風格斜 45°，兼顧宏偉遠景與 ARPG 走位判讀）＋滾輪縮放＋左右微幅旋轉
     const preset = [
       { yK: 0.68, zK: 0.73, fov: 34 },
       { yK: 0.80, zK: 0.58, fov: 30 },
@@ -2364,7 +2375,7 @@ export class Game {
     }
     const baseDist = this.camDistOverride || (this.interior ? 17 : this.photoMode ? 18 : this.state === 'title' ? 34 : 29);
     const dist = baseDist * (this.interior ? 1 : (this.camZoom || 1));
-    const yaw = this.state === 'title' ? 0 : (this.camYaw || 0);
+    const yaw = this.state === 'title' ? 0.45 : 0.62;
     const horiz = dist * preset.zK;
     this.camera.position.set(
       this.camPos.x + Math.sin(yaw) * horiz + (Math.random() - 0.5) * s,

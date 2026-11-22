@@ -191,6 +191,7 @@ export class World {
     this.trees = [];
     this.pierBounds = [];
     this.occludables = [];
+    this.buoys = [];
     this.waterMat = null;
   }
 
@@ -228,6 +229,7 @@ export class World {
     this.trees = [];
     this.pierBounds = [];
     this.occludables = [];
+    this.buoys = [];
   }
 
   generate(seed, biome, opts = {}) {
@@ -428,7 +430,11 @@ export class World {
           vec2 gp = vGW.xz * 0.09 - vec2(0.82, 0.48) * uTime * 0.22;
           float gn = gn2(gp) * 0.65 + gn2(gp * 2.3 + 7.0) * 0.35;
           float band = step(0.62, gn) * 0.10 - step(gn, 0.30) * 0.06;
-          diffuseColor.rgb *= 1.0 + band * isG * uWindStr;`);
+          // 緩慢飄動的立體雲影（致敬手繪陽光草地光斑）
+          vec2 cp = vGW.xz * 0.028 - vec2(0.7, 0.45) * uTime * 0.055;
+          float cn = gn2(cp) * 0.65 + gn2(cp * 2.1 + 3.4) * 0.35;
+          float cloudShade = smoothstep(0.54, 0.72, cn);
+          diffuseColor.rgb = mix(diffuseColor.rgb * (1.0 + band * isG * uWindStr), diffuseColor.rgb * vec3(0.84, 0.90, 0.96), cloudShade * 0.42);`);
     };
     const terrain = new THREE.Mesh(tg, tmat);
     terrain.receiveShadow = true; terrain.castShadow = true;
@@ -562,6 +568,7 @@ export class World {
     this.T = T; this.RR = RR;
     for (let k = 0; k < GW * GW; k++) this.land[k] = (T[k] >= 1 && RR[k] < 0.96) ? 1 : 0;
     this.paths = paths;
+    this.buildShoreBuoys(r, opts.town ? 6 : 10);
     if (!opts.town && !opts.raid && (opts.size || 60) >= 120) this.buildScenicLandmarks(P, r, spawn, exits, paths);
     return { spawn, exits };
   }
@@ -682,6 +689,73 @@ export class World {
       const rail = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.1, 0.08), toonMat({ color: 0xc8925a }));
       rail.position.set(0, 0.62, -1.8); g.add(rail);
       addLandmark(g, pt.x, pt.z, 1.3, false);
+    }
+    // 6. 溫暖林間石圈營火、圓木椅與木路牌（致敬 A Short Hike 營地）
+    for (let i = 0; i < 3 * scScale; i++) {
+      const pt = placeSpot(15); if (!pt) continue;
+      const g = new THREE.Group();
+      for (let s = 0; s < 7; s++) {
+        const a = (s / 7) * Math.PI * 2;
+        const st = new THREE.Mesh(new THREE.DodecahedronGeometry(0.24, 0), toonMat({ color: P.rockDark }));
+        st.position.set(Math.cos(a) * 0.72, 0.12, Math.sin(a) * 0.72); g.add(st);
+      }
+      const fire = new THREE.Mesh(new THREE.ConeGeometry(0.32, 0.65, 5), new THREE.MeshBasicMaterial({ color: 0xff8c30 }));
+      fire.position.y = 0.34; g.add(fire);
+      for (const sgn of [-1, 1]) {
+        const bench = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.22, 1.5, 6), toonMat({ color: P.trunk }));
+        bench.rotation.z = Math.PI / 2; bench.rotation.y = sgn * 0.35; bench.position.set(sgn * 1.35, 0.22, 0.6); bench.castShadow = true; g.add(bench);
+      }
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.14, 1.35, 0.14), toonMat({ color: 0x7a4e32 }));
+      post.position.set(-1.7, 0.68, -1.1); g.add(post);
+      const board = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.42, 0.08), toonMat({ color: 0xf4dfba }));
+      board.position.set(-1.7, 1.12, -1.06); board.rotation.y = 0.25; g.add(board);
+      addLandmark(g, pt.x, pt.z, 1.1, false);
+    }
+    // 7. 飛瀑岩池與跨溪木板橋（致敬 A Short Hike 瀑布橋）
+    for (let i = 0; i < 2; i++) {
+      const pt = placeSpot(22); if (!pt) continue;
+      const g = new THREE.Group();
+      const cliff = new THREE.Mesh(new THREE.BoxGeometry(4.4, 4.6, 2.4), toonMat({ color: P.rock }));
+      cliff.position.set(0, 2.3, -2.8); cliff.castShadow = true; cliff.receiveShadow = true; g.add(cliff);
+      const fall = new THREE.Mesh(new THREE.BoxGeometry(1.75, 4.65, 0.32), new THREE.MeshBasicMaterial({ color: 0x62d6f0 }));
+      fall.position.set(0, 2.3, -1.55); g.add(fall);
+      const foam = new THREE.Mesh(new THREE.CylinderGeometry(1.65, 1.9, 0.24, 10), new THREE.MeshBasicMaterial({ color: 0xeaffff }));
+      foam.position.set(0, 0.14, -1.1); g.add(foam);
+      const pool = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.8, 0.12, 12), new THREE.MeshBasicMaterial({ color: 0x42b8d8 }));
+      pool.position.set(0, 0.08, 0.4); g.add(pool);
+      const bridge = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.16, 3.8), toonMat({ color: 0xc88446 }));
+      bridge.position.set(0, 0.28, 1.4); bridge.rotation.y = Math.PI / 2; bridge.castShadow = true; g.add(bridge);
+      addLandmark(g, pt.x, pt.z, 2.4, true);
+    }
+  }
+
+  // 海岸水域漂浮橘白航標與救生圈（致敬海面水波參考影片）
+  buildShoreBuoys(r, count = 8) {
+    for (let i = 0, tries = 0; i < count && tries < 220; tries++) {
+      const x = rand(r, -this.half * 0.96, this.half * 0.96), z = rand(r, -this.half * 0.96, this.half * 0.96);
+      const k = this.idx(x, z); if (k < 0) continue;
+      if (this.RR[k] < 1.04 || this.RR[k] > 1.24) continue;
+      const g = new THREE.Group();
+      if (i % 2 === 0) {
+        const base = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.62, 0.45, 10), toonMat({ color: 0xf0542c }));
+        const stripe = new THREE.Mesh(new THREE.CylinderGeometry(0.58, 0.58, 0.14, 10), toonMat({ color: 0xfff8ec }));
+        stripe.position.y = 0.06;
+        const mast = new THREE.Mesh(new THREE.ConeGeometry(0.32, 1.15, 4), toonMat({ color: 0xf0542c }));
+        mast.position.y = 0.8; mast.castShadow = true;
+        const tip = new THREE.Mesh(new THREE.SphereGeometry(0.11, 6, 4), new THREE.MeshBasicMaterial({ color: 0xffe47a }));
+        tip.position.y = 1.4;
+        g.add(base, stripe, mast, tip);
+      } else {
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(0.45, 0.15, 6, 12), toonMat({ color: 0xf05a2c }));
+        ring.rotation.x = Math.PI / 2;
+        const band = new THREE.Mesh(new THREE.TorusGeometry(0.455, 0.155, 6, 4), toonMat({ color: 0xfff8ec }));
+        band.rotation.x = Math.PI / 2;
+        g.add(ring, band);
+      }
+      g.position.set(x, WATER_Y + 0.08, z);
+      this.group.add(g);
+      this.buoys.push({ mesh: g, y0: WATER_Y + 0.08, ph: r() * 6.28 });
+      i++;
     }
   }
 

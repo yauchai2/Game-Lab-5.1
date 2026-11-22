@@ -231,8 +231,8 @@ const createGuild = require('../server/guild.cjs');
   assert.equal(upgraded.item.rarity, 1, 'Two same-rarity gears collide and fuse into higher rarity');
 
   const codex = await import(src('codex.js'));
-  assert.equal(codex.GAME_VERSION, 'v0.8.0', 'Codex exports current version v0.8.0');
-  assert.ok(codex.CHANGELOG.length >= 5, 'Changelog contains structured version history');
+  assert.equal(codex.GAME_VERSION, 'v0.9.0', 'Codex exports current version v0.9.0');
+  assert.ok(codex.CHANGELOG.length >= 6, 'Changelog contains structured version history');
 
   // 12. Tier System (T1-T6) & 3D Mount Milestone System
   const loot = await import(src('loot.js'));

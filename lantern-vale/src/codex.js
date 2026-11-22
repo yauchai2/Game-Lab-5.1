@@ -6,10 +6,18 @@ import { BOONS, TIERS } from './loot.js';
 import { BAG_RECIPES } from './physbag.js';
 import { MOUNTS } from './mounts.js';
 
-export const GAME_VERSION = 'v0.8.0';
+export const GAME_VERSION = 'v0.9.0';
 export const DONATE_URL = 'https://ko-fi.com/'; // 可隨時改為個人贊助頁面或 ECPay 連結
 
 export const CHANGELOG = [
+  {
+    ver: 'v0.9.0', date: '2026-11-23',
+    items: [
+      { tag: '重要', text: '鎖定最佳立體斜角鏡頭（camYaw = 0.62，無需手動旋轉），並全面收合簡化 HUD：右上整合為「🗺️ 地圖＋☰ 選單」抽屜，隱藏離線雜訊文字，底部動作欄更輕巧俐落。' },
+      { tag: '新增', text: '全面美術氛圍升級：提亮陽光手繪色盤、地形加入緩慢飄動的立體雲影光斑、海岸水域漂浮橘白航標與救生圈、飛瀑岩池木橋與林間石圈營火。' },
+      { tag: '新增', text: '新增「清怪連擊系統（Kill-Streak Combo）」：連續清怪疊加攻速（最高 +30%）、暴擊（最高 +22.5%）與掉寶率；滑翔與高速騎乘新增 A Short Hike 風格白色翼尖氣流尾跡！' },
+    ],
+  },
   {
     ver: 'v0.8.0', date: '2026-11-22',
     items: [
