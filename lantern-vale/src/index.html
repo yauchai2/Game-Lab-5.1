@@ -110,6 +110,46 @@ h3{margin:0 0 8px;font-weight:400;font-size:18px}
 #wipe{position:fixed;inset:0;background:#1a1426;clip-path:circle(0% at 50% 50%);transition:clip-path .45s ease-in;pointer-events:none}
 #wipe.in{clip-path:circle(75% at 50% 50%)}
 @media (max-width:700px){ .orb{width:72px;height:72px} .sk{width:42px;height:42px;font-size:18px} #tip{width:240px;bottom:110px} }
+
+/* ======== A Short Hike 風格 UI 覆寫：奶油像素框、咖啡字、硬陰影、對話氣泡 ======== */
+:root{ --ink:#3b2a2a; --shadow:#2b1d33; --paper:#fff8e4; --paper2:#f1dfb8; --gold:#ffcf4a; --px:4px;
+  --box: 0 calc(-1*var(--px)) 0 0 var(--ink), 0 var(--px) 0 0 var(--ink), calc(-1*var(--px)) 0 0 0 var(--ink), var(--px) 0 0 0 var(--ink);
+  --boxsh: var(--box), 0 calc(2*var(--px)) 0 0 var(--shadow), calc(-1*var(--px)) var(--px) 0 0 var(--shadow), var(--px) var(--px) 0 0 var(--shadow); }
+html,body{image-rendering:pixelated;-webkit-font-smoothing:none;font-smooth:never}
+.panel,.card,.btn,.exitHint,.sk,.mute,#chatIn,.pbub,.scales button,.slot,.chip{border:0!important;border-radius:0!important;box-shadow:var(--boxsh)!important}
+.panel,.exitHint,.pbub,.card,#chatIn{background:var(--paper)}
+.panel{margin:var(--px)}
+.btn{margin:var(--px);background:#e8734a;text-shadow:0 2px 0 var(--ink)}
+.btn:hover{transform:translateY(-2px)}.btn:active{transform:translateY(2px)}
+.card:hover{transform:translateY(-6px);background:#fffdf2}
+.sk{background:var(--paper2);margin:var(--px)}
+.sk.locked{filter:grayscale(1) brightness(.8)}
+#skills{gap:12px;padding:10px 14px;transform:translateX(-50%)}
+.orb{border-radius:0;border:0;background:#4a3a52;box-shadow:var(--boxsh),inset 0 0 0 4px rgba(255,255,255,.12);margin:var(--px)}
+.orb .shine{border-radius:0;width:16px;height:8px;left:12px;top:12px;background:rgba(255,255,255,.6);box-shadow:8px 8px 0 0 rgba(255,255,255,.35)}
+.orb .txt{font-size:16px}
+#stam{height:14px;width:220px;border:0;border-radius:0;background:#4a3a52;box-shadow:var(--box)}
+#stamFill{background:repeating-linear-gradient(90deg,#ffd75a 0 10px,#f3b93a 10px 12px)}
+#boss .bar{border:0;border-radius:0;box-shadow:var(--box);margin:var(--px)}
+.bicon{border-radius:0;border:0;box-shadow:var(--box)}
+.chip{border-radius:0}
+#chatLog.open{border-radius:0;background:rgba(59,42,42,.55)}
+.mute{padding:2px 8px;margin:var(--px)}
+.slotname{border-radius:0}
+.slot{box-shadow:none!important;border:2px dashed rgba(59,42,42,.35)!important}
+/* 對話氣泡的小尾巴（像素階梯） */
+.exitHint,.pbub{margin-bottom:12px}
+.exitHint:after{content:'';position:absolute;left:50%;bottom:-16px;width:8px;height:4px;margin-left:-8px;border:0;background:var(--paper);box-shadow:-4px 0 0 0 var(--ink),8px 0 0 0 var(--ink),0 4px 0 0 var(--paper),-4px 4px 0 0 var(--ink),4px 4px 0 0 var(--ink),0 8px 0 0 var(--ink)}
+.exitHint{font-size:16px;letter-spacing:.04em}
+.pbub{font-size:14px}
+/* 標題畫面 */
+#title h1{text-shadow:0 4px 0 var(--ink),4px 0 0 var(--ink),-4px 0 0 var(--ink),0 -4px 0 var(--ink),0 8px 0 var(--shadow),0 0 30px rgba(255,200,120,.5);letter-spacing:.1em}
+#title{gap:12px}#title .box{line-height:1.5;font-size:14px;padding:12px 18px;max-width:min(760px,94vw)}
+.keys{grid-template-columns:auto 1fr auto 1fr;gap:3px 10px;font-size:14px}
+@media (max-height:760px){#title h1{font-size:clamp(34px,6vw,64px)}}
+.keys b{border-radius:0;background:var(--ink);box-shadow:0 2px 0 var(--shadow)}
+/* 過場：像素方塊式淡出 */
+#wipe{transition:clip-path .45s steps(8,end)}
 </style>
 </head>
 <body>
