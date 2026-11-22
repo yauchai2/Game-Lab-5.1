@@ -5,6 +5,8 @@ import { buildTownScenery } from './town.js';
 import { loadSettings, applySettings, buildSettingsUI } from './settings.js';
 import { buildPlayer, buildSlime, buildThorn, buildBoar, buildMoth, buildStag, buildArch, buildHouse, buildFountain, buildBoard, buildStall } from './models.js';
 import { Net } from './net.js';
+import { Meta } from './meta.js';
+import { buildPanels } from './panels.js';
 const EMOTES = ['嗨～', '♥', '哈哈', 'zZ'];
 const HOODS = [[0x2f8a7e, 0x23695f], [0xd9543a, 0xa83f2c], [0x6a6ad0, 0x4a4aa0], [0xe0a030, 0xb07f20], [0xc060b0, 0x904488], [0x58a858, 0x3f823f], [0x4aa0d8, 0x3478a8], [0x8a6a50, 0x65503c]];
 import { makeItem, itemLines, itemScore, RARITY, SLOTS, rollBoons, BOONS } from './loot.js';
@@ -99,6 +101,7 @@ export class Game {
     this.camPos = new V3(0, 20, 14);
     this.flowTimer = 0;
     this.net = new Net(); this.remotes = new Map(); this.townGroup = null; this.party = ''; this.bots = [];
+    this.meta = new Meta(); this.pickups = []; this.spots = []; this.talked = new Set();
     this.playerName = '旅人'; this.hoodIdx = 0; this.posT = 0;
     this.bindInput();
     this.setupNet();
@@ -126,11 +129,11 @@ export class Game {
         if (k === 'q') this.trySlam();
         if (k === 'e') this.tryWisp();
         if (k === 'r') this.tryFlask();
-        if (k === 'f') this.tryPickup();
+        if (k === 'f' && !this.ui.panelOpen) { if (!this.tryInteract()) this.tryPickup(); }
         if (['1', '2', '3', '4'].includes(k)) this.emote(+k - 1);
         if (k === 'enter' || k === 't') { if (this.ui.focusChat?.()) e.preventDefault(); }
-        if ((k === 'tab' || k === 'i') && !this.ui.setOpen) this.ui.toggleInv(this);
-        if (k === 'escape') { if (this.ui.setOpen) this.ui.closeSettings(); else if (this.ui.invOpen) this.ui.toggleInv(this); else this.ui.toggleSettings(); }
+        if ((k === 'tab' || k === 'i') && !this.ui.setOpen && !this.ui.panelOpen) this.ui.toggleInv(this);
+        if (k === 'escape') { if (this.ui.panelOpen) this.ui.closePanel(); else if (this.ui.setOpen) this.ui.closeSettings(); else if (this.ui.invOpen) this.ui.toggleInv(this); else this.ui.toggleSettings(); }
       } else if (this.state === 'boon' && ['1', '2', '3'].includes(k)) this.ui.pickBoonIndex(+k - 1);
     });
     addEventListener('keyup', e => { const k = CODE[e.code] ?? e.key.toLowerCase(); this.keys[k] = false; this.keys[e.key.toLowerCase()] = false; });
@@ -155,6 +158,7 @@ export class Game {
       y: 0, vy: 0, air: false, climbing: false, gliding: false, wall: false, stamina: 100, lastLow: new V3(), stepT: 0, swing: 0, swingT: 0, swingCount: 0, galeBuff: false, wisps: [], wispT: 0, walkT: 0, kills: 0, dmgDealt: 0, stats: {},
     };
     p.equip.staff = makeItem(mulberry32(5), 0, 0, 'staff');
+    const hl = this.meta.heirloom; if (hl) p.equip[hl.slot] = hl;
     return p;
   }
   recalc() {
@@ -186,7 +190,7 @@ export class Game {
     this.player = this.makePlayer();
     this.recalc(); this.player.hp = this.player.stats.maxHp; this.player.mana = this.player.stats.mana;
     this.runSeed = this.party ? [...this.party].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % 1000000 : (Math.random() * 1e6) | 0;
-    this.runStart = performance.now();
+    this.runStart = performance.now(); this.meta.runShards = 0; this.meta.p.runs++; this.meta.save(); this.runEnded = false;
     this.state = 'play';
     this.loadRoom(0, null);
   }
@@ -205,6 +209,8 @@ export class Game {
     for (const e of this.enemies) this.scene.remove(e.m.root);
     for (const a of [...this.projs, ...this.eprojs, ...this.decals, ...this.slashes, ...this.rings]) this.scene.remove(a.mesh);
     for (const d of this.drops) this.scene.remove(d.g);
+    for (const k of this.pickups) this.scene.remove(k.g); this.pickups = [];
+    this.spots = [];
     for (const x of this.exits) this.scene.remove(x.g);
     for (const w of this.player.wisps) this.scene.remove(w.mesh);
     this.player.wisps = [];
@@ -260,6 +266,7 @@ export class Game {
       this.ui.banner(boss ? '古樹鹿王的林地' : B.name, boss ? '最終之戰' : `第 ${stage} 區 · 第 ${room} 間`);
       this.fade = 1;
     } else { this.cleared = true; this.waveIdx = 0; }
+    if (!town && !title) { this.meta.event('depth', depth + 1); if (depth + 1 > this.meta.p.best.depth) { this.meta.p.best.depth = depth + 1; this.meta.save(); } this.placePickups(); }
     p.y = 0; p.vy = 0; p.air = false; p.climbing = false; p.stamina = 100; p.lastLow.set(p.pos.x, 0, p.pos.z);
     this.world.computeFlow(p.pos.x, p.pos.z);
     this.musicKey = title ? 'title' : town ? 'town' : boss ? 'boss' : B.key; this.audio.setMusic(this.musicKey, 0);
@@ -299,10 +306,11 @@ export class Game {
     if (d >= 2) pool.push('thorn');
     if (d >= 3) pool.push('moth', 'boar');
     if (d >= 6) pool.push('moth');
-    for (let i = 0; i < wv.n; i++) {
+    const cnt = Math.round(wv.n * (this.meta.has('swarm') ? 1.4 : 1));
+    for (let i = 0; i < cnt; i++) {
       const t = pick(this.rng, pool);
       const pos = this.world.randomWalkable(this.rng, p.pos, 7);
-      const elite = this.rng() < 0.06 + d * 0.025;
+      const elite = this.rng() < 0.06 + d * 0.025 + (this.meta.has('elite') ? 0.22 : 0);
       // warning puff, then spawn
       this.addDecal('circle', pos.x, pos.z, 0.9, 0xfff2c0, 0.7, null, () => this.spawnEnemy(t, pos, elite), 2);
     }
@@ -317,6 +325,7 @@ export class Game {
       moth: { hp: 36, spd: 3.0, dmg: 14, r: 0.45, build: buildMoth },
       stag: { hp: 1100, spd: 2.4, dmg: 18, r: 1.2, build: buildStag },
     }[type];
+    if (type !== 'stag') { if (this.meta.has('swift')) DEF.spd *= 1.25; if (this.meta.has('tough')) DEF.hp *= 1.5; }
     const m = DEF.build();
     const s = elite ? 1.35 : 1;
     m.root.scale.setScalar(s);
@@ -367,14 +376,15 @@ export class Game {
     this.puffs.burst(e.pos.x, 0.3, e.pos.z, 6, { c: 0xffffff, s: 0.4, speed: 1.5, up: 1, g: -1, life: 0.8, grow: 1.4, drag: 3 });
     this.shake = Math.max(this.shake, e.type === 'stag' ? 1 : 0.18);
     const p = this.player; p.kills++;
-    p.flask.prog += e.elite ? 1 : 0.25;
+    this.onKillMeta(e);
+    p.flask.prog += (e.elite ? 1 : 0.25) * (this.meta.has('fortune') ? 0.5 : 1);
     while (p.flask.prog >= 1 && p.flask.charges < p.flask.max) { p.flask.prog -= 1; p.flask.charges++; }
     if (p.flask.charges >= p.flask.max) p.flask.prog = 0;
     if (this.has('feast')) this.heal(4 * p.boons.filter(b => b === 'feast').length, false);
     // drops
     const r = Math.random();
     const dropChance = e.elite ? 1 : e.type === 'stag' ? 1 : 0.075;
-    if (r < dropChance) this.dropItem(e.pos.x, e.pos.z, makeItem(Math.random, this.depth, e.type === 'stag' ? 3 : e.elite ? (Math.random() < 0.3 ? 3 : 2) : null));
+    if (r < dropChance) this.dropItem(e.pos.x, e.pos.z, makeItem(Math.random, this.depth + this.meta.dropBonus, e.type === 'stag' ? 3 : e.elite ? (Math.random() < 0.3 ? 3 : 2) : null));
     if (Math.random() < 0.16) this.dropOrb(e.pos.x, e.pos.z);
     if (e.type === 'stag') { this.boss = null; this.ui.bossBar(false); setTimeout(() => this.victory(), 2500); }
   }
@@ -390,7 +400,7 @@ export class Game {
     if (air > 0.8 && !p.gliding) return; // jumping dodges ground attacks
     if (src && Math.abs(src.y - p.y) > 1.7 && air <= 0.8) return; // different height level
     this.audio.sfx('hurt');
-    dmg = Math.round(dmg * (1 - p.stats.armor / 100));
+    dmg = Math.round(dmg * (1 - p.stats.armor / 100) * (this.meta.has('fragile') ? 1.35 : 1));
     p.hp -= dmg; p.iframes = 0.6;
     this.hurtFlash = 0.5; this.shake = Math.max(this.shake, 0.35); this.hitstop = 0.06;
     this.ui.dmgNum(p.pos.x, 1.5, p.pos.z, dmg, 'hurt');
@@ -400,12 +410,12 @@ export class Game {
     if (p.hp <= 0) { p.hp = 0; this.die(); }
   }
   die() {
-    this.state = 'dead'; this.audio.sfx('dead'); this.audio.setMusic('title', 0);
+    this.state = 'dead'; this.bankRun(0.5); this.audio.sfx('dead'); this.audio.setMusic('title', 0);
     this.puffs.burst(this.player.pos.x, 0.5, this.player.pos.z, 20, { c: [0x2f8a7e, 0xd9543a, 0xffd36e], s: 0.2, speed: 4, life: 1 });
     this.player.m.root.visible = false;
     setTimeout(() => this.ui.showDead(this), 900);
   }
-  victory() { this.audio.sfx('win'); this.state = 'win'; this.ui.showWin(this); }
+  victory() { this.bankRun(1); this.meta.p.best.wins++; this.meta.save(); this.audio.sfx('win'); this.state = 'win'; this.ui.showWin(this); }
 
   dropItem(x, z, item) {
     const g = new THREE.Group();
@@ -639,7 +649,7 @@ export class Game {
     if (p.wall && want && p.roll <= 0 && p.stamina > 4 && !p.climbing && g - p.y <= 3.8) { p.climbing = true; p.air = false; p.vy = 0; p.climbH = p.wallH; this.audio.sfx('climb'); }
     p.gliding = false;
     if (p.climbing) {
-      p.stamina -= 20 * dt; p.y += 3.4 * dt;
+      p.stamina -= 20 * dt * this.meta.staminaK; p.y += 3.4 * dt;
       p.climbT = (p.climbT || 0) + dt; if (p.climbT > 0.22) { p.climbT = 0; this.audio.sfx('climb'); }
       if (p.y >= Math.max(g, p.climbH) - 0.4) { p.climbing = false; p.air = true; p.vy = 4.2; p.vel.x *= 3; p.vel.z *= 3; }
       else if (!want || p.stamina <= 0) { p.climbing = false; p.air = true; p.vy = 0; }
@@ -656,7 +666,7 @@ export class Game {
       p.vy -= 24 * dt;
       if (glide) {
         if (!p.gliding0) this.audio.sfx('glide');
-        p.vy = Math.max(p.vy, -1.6); p.stamina -= 10 * dt; p.gliding = true;
+        p.vy = Math.max(p.vy, -1.6); p.stamina -= 10 * dt * this.meta.staminaK; p.gliding = true;
       }
       p.gliding0 = glide;
       const vyBefore = p.vy;
@@ -678,13 +688,74 @@ export class Game {
   }
 
 
+  // ---------------- meta：碎片、羽毛、貝殼、互動 ----------------
+  onKillMeta(e) {
+    const m = this.meta, d = this.depth;
+    m.event('kill'); if (e.elite) m.event('elite'); if (e.type === 'stag') m.event('boss');
+    m.p.kills++;
+    let n = e.type === 'stag' ? 120 : e.elite ? 6 + d : (Math.random() < 0.4 ? 1 + (d >> 1) : 0);
+    n = Math.round(n * m.shardMult);
+    if (n > 0) { m.runShards += n; if (e.elite || e.type === 'stag') this.ui.toast(`✦ 星砂 +${n}`, '#ffe08a'); }
+  }
+  bankRun(frac) {
+    if (this.runEnded) return; this.runEnded = true;
+    const m = this.meta, n = Math.round(m.runShards * frac);
+    m.p.shards += n; m.save(); this.bankedShards = n; this.lostShards = m.runShards - n; m.runShards = 0;
+  }
+  placePickups() {
+    const W = this.world, p = this.player, r = Math.random;
+    const mk = (kind, x, z) => {
+      const g = new THREE.Group();
+      if (kind === 'feather') {
+        const f = new THREE.Mesh(new THREE.OctahedronGeometry(0.28, 0), new THREE.MeshBasicMaterial({ color: 0xffd23a })); f.scale.set(0.45, 1.5, 0.25); f.position.y = 0.9; g.add(f);
+        const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.1, 5, 6, 1, true), new THREE.MeshBasicMaterial({ color: 0xffe27a, transparent: true, opacity: 0.4, depthWrite: false, blending: THREE.AdditiveBlending })); beam.position.y = 2.5; beam.userData.noNormal = true; g.add(beam);
+        g.userData.gem = f;
+      } else {
+        const sh = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.28, 7), new THREE.MeshBasicMaterial({ color: 0xffb8c8 })); sh.rotation.x = Math.PI; sh.position.y = 0.3; g.add(sh);
+        g.userData.gem = sh;
+      }
+      g.position.set(x, W.gh(x, z), z); this.scene.add(g); this.pickups.push({ g, kind, x, z, ph: Math.random() * 6 });
+    };
+    // 金羽毛：藏在高處平台上
+    if (r() < 0.55) for (let i = 0; i < 70; i++) { const q = W.randomWalkable(r, p.pos, 8); if (W.gh(q.x, q.z) > 1.2) { mk('feather', q.x, q.z); break; } }
+    // 貝殼：低處
+    let ns = 2 + (r() < 0.5 ? 1 : 0);
+    for (let i = 0; i < 80 && ns > 0; i++) { const q = W.randomWalkable(r, p.pos, 5); if (W.gh(q.x, q.z) < 0.5) { mk('shell', q.x, q.z); ns--; } }
+  }
+  updatePickups(dt) {
+    const p = this.player;
+    for (const k of this.pickups) {
+      k.ph += dt * 3; k.g.userData.gem.rotation.y += dt * 2; k.g.userData.gem.position.y = (k.kind === 'feather' ? 0.9 : 0.3) + Math.sin(k.ph) * 0.08;
+      if (Math.hypot(p.pos.x - k.x, p.pos.z - k.z) < 1.1 && Math.abs(k.g.position.y - p.y) < 1.8) {
+        k.got = true; this.scene.remove(k.g); const m = this.meta;
+        if (k.kind === 'feather') { m.p.feathers++; m.event('feather'); this.ui.toast('找到金羽毛！攀爬與滑翔更省力', '#ffd23a'); this.audio.sfx('exit'); }
+        else { m.p.shells++; m.event('shell'); this.ui.toast('貝殼 +1', '#ffb8c8'); this.audio.sfx('orb'); }
+        m.save(); this.puffs.burst(k.x, 0.8, k.z, 10, { c: k.kind === 'feather' ? 0xffd23a : 0xffb8c8, s: 0.12, speed: 3, up: 3, life: 0.6 });
+      }
+    }
+    this.pickups = this.pickups.filter(k => !k.got);
+  }
+  nearSpot() {
+    if (this.depth !== -1) return null;
+    const p = this.player; let best = null, bd = 2.8;
+    for (const s of this.spots) { const d = Math.hypot(s.x - p.pos.x, s.z - p.pos.z); if (d < bd) { bd = d; best = { ...s, bx: s.x, bz: s.z }; } }
+    for (const r of this.remotes.values()) if (r.bot) { const d = Math.hypot(r.x - p.pos.x, r.z - p.pos.z); if (d < Math.min(bd, 2.2)) { bd = d; best = { kind: 'talk', label: r.name.replace(' (鎮民)', ''), x: r.x, z: r.z, top: 2.4, bot: r }; } }
+    return best;
+  }
+  tryInteract() {
+    const s = this.nearSpot(); if (!s) return false;
+    if (s.kind === 'talk') { const r = s.bot; this.say(r.id, r.lines[(Math.random() * r.lines.length) | 0]); r.tf = Math.atan2(this.player.pos.x - r.x, this.player.pos.z - r.z); r.wait = Math.max(r.wait, 4);
+      if (!this.talked.has(r.id)) { this.talked.add(r.id); this.meta.event('talk'); } this.audio.sfx('ui'); return true; }
+    this.audio.sfx('ui'); this.ui.openPanel(s.kind); return true;
+  }
+
   // ---------------- town ----------------
   buildTown() {
     const P = this.biome, g = new THREE.Group(); this.townGroup = g; this.scene.add(g);
     const add = (o, x, z, ry = 0, obst = 0) => { o.position.set(x, 0, z); o.rotation.y = ry; g.add(o); if (obst) this.world.obstacles.push({ x, z, r: obst, h: 0 }); return o; };
     add(buildFountain(), 0, -1, 0, 2.0);
     const sc = buildTownScenery({ gh: (x, z) => this.world.gh(x, z), rng: Math.random });
-    g.add(sc.group); this.world.obstacles.push(...sc.obstacles); this.chimneys = sc.chimneys; this.smokeT = 0;
+    g.add(sc.group); this.world.obstacles.push(...sc.obstacles); this.chimneys = sc.chimneys; this.spots = sc.spots; this.smokeT = 0;
     // portal sign
     const sign = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.5, 0.1), toonMat({ color: 0xfff1d0 }));
     const ex = this.exits[0]; sign.position.set(ex.x, 3.4, ex.z); sign.rotation.y = ex.g.rotation.y; g.add(sign);
@@ -815,7 +886,7 @@ export class Game {
       if (S.regen) this.heal(S.regen * dt, false);
       if (p.specials.has('mossRegen')) this.heal(S.maxHp * 0.02 * dt, false);
       if (p.healOver > 0) { p.healOver -= dt; this.heal(p.healRate * dt, false); }
-      if (!this.ui.invOpen && !this.ui.setOpen) {
+      if (!this.ui.invOpen && !this.ui.setOpen && !this.ui.panelOpen) {
         if (this.mouse.l) this.tryAttack();
         if (this.mouse.r) this.tryBolt();
       }
@@ -882,6 +953,8 @@ export class Game {
     }
 
     if (this.state === 'play' && this.musicKey) this.audio.setMusic(this.musicKey, this.enemies.length ? 1 : 0);
+    this.updatePickups(dt);
+    if (this.state === 'play') this.ui.spotHint(this);
     this.updateEnemies(dt);
     this.updateProjs(dt);
     this.updateMisc(dt);
