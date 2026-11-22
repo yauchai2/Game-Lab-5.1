@@ -134,49 +134,145 @@ export function buildHarborTown(g) {
   return { group: grp, spots, obstacles: obs, boxes, boat };
 }
 
-// ======================== 4. 新創意地圖專屬 3D 地標裝飾（Zones 7–9） ========================
+// ======================== 4. 全區域宏偉地標與建築裝飾（Zones 1–9，靈感源自巨型天環、八角古泉與碧藍聖樹礁島） ========================
 export function buildZoneLandmarks(g) {
-  if (!g.field || g.field < 7) return;
+  if (!g.field) return;
   const r = mulberry32(8800 + g.field * 73);
   const grp = new THREE.Group();
-  if (g.field === 7) {
-    // 浮空遺跡群：巨大拱門與浮石（Kirby / Foliage Ruins 靈感）
+  const addBox = (x, z, hw, hd, h = 0) => { g.worldBoxes = g.worldBoxes || []; g.worldBoxes.push({ x, z, hw, hd, h }); };
+
+  const buildAncientFountain = (cx, cz, y) => {
+    const f = new THREE.Group();
+    const parts = [
+      part(new THREE.CylinderGeometry(3.8, 4.1, 0.75, 8), 0xd2cab4, 0, 0.35, 0),
+      part(new THREE.CylinderGeometry(3.15, 3.15, 0.58, 8), 0x4eb4e8, 0, 0.42, 0),
+      part(new THREE.CylinderGeometry(0.65, 0.85, 1.5, 8), 0xc4bca6, 0, 0.9, 0),
+      part(new THREE.OctahedronGeometry(0.58, 0), 0x9cf0ff, 0, 2.05, 0),
+    ];
     for (let i = 0; i < 4; i++) {
-      const a = (i / 4) * Math.PI * 2 + 0.4, dist = 12 + r() * 8;
-      const x = Math.cos(a) * dist, z = Math.sin(a) * dist, y = g.world.gh(x, z);
-      const arch = new THREE.Mesh(new THREE.TorusGeometry(2.6, 0.48, 6, 14, Math.PI), toonMat({ color: 0x7ac8e0 }));
-      arch.position.set(x, y + 0.3, z); arch.rotation.y = r() * Math.PI; arch.castShadow = true;
-      grp.add(arch);
+      const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+      const px = Math.cos(a) * 5.2, pz = Math.sin(a) * 5.2, ph = 2.6 + (i % 2) * 1.4;
+      parts.push(part(new THREE.BoxGeometry(0.95, ph, 0.95), 0xbab29c, px, ph / 2, pz));
+      parts.push(part(new THREE.BoxGeometry(1.15, 0.25, 1.15), 0x7ea85e, px, ph + 0.12, pz));
+      g.world.obstacles.push({ x: cx + px, z: cz + pz, r: 0.65, h: y });
     }
+    const m = new THREE.Mesh(mergeGeometries(parts), toonMat({ vertexColors: true }));
+    m.castShadow = true; m.receiveShadow = true;
+    f.add(m); f.position.set(cx, y, cz);
+    g.world.obstacles.push({ x: cx, z: cz, r: 3.9, h: y });
+    grp.add(f);
+  };
+
+  const buildMegaSkyRing = (cx, cz, y, radius, col, rotY) => {
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(radius, radius * 0.18, 7, 22, Math.PI), toonMat({ color: col }));
+    ring.position.set(cx, y - 0.6, cz); ring.rotation.y = rotY; ring.castShadow = true; ring.receiveShadow = true;
+    grp.add(ring);
+    const pill = new THREE.Mesh(new THREE.TorusGeometry(radius * 0.62, radius * 0.13, 6, 18, Math.PI), toonMat({ color: col }));
+    pill.position.set(cx + Math.cos(rotY) * (radius * 0.55), y + radius * 0.58, cz - Math.sin(rotY) * (radius * 0.55));
+    pill.rotation.y = rotY + 0.35; pill.castShadow = true;
+    grp.add(pill);
+  };
+
+  const buildSeaBuoy = (bx, bz) => {
+    const b = new THREE.Mesh(mergeGeometries([
+      part(new THREE.CylinderGeometry(0.85, 0.95, 0.55, 10), 0xf05228, 0, 0.05, 0),
+      part(new THREE.CylinderGeometry(0.88, 0.88, 0.16, 10), 0xfff6e5, 0, 0.18, 0),
+      part(new THREE.ConeGeometry(0.65, 1.5, 4), 0xe64a22, 0, 1.05, 0),
+      part(new THREE.SphereGeometry(0.18, 6, 5), 0xffe46b, 0, 1.85, 0),
+      part(new THREE.TorusGeometry(0.45, 0.14, 6, 12), 0xf46036, 1.65, -0.05, 0.4, Math.PI / 2, 0, 0),
+    ]), toonMat({ vertexColors: true }));
+    b.position.set(bx, -0.22, bz); b.castShadow = true;
+    grp.add(b);
+  };
+
+  const H = g.world.half;
+  if (g.field === 1) {
+    const p1 = g.world.randomWalkable(r, g.player.pos, 16);
+    buildAncientFountain(p1.x, p1.z, g.world.gh(p1.x, p1.z));
+    buildMegaSkyRing(0, -H * 0.58, 0, 11.5, 0x74c6d8, 0.15);
+    const mill = buildHouse(0xd96846, 0xfff2dc, 4.2, 4.2);
+    const p2 = g.world.randomWalkable(r, g.player.pos, 22);
+    mill.position.set(p2.x, g.world.gh(p2.x, p2.z), p2.z); mill.scale.setScalar(1.35);
+    grp.add(mill); addBox(p2.x, p2.z, 2.9, 2.9, mill.position.y);
+  } else if (g.field === 2 || g.field === 6) {
+    const p1 = g.world.randomWalkable(r, g.player.pos, 18);
+    buildAncientFountain(p1.x, p1.z, g.world.gh(p1.x, p1.z));
+    const tree = new THREE.Mesh(mergeGeometries([
+      part(new THREE.CylinderGeometry(2.2, 3.6, 12, 8), 0x6a442d, 0, 6, 0),
+      part(new THREE.IcosahedronGeometry(7.2, 1), g.field === 6 ? 0x458056 : 0x5ea350, 0, 13.5, 0),
+      part(new THREE.IcosahedronGeometry(5.2, 1), 0x8cc85a, 3.8, 11.5, 2.2),
+      part(new THREE.IcosahedronGeometry(4.8, 1), 0x70b44e, -3.6, 12.0, -2.0),
+    ]), toonMat({ vertexColors: true }));
+    tree.position.set(H * 0.25, g.world.gh(H * 0.25, -H * 0.28), -H * 0.28); tree.castShadow = true;
+    grp.add(tree); g.world.obstacles.push({ x: tree.position.x, z: tree.position.z, r: 3.4, h: tree.position.y });
+  } else if (g.field === 3 || g.field === 5) {
+    const col = g.field === 5 ? 0xff7a3c : 0x6ae8c8;
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2 + 0.5, dist = H * 0.42;
+      const x = Math.cos(a) * dist, z = Math.sin(a) * dist, y = g.world.gh(x, z);
+      const ob = new THREE.Mesh(mergeGeometries([
+        part(new THREE.BoxGeometry(2.2, 1.2, 2.2), 0x5d565e, 0, 0.6, 0),
+        part(new THREE.CylinderGeometry(0.45, 1.05, 8.5, 4), 0x7a737c, 0, 5.2, 0),
+        part(new THREE.OctahedronGeometry(0.85, 0), col, 0, 10.2, 0),
+      ]), toonMat({ vertexColors: true }));
+      ob.position.set(x, y, z); ob.castShadow = true; grp.add(ob);
+      addBox(x, z, 1.2, 1.2, y);
+    }
+  } else if (g.field === 4) {
+    const obs = new THREE.Mesh(mergeGeometries([
+      part(new THREE.CylinderGeometry(4.2, 4.8, 4.5, 10), 0xd8e2f4, 0, 2.25, 0),
+      part(new THREE.SphereGeometry(4.0, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), 0x5c84b8, 0, 4.4, 0),
+      part(new THREE.CylinderGeometry(0.4, 0.5, 4.2, 6), 0xffd268, 2.2, 6.2, 1.2, 0.5, 0, -0.5),
+    ]), toonMat({ vertexColors: true }));
+    const p1 = g.world.randomWalkable(r, g.player.pos, 20);
+    obs.position.set(p1.x, g.world.gh(p1.x, p1.z), p1.z); obs.castShadow = true;
+    grp.add(obs); g.world.obstacles.push({ x: p1.x, z: p1.z, r: 4.5, h: obs.position.y });
+    buildMegaSkyRing(-H * 0.25, -H * 0.45, 0, 10.5, 0x9ec8f2, -0.3);
+  } else if (g.field === 7) {
+    buildMegaSkyRing(0, -H * 0.48, 0, 14.5, 0x6ac6e8, 0.1);
+    buildMegaSkyRing(-H * 0.42, H * 0.12, 0, 9.5, 0x8ad8c0, 1.2);
+    buildMegaSkyRing(H * 0.40, -H * 0.10, 0, 10.5, 0x74b8e6, -0.9);
+    const p1 = g.world.randomWalkable(r, g.player.pos, 18);
+    buildAncientFountain(p1.x, p1.z, g.world.gh(p1.x, p1.z));
   } else if (g.field === 8) {
-    // 珊瑚潮汐灣：彩色沙灘傘、浮標與珊瑚礁
     const cols = [0xff6b6b, 0x3ec1d3, 0xffd166, 0xff9f43];
-    for (let i = 0; i < 6; i++) {
-      const pos = g.world.randomWalkable(r, g.player.pos, 6);
+    for (let i = 0; i < 8; i++) {
+      const pos = g.world.randomWalkable(r, g.player.pos, 8);
       const y = g.world.gh(pos.x, pos.z);
       const umb = new THREE.Mesh(mergeGeometries([
-        part(new THREE.CylinderGeometry(0.06, 0.06, 2.1, 6), 0x8a5a3b, 0, 1.05, 0),
-        part(new THREE.ConeGeometry(1.3, 0.55, 8), cols[i % cols.length], 0, 2.15, 0),
+        part(new THREE.CylinderGeometry(0.06, 0.06, 2.3, 6), 0x8a5a3b, 0, 1.15, 0),
+        part(new THREE.ConeGeometry(1.5, 0.6, 8), cols[i % cols.length], 0, 2.35, 0),
       ]), toonMat({ vertexColors: true }));
-      umb.position.set(pos.x, y, pos.z); umb.castShadow = true;
-      grp.add(umb);
-      g.world.obstacles.push({ x: pos.x, z: pos.z, r: 0.4, h: y });
+      umb.position.set(pos.x, y, pos.z); umb.castShadow = true; grp.add(umb);
+      g.world.obstacles.push({ x: pos.x, z: pos.z, r: 0.45, h: y });
     }
+    buildSeaBuoy(H * 0.68, H * 0.45);
+    buildSeaBuoy(-H * 0.66, H * 0.35);
+    buildSeaBuoy(0, H * 0.72);
+    const p1 = g.world.randomWalkable(r, g.player.pos, 16);
+    buildAncientFountain(p1.x, p1.z, g.world.gh(p1.x, p1.z));
   } else if (g.field === 9) {
-    // 沉沒電光都：水面上發光的電線桿與太陽能屋頂浮台（Hypervoltaic Chronicles 靈感）
-    for (let i = 0; i < 5; i++) {
-      const pos = g.world.randomWalkable(r, g.player.pos, 7);
+    const tower = new THREE.Mesh(mergeGeometries([
+      part(new THREE.CylinderGeometry(1.2, 2.4, 15, 6), 0x627382, 0, 7.5, 0),
+      part(new THREE.TorusGeometry(3.2, 0.28, 6, 12), 0x58e0ff, 0, 11.5, 0, Math.PI / 2, 0, 0),
+      part(new THREE.TorusGeometry(2.2, 0.24, 6, 12), 0xffd25a, 0, 14.2, 0, Math.PI / 2, 0, 0),
+      part(new THREE.OctahedronGeometry(1.1, 0), 0x8cf6ff, 0, 16.0, 0),
+    ]), toonMat({ vertexColors: true }));
+    tower.position.set(0, g.world.gh(0, -H * 0.36), -H * 0.36); tower.castShadow = true;
+    grp.add(tower); g.world.obstacles.push({ x: 0, z: -H * 0.36, r: 2.6, h: tower.position.y });
+    for (let i = 0; i < 8; i++) {
+      const pos = g.world.randomWalkable(r, g.player.pos, 9);
       const y = g.world.gh(pos.x, pos.z);
       const pole = new THREE.Mesh(mergeGeometries([
-        part(new THREE.CylinderGeometry(0.12, 0.16, 4.2, 6), 0x7a543c, 0, 2.1, 0),
-        part(new THREE.BoxGeometry(1.6, 0.12, 0.12), 0x7a543c, 0, 3.6, 0),
-        part(new THREE.BoxGeometry(0.28, 0.32, 0.28), 0xffcf56, -0.65, 3.4, 0),
-        part(new THREE.BoxGeometry(0.28, 0.32, 0.28), 0x58e0ff, 0.65, 3.4, 0),
+        part(new THREE.CylinderGeometry(0.14, 0.18, 4.8, 6), 0x7a543c, 0, 2.4, 0),
+        part(new THREE.BoxGeometry(1.9, 0.14, 0.14), 0x7a543c, 0, 4.1, 0),
+        part(new THREE.BoxGeometry(0.32, 0.36, 0.32), 0xffcf56, -0.75, 3.85, 0),
+        part(new THREE.BoxGeometry(0.32, 0.36, 0.32), 0x58e0ff, 0.75, 3.85, 0),
       ]), toonMat({ vertexColors: true }));
-      pole.position.set(pos.x, y, pos.z); pole.castShadow = true;
-      grp.add(pole);
-      g.world.obstacles.push({ x: pos.x, z: pos.z, r: 0.35, h: y });
+      pole.position.set(pos.x, y, pos.z); pole.castShadow = true; grp.add(pole);
+      g.world.obstacles.push({ x: pos.x, z: pos.z, r: 0.4, h: y });
     }
+    buildSeaBuoy(H * 0.65, H * 0.55);
   }
   g.world.group.add(grp);
 }

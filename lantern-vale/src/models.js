@@ -152,6 +152,34 @@ export function buildMoth() {
   return { root, body, mat: m.material, wings: [wL, wR], wingMat: wm };
 }
 
+// 空中怪物：雲翼飛鰩（Sky-Ray，盤旋於高空，適合跳躍／氣流／滑翔空戰擊落）
+export function buildSkyRay() {
+  const root = new THREE.Group(); const body = new THREE.Group(); root.add(body);
+  const m = mesh(mergeGeometries([
+    part(new THREE.OctahedronGeometry(0.42, 0), 0x4bc8e0, 0, 0, 0.05),
+    part(new THREE.ConeGeometry(0.18, 0.95, 4), 0x2b8ea8, 0, 0, -0.75, -Math.PI / 2, 0, 0),
+    part(new THREE.OctahedronGeometry(0.16, 0), 0xffe066, 0, 0.28, 0.08),
+    ...eyes(0.08, 0.36, 0.13, 1.0),
+  ]));
+  body.add(m);
+  const wingGeo = mergeGeometries([
+    part(new THREE.BoxGeometry(1.1, 0.08, 0.72), 0x6ae2f0, 0.65, 0, -0.05, 0, -0.25, 0),
+    part(new THREE.BoxGeometry(0.45, 0.09, 0.35), 0xffdc6b, 0.95, 0.02, -0.15, 0, -0.25, 0),
+  ]);
+  const wm = toonMat({ vertexColors: true });
+  const wL = new THREE.Mesh(wingGeo, wm), wR = new THREE.Mesh(wingGeo, wm);
+  wR.scale.x = -1; wL.castShadow = wR.castShadow = true;
+  body.add(wL, wR);
+  // 地面投影瞄準圈（讓玩家清楚判斷空中怪物的水平位置）
+  const shadowRing = new THREE.Mesh(
+    new THREE.RingGeometry(0.42, 0.62, 16),
+    new THREE.MeshBasicMaterial({ color: 0x6ae2f0, transparent: true, opacity: 0.65, depthWrite: false, side: THREE.DoubleSide }),
+  );
+  shadowRing.rotation.x = -Math.PI / 2; shadowRing.position.y = 0.06; shadowRing.userData.noNormal = true;
+  root.add(shadowRing);
+  return { root, body, mat: m.material, wings: [wL, wR], shadowRing };
+}
+
 export function buildStag() {
   const root = new THREE.Group(); const body = new THREE.Group(); root.add(body);
   const parts = [

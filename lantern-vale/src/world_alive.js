@@ -7,41 +7,41 @@ import { GOODS, FIELDS } from './frontier.js';
 import { ALL_GEMS, addGemToBag } from './puzzle.js';
 import { makeItem } from './loot.js';
 
-// ======================== 1. 晝夜系統 ========================
+// ======================== 1. 超慢漸進晝夜系統（日頭長 70%、平滑色溫過渡） ========================
 export function dayInfo(dayTime) {
-  // dayTime in [0, 1): 0.00-0.22 晨曦, 0.22-0.58 白晝, 0.58-0.76 黃昏, 0.76-1.00 星夜
+  // 完整週期預設 1200 秒（20 分鐘）：
+  // 0.00-0.08 晨曦（8%）, 0.08-0.74 漫長白晝（66%）, 0.74-0.86 金黃黃昏（12%）, 0.86-1.00 靜謐星夜（14%）
   const t = ((dayTime % 1) + 1) % 1;
-  if (t < 0.22) {
-    const k = t / 0.22;
-    return {
-      phase: 'dawn', label: '晨曦', icon: '🌅', isNight: false,
-      sunAngle: lerp(-0.8, 0.1, k), sunMult: lerp(0.85, 1.05, k), hemiMult: lerp(0.85, 1.0, k),
-      tint: [lerp(1.06, 1.0, k), lerp(0.95, 1.0, k), lerp(0.88, 1.0, k)],
-      lampBoost: lerp(1.5, 1.0, k),
-    };
+  const sm = x => { const c = clamp(x, 0, 1); return c * c * (3 - 2 * c); };
+  const keys = [
+    { t: 0.00, sunAngle: -0.65, sunMult: 0.72, hemiMult: 0.78, tint: [1.02, 0.92, 0.92], lamp: 1.85 },
+    { t: 0.08, sunAngle: -0.10, sunMult: 0.98, hemiMult: 0.98, tint: [1.02, 0.99, 0.96], lamp: 1.05 },
+    { t: 0.40, sunAngle:  0.35, sunMult: 1.02, hemiMult: 1.00, tint: [1.00, 1.00, 1.00], lamp: 0.95 },
+    { t: 0.74, sunAngle:  0.62, sunMult: 0.98, hemiMult: 0.96, tint: [1.03, 0.98, 0.94], lamp: 1.15 },
+    { t: 0.82, sunAngle:  1.05, sunMult: 0.78, hemiMult: 0.82, tint: [1.09, 0.88, 0.80], lamp: 1.65 },
+    { t: 0.88, sunAngle:  1.25, sunMult: 0.56, hemiMult: 0.68, tint: [0.84, 0.84, 1.04], lamp: 2.25 },
+    { t: 0.94, sunAngle: -0.40, sunMult: 0.44, hemiMult: 0.60, tint: [0.74, 0.80, 1.12], lamp: 2.65 },
+    { t: 1.00, sunAngle: -0.65, sunMult: 0.72, hemiMult: 0.78, tint: [1.02, 0.92, 0.92], lamp: 1.85 },
+  ];
+  let a = keys[0], b = keys[1];
+  for (let i = 0; i < keys.length - 1; i++) {
+    if (t >= keys[i].t && t <= keys[i + 1].t) { a = keys[i]; b = keys[i + 1]; break; }
   }
-  if (t < 0.58) {
-    return {
-      phase: 'day', label: '白晝', icon: '☀️', isNight: false,
-      sunAngle: 0.35, sunMult: 1.05, hemiMult: 1.0,
-      tint: [1.0, 1.0, 1.0], lampBoost: 1.0,
-    };
-  }
-  if (t < 0.76) {
-    const k = (t - 0.58) / 0.18;
-    return {
-      phase: 'dusk', label: '黃昏', icon: '🌇', isNight: false,
-      sunAngle: lerp(0.4, 1.15, k), sunMult: lerp(1.0, 0.72, k), hemiMult: lerp(1.0, 0.78, k),
-      tint: [lerp(1.0, 1.12, k), lerp(1.0, 0.84, k), lerp(1.0, 0.76, k)],
-      lampBoost: lerp(1.0, 1.8, k),
-    };
-  }
-  const k = Math.sin(((t - 0.76) / 0.24) * Math.PI);
+  const k = sm((t - a.t) / Math.max(0.0001, b.t - a.t));
+  const phase = t < 0.08 ? 'dawn' : t < 0.74 ? 'day' : t < 0.86 ? 'dusk' : 'night';
+  const meta = {
+    dawn:  { label: '晨曦', icon: '🌅', isNight: false },
+    day:   { label: '白晝', icon: '☀️', isNight: false },
+    dusk:  { label: '黃昏', icon: '🌇', isNight: false },
+    night: { label: '星夜', icon: '🌙', isNight: true },
+  }[phase];
   return {
-    phase: 'night', label: '星夜', icon: '🌙', isNight: true,
-    sunAngle: -0.5, sunMult: lerp(0.55, 0.38, k), hemiMult: lerp(0.68, 0.55, k),
-    tint: [lerp(0.82, 0.68, k), lerp(0.86, 0.76, k), lerp(1.06, 1.18, k)],
-    lampBoost: lerp(2.0, 2.8, k),
+    phase, ...meta,
+    sunAngle: lerp(a.sunAngle, b.sunAngle, k),
+    sunMult: lerp(a.sunMult, b.sunMult, k),
+    hemiMult: lerp(a.hemiMult, b.hemiMult, k),
+    tint: [lerp(a.tint[0], b.tint[0], k), lerp(a.tint[1], b.tint[1], k), lerp(a.tint[2], b.tint[2], k)],
+    lampBoost: lerp(a.lamp, b.lamp, k),
   };
 }
 

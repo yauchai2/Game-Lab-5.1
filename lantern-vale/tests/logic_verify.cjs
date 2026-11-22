@@ -9,22 +9,24 @@ const createGuild = require('../server/guild.cjs');
   const frontier = await import(src('frontier.js'));
   const lodge = await import(src('lodge.js'));
 
-  // 1. Nine persistent regions configured with expected sizes & levels (incl. 3 creative sea/sky zones)
+  // 1. Nine enlarged persistent regions (2x grand scale) & aerial beast assignments
   assert.equal(frontier.FIELDS.length, 10);
   assert.deepEqual(
     frontier.FIELDS.slice(1).map(f => [f.name, f.level, f.size]),
     [
-      ['晨光草原', 1, 60],
-      ['低語森林', 5, 100],
-      ['霧潮沼澤', 10, 60],
-      ['霜冬雪原', 15, 100],
-      ['燼煙火岩區', 20, 60],
-      ['古樹林', 25, 100],
-      ['浮空遺跡群', 12, 76],
-      ['珊瑚潮汐灣', 18, 76],
-      ['沉沒電光都', 24, 76],
+      ['晨光草原', 1, 120],
+      ['低語森林', 5, 180],
+      ['霧潮沼澤', 10, 120],
+      ['霜冬雪原', 15, 180],
+      ['燼煙火岩區', 20, 120],
+      ['古樹林', 25, 200],
+      ['浮空遺跡群', 12, 160],
+      ['珊瑚潮汐灣', 18, 160],
+      ['沉沒電光都', 24, 160],
     ],
   );
+  assert.equal(frontier.FIELDS[7].beast, 'skyray', 'Zone 7 features aerial skyray mobs');
+  assert.equal(frontier.FIELDS[8].beast, 'skyray', 'Zone 8 features aerial skyray mobs');
 
   // 2. Character leveling (capped at 30), material drops, keys & elite rewards
   const toasts = [];
@@ -58,13 +60,17 @@ const createGuild = require('../server/guild.cjs');
   const gGoods = mockGame.meta.p.graves[1].goods;
   assert.equal(gGoods.wood + gGoods.ore + gGoods.fish, 3, 'Grave holds exact dropped materials');
 
-  // 4. Crafting consumes 2 wood + 3 ore and equips a rare item
+  // 4. Crafting consumes 2 wood + 3 ore, equips rare item & preserves replaced gear in physics backpack
   mockGame.meta.p.goods = { wood: 4, ore: 6, fish: 0 };
+  mockGame.player.equip.staff = { name: '舊木燈杖', slot: 'staff', rarity: 0, mods: [] };
+  mockGame.player.equip.cloak = { name: '舊斗篷', slot: 'cloak', rarity: 0, mods: [] };
+  mockGame.player.equip.charm = { name: '舊護符', slot: 'charm', rarity: 0, mods: [] };
   const crafted = frontier.craft(mockGame);
   assert.ok(typeof crafted === 'string' && crafted.length > 0, 'Crafting returns item name');
   assert.equal(mockGame.meta.p.goods.wood, 2);
   assert.equal(mockGame.meta.p.goods.ore, 3);
   assert.ok(Object.values(mockGame.player.equip).some(it => it && it.rarity === 2));
+  assert.ok((mockGame.meta.p.bagItems || []).some(b => b.kind === 'gear' && b.name.startsWith('舊')), 'Replaced gear saved to physics backpack');
 
   // 5. Auction house quotes differentiate goods and return trend labels
   const t0 = 1700000000000;
@@ -139,12 +145,14 @@ const createGuild = require('../server/guild.cjs');
   assert.equal(board2[0].mod.dmgMult, 1.25, 'Adjacent 熾炎增幅 boosts active skill damage +25%');
   assert.equal(board2[0].mod.supports.length, 3, 'Three adjacent support gems linked simultaneously');
 
-  // 8. World Alive expansion: Day/Night, 8 Second Classes, 4 Flashy Skills, 6 Field NPCs
+  // 8. World Alive expansion: Ultra-slow smooth Day/Night (long daytime ~70%), 8 Second Classes, 4 Flashy Skills, 6 Field NPCs
   const alive = await import(src('world_alive.js'));
-  assert.equal(alive.dayInfo(0.1).phase, 'dawn');
-  assert.equal(alive.dayInfo(0.4).phase, 'day');
-  assert.equal(alive.dayInfo(0.65).phase, 'dusk');
-  assert.equal(alive.dayInfo(0.88).isNight, true, 'Night phase sets isNight=true');
+  assert.equal(alive.dayInfo(0.05).phase, 'dawn');
+  assert.equal(alive.dayInfo(0.42).phase, 'day');
+  assert.equal(alive.dayInfo(0.68).phase, 'day', 'Daytime stays long & bright well into afternoon');
+  assert.equal(alive.dayInfo(0.80).phase, 'dusk');
+  assert.equal(alive.dayInfo(0.92).isNight, true, 'Night phase sets isNight=true');
+  assert.ok(Math.abs(alive.dayInfo(0.75).sunMult - alive.dayInfo(0.74).sunMult) < 0.1, 'Day/Night lighting transitions smoothly');
   assert.equal(Object.values(alive.SECOND_CLASSES).flat().length, 8, 'Eight 2nd-tier classes defined');
   assert.equal(Object.keys(alive.FIELD_NPCS).length, 6, 'Six unique field NPCs & quests defined');
   for (const id of ['meteor', 'nova', 'prism', 'phantom']) {
@@ -179,6 +187,7 @@ const createGuild = require('../server/guild.cjs');
   const settings = await import(src('settings.js'));
   assert.deepEqual(Object.keys(settings.KEY_PRESETS), ['arpg', 'poe', 'mmo']);
   assert.equal(settings.KEY_PRESETS.arpg.recall, 'h', 'Default recall hotkey is H');
+  assert.equal(settings.DEFAULTS.camAngle, 0, 'Default camera angle is PoE 2 45-degree oblique');
 
   console.log('ALL LOGIC, PUZZLE, CLASS, WORLD-ALIVE, PHYSBAG, HARBOR & GUILD SERVER CHECKS PASSED');
 })();

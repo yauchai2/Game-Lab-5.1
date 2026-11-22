@@ -9,7 +9,7 @@ export const KEY_PRESETS = {
 };
 
 export const DEFAULTS = {
-  master: 9, music: 6, sfx: 8, pixel: 3, wind: 1, water: 1, shafts: 1, shake: 1, dmg: 1, chat: 1,
+  master: 9, music: 6, sfx: 8, pixel: 3, camAngle: 0, wind: 1, water: 1, shafts: 1, shake: 1, dmg: 1, chat: 1,
   lang: 'zh-TW',
   keybinds: { ...KEY_PRESETS.arpg },
 };
@@ -52,7 +52,7 @@ export function applySettings(g) {
 
 const ROWS = {
   audio: [['master', '主音量', 'num'], ['music', '音樂', 'num'], ['sfx', '音效', 'num']],
-  video: [['pixel', '像素大小', ['', '', '細', '標準', '粗']], ['wind', '風吹草動', ['關', '微風', '強風']], ['water', '水波特效', ['關', '開']], ['shafts', '光柱與風線', ['關', '開']], ['shake', '畫面震動', ['關', '開']], ['dmg', '傷害數字', ['關', '開']], ['chat', '聊天視窗', ['關', '開']]],
+  video: [['pixel', '像素大小', ['', '', '細', '標準', '粗']], ['camAngle', '鏡頭視角', ['斜 45°（PoE 2 推薦）', '高俯視 55°（經典）', '低仰角 36°（宏偉風景）']], ['wind', '風吹草動', ['關', '微風', '強風']], ['water', '水波特效', ['關', '開']], ['shafts', '光柱與風線', ['關', '開']], ['shake', '畫面震動', ['關', '開']], ['dmg', '傷害數字', ['關', '開']], ['chat', '聊天視窗', ['關', '開']]],
 };
 
 const BIND_LABELS = [

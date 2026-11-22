@@ -606,7 +606,7 @@ export class World {
           gl_FragColor = vec4(col, 1.0);
         }`,
     });
-    const g = new THREE.PlaneGeometry(400, 400); g.rotateX(-Math.PI / 2);
+    const g = new THREE.PlaneGeometry(760, 760); g.rotateX(-Math.PI / 2);
     const w = new THREE.Mesh(g, mat);
     w.position.y = WATER_Y; w.renderOrder = -1;
     w.receiveShadow = false;
