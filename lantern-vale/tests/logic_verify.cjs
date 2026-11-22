@@ -136,5 +136,17 @@ const createGuild = require('../server/guild.cjs');
   assert.equal(board2[0].mod.dmgMult, 1.25, 'Adjacent 熾炎增幅 boosts active skill damage +25%');
   assert.equal(board2[0].mod.supports.length, 3, 'Three adjacent support gems linked simultaneously');
 
-  console.log('ALL LOGIC, PUZZLE, CLASS & GUILD SERVER CHECKS PASSED');
+  // 8. World Alive expansion: Day/Night, 8 Second Classes, 4 Flashy Skills, 6 Field NPCs
+  const alive = await import(src('world_alive.js'));
+  assert.equal(alive.dayInfo(0.1).phase, 'dawn');
+  assert.equal(alive.dayInfo(0.4).phase, 'day');
+  assert.equal(alive.dayInfo(0.65).phase, 'dusk');
+  assert.equal(alive.dayInfo(0.88).isNight, true, 'Night phase sets isNight=true');
+  assert.equal(Object.values(alive.SECOND_CLASSES).flat().length, 8, 'Eight 2nd-tier classes defined');
+  assert.equal(Object.keys(alive.FIELD_NPCS).length, 6, 'Six unique field NPCs & quests defined');
+  for (const id of ['meteor', 'nova', 'prism', 'phantom']) {
+    assert.ok(puzzle.ACTIVE_GEMS[id], `Flashy creative skill ${id} registered in puzzle gems`);
+  }
+
+  console.log('ALL LOGIC, PUZZLE, CLASS, WORLD-ALIVE & GUILD SERVER CHECKS PASSED');
 })();

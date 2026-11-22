@@ -1,12 +1,14 @@
 // Procedural audio (WebAudio): zero downloads, zero licensing. Cozy chiptune-ish music + synthesized SFX.
 const SCALES = {
-  meadow: { root: 57, steps: [0, 2, 4, 7, 9], bpm: 92, wave: 'triangle' },   // A major pentatonic
-  autumn: { root: 55, steps: [0, 3, 5, 7, 10], bpm: 84, wave: 'triangle' },  // G minor pentatonic
-  snow:   { root: 62, steps: [0, 2, 4, 7, 9], bpm: 70, wave: 'sine' },
-  ember:  { root: 52, steps: [0, 3, 5, 7, 10], bpm: 100, wave: 'sawtooth' },
-  town:   { root: 60, steps: [0, 2, 4, 7, 9], bpm: 98, wave: 'triangle' },
-  boss:   { root: 50, steps: [0, 3, 5, 6, 7, 10], bpm: 128, wave: 'sawtooth' },
-  title:  { root: 57, steps: [0, 2, 4, 7, 9], bpm: 78, wave: 'sine' },
+  meadow:   { root: 57, steps: [0, 2, 4, 7, 9], bpm: 92, wave: 'triangle' },   // A major pentatonic
+  autumn:   { root: 55, steps: [0, 3, 5, 7, 10], bpm: 84, wave: 'triangle' },  // G minor pentatonic
+  snow:     { root: 62, steps: [0, 2, 4, 7, 9], bpm: 70, wave: 'sine' },
+  ember:    { root: 52, steps: [0, 3, 5, 7, 10], bpm: 100, wave: 'sawtooth' },
+  town:     { root: 60, steps: [0, 2, 4, 7, 9], bpm: 98, wave: 'triangle' },
+  night:    { root: 57, steps: [0, 2, 4, 7, 9], bpm: 64, wave: 'sine' },
+  interior: { root: 62, steps: [0, 2, 4, 7, 9], bpm: 80, wave: 'triangle' },
+  boss:     { root: 50, steps: [0, 3, 5, 6, 7, 10], bpm: 128, wave: 'sawtooth' },
+  title:    { root: 57, steps: [0, 2, 4, 7, 9], bpm: 78, wave: 'sine' },
 };
 const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
 
@@ -149,6 +151,19 @@ export class Audio {
       case 'win': [523, 659, 784, 1047, 784, 1047, 1319].forEach((f, i) => this.tone('triangle', f, f, 0.35, 0.12, i * 0.14)); break;
       case 'dead': [392, 330, 262, 196].forEach((f, i) => this.tone('triangle', f, f * 0.98, 0.5, 0.14, i * 0.22)); break;
       case 'roar': this.tone('sawtooth', 120, 60, 0.8, 0.22); this.noise(t, 0.7, 0.4, 0, this.sfxBus, 700); break;
+      case 'updraft': this.noise(t, 0.55, 0.28, 1200); this.tone('sine', 280, 740, 0.45, 0.1); break;
+      case 'ring': [587, 740, 880, 1175].forEach((f, i) => this.tone('triangle', f, f * 1.02, 0.28, 0.11, i * 0.055)); break;
+      case 'chop': this.noise(t, 0.09, 0.38, 800); this.tone('triangle', 240, 110, 0.1, 0.14); break;
+      case 'mine': this.tone('square', 920, 480, 0.09, 0.11); this.noise(t, 0.08, 0.25, 2400); break;
+      case 'splash': this.noise(t, 0.24, 0.32, 0, this.sfxBus, 1400); this.tone('sine', 420, 680, 0.16, 0.08); break;
+      case 'perfect': [523, 659, 784, 1047, 1319].forEach((f, i) => this.tone('triangle', f, f, 0.3, 0.12, i * 0.05)); break;
+      case 'door': this.tone('triangle', 190, 130, 0.16, 0.14); this.noise(t + 0.05, 0.1, 0.16, 0, this.sfxBus, 600); break;
+      case 'classup': [392, 523, 659, 784, 1047].forEach((f, i) => this.tone('triangle', f, f * 1.01, 0.55, 0.14, i * 0.09)); break;
+      case 'meteor': this.tone('sawtooth', 320, 48, 0.65, 0.22); this.noise(t + 0.2, 0.45, 0.45, 0, this.sfxBus, 650); break;
+      case 'nova': this.tone('sine', 960, 320, 0.45, 0.14); this.noise(t, 0.35, 0.28, 2800); break;
+      case 'prism': [784, 1047, 1319].forEach((f, i) => this.tone('sine', f, f * 1.15, 0.35, 0.1, i * 0.06)); break;
+      case 'campfire': this.noise(t, 0.32, 0.24, 0, this.sfxBus, 900); this.tone('triangle', 220, 340, 0.22, 0.08); break;
+      case 'photo': this.noise(t, 0.05, 0.3, 2500); this.tone('square', 1100, 720, 0.06, 0.07); break;
       default: break;
     }
   }

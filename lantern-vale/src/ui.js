@@ -5,6 +5,7 @@ import { bindCharacters } from './characters.js';
 import { buildPanels } from './panels.js';
 import { loadSettings, applySettings, buildSettingsUI } from './settings.js';
 import { CLASSES, bindPuzzleUI } from './puzzle.js';
+import { dayInfo, findSecondClass, drawRegionMap } from './world_alive.js';
 import * as THREE from 'three';
 import { RARITY, SLOTS, itemLines, itemScore, BOONS } from './loot.js';
 
@@ -24,6 +25,7 @@ export class UI {
     $('btnMute').textContent = game.audio.muted ? '🔇' : '🔊';
     bindWorldMap(game); bindTouch(game); bindPuzzleUI(game);
     const pzBtn = $('sk-puzzle'); if (pzBtn) pzBtn.onclick = () => { if (this.puzzleOpen) this.closePuzzle(); else this.openPuzzle(); };
+    const dayBtn = $('dayInfo'); if (dayBtn) dayBtn.onclick = () => { game.dayTime = ((game.dayTime || 0) + 0.25) % 1; const d = dayInfo(game.dayTime); game.ui.toast(`時間推進至 ${d.icon} ${d.label}`, '#ffe9a0'); };
     for (let i = 0; i < 4; i++) { const el = $('sk-s' + i); if (el) el.onclick = () => game.castHotbar(i); }
     const enterCharacter = bindCharacters(game);
     $('btnTown2').onclick = () => { $('dead').classList.add('hide'); game.party = ''; game.enterTown(); };
@@ -169,7 +171,17 @@ export class UI {
     $('sk-r').querySelector('.cd').style.height = (p.flask.charges >= p.flask.max ? 0 : (1 - p.flask.prog) * 100) + '%';
     const stage = Math.floor(g.depth / 3) + 1, room = g.depth % 3 + 1;
     const cls = CLASSES[g.character?.job ?? 0] || CLASSES[0];
-    $('roomInfo').textContent = g.field ? `【常駐區】${g.biome.name} · ${cls.icon}${cls.name} Lv.${g.meta.p.level}` : g.depth < 0 ? `燈谷鎮 · ${cls.icon}${cls.name} Lv.${g.meta.p.level}` : g.depth === 9 ? '【副本最終】鹿王林地' : `【副本】${g.biome.name} ${stage}-${room}`;
+    const sc2 = findSecondClass(g.meta.p.secondClass);
+    const roleTag = sc2 ? `${sc2.icon}${sc2.name}` : `${cls.icon}${cls.name}`;
+    $('roomInfo').textContent = g.interior ? `🏠 ${g.interior.kind === 'tavern' ? '楓的蘋果酒館' : '旅人小屋'}（室內）` : g.field ? `【常駐區】${g.biome.name} · ${roleTag} Lv.${g.meta.p.level}` : g.depth < 0 ? `燈谷鎮 · ${roleTag} Lv.${g.meta.p.level}` : g.depth === 9 ? '【副本最終】鹿王林地' : `【副本】${g.biome.name} ${stage}-${room}`;
+    const dayEl = $('dayInfo'); if (dayEl) { const di = dayInfo(g.dayTime || 0.3); dayEl.textContent = `${di.icon} ${di.label}`; }
+    if (this.regionMapOpen) {
+      this._rmT = (this._rmT || 0) + 1;
+      if (this._rmT % 4 === 0) {
+        const rmt = $('rmTitle'); if (rmt) rmt.textContent = g.interior ? '室內平面圖' : g.field ? `${g.biome.name} · 地區地圖` : g.depth < 0 ? '燈谷鎮 · 地區地圖' : '副本房間地圖';
+        drawRegionMap(g, $('regionMapCanvas'));
+      }
+    }
     $('killInfo').textContent = '擊敗 ' + p.kills;
     const target=$('fieldTarget');
     let nearest=null, distance=7;
@@ -222,6 +234,11 @@ export class UI {
     }
     return `<div class="iname" style="color:${R.color}">${it.name}</div><div class="ibase">${R.name} · ${SLOTS[it.slot].name} · ${it.base}</div><div class="sep"></div>${lines}${cmp}`;
   }
+  toggleRegionMap(g) {
+    this.regionMapOpen = !this.regionMapOpen;
+    const el = $('regionMap'); if (el) el.classList.toggle('hide', !this.regionMapOpen);
+    if (this.regionMapOpen) drawRegionMap(g, $('regionMapCanvas'));
+  }
   toggleInv(g) {
     this.invOpen = !this.invOpen;
     $('inv').classList.toggle('hide', !this.invOpen);
@@ -234,9 +251,10 @@ export class UI {
       const it = p.equip[k];
       return `<div class="slot"><div class="slotname">${SLOTS[k].icon}</div><div>${it ? this.itemHTML(it) : '<div class="empty">（空）</div>'}</div></div>`;
     }).join('');
-    const progress=g.meta.p, cls = CLASSES[g.character?.job ?? 0] || CLASSES[0];
+    const progress=g.meta.p, cls = CLASSES[g.character?.job ?? 0] || CLASSES[0], sc2 = findSecondClass(progress.secondClass);
     const rows = [
-      ['職業', `${cls.icon} ${cls.name}`],
+      ['職業', sc2 ? `${cls.icon} ${cls.name} → ${sc2.icon} ${sc2.name}` : `${cls.icon} ${cls.name}`],
+      ['公會', progress.guildName || '未加入（可至公會大廳創立）'],
       ['職業被動', cls.summary],
       ['等級 / 經驗', progress.level===30?'30 · 滿級':progress.level+' · '+progress.xp+'/'+(progress.level*40)],
       ['金幣 / 鑰石',progress.coins+' / '+progress.keys],

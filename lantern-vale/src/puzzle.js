@@ -58,8 +58,12 @@ export const ACTIVE_GEMS = {
   wisp:  { id: 'wisp',  type: 'active', name: '螢火護衛', short: '光螢', icon: '✦',  color: '#e5b83b', price: 18, cd: 10.0, mana: 10, shape: [[0,0],[1,0],[2,0]], desc: '召喚環繞自身並自動追蹤敵人的光螢。' },
   rain:  { id: 'rain',  type: 'active', name: '星羽箭雨', short: '箭雨', icon: '🏹', color: '#4c94d8', price: 18, cd: 5.0,  mana: 12, shape: [[0,0],[0,1],[1,1]], desc: '在瞄準區域降下多波星羽流星造成範圍傷害。' },
   trap:  { id: 'trap',  type: 'active', name: '苔霧陷阱', short: '陷阱', icon: '🪤', color: '#8d6cc8', price: 16, cd: 4.0,  mana: 8,  shape: [[0,0],[1,0],[0,1],[1,1]], desc: '在目標地點投出燈苔陷阱，引爆並減速敵人。' },
-  whirl: { id: 'whirl', type: 'active', name: '旋風燈舞', short: '燈舞', icon: '🌀', color: '#d85a7a', price: 18, cd: 4.2,  mana: 10, shape: [[0,0],[1,0],[2,0],[1,1]], desc: '以自身為中心釋放旋轉熾焰燈環斬擊周圍敵人。' },
-  mark:  { id: 'mark',  type: 'active', name: '微弱印記', short: '印記', icon: '🎯', color: '#a84ec8', price: 12, cd: 6.0,  mana: 6,  shape: [[0,0]], desc: '詛咒目標區域，使敵人 6 秒內受到傷害 +30%。' },
+  whirl:   { id: 'whirl',   type: 'active', name: '旋風燈舞', short: '燈舞', icon: '🌀', color: '#d85a7a', price: 18, cd: 4.2,  mana: 10, shape: [[0,0],[1,0],[2,0],[1,1]], desc: '以自身為中心釋放旋轉熾焰燈環斬擊周圍敵人。' },
+  mark:    { id: 'mark',    type: 'active', name: '微弱印記', short: '印記', icon: '🎯', color: '#a84ec8', price: 12, cd: 6.0,  mana: 6,  shape: [[0,0]], desc: '詛咒目標區域，使敵人 6 秒內受到傷害 +30%。' },
+  meteor:  { id: 'meteor',  type: 'active', name: '星隕天降', short: '星隕', icon: '☄',  color: '#e04f2c', price: 28, cd: 6.5,  mana: 14, shape: [[0,0],[1,0],[0,1],[1,1]], desc: '召喚燃燒隕石轟擊目標區域並留下烈焰震波。' },
+  nova:    { id: 'nova',    type: 'active', name: '極光新星', short: '極光', icon: '❄',  color: '#46b0e8', price: 26, cd: 5.8,  mana: 12, shape: [[1,0],[0,1],[1,1],[2,1]], desc: '爆發雙層冰晶極光環，重創並深度冰緩周圍敵人。' },
+  prism:   { id: 'prism',   type: 'active', name: '折光棱鏡', short: '棱鏡', icon: '💎', color: '#38b5a0', price: 26, cd: 7.0,  mana: 12, shape: [[0,0],[0,1],[1,1]], desc: '立起旋轉折光水晶，自動向周圍敵人折射光束。' },
+  phantom: { id: 'phantom', type: 'active', name: '影霧幻陣', short: '幻陣', icon: '🌫', color: '#9c5ad8', price: 26, cd: 5.5,  mana: 10, shape: [[0,0],[1,0],[1,1]], desc: '原地留下發光幻影並瞬移閃避，片刻後引爆重創敵人。' },
 };
 
 export const SUPPORT_GEMS = {

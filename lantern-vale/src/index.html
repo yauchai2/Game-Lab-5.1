@@ -258,6 +258,19 @@ body.holding-gem,body.holding-gem *{cursor:grabbing!important}
 .pz-shop-item{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 8px;background:var(--paper2);border-bottom:2px dotted rgba(59,42,42,.25)}
 .pz-shop-head{display:flex;align-items:center;gap:8px;font-size:13px;line-height:1.35}
 .pz-shop-head small{color:#7a5a46;font-size:12px}
+/* ======== Tab 地區地圖、採集節奏條、晝夜徽章與拍照模式 ======== */
+#dayInfo{pointer-events:auto;cursor:pointer;background:#3f2a20;padding:1px 7px;border-radius:5px;font-size:13px;color:#ffe9a0}
+#regionMap{position:absolute;top:58px;right:12px;width:236px;padding:8px;pointer-events:auto;z-index:20}
+#regionMap .rm-head{display:flex;justify-content:space-between;align-items:center;font-size:13px;margin-bottom:5px;color:#5a3826}
+#regionMapCanvas{display:block;width:220px;height:220px;image-rendering:pixelated;border:2px solid #3b2a2a}
+.rm-leg{display:flex;flex-wrap:wrap;gap:4px 8px;font-size:11px;margin-top:5px;color:#5a3826}
+#gatherMini{position:fixed;left:50%;bottom:132px;transform:translateX(-50%);width:min(380px,90vw);padding:10px 14px;pointer-events:auto;z-index:30;text-align:center}
+.gm-title{font-size:14px;color:#3b2a2a;margin-bottom:8px}
+.gm-track{position:relative;height:20px;background:#4a3a52;border:3px solid #3b2a2a}
+.gm-sweet{position:absolute;left:36%;width:28%;top:0;bottom:0;background:#ffcf4a;opacity:.85}
+.gm-needle{position:absolute;top:-4px;bottom:-4px;width:6px;background:#fff8e4;border:2px solid #3b2a2a;transform:translateX(-50%)}
+body.photo-mode #hud > *:not(#photoBadge){opacity:0!important;pointer-events:none!important}
+#photoBadge{position:fixed;bottom:14px;right:14px;background:#5a3826cc;color:#fff2d6;padding:4px 10px;border-radius:6px;font-size:12px;pointer-events:none}
 </style>
 </head>
 <body>
@@ -266,7 +279,10 @@ body.holding-gem,body.holding-gem *{cursor:grabbing!important}
 <div id="hud" class="hide"><div id="xpWrap"><div id="xpFill"></div></div><div id="fieldTarget" hidden></div><div id="fieldCompass" hidden></div>
   <button id="btnMap" class="mute" title="世界地圖 (M)">地圖</button><button id="btnSet" class="mute set" title="設定 (Esc)">⚙</button><button id="btnMute" class="mute" title="靜音">🔊</button>
   <div id="stam"></div>
-  <div id="topbar" class="panel"><span id="roomInfo"></span><span id="killInfo"></span><span id="shardInfo"></span><span id="coinInfo"></span><span id="mealInfo" hidden></span></div>
+  <div id="topbar" class="panel"><span id="roomInfo"></span><span id="killInfo"></span><span id="shardInfo"></span><span id="coinInfo"></span><span id="dayInfo" title="點擊切換晝夜時段">☀️ 白晝</span><span id="mealInfo" hidden></span></div>
+  <div id="regionMap" class="panel hide"><div class="rm-head"><b id="rmTitle">地區地圖</b><span>Tab 關閉</span></div><canvas id="regionMapCanvas" width="220" height="220"></canvas><div class="rm-leg"><span>▲ 你</span><span style="color:#7a4ac0">● 副本</span><span style="color:#2f8a4e">● 回城</span><span style="color:#d88a00">● 採集/寶箱</span><span style="color:#2a9ab8">● 氣流</span><span style="color:#c83a3a">● 敵人</span></div></div>
+  <div id="gatherMini" class="panel hide"><div class="gm-title"></div><div class="gm-track"><div class="gm-sweet"></div><div class="gm-needle"></div></div></div>
+  <div id="photoBadge" class="hide">📷 拍照純淨模式 · 按 P 恢復介面</div>
   <div id="boss" class="hide"><div class="name"></div><div class="bar"><div class="fill"></div></div></div>
   <div class="orb" id="hpOrb"><div class="fill" id="hpFill"></div><div class="shine"></div><div class="txt" id="hpText"></div></div>
   <div class="orb" id="mpOrb"><div class="fill" id="mpFill"></div><div class="shine"></div><div class="txt" id="mpText"></div></div>
@@ -307,13 +323,13 @@ body.holding-gem,body.holding-gem *{cursor:grabbing!important}
       <b>右鍵</b><span>餘燼彈（消耗法力）</span>
             <b>空白</b><span>單擊＝翻滾（無敵）；連按兩下＝跳起，按住第二下＝滑翔；頂著懸崖＝攀爬</span>
       <b>Shift</b><span>按住＝疾步衝刺（消耗體力羽毛）</span>
-      <b>M</b><span>世界地圖與區域傳送</span>
+      <b>M / Tab</b><span>M 世界地圖傳送 · Tab 地區性地圖</span>
       <b>K</b><span>技能拼圖與寶石商人</span>
       <b>右鍵 / Q / E / C</b><span>施放拼圖主動技能</span>
-      <b>Enter</b><span>聊天；1–4 表情</span>
+      <b>B / P</b><span>B 野外紮營營火 · P 拍照模式</span>
       <b>R</b><span>蜜藥瓶回血（擊殺補充）</span>
-      <b>F</b><span>互動、採集、撿起並裝備</span>
-      <b>Tab</b><span>角色、職業與裝備</span>
+      <b>F</b><span>互動、入屋、節奏採集、撿起裝備</span>
+      <b>I</b><span>角色、職業、二轉與裝備</span>
     </div>
   </details>
   <div class="title-actions"><button class="btn" id="btnStart">進入燈谷鎮</button><button id="btnSetTitle" class="btn small" style="background:var(--teal)">⚙ 設定</button></div>

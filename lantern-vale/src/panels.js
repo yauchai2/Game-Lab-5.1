@@ -1,9 +1,11 @@
 import { rememberGear } from './frontier.js';
 import { drawExchange } from './guild.js';
 import { buildLodge } from './lodge.js';
-// 城鎮互動面板：任務布告欄 / 鐵匠鋪 / 出發地圖桌（A Short Hike 風格的奶油色清單）
+// 城鎮互動面板：任務布告欄 / 鐵匠鋪 / 出發地圖桌 / 公會大廳 / 二轉覺醒 / 野外委託
 import { RARITY, SLOTS, itemLines, FORGE, forgeItem } from './loot.js';
 import { MODS, MOD_MAX } from './meta.js';
+import { CLASSES, ALL_GEMS, addGemToBag } from './puzzle.js';
+import { SECOND_CLASSES, findSecondClass } from './world_alive.js';
 
 const $ = id => document.getElementById(id);
 const esc = t => String(t).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
@@ -60,8 +62,91 @@ export function buildPanels(g) {
     body.querySelectorAll('[data-mod]').forEach(b => b.onclick = () => { if (!M.toggleMod(b.dataset.mod)) g.ui.toast(`最多同時啟用 ${MOD_MAX} 個詞綴`, '#ff9a8a'); else g.audio.sfx('ui'); render(); });
   }
 
+  function renderGuildHall() {
+    title.textContent = '燈谷公會大廳 · 柏叔';
+    const guildName = M.p.guildName || '';
+    body.replaceChildren();
+    const addRow = (h, btn) => { const d = document.createElement('div'); d.className = 'prow'; d.innerHTML = `<div class="pl">${h}</div>`; if (btn) d.append(btn); body.append(d); return d; };
+    if (!guildName) {
+      const inp = document.createElement('input'); inp.placeholder = '輸入公會名稱（如：星燈旅團）'; inp.maxLength = 12; inp.style.cssText = 'font:inherit;padding:4px 8px;background:#fff3d4;border:1px solid #927659;color:#3b2a2a';
+      const joinBtn = document.createElement('button'); joinBtn.className = 'btn small'; joinBtn.textContent = '創立／加入公會';
+      joinBtn.onclick = () => { M.p.guildName = (inp.value.trim() || '星燈旅團'); M.save(); g.audio.sfx('classup'); g.ui.toast(`已加入公會「${M.p.guildName}」！經驗 +10%`, '#ffd85a'); render(); };
+      const r = addRow('<div><b>尚未加入公會</b></div><small>加入後常駐享有「公會增益：經驗 +10% · 採集產量 +1」，並可組隊挑戰共鳴樹庭副本。</small>');
+      r.append(inp, joinBtn);
+    } else {
+      const leaveBtn = document.createElement('button'); leaveBtn.className = 'btn small'; leaveBtn.textContent = '退出公會';
+      leaveBtn.onclick = () => { M.p.guildName = ''; M.save(); render(); };
+      addRow(`<div><b>🏛 公會：${esc(guildName)}</b></div><small>公會增益生效中：擊殺經驗 +10% · 採集額外 +1</small>`, leaveBtn);
+    }
+    const raidBtn = document.createElement('button'); raidBtn.className = 'btn small'; raidBtn.textContent = g.wallet ? '進入共鳴樹庭' : '需連線伺服器'; raidBtn.disabled = !g.wallet;
+    raidBtn.onclick = () => { g.ui.closePanel(); g.net.send({ t: 'raidJoin', code: g.party || M.p.guildName || '燈谷公會' }); };
+    addRow('<div><b>公會組隊副本：共鳴樹庭</b></div><small>最多 4 人連線合作討伐共鳴守護獸，獲勝取得公會幣與共鳴琥珀。</small>', raidBtn);
+    const exBtn = document.createElement('button'); exBtn.className = 'btn small'; exBtn.textContent = '公會交易所'; exBtn.disabled = !g.wallet;
+    exBtn.onclick = () => g.ui.openPanel('exchange');
+    addRow('<div><b>公會真人交易所</b></div><small>與連線旅人自由掛單交易共鳴琥珀（10% 交易稅）。</small>', exBtn);
+    addRow('<div><b>一般地圖副本怎麼進？</b></div><small>在 6 個常駐普通地圖找到發光地標「副本入口」，帶著 1 顆鑰石（擊敗精英掉落或工坊製作）步入即可挑戰逐層副本！</small>');
+  }
+
+  function renderAscend() {
+    const cls = CLASSES[g.character?.job ?? 0] || CLASSES[0];
+    const cur2 = findSecondClass(M.p.secondClass);
+    title.textContent = `星燈覺醒祭壇 · ${cls.icon} ${cls.name}二轉`;
+    body.replaceChildren();
+    const deeds = M.p.deeds || {};
+    const info = document.createElement('div'); info.className = 'psmall';
+    info.textContent = cur2 ? `目前二轉：${cur2.icon} ${cur2.name}（${cur2.desc}）` : `目前等級 Lv.${M.p.level} · 完美採集 ${deeds.perfectGather || 0} 次 · 穿過星環 ${deeds.skyRing || 0} 次 · 擊殺 ${M.p.kills || 0} 隻`;
+    body.append(info);
+    for (const sc of SECOND_CLASSES[cls.id] || []) {
+      const unlocked = M.p.level >= 10 || (deeds.perfectGather || 0) >= 1 || (deeds.skyRing || 0) >= 1 || (M.p.kills || 0) >= 5;
+      const isCur = M.p.secondClass === sc.id;
+      const d = document.createElement('div'); d.className = 'prow';
+      d.innerHTML = `<div class="pl"><b>${sc.icon} ${sc.name}</b> <small>試煉：${sc.trial}</small><br><small>${sc.desc}</small></div>`;
+      const b = document.createElement('button'); b.className = 'btn small' + (isCur ? ' on' : '');
+      b.textContent = isCur ? '已覺醒' : unlocked ? '覺醒二轉' : '試煉覺醒';
+      b.disabled = isCur;
+      b.onclick = () => {
+        M.p.secondClass = sc.id;
+        addGemToBag(M.p, sc.gem);
+        M.save(); g.recalc(); g.audio.sfx('classup');
+        g.ui.toast(`✨ 二轉覺醒：${sc.icon} ${sc.name}！獲贈寶石「${ALL_GEMS[sc.gem].name}」`, '#ffd85a');
+        render();
+      };
+      d.append(b); body.append(d);
+    }
+  }
+
+  function renderFieldQuest() {
+    const fq = g._activeFieldNpc;
+    if (!fq) { g.ui.closePanel(); return; }
+    const q = fq.quest;
+    title.textContent = `${fq.name} · ${q.title}`;
+    body.replaceChildren();
+    M.p.fieldQuests = M.p.fieldQuests || {};
+    const st = M.p.fieldQuests[q.id] || { have: 0, done: false };
+    const p = document.createElement('div'); p.className = 'prow';
+    p.innerHTML = `<div class="pl"><div>${esc(q.desc)}</div><div class="pbar"><i style="width:${Math.min(100, (st.have / q.need) * 100)}%"></i></div><small>進度 ${Math.min(q.need, st.have)}/${q.need} · 獎勵 🪙${q.rewardCoins} · 經驗 +${q.rewardXp} · 隨機拼圖寶石 ×1</small></div>`;
+    const b = document.createElement('button'); b.className = 'btn small';
+    if (st.done) { b.textContent = '已完成 ✔'; b.disabled = true; }
+    else if (st.have >= q.need) {
+      b.textContent = '領取獎勵';
+      b.onclick = () => {
+        st.done = true; M.p.fieldQuests[q.id] = st;
+        M.p.coins += q.rewardCoins; M.p.xp += q.rewardXp;
+        const pool = Object.keys(ALL_GEMS); const gemId = pool[Math.floor(Math.random() * pool.length)];
+        addGemToBag(M.p, gemId);
+        M.save(); g.audio.sfx('perfect');
+        g.ui.toast(`野外委託完成！金幣 +${q.rewardCoins} · 寶石「${ALL_GEMS[gemId].name}」`, '#ffd85a');
+        render();
+      };
+    } else { b.textContent = '進行中'; b.disabled = true; }
+    p.append(b); body.append(p);
+  }
+
   function render() { M = g.meta; head();
     if (kind === 'exchange') { drawExchange(g,body,title); return; }
+    if (kind === 'guild') { renderGuildHall(); return; }
+    if (kind === 'ascend') { renderAscend(); return; }
+    if (kind === 'field_quest') { renderFieldQuest(); return; }
     if (['home','market','workshop'].includes(kind)) { buildLodge(g, body, title, kind); return; }
     ({ quest: renderQuest, forge: renderForge, map: renderMap })[kind]();
     if (kind === 'forge') {

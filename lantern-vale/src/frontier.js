@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { BIOMES, mulberry32 } from './util.js';
 import { makeItem, serializeItem, deserializeItem } from './loot.js';
 import { ALL_GEMS, addGemToBag } from './puzzle.js';
+import { spawnSkyFeatures, startGatherMini, openHighChest, FIELD_NPCS } from './world_alive.js';
 
 export const GOODS = { wood: '香杉木', ore: '星紋礦', fish: '溪銀魚' };
 export const FIELDS = [
@@ -29,9 +30,16 @@ export function restoreGear(g, player) {
 export function awardKill(g, enemy) {
   const p = g.meta.p;
   const level = enemy.level || Math.min(30, g.depth * 2 + 1);
-  p.xp += 10 + level * (enemy.elite ? 4 : 2);
+  const mult = (g.isNight ? 1.25 : 1) * (p.guildName ? 1.1 : 1);
+  p.xp += Math.round((10 + level * (enemy.elite ? 4 : 2)) * mult);
   p.coins += enemy.elite ? 5 : 2;
   p.species[enemy.type] = (p.species[enemy.type] || 0) + 1;
+  if (g.field && FIELD_NPCS[g.field]) {
+    const qid = FIELD_NPCS[g.field].quest.id;
+    p.fieldQuests = p.fieldQuests || {};
+    const st = p.fieldQuests[qid] || { have: 0, done: false };
+    if (!st.done) { st.have++; p.fieldQuests[qid] = st; }
+  }
   while (p.level < 30 && p.xp >= p.level * 40) {
     p.xp -= p.level * 40; p.level++;
     g.ui.toast('旅人等級提升至 ' + p.level, '#ffdc80'); g.recalc();
@@ -92,8 +100,9 @@ export function setupField(g) {
   }
   const grave = g.meta.p.graves[g.field];
   if (grave) addSpot(g,'grave','取回墓碑素材',grave.x,grave.z);
+  spawnSkyFeatures(g);
   g.fieldClock = 0; g.dueling = false;
-  g.ui.banner(f.name,'常駐地區 · 等級 ' + f.level + ' 起');
+  g.ui.banner(f.name,'【常駐普通地圖】等級 ' + f.level + ' 起 · 免清怪自由探索');
 }
 export function tickField(g, dt) {
   g.fieldClock -= dt;
@@ -119,19 +128,51 @@ export function tickField(g, dt) {
 }
 export function useFieldSpot(g,s) {
   const p = g.meta.p;
+  if (s.kind === 'chest') return openHighChest(g, s);
+  if (s.kind === 'field_quest') {
+    g._activeFieldNpc = s.npcDef;
+    if (s.bot) { s.bot.tf = Math.atan2(g.player.pos.x - s.bot.x, g.player.pos.z - s.bot.z); s.bot.wait = 6; }
+    g.audio.sfx('ui'); g.ui.openPanel('field_quest'); return true;
+  }
   if (s.kind === 'grave') {
     const grave = p.graves[g.field]; if (!grave) return false;
     for (const kind of Object.keys(GOODS)) p.goods[kind] += grave.goods[kind];
     delete p.graves[g.field]; s.mesh.visible = false; g.spots = g.spots.filter(it => it.mesh !== s.mesh);
     g.ui.toast('已取回墓碑中的素材', '#ffe08a');
+    g.meta.save(); return true;
   } else {
     const key = g.field + ':' + s.kind;
-    if (!GOODS[s.kind] || p.timers[key] > Date.now()) return false;
-    const yieldCount = g.worldEvent ? 4 : 3;
-    p.goods[s.kind] += yieldCount; p.timers[key] = Date.now() + 30000; s.mesh.visible = false;
-    g.ui.toast(GOODS[s.kind] + ' +' + yieldCount,'#ffe08a');
+    if (!GOODS[s.kind] || p.timers[key] > Date.now() || g.gatherActive) return false;
+    const collect = (perfect) => {
+      const base = (g.worldEvent ? 4 : 3) + (p.guildName ? 1 : 0);
+      const yieldCount = perfect ? base * 2 : base;
+      p.goods[s.kind] += yieldCount; p.timers[key] = Date.now() + 30000; s.mesh.visible = false;
+      if (perfect) {
+        p.coins += 5;
+        if (s.kind === 'ore' && Math.random() < 0.5) {
+          const pool = Object.keys(ALL_GEMS); const gid = pool[Math.floor(Math.random() * pool.length)];
+          addGemToBag(p, gid); g.ui.toast(`✨ 完美採集！${GOODS[s.kind]} +${yieldCount} · 寶石「${ALL_GEMS[gid].name}」`, '#ffd85a');
+        } else {
+          g.ui.toast(`✨ 完美採集！${GOODS[s.kind]} +${yieldCount} · 金幣 +5`, '#ffd85a');
+        }
+      } else {
+        g.ui.toast(GOODS[s.kind] + ' +' + yieldCount, '#ffe08a');
+      }
+      if (g.field === 1 && FIELD_NPCS[1]) {
+        p.fieldQuests = p.fieldQuests || {};
+        const st = p.fieldQuests.q_f1 || { have: 0, done: false };
+        if (!st.done) { st.have++; p.fieldQuests.q_f1 = st; }
+      }
+      g.meta.save();
+    };
+    if (typeof document !== 'undefined' && document.getElementById('gatherMini')) {
+      g.player.swing = 1; g.player.swingT = 0.25;
+      startGatherMini(g, s, collect);
+    } else {
+      collect(false);
+    }
+    return true;
   }
-  g.meta.save(); return true;
 }
 export function leaveGrave(g) {
   const p = g.meta.p, field = g.field || g.originField || 1;
