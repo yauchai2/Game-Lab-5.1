@@ -210,5 +210,29 @@ const createGuild = require('../server/guild.cjs');
   assert.equal(settings.KEY_PRESETS.arpg.recall, 'h', 'Default recall hotkey is H');
   assert.equal(settings.DEFAULTS.camAngle, 0, 'Default camera angle is PoE 2 45-degree oblique');
 
-  console.log('ALL 10 LOGIC, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
+  // 11. Cairn-style Physics Backpack Collision Synthesis & PoE2/AutoWanderer Encyclopedia + Changelog
+  assert.ok(physbag.BAG_RECIPES.length >= 3, 'At least 3 physics collision synthesis recipes defined');
+  const berry = { uid: 'b1', kind: 'consumable', icon: '🍓', name: '山谷甜莓' };
+  const cider = { uid: 'c1', kind: 'consumable', icon: '🍺', name: '楓糖蘋果酒' };
+  const rec = physbag.findRecipe(berry, cider);
+  assert.ok(rec && rec.type === 'recipe' && rec.recipe.out.icon === '🍹', 'Berry + Cider matches 微醺莓果特調 recipe');
+  const synthMockGame = {
+    meta: { p: { level: 5, bagItems: [berry, cider] }, save() {} },
+    audio: { sfx() {} },
+    ui: { toast() {} },
+  };
+  const fused = physbag.synthesizeBagItems(synthMockGame, berry, cider, 'bagItems');
+  assert.equal(fused.name, '微醺莓果特調', 'Collision synthesis produces 微醺莓果特調');
+  assert.equal(synthMockGame.meta.p.bagItems.length, 1, 'Consumes both source items and inserts fused item');
+  const gA = { uid: 'g1', kind: 'gear', name: '木杖', item: { name: '木杖', slot: 'staff', rarity: 0, mods: [] } };
+  const gB = { uid: 'g2', kind: 'gear', name: '布袍', item: { name: '布袍', slot: 'cloak', rarity: 0, mods: [] } };
+  synthMockGame.meta.p.bagItems = [gA, gB];
+  const upgraded = physbag.synthesizeBagItems(synthMockGame, gA, gB, 'bagItems');
+  assert.equal(upgraded.item.rarity, 1, 'Two same-rarity gears collide and fuse into higher rarity');
+
+  const codex = await import(src('codex.js'));
+  assert.equal(codex.GAME_VERSION, 'v0.7.0', 'Codex exports current version v0.7.0');
+  assert.ok(codex.CHANGELOG.length >= 4, 'Changelog contains structured version history');
+
+  console.log('ALL 11 LOGIC, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
 })();

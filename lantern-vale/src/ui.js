@@ -8,7 +8,8 @@ import { CLASSES, bindPuzzleUI } from './puzzle.js';
 import { dayInfo, findSecondClass, drawRegionMap } from './world_alive.js';
 import { COSMETICS } from './harbor.js';
 import { applyCosmetics } from './models.js';
-import { PhysicsContainer, ensurePhysicsStorage, useBagItem, transferBagItem } from './physbag.js';
+import { PhysicsContainer, ensurePhysicsStorage, useBagItem, transferBagItem, synthesizeBagItems } from './physbag.js';
+import { bindCodexUI } from './codex.js';
 import { FluidVial } from './vials.js';
 import { t } from './i18n.js';
 import * as THREE from 'three';
@@ -32,7 +33,7 @@ export class UI {
     game.settings = loadSettings(); buildPanels(game); buildSettingsUI(game); applySettings(game);
     $('btnMute').onclick = () => { game.audio.init(); const m = game.audio.toggleMute(); $('btnMute').textContent = m ? '🔇' : '🔊'; };
     $('btnMute').textContent = game.audio.muted ? '🔇' : '🔊';
-    bindWorldMap(game); bindTouch(game); bindPuzzleUI(game);
+    bindWorldMap(game); bindTouch(game); bindPuzzleUI(game); bindCodexUI(game);
     const pzBtn = $('sk-puzzle'); if (pzBtn) pzBtn.onclick = () => { if (this.puzzleOpen) this.closePuzzle(); else this.openPuzzle(); };
     const bagBtn = $('sk-bag'); if (bagBtn) bagBtn.onclick = () => this.toggleInv(game, 'bag');
     const recBtn = $('sk-recall'); if (recBtn) recBtn.onclick = () => game.startRecall?.();
@@ -83,6 +84,7 @@ export class UI {
         theme: 'bag',
         onSelect: it => showSel('bagSelInfo', 'bagBtns', it, 'bagItems'),
         onDoubleClick: it => { useBagItem(game, it, 'bagItems'); this.syncPhysBags(game); this.renderInv(game, true); },
+        onSynthesize: (a, b, mx, my) => { synthesizeBagItems(game, a, b, 'bagItems', mx, my); this.syncPhysBags(game); showSel('bagSelInfo', 'bagBtns', null, 'bagItems'); },
       });
     }
     if (stashCv) {
@@ -90,6 +92,7 @@ export class UI {
         theme: 'stash',
         onSelect: it => showSel('stashSelInfo', 'stashBtns', it, 'stashItems'),
         onDoubleClick: it => { transferBagItem(game, it, 'stashItems', 'bagItems'); this.syncPhysBags(game); },
+        onSynthesize: (a, b, mx, my) => { synthesizeBagItems(game, a, b, 'stashItems', mx, my); this.syncPhysBags(game); showSel('stashSelInfo', 'stashBtns', null, 'stashItems'); },
       });
     }
     const sb = $('btnShakeBag'); if (sb) sb.onclick = () => { this.bagPhys?.shake(); game.audio.sfx('roll'); };
@@ -211,10 +214,12 @@ export class UI {
     const [sx, sy] = this.screenPos(near.x, 4.4, near.z);
     el.style.display = 'block'; el.style.left = sx + 'px'; el.style.top = sy + 'px';
     const nextF = FIELDS[(g.field || 1) + 1];
+    const prevF = FIELDS[(g.field || 1) - 1];
     el.textContent = {
       item: '前路：稀有裝備', boon: '前路：天賦祝福', heal: '前路：溫泉休憩',
       run: '前往晨光草原（常駐普通地圖）', town: '返回燈谷鎮（免清怪）',
-      nextField: nextF ? `道路前往：${nextF.name}（Lv.${nextF.level}）` : '返回海風港鎮',
+      prevField: prevF ? `返回上一區：${prevF.name}（Lv.${prevF.level}）` : '返回燈谷鎮',
+      nextField: nextF ? `前往下一區：${nextF.name}（Lv.${nextF.level}）` : '返回海風港鎮',
       dungeon: '消耗 1 鑰石 · 進入副本地圖',
     }[near.type] || '傳送門';
     if (near.type === 'dungeon' && FIELDS[g.field]) el.textContent = '【副本地圖】' + FIELDS[g.field].dungeon + ' · 鑰石 ×1';

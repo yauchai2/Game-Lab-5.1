@@ -9,7 +9,7 @@ import { t } from './i18n.js';
 import * as THREE from 'three';
 import { World, toonMat, HALF, windU } from './world.js';
 import { BIOMES, mulberry32, clamp, lerp, angleLerp, rand, pick } from './util.js';
-import { buildTownScenery } from './town.js';
+import { buildTownScenery, buildGuildKiosk, buildAwakenAltar, buildWardrobe } from './town.js';
 import { loadSettings, applySettings, buildSettingsUI } from './settings.js';
 import { showWeapon, applyCosmetics, buildPlayer, buildNPC, buildSlime, buildThorn, buildBoar, buildMoth, buildSkyRay, buildStag, buildArch, buildHouse, buildFountain, buildBoard, buildStall } from './models.js';
 import { Net } from './net.js';
@@ -113,7 +113,7 @@ export class Game {
     this.playerName = '旅人'; this.hoodIdx = 0; this.posT = 0;
     this.dayTime = 0.28; this.isNight = false; this.campfires = []; this.prisms = []; this.interior = null; this.photoMode = false;
     this.recallT = 0; this.sailing = null; this.lastTown = -1; this.waypoint = null; this.worldBoxes = [];
-    this.zoneStates = new Map(); this.camZoom = 1.0;
+    this.zoneStates = new Map(); this.camZoom = 1.0; this.camYaw = 0; this.camDrag = null; this.exitCooldown = 0; this.groundZones = []; this.physProps = [];
     this.bindInput();
     this.setupNet(); bindGuild(this);
     // title scene: a pretty room in the background
@@ -124,7 +124,7 @@ export class Game {
   // ---------------- input ----------------
   bindInput() {
     const CODE = { KeyW: 'w', KeyA: 'a', KeyS: 's', KeyD: 'd', ArrowUp: 'arrowup', ArrowDown: 'arrowdown', ArrowLeft: 'arrowleft', ArrowRight: 'arrowright',
-      Space: ' ', ShiftLeft: 'shift', ShiftRight: 'shift', KeyQ: 'q', KeyE: 'e', KeyC: 'c', KeyK: 'k', KeyR: 'r', KeyF: 'f', KeyI: 'i', KeyM: 'm', KeyB: 'b', KeyP: 'p', KeyH: 'h', KeyG: 'g', KeyV: 'v', Tab: 'tab', Escape: 'escape', Enter: 'enter', KeyT: 't', Digit1: '1', Digit2: '2', Digit3: '3', Digit4: '4', Digit5: '5', Digit6: '6', Digit7: '7', Digit8: '8', Digit9: '9', Digit0: '0' };
+      Space: ' ', ShiftLeft: 'shift', ShiftRight: 'shift', KeyQ: 'q', KeyE: 'e', KeyC: 'c', KeyK: 'k', KeyR: 'r', KeyF: 'f', KeyI: 'i', KeyM: 'm', KeyB: 'b', KeyP: 'p', KeyH: 'h', KeyG: 'g', KeyV: 'v', KeyZ: 'z', KeyX: 'x', Slash: '/', Tab: 'tab', Escape: 'escape', Enter: 'enter', KeyT: 't', Digit1: '1', Digit2: '2', Digit3: '3', Digit4: '4', Digit5: '5', Digit6: '6', Digit7: '7', Digit8: '8', Digit9: '9', Digit0: '0' };
     const typing = () => { const a = document.activeElement; return a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA'); };
     addEventListener('keydown', e => {
       if (this.raid && e.code === 'Escape') { this.net.send({t:'raidLeave'}); return; }
@@ -179,14 +179,25 @@ export class Game {
         if (!usedBind && ['1', '2', '3', '4'].includes(k)) this.emote(+k - 1);
         if (k === 'enter' || (k === 't' && !usedBind)) { if (this.ui.focusChat?.()) e.preventDefault(); }
         if (k === 'i' && !this.ui.setOpen && !this.ui.panelOpen) this.ui.toggleInv(this);
-        if (k === 'escape') { if (this.photoMode) this.togglePhotoMode(); else if (this.ui.regionMapOpen) this.ui.toggleRegionMap?.(this); else if (this.ui.panelOpen) this.ui.closePanel(); else if (this.ui.setOpen) this.ui.closeSettings(); else if (this.ui.invOpen) this.ui.toggleInv(this); else this.ui.toggleSettings(); }
+        if (k === '/') { this.camYaw = 0; this.ui.toast('🎥 視角已回正', '#fff8e4'); }
+        if (k === 'escape') { if (this.ui.codexOpen) this.ui.closeCodex?.(); else if (this.photoMode) this.togglePhotoMode(); else if (this.ui.regionMapOpen) this.ui.toggleRegionMap?.(this); else if (this.ui.panelOpen) this.ui.closePanel(); else if (this.ui.setOpen) this.ui.closeSettings(); else if (this.ui.invOpen) this.ui.toggleInv(this); else this.ui.toggleSettings(); }
       } else if (this.state === 'boon' && ['1', '2', '3'].includes(k)) this.ui.pickBoonIndex(+k - 1);
     });
     addEventListener('keyup', e => { const k = CODE[e.code] ?? e.key.toLowerCase(); this.keys[k] = false; this.keys[e.key.toLowerCase()] = false; });
     const cv = this.pipe.renderer.domElement;
-    addEventListener('mousemove', e => { this.mouse.x = e.clientX; this.mouse.y = e.clientY; });
-    cv.addEventListener('mousedown', e => { this.audio.init(); window.focus(); if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur(); if (e.button === 0) this.mouse.l = true; if (e.button === 2) this.mouse.r = true; cv.classList.add('aiming'); });
-    addEventListener('mouseup', e => { if (e.button === 0) this.mouse.l = false; if (e.button === 2) this.mouse.r = false; if (!this.mouse.l && !this.mouse.r) cv.classList.remove('aiming'); });
+    addEventListener('mousemove', e => {
+      this.mouse.x = e.clientX; this.mouse.y = e.clientY;
+      if (this.camDrag) {
+        const dx = e.clientX - this.camDrag.x;
+        this.camYaw = clamp(this.camDrag.yaw - dx * 0.0045, -0.62, 0.62);
+      }
+    });
+    cv.addEventListener('mousedown', e => {
+      this.audio.init(); window.focus(); if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
+      if (e.button === 1) { e.preventDefault(); this.camDrag = { x: e.clientX, yaw: this.camYaw }; return; }
+      if (e.button === 0) this.mouse.l = true; if (e.button === 2) this.mouse.r = true; cv.classList.add('aiming');
+    });
+    addEventListener('mouseup', e => { if (e.button === 1) this.camDrag = null; if (e.button === 0) this.mouse.l = false; if (e.button === 2) this.mouse.r = false; if (!this.mouse.l && !this.mouse.r) cv.classList.remove('aiming'); });
     addEventListener('contextmenu', e => e.preventDefault());
     cv.addEventListener('wheel', e => {
       if (this.state !== 'play' || this.ui.invOpen || this.ui.setOpen || this.ui.panelOpen || this.ui.puzzleOpen || this.ui.mapDialog?.open) return;
@@ -294,15 +305,20 @@ export class Game {
     if (this.field && this.field !== id) this.saveFieldState();
     if (!this.field && this.depth >= 0 && !this.runEnded) this.bankRun(1);
     this.worldEvent = null; this.field = id; this.originField = id; this.state = 'play';
+    this.exitCooldown = 1.6;
     const restored = this.zoneStates.has(id);
     this.loadRoom(FIELDS[id].biome * 3, null, false, { fromDir });
     setupField(this, restored);
     if (restored) this.restoreFieldState(id);
-    // 依進入方向將玩家放在對應入口閘門內側（避免每次都回到同一預設點）
-    const matchExit = this.exits.find(x => (fromDir === 'north' && x.type === 'dungeon') || (fromDir === 'east' && x.type === 'nextField') || (fromDir === 'south' && x.type === 'town'));
+    // 抵達新地圖後，將玩家放在「返回上一張地圖的傳送門」旁 4.8m 內側（並設冷卻防誤觸）
+    const matchExit = this.exits.find(x =>
+      (fromDir === 'north' && x.type === 'dungeon') ||
+      (fromDir === 'east' && x.type === 'nextField') ||
+      (fromDir === 'south' && (x.type === 'prevField' || x.type === 'town'))
+    );
     if (matchExit) {
       const ang = Math.atan2(-matchExit.x, -matchExit.z);
-      const sx = matchExit.x + Math.sin(ang) * 3.8, sz = matchExit.z + Math.cos(ang) * 3.8;
+      const sx = matchExit.x + Math.sin(ang) * 4.8, sz = matchExit.z + Math.cos(ang) * 4.8;
       if (this.world.isLand(sx, sz)) {
         this.player.pos.set(sx, this.world.gh(sx, sz), sz);
         this.player.y = this.player.pos.y;
@@ -369,12 +385,14 @@ export class Game {
   get zone() { if (this.field) return 'field:' + this.field; return this.state === 'title' ? 'title' : this.depth === -2 ? 'harbor' : this.depth < 0 ? 'town' : `run:${this.party || 'solo' + (this.net.id || '')}:${this.depth}`; }
   biomeFor(depth) { return depth >= 9 ? 3 : ((Math.floor(depth / 3) + (FIELDS[this.originField]?.biome || 0)) % 4); }
   loadRoom(depth, reward, title = false, extra = {}) {
-    this.depth = depth; this.reward = reward;
+    this.depth = depth; this.reward = reward; this.exitCooldown = 1.6;
     if (this.interior) { this.scene.remove(this.interior.group); this.interior = null; }
     if (this.sailing?.boat) { this.scene.remove(this.sailing.boat); } this.sailing = null; this.recallT = 0;
     if (this.world?.group) this.world.group.visible = true;
     for (const cf of this.campfires || []) { this.scene.remove(cf.grp); } this.campfires = [];
     for (const pr of this.prisms || []) { this.scene.remove(pr.mesh); } this.prisms = [];
+    for (const gz of this.groundZones || []) { this.scene.remove(gz.mesh); } this.groundZones = [];
+    for (const pp of this.physProps || []) { this.scene.remove(pp.mesh); } this.physProps = [];
     for (const e of this.enemies) this.scene.remove(e.m.root);
     for (const a of [...this.projs, ...this.eprojs, ...this.decals, ...this.slashes, ...this.rings]) this.scene.remove(a.mesh);
     for (const d of this.drops) this.scene.remove(d.g);
@@ -392,32 +410,28 @@ export class Game {
     const B = this.field ? fieldBiome(this.field) : harbor ? { ...BIOMES[0], name: '海風港鎮', ground: 0xe6d29a, sky: 0x9ed8ff, sun: 0xfff5d6 } : BIOMES[bi]; this.biome = B;
     this.boss = null; this.ui.bossBar(false);
     const weather = FIELDS[this.field]?.fog;
-    // 改用線性遠距霧效（近中景 100% 清晰，只柔和遠景地平線）
     this.scene.fog = weather ? new THREE.Fog(weather, 40, 118) : null;
     const boss = depth === 9 && !title && !this.field;
     const seed = this.field ? 7201 + this.field * 319 : title ? 4242 : harbor ? 9002 : town ? 9001 : (this.runSeed || 1) + depth * 101;
     this.rng = mulberry32(seed + 77);
     const { spawn, exits } = this.world.generate(seed, B, { boss, town: anyTown, raid: !!extra.raid, cardinalExits: !!this.field, size: FIELDS[this.field]?.size, exitCount: extra.raid ? 0 : this.field ? (FIELDS[this.field + 1] ? 3 : 2) : town ? 1 : harbor ? 0 : boss ? 0 : (depth === 0 ? 2 : (this.rng() < 0.5 ? 2 : 3)) });
-    // 校正光照倍率避免白晝過曝（特別是雪原與沙灘）
     this.sun.color.set(B.sun); this.sun.intensity = B.sunI * 1.45;
     this.hemi.color.set(B.sky); this.hemi.groundColor.set(B.ground); this.hemi.intensity = B.ambient * 1.15;
     this.pipe.postMat.uniforms.uGrade.value.set(...B.grade);
     this.pipe.postMat.uniforms.uShaft.value.set(...B.shaft);
-    // player（依進入方向對應出生位置：北門返鎮、碼頭下船或預設廣場）
-    const p = this.player;
-    if (town && extra.fromDir === 'north') { p.pos.set(0, 0, -13.5); p.facing = 0; }
+    const p = this.player; p.sitting = null;
+    if (town && extra.fromDir === 'north') { p.pos.set(0, 0, -13.0); p.facing = 0; }
     else if (anyTown && extra.fromDir === 'pier') { p.pos.set(0, 0.3, 23.2); p.facing = Math.PI; }
     else { p.pos.set(spawn.x, 0, harbor ? 8.5 : spawn.z); p.facing = Math.PI; }
     p.vel.set(0, 0, 0); p.roll = 0;
     this.camPos.set(p.pos.x, 0, p.pos.z);
-    // exits (inactive until cleared in dungeons; always open in town & persistent normal maps)
     const types = ['item', 'boon', 'heal'];
     const pool = depth === 0 ? ['boon', 'item'] : types.slice().sort(() => this.rng() - 0.5);
     if (town) { this.makeExit(exits[0], 'run'); this.exits[0].on = true; this.buildTown(); }
     else if (harbor) { this.buildHarbor(); }
     else if (this.field) {
       this.makeExit(exits[0], 'dungeon'); this.exits[0].on = true;
-      if (exits[1]) { this.makeExit(exits[1], 'town'); this.exits[1].on = true; }
+      if (exits[1]) { this.makeExit(exits[1], this.field === 1 ? 'town' : 'prevField'); this.exits[1].on = true; }
       if (exits[2] && FIELDS[this.field + 1]) { this.makeExit(exits[2], 'nextField'); this.exits[2].on = true; }
     }
     else exits.forEach((e, i) => this.makeExit(e, pool[i % pool.length]));
@@ -453,7 +467,7 @@ export class Game {
     const g = (type === 'dungeon' && this.field) ? buildDungeonLandmark(this.biome, this.field) : buildArch(this.biome);
     g.position.set(e.x, 0, e.z);
     const toC = Math.atan2(-e.x, -e.z); g.rotation.y = toC;
-    const col = { item: 0xffd85a, boon: 0xc08cff, heal: 0xff6b6b, dungeon: 0xb399ec, run: 0x6fe0d0, town: 0x58c896, nextField: 0x62e0a8 }[type];
+    const col = { item: 0xffd85a, boon: 0xc08cff, heal: 0xff6b6b, dungeon: 0xb399ec, run: 0x6fe0d0, town: 0x58c896, prevField: 0x58c896, nextField: 0x62e0a8 }[type];
     const disc = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 2.2), new THREE.ShaderMaterial({
       uniforms: { uT: { value: 0 }, uC: { value: new THREE.Color(col) }, uOn: { value: 0 } }, transparent: true, depthWrite: false, side: THREE.DoubleSide,
       vertexShader: decalVS,
@@ -856,23 +870,25 @@ export class Game {
       p.wispT = 7 + (this.has('swarm') ? 3 : 0);
     } else if (id === 'rain') {
       this.audio.sfx('bolt');
-      const tx = this.aim.x, tz = this.aim.z, waves = 2 + Math.floor(mod.multi / 2), R = 2.6 * areaMul;
+      const tx = this.aim.x, tz = this.aim.z, waves = 2 + Math.floor(mod.multi / 2), R = 2.8 * areaMul;
       for (let w = 0; w < waves; w++) {
         this.addDecal('circle', tx + (Math.random() - 0.5) * 1.4, tz + (Math.random() - 0.5) * 1.4, R, mod.fire ? 0xff9a4a : 0x6cb8ff, 0.45 + w * 0.28, null, () => {
-          this.shockRing(tx, tz, R, this.rollDamage(1.45 * dmgMul, mod.fire), mod.fire ? 0xffa850 : 0x8cd0ff, 0, { slow, leech });
+          this.shockRing(tx, tz, R, this.rollDamage(1.3 * dmgMul, mod.fire), mod.fire ? 0xffa850 : 0x8cd0ff, 0, { slow, leech });
           this.fx.burst(tx, 1.5, tz, 14, { c: [0xfff4d0, 0x6cb8ff], s: 0.12, speed: 4, up: -2, life: 0.45 });
         });
       }
+      this.spawnGroundZone('rain', tx, tz, R, 4.5, 0.65 * dmgMul, { color: mod.fire ? 0xff9a4a : 0x6cb8ff, fire: mod.fire, slow, leech });
       p.swing = 1; p.swingT = 0.2;
     } else if (id === 'trap') {
       this.audio.sfx('ui');
       const dist = Math.min(6, Math.hypot(this.aim.x - p.pos.x, this.aim.z - p.pos.z));
       const tx = p.pos.x + dir.x * dist, tz = p.pos.z + dir.y * dist;
-      const R = 2.8 * areaMul;
-      this.addDecal('circle', tx, tz, R, 0xa882e8, 0.9, null, () => {
+      const R = 3.0 * areaMul;
+      this.addDecal('circle', tx, tz, R, 0x6fe06a, 0.75, null, () => {
         this.audio.sfx('slam');
-        this.shockRing(tx, tz, R, this.rollDamage(2.1 * dmgMul, mod.fire), 0xc09aff, 0.5, { slow: Math.max(slow, 2.5), leech });
-        this.puffs.burst(tx, 0.3, tz, 14, { c: [0xa882e8, 0x8ae0a0], s: 0.24, speed: 4, up: 4, life: 0.65 });
+        this.shockRing(tx, tz, R, this.rollDamage(1.8 * dmgMul, mod.fire), 0x6fe06a, 0.4, { slow: Math.max(slow, 2.5), leech });
+        this.spawnGroundZone('poison', tx, tz, R, 5.2, 0.55 * dmgMul, { color: 0x52c868, poison: 5.0, slow: 1.6 });
+        this.puffs.burst(tx, 0.3, tz, 14, { c: [0x6fe06a, 0xa882e8], s: 0.24, speed: 4, up: 4, life: 0.65 });
       });
     } else if (id === 'whirl') {
       this.audio.sfx('swing');
@@ -898,7 +914,8 @@ export class Game {
         const mx = tx + ox, mz = tz + oz;
         this.addDecal('circle', mx, mz, R, 0xff6a30, 0.55 + i * 0.22, null, () => {
           this.audio.sfx('slam');
-          this.shockRing(mx, mz, R, this.rollDamage(2.5 * dmgMul, true), 0xff8c40, 0.8, { slow, leech });
+          this.shockRing(mx, mz, R, this.rollDamage(2.2 * dmgMul, true), 0xff8c40, 0.7, { slow, leech });
+          if (i === 0) this.spawnGroundZone('magma', mx, mz, R * 1.1, 5.0, 0.75 * dmgMul, { color: 0xff6a30, fire: true });
           this.fx.burst(mx, 0.8, mz, 22, { c: [0xff6a30, 0xffd85a, 0xffffff], s: 0.16, speed: 6, up: 6, life: 0.65 });
           this.puffs.burst(mx, 0.3, mz, 12, { c: [0xffa040, 0x5c3c2e], s: 0.3, speed: 4, up: 4, life: 0.8 });
           this.shake = Math.max(this.shake, 0.55);
@@ -909,7 +926,7 @@ export class Game {
       this.audio.sfx('nova');
       const R = 4.6 * areaMul;
       this.shockRing(p.pos.x, p.pos.z, R, this.rollDamage(2.0 * dmgMul, mod.fire), 0x7ae8ff, 0.6, { slow: Math.max(slow, 3.2), leech });
-      this.shockRing(p.pos.x, p.pos.z, R * 0.65, this.rollDamage(0.8 * dmgMul, false), 0xd8a8ff, 0, { slow: 2.5 });
+      this.spawnGroundZone('frost', p.pos.x, p.pos.z, R * 0.9, 4.5, 0.45 * dmgMul, { color: 0x7ae8ff, slow: 2.2, healPlayer: true });
       this.fx.burst(p.pos.x, p.y + 0.9, p.pos.z, 26, { c: [0x7ae8ff, 0xd8a8ff, 0xffffff], s: 0.14, speed: 6.5, up: 3, life: 0.65 });
       this.heal(p.stats.maxHp * 0.08, true);
       p.swing = 1; p.swingT = 0.25;
@@ -1018,6 +1035,11 @@ export class Game {
   moveInput() {
     const k = this.keys; const v = new V2((k['d'] || k['arrowright'] ? 1 : 0) - (k['a'] || k['arrowleft'] ? 1 : 0), (k['s'] || k['arrowdown'] ? 1 : 0) - (k['w'] || k['arrowup'] ? 1 : 0));
     if (v.lengthSq() > 1) v.normalize();
+    if (this.camYaw && v.lengthSq() > 0.001) {
+      const c = Math.cos(this.camYaw), s = Math.sin(this.camYaw);
+      const rx = v.x * c + v.y * s, ry = -v.x * s + v.y * c;
+      v.set(rx, ry);
+    }
     return v;
   }
 
@@ -1188,8 +1210,45 @@ export class Game {
     if (!this.interior) for (const r of this.remotes.values()) if (r.bot) { const d = Math.hypot(r.x - p.pos.x, r.z - p.pos.z); if (d < Math.min(bd, 2.2)) { bd = d; best = { kind: 'talk', label: r.name.replace(' (鎮民)', ''), x: r.x, z: r.z, top: 2.4, bot: r }; } }
     return best;
   }
+  spawnGroundZone(kind, x, z, r, dur, dmgMul, opts = {}) {
+    const y = this.world.gh(x, z) + 0.08;
+    const mesh = new THREE.Mesh(
+      new THREE.RingGeometry(r * 0.15, r, 24),
+      new THREE.MeshBasicMaterial({ color: opts.color || 0x7ae8ff, transparent: true, opacity: 0.38, side: THREE.DoubleSide, depthWrite: false }),
+    );
+    mesh.rotation.x = -Math.PI / 2; mesh.position.set(x, y, z); mesh.userData.noNormal = true;
+    this.scene.add(mesh);
+    this.groundZones.push({ kind, mesh, x, y, z, r, life: dur, maxLife: dur, tick: 0.25, dmgMul, ...opts });
+  }
   tryInteract() {
     const s = this.nearSpot(); if (!s) return false;
+    if (s.kind === 'sit') {
+      const p = this.player;
+      if (p.sitting) { p.sitting = null; this.audio.sfx('sit'); return true; }
+      p.sitting = { x: s.x, z: s.z, y: this.world.gh(s.x, s.z), facing: s.facing ?? p.facing };
+      p.pos.set(s.x, p.sitting.y, s.z); p.y = p.sitting.y; p.facing = p.sitting.facing; p.vel.set(0, 0, 0);
+      this.audio.sfx('sit');
+      this.ui.toast('🪑 已坐下休憩（持續回復生命與法力，按移動鍵起身）', '#ffe8a0');
+      return true;
+    }
+    if (s.kind === 'well_drink') {
+      this.player.flask.charges = this.player.flask.max;
+      this.heal(this.player.stats.maxHp * 0.35, true);
+      this.audio.sfx('splash');
+      this.ui.toast('💧 汲取甘泉！蜜藥瓶已補滿並回復生命', '#7ae8ff');
+      return true;
+    }
+    if (s.kind === 'fountain_wish') {
+      if ((this.meta.p.coins || 0) < 1) { this.ui.toast('需要 1 枚金幣才能投幣許願', '#ffd85a'); return true; }
+      this.meta.p.coins -= 1;
+      const roll = Math.random();
+      this.audio.sfx('wish');
+      this.fx.burst(0, 1.5, -1, 18, { c: [0xffd85a, 0x7ae8ff, 0xffffff], s: 0.12, speed: 4, up: 4, life: 0.7 });
+      if (roll < 0.45) { this.meta.p.shards += 6; this.ui.toast('🪙 許願成功！泉水回饋 ✦ 星砂 +6', '#ffe08a'); }
+      else if (roll < 0.8) { this.player.hp = this.player.stats.maxHp; this.player.mana = this.player.stats.mana; this.ui.toast('🪙 許願成功！身心煥然一新（生命與法力全滿）', '#a8f0c0'); }
+      else { this.player.statuses.overload = 8; this.ui.hpVial?.impulse(0, 1.8); this.ui.mpVial?.impulse(0, 2.0); this.ui.toast('🪙 泉神祝福！獲得 8 秒魔力過載！', '#c88cff'); }
+      this.meta.save(); return true;
+    }
     if (s.kind === 'ferry_harbor') { this.sailTo('harbor'); return true; }
     if (s.kind === 'ferry_town') { this.sailTo('town'); return true; }
     if (s.kind === 'open_stash') { this.audio.sfx('ui'); this.ui.openInvTab?.(this, 'stash'); return true; }
@@ -1281,20 +1340,37 @@ export class Game {
     const ferry = buildFerryBoat(); ferry.position.set(0, -0.02, 29.8); g.add(ferry);
     const chest = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.75, 0.75), toonMat({ color: 0x9a643a }));
     chest.position.set(3.6, 0.38, 7.4); chest.castShadow = true; g.add(chest);
+    // 補齊公會大廳涼亭、星燈覺醒祭壇與造型衣櫃 3D 實體模型（不再有憑空互動點）
+    add(buildGuildKiosk(), 6.5, -6.5, -0.5, 1.4);
+    add(buildAwakenAltar(), -2.2, -6.5, 0, 1.35);
+    add(buildWardrobe(), -3.2, 7.4, 0.2, 0.75);
     this.worldBoxes.push(
       { x: -6, z: 10, hw: 1.5, hd: 1.3, h: 0 },
       { x: 8, z: 4, hw: 1.2, hd: 0.8, h: 0 },
       { x: 3.6, z: 7.4, hw: 0.65, hd: 0.45, h: 0 },
+      { x: 6.5, z: -6.5, hw: 1.5, hd: 1.2, h: 0 },
+      { x: -3.2, z: 7.4, hw: 0.75, hd: 0.45, h: 0 },
     );
+    // 可踢飛滾動的 3D 物理物件（彩色海灘球與酒桶）
+    const mkProp = (kind, x, z, col) => {
+      const geo = kind === 'ball' ? new THREE.SphereGeometry(0.36, 8, 6) : new THREE.CylinderGeometry(0.3, 0.28, 0.65, 8);
+      const mesh = new THREE.Mesh(geo, toonMat({ color: col }));
+      mesh.castShadow = true; mesh.receiveShadow = true;
+      const y = this.world.gh(x, z) + 0.36;
+      mesh.position.set(x, y, z); this.scene.add(mesh);
+      this.physProps.push({ kind, mesh, x, y, z, vx: 0, vy: 0, vz: 0, r: 0.38 });
+    };
+    mkProp('ball', 2.4, 2.2, 0xff6b6b); mkProp('ball', -2.8, 12.2, 0x4cc9f0);
+    mkProp('barrel', -7.2, -1.5, 0x9c663a); mkProp('barrel', 6.2, 2.8, 0x8a5832);
     this.spots.push(
       { kind: 'market', label: '溪畔拍賣行', x: 8, z: 4, top: 2.5 },
       { kind: 'enter_home', label: '推門進入旅人小屋（室內）', x: -6, z: 7.4, top: 2.5 },
       { kind: 'enter_tavern', label: '推門進入楓之酒館（室內）', x: -10.5, z: -2.5, top: 2.5 },
-      { kind: 'guild', label: '燈谷公會大廳（加入公會／討伐）', x: 6.5, z: -6.5, top: 2.5 },
+      { kind: 'guild', label: '燈谷公會大廳（加入公會／討伐）', x: 6.5, z: -6.5, top: 3.1 },
       { kind: 'ascend', label: '星燈覺醒祭壇（二轉職業覺醒）', x: -2.2, z: -6.5, top: 2.6 },
       { kind: 'ferry_harbor', label: '登船前往海風港鎮（南碼頭啟航）', x: 0, z: 26.2, top: 2.8 },
-      { kind: 'open_stash', label: '燈谷公共倉庫（城鎮限定重力整理箱）', x: 3.6, z: 7.4, top: 2.2 },
-      { kind: 'open_cosmetics', label: '造型衣櫃（更換外觀造型）', x: -3.2, z: 7.4, top: 2.2 },
+      { kind: 'open_stash', label: '燈谷公共倉庫（城鎮限定）', x: 3.6, z: 7.4, top: 2.2 },
+      { kind: 'open_cosmetics', label: '造型衣櫃（更換外觀）', x: -3.2, z: 7.4, top: 2.3 },
     );
     this.updateHome();
     // offline villagers
@@ -1309,9 +1385,9 @@ export class Game {
     this.spots = hb.spots;
     if (!this.net.url) {
       const harborBots = [
-        ['老船長 浪花', 2, ['海風港鎮的渡船已停泊在南碼頭盡頭！', '北邊的三塊木牌通往浮空遺跡、珊瑚灣與沉沒電光都。'], [1.8, 22.5, 1.4], 'captain'],
-        ['裁縫師 歐蕾', 4, ['要不要試試海風草帽或滑翔星翼？', '造型工坊裡的外觀都會即時顯示在身上喔！'], [-7.2, 5.2, 1.5], 'cat'],
-        ['倉管員 阿桶', 6, ['倉庫只有城鎮裡才能開啟，貴重物品放在這裡最安心！', '按搖一搖可以把壓在底下的裝備震出來。'], [7.2, -1.8, 1.4], 'smith'],
+        ['老船長 浪花', 2, ['南碼頭渡船隨時啟航！', '北邊木牌通往三大新海域。'], [1.8, 22.5, 1.4], 'captain'],
+        ['裁縫師 歐蕾', 4, ['來試試新草帽嗎？', '背飾造型立刻生效！'], [-7.2, 5.2, 1.5], 'cat'],
+        ['倉管員 阿桶', 6, ['貴重裝備放這裡最安心。', '試著在背包裡撞擊合成！'], [7.2, -1.8, 1.4], 'smith'],
       ];
       harborBots.forEach(([name, col, lines, home, arch], i) => {
         const id = 'hbot' + i;
@@ -1330,13 +1406,13 @@ export class Game {
   }
   spawnBots() {
     const defs = [
-      ['鐘錶匠 米糕', 1, ['歡迎來到燈谷鎮！我的發條懷錶說今天適合遠行。', '北邊拱門通往超大的晨光草原，南邊木棧橋可以搭船喔！'], null, 'clockmaker'],
-      ['草藥師 阿杏', 5, ['小心霧潮沼澤的毒霧，中毒時血瓶會冒出綠泡泡喔！', '喝蘋果酒或蜂王蜜可以立刻解除異常狀態。'], null, 'cat'],
-      ['守夜人 老燈', 3, ['雙燈照路，黑夜裡也別忘了看清楚腳下的高台。', '連續放三次技能會觸發魔力過載，瓶塞都會被頂起來呢！'], null, 'owl'],
-      ['酒館主廚 楓', 4, ['今天的楓糖蘋果酒剛釀好！', '推門進來酒館坐坐，烤火就能回復所有體力。'], [-10, -4, 1.5], 'chef'],
-      ['行腳商 豆豆', 2, ['背著大行囊走遍九大區域！不同物品在背包裡形狀都不一樣喔。', '想把多餘裝備存起來，記得找城鎮裡的公共倉庫箱。'], [8, 2.5, 2], 'peddler'],
-      ['鐵匠 石頭', 6, ['北門外就是燈谷！現在所有怪物都會爬上高台追擊，小心別被圍攻。', '打中冰凍的敵人會觸發碎冰暴擊！'], [0, -11.5, 1.2], 'smith'],
-      ['碼頭舵手 小潮', 7, ['順著木棧橋走到南邊盡頭就能登船前往海風港鎮！', '海風港的燈塔在夜裡特別漂亮。'], [1.5, 20.8, 1.2], 'captain'],
+      ['鐘錶匠 米糕', 1, ['今天適合遠行！', '南邊棧橋可以搭船。'], null, 'clockmaker'],
+      ['草藥師 阿杏', 5, ['甜莓配蘋果酒能合出特調！', '中毒記得喝蘋果酒。'], null, 'cat'],
+      ['守夜人 老燈', 3, ['雙燈照路，夜行小心。', '連放三招可觸發過載！'], null, 'owl'],
+      ['酒館主廚 楓', 4, ['蘋果酒剛釀好～', '進屋烤火最舒服。'], [-10, -4, 1.5], 'chef'],
+      ['行腳商 豆豆', 2, ['背包裡能碰撞合成喔！', '倉庫箱在廣場南邊。'], [8, 2.5, 2], 'peddler'],
+      ['鐵匠 石頭', 6, ['打冰凍怪會觸發碎冰！', '北門外就是晨光草原。'], [0, -11.5, 1.2], 'smith'],
+      ['碼頭舵手 小潮', 7, ['走到棧橋盡頭即可登船！', '海風很舒服吧？'], [1.5, 20.8, 1.2], 'captain'],
     ];
     defs.forEach(([name, col, lines, home, arch], i) => {
       const id = 'bot' + i; const a = Math.random() * 6.28;
@@ -1406,7 +1482,7 @@ export class Game {
         r.wait -= dt;
         if (Math.hypot(r.tx - r.x, r.tz - r.z) < 0.4) {
           r.a = 0;
-          if (r.wait <= 0) { r.wait = 3 + Math.random() * 5; const hm = r.home || [0, 2, 8], a = Math.random() * 6.28, d = (r.home ? 0.3 : 3) + Math.random() * hm[2]; r.tx = hm[0] + Math.cos(a) * d; r.tz = hm[1] + Math.sin(a) * d * 0.8; if (Math.random() < 0.45) this.say(r.id, r.lines[(Math.random() * r.lines.length) | 0]); }
+          if (r.wait <= 0) { r.wait = 8 + Math.random() * 10; const hm = r.home || [0, 2, 8], a = Math.random() * 6.28, d = (r.home ? 0.3 : 3) + Math.random() * hm[2]; r.tx = hm[0] + Math.cos(a) * d; r.tz = hm[1] + Math.sin(a) * d * 0.8; if (Math.random() < 0.08) this.say(r.id, r.lines[(Math.random() * r.lines.length) | 0]); }
         } else { const dx = r.tx - r.x, dz = r.tz - r.z, d = Math.hypot(dx, dz); r.x += dx / d * 2.2 * dt; r.z += dz / d * 2.2 * dt; r.tf = Math.atan2(dx, dz); r.a = 1; if (Math.hypot(r.x, r.z + 1) < 2.3) { r.x += (r.x / 2) * dt; r.z += ((r.z + 1) / 2) * dt; } }
         r.y = this.world.gh(r.x, r.z);
         if (Math.hypot(p.pos.x - r.x, p.pos.z - r.z) < 4.5 && r.a === 0) r.tf = Math.atan2(p.pos.x - r.x, p.pos.z - r.z);
@@ -1469,6 +1545,7 @@ export class Game {
     }
 
     if (this.state === 'play') {
+      this.exitCooldown = Math.max(0, (this.exitCooldown || 0) - dt);
       for (const k in p.cds) p.cds[k] = Math.max(0, p.cds[k] - dt);
       for (let i = 0; i < 4; i++) p.skillCds[i] = Math.max(0, (p.skillCds[i] || 0) - dt);
       p.iframes = Math.max(0, p.iframes - dt);
@@ -1518,8 +1595,18 @@ export class Game {
       p.sprinting = false;
       const frozen = (p.statuses?.freeze || 0) > 0;
       const chillMul = (p.statuses?.chill || 0) > 0 ? 0.65 : 1;
+      if (p.sitting) {
+        if (mv.lengthSq() > 0.05 || p.roll > 0 || p.swingT > 0) { p.sitting = null; this.audio.sfx('sit'); }
+        else {
+          p.vel.set(0, 0, 0); p.walkT = 0;
+          this.heal(S.maxHp * 0.05 * dt, false);
+          p.mana = Math.min(S.mana, p.mana + dt * 14);
+        }
+      }
       if (frozen) {
         p.vel.multiplyScalar(0.75);
+      } else if (p.sitting) {
+        // seated resting
       } else if (p.roll > 0) {
         p.roll -= dt;
         this.movePlayer(p.rollDir.x * 13 * dt, p.rollDir.z * 13 * dt);
@@ -1536,7 +1623,7 @@ export class Game {
         if (mv.lengthSq() > 0.01 && !p.air && !p.climbing) {
           const stride = canSprint ? 15 : 11;
           p.walkT += dt * stride; p.stepT += dt * stride;
-          if (p.stepT > Math.PI) { p.stepT -= Math.PI; this.audio.sfx('step'); }
+          if (p.stepT > Math.PI) { p.stepT -= Math.PI; this.audio.sfx(canSprint ? 'sprintStep' : 'step'); }
           if (Math.random() < dt * (canSprint ? 10 : 4)) this.puffs.emit(p.pos.x, p.y + 0.05, p.pos.z, { c: 0xf4ecd8, s: canSprint ? 0.16 : 0.12, g: -0.3, life: 0.35, grow: 1 });
         } else p.walkT = 0;
       }
@@ -1656,32 +1743,53 @@ export class Game {
     const cv = this.pipe?.renderer?.domElement;
     const badge = document.getElementById('hoverBadge');
     if (!cv || !badge) return;
-    if (this.state !== 'play' || this.ui.invOpen || this.ui.setOpen || this.ui.panelOpen || this.ui.puzzleOpen || this.ui.mapDialog?.open) {
+    if (this.state !== 'play' || this.ui.invOpen || this.ui.setOpen || this.ui.panelOpen || this.ui.puzzleOpen || this.ui.mapDialog?.open || this.ui.codexOpen) {
       cv.classList.remove('hover-enemy', 'hover-interact');
       badge.classList.remove('show');
       return;
     }
     const ax = this.aim.x, az = this.aim.z;
-    let hitE = null, hitS = null;
+    let hitE = null, hitS = null, hitR = null, hitD = null;
     for (const e of this.enemies) {
       if (e.dead) continue;
       if (Math.hypot(e.pos.x - ax, e.pos.z - az) < (e.r || 0.6) + 0.85) { hitE = e; break; }
     }
     if (!hitE) {
+      for (const r of this.remotes.values()) {
+        if (Math.hypot(r.x - ax, r.z - az) < 1.15) { hitR = r; break; }
+      }
+    }
+    if (!hitE && !hitR) {
+      for (const d of this.drops) {
+        if (d.kind !== 'item') continue;
+        if (Math.hypot(d.g.position.x - ax, d.g.position.z - az) < 1.05) { hitD = d; break; }
+      }
+    }
+    if (!hitE && !hitR && !hitD) {
       for (const s of this.spots) {
         if (s.mesh?.visible === false) continue;
         if (Math.hypot(s.x - ax, s.z - az) < 1.35) { hitS = s; break; }
       }
     }
     cv.classList.toggle('hover-enemy', !!hitE);
-    cv.classList.toggle('hover-interact', !hitE && !!hitS);
+    cv.classList.toggle('hover-interact', !hitE && !!(hitS || hitR || hitD));
     if (hitE) {
       const names = { slime: '青苔史萊姆', thorn: '棘芽射手', boar: '衝鋒野豬', moth: '月影飛蛾', skyray: '雲翼飛鰩（空中）', stag: '古樹鹿王' };
-      badge.textContent = `⚔ ${hitE.elite ? '★ ' : ''}${names[hitE.type] || hitE.type} · ${Math.ceil(hitE.hp)}/${Math.ceil(hitE.maxHp)}`;
+      const st = hitE.statuses || {};
+      const tags = `${st.freeze > 0 ? ' ❄️' : ''}${st.poison > 0 ? ' 🧪' : ''}${st.burn > 0 ? ' 🔥' : ''}${st.shock > 0 ? ' ⚡' : ''}`;
+      badge.textContent = `⚔ ${hitE.elite ? '★ ' : ''}${names[hitE.type] || hitE.type}${tags} · ${Math.ceil(hitE.hp)}/${Math.ceil(hitE.maxHp)}`;
+      badge.style.left = (this.mouse.x + 18) + 'px'; badge.style.top = (this.mouse.y - 12) + 'px';
+      badge.classList.add('show');
+    } else if (hitR) {
+      badge.textContent = `💬 ${hitR.name}${hitR.bot ? ' · [F] 交談' : ' · 旅人'}`;
+      badge.style.left = (this.mouse.x + 18) + 'px'; badge.style.top = (this.mouse.y - 12) + 'px';
+      badge.classList.add('show');
+    } else if (hitD) {
+      badge.textContent = `✦ ${RARITY[hitD.item.rarity].name} ${hitD.item.name} · [F] 拾取`;
       badge.style.left = (this.mouse.x + 18) + 'px'; badge.style.top = (this.mouse.y - 12) + 'px';
       badge.classList.add('show');
     } else if (hitS) {
-      badge.textContent = `✦ ${hitS.label || '互動'}`;
+      badge.textContent = `✦ ${hitS.label || '互動'} · [F]`;
       badge.style.left = (this.mouse.x + 18) + 'px'; badge.style.top = (this.mouse.y - 12) + 'px';
       badge.classList.add('show');
     } else {
@@ -1708,8 +1816,9 @@ export class Game {
     for (const x of this.exits) { x.on = true; this.puffs.burst(x.x, 1.2, x.z, 12, { c: 0xffffff, s: 0.3, speed: 2, up: 1, g: -0.5, life: 0.8, grow: 1.4, drag: 3 }); }
   }
   goExit(x) {
-    if (this.state !== 'play') return;
+    if (this.state !== 'play' || this.exitCooldown > 0) return;
     if (x.type === 'town') { this.state = 'transition'; this.audio.sfx('warp'); this.ui.wipe(() => this.lastTown === -2 ? this.enterHarbor() : this.enterTown('north')); return; }
+    if (x.type === 'prevField') { this.state = 'transition'; this.audio.sfx('warp'); this.ui.wipe(() => this.enterField(this.field - 1, 'east')); return; }
     if (x.type === 'nextField') { this.state = 'transition'; this.audio.sfx('warp'); this.ui.wipe(() => this.enterField(this.field + 1, 'south')); return; }
     if (x.type === 'dungeon') {
       if (this.meta.p.keys < 1) {
@@ -2031,6 +2140,57 @@ export class Game {
       }
     }
     this.drops = this.drops.filter(d => !d.taken);
+    // 持續性場上技能區域（星羽箭雨區、劇毒孢子霧、熔岩火海、極光冰陣）
+    for (const gz of this.groundZones || []) {
+      gz.life -= dt; gz.tick -= dt;
+      gz.mesh.rotation.z += dt * 0.8;
+      gz.mesh.material.opacity = 0.36 * Math.min(1, gz.life / 1.2) * (0.85 + Math.sin(this.time * 6) * 0.15);
+      if (Math.random() < dt * 8) {
+        const a = Math.random() * 6.28, rr = Math.random() * gz.r;
+        const px = gz.x + Math.cos(a) * rr, pz = gz.z + Math.sin(a) * rr;
+        this.fx.emit(px, gz.kind === 'rain' ? gz.y + 3.2 : gz.y + 0.2, pz, { c: gz.color || 0x7ae8ff, s: 0.1, g: gz.kind === 'rain' ? 14 : -1.5, up: gz.kind === 'rain' ? -4 : 1.4, life: 0.45 });
+      }
+      if (gz.tick <= 0) {
+        gz.tick = 0.65;
+        for (const e of this.enemies) {
+          if (e.dead) continue;
+          if (Math.hypot(e.pos.x - gz.x, e.pos.z - gz.z) < gz.r + e.r) {
+            this.hitEnemy(e, this.rollDamage(gz.dmgMul, !!gz.fire), 0, 0, { isDoT: true, slow: gz.slow, poison: gz.poison, leech: gz.leech });
+          }
+        }
+        if (gz.healPlayer && this.state === 'play' && Math.hypot(p.pos.x - gz.x, p.pos.z - gz.z) < gz.r) {
+          this.heal(p.stats.maxHp * 0.035, true);
+        }
+      }
+      if (gz.life <= 0) this.scene.remove(gz.mesh);
+    }
+    this.groundZones = (this.groundZones || []).filter(gz => gz.life > 0);
+    // 城鎮可踢飛滾動 3D 物理物件（海灘球與酒桶）
+    for (const pp of this.physProps || []) {
+      const dx = pp.x - p.pos.x, dz = pp.z - p.pos.z, d = Math.hypot(dx, dz);
+      const kickR = p.swingT > 0 ? 1.55 : (pp.r + 0.45);
+      if (this.state === 'play' && d < kickR && d > 0.01) {
+        const power = p.swingT > 0 ? 9.5 : Math.max(4.5, Math.hypot(p.vel.x, p.vel.z) * 1.45);
+        pp.vx = (dx / d) * power; pp.vz = (dz / d) * power;
+        pp.vy = Math.max(pp.vy, pp.kind === 'ball' ? 4.4 : 2.2);
+        if (!pp.kickCd || this.time > pp.kickCd) { pp.kickCd = this.time + 0.22; this.audio.sfx('kick'); }
+      }
+      pp.vy -= 18 * dt;
+      pp.x += pp.vx * dt; pp.z += pp.vz * dt; pp.y += pp.vy * dt;
+      const gh = this.world.isLand(pp.x, pp.z) ? this.world.gh(pp.x, pp.z) : 0;
+      const floorY = gh + (pp.kind === 'ball' ? 0.36 : 0.32);
+      if (pp.y < floorY) { pp.y = floorY; pp.vy = Math.abs(pp.vy) > 1.2 ? -pp.vy * (pp.kind === 'ball' ? 0.58 : 0.25) : 0; }
+      if (!this.world.isLand(pp.x, pp.z)) { pp.x -= pp.vx * dt * 2; pp.z -= pp.vz * dt * 2; pp.vx *= -0.7; pp.vz *= -0.7; }
+      for (const o of this.world.obstacles) {
+        const ox = pp.x - o.x, oz = pp.z - o.z, od = Math.hypot(ox, oz), m = o.r + pp.r;
+        if (od < m && od > 0.01) { pp.x = o.x + ox / od * m; pp.z = o.z + oz / od * m; pp.vx *= -0.65; pp.vz *= -0.65; }
+      }
+      const drag = Math.exp(-dt * (pp.kind === 'ball' ? 1.6 : 3.2));
+      pp.vx *= drag; pp.vz *= drag;
+      pp.mesh.position.set(pp.x, pp.y, pp.z);
+      pp.mesh.rotation.x += pp.vz * dt * 1.8;
+      pp.mesh.rotation.z -= pp.vx * dt * 1.8;
+    }
     // exits
     for (const x of this.exits) {
       x.disc.material.uniforms.uT.value = this.time;
@@ -2060,7 +2220,8 @@ export class Game {
     m.body.position.y = moving ? Math.abs(Math.sin(p.walkT)) * (p.sprinting ? 0.09 : 0.06) : Math.sin(this.time * 2) * 0.015;
     m.body.rotation.x = moving ? (p.sprinting ? 0.24 : 0.12) : 0;
     m.head.rotation.z = moving ? Math.sin(p.walkT) * 0.05 : 0;
-    if (p.roll > 0) { m.body.rotation.x = (1 - p.roll / 0.3) * Math.PI * 2; m.body.position.y = 0.25; }
+    if (p.sitting) { m.body.position.y = -0.18; m.legL.position.z = 0.16; m.legR.position.z = 0.16; m.body.rotation.x = -0.12; }
+    else if (p.roll > 0) { m.body.rotation.x = (1 - p.roll / 0.3) * Math.PI * 2; m.body.position.y = 0.25; }
     else if (p.gliding) { m.body.rotation.x = 0.9; m.body.position.y = 0.3; m.staff.rotation.z = 1.2; }
     else if (p.climbing) { m.body.rotation.x = -0.35; m.body.position.y = 0.05 + Math.sin(this.time * 14) * 0.04; }
     else if (p.air) { m.body.rotation.x = p.vy > 0 ? -0.15 : 0.15; m.body.position.y = 0.1; }
@@ -2096,13 +2257,17 @@ export class Game {
     const p = this.player;
     let tx = p.pos.x, tz = p.pos.z;
     if (this.state === 'title') { tx = Math.sin(this.time * 0.08) * 6; tz = Math.cos(this.time * 0.06) * 4; }
-    else if (!this.photoMode) { const a = this.aim; tx += clamp(a.x - p.pos.x, -6, 6) * 0.12; tz += clamp(a.z - p.pos.z, -6, 6) * 0.12; }
-    this.camPos.x = lerp(this.camPos.x, tx, 1 - Math.exp(-dt * 5));
-    this.camPos.z = lerp(this.camPos.z, tz, 1 - Math.exp(-dt * 5));
+    // 取消鏡頭隨滑鼠平移；支援 Z / X 或按住滑鼠中鍵微調左右旋轉視角（±35°，按 / 回正）
+    if (this.state === 'play' && !this.ui.panelOpen && !this.ui.invOpen && !this.ui.codexOpen) {
+      if (this.keys['z']) this.camYaw = clamp(this.camYaw - dt * 1.15, -0.62, 0.62);
+      if (this.keys['x']) this.camYaw = clamp(this.camYaw + dt * 1.15, -0.62, 0.62);
+    }
+    this.camPos.x = lerp(this.camPos.x, tx, 1 - Math.exp(-dt * 6));
+    this.camPos.z = lerp(this.camPos.z, tz, 1 - Math.exp(-dt * 6));
     this.camY = lerp(this.camY || 0, this.state === 'title' ? 0 : p.y * 0.85, 1 - Math.exp(-dt * 4));
     this.shake = Math.max(0, this.shake - dt * 2.2);
     const s = this.shake * this.shake * 0.6 * (this.settings.shake ? 1 : 0);
-    // 3 種鏡頭仰角預設（預設 0：PoE 2 風格斜 45°，兼顧宏偉遠景與 ARPG 走位判讀）＋滾輪縮放
+    // 3 種鏡頭仰角預設（預設 0：PoE 2 風格斜 45°，兼顧宏偉遠景與 ARPG 走位判讀）＋滾輪縮放＋左右微幅旋轉
     const preset = [
       { yK: 0.68, zK: 0.73, fov: 34 },
       { yK: 0.80, zK: 0.58, fov: 30 },
@@ -2114,7 +2279,13 @@ export class Game {
     }
     const baseDist = this.camDistOverride || (this.interior ? 17 : this.photoMode ? 18 : this.state === 'title' ? 34 : 29);
     const dist = baseDist * (this.interior ? 1 : (this.camZoom || 1));
-    this.camera.position.set(this.camPos.x + (Math.random() - 0.5) * s, this.camY + dist * preset.yK, this.camPos.z + dist * preset.zK + (Math.random() - 0.5) * s);
+    const yaw = this.state === 'title' ? 0 : (this.camYaw || 0);
+    const horiz = dist * preset.zK;
+    this.camera.position.set(
+      this.camPos.x + Math.sin(yaw) * horiz + (Math.random() - 0.5) * s,
+      this.camY + dist * preset.yK,
+      this.camPos.z + Math.cos(yaw) * horiz + (Math.random() - 0.5) * s,
+    );
     this.camera.lookAt(this.camPos.x, this.camY + (preset.fov >= 34 ? 0.5 : 0), this.camPos.z);
     this.sun.position.set(this.camPos.x - 12, 26, this.camPos.z + 8);
     this.sun.target.position.set(this.camPos.x, 0, this.camPos.z);

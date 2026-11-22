@@ -212,6 +212,29 @@ html,body{image-rendering:pixelated;-webkit-font-smoothing:none;font-smooth:neve
 .cloak{grid-column:1/-1}.swatches [aria-pressed=true]{outline:2px solid #412f28;outline-offset:1px}#title details{width:min(530px,92vw);box-sizing:border-box}summary{cursor:pointer}
 @media(max-width:500px){.creator{padding:10px}.charbody{gap:8px}.portraitwell{padding:4px}#portrait{width:90px;height:100px}.fields{min-width:0}.portraitwell .btn{font-size:12px}}
 #btnMap{right:108px;font:inherit;font-weight:bold}
+#btnWiki{right:178px;font:inherit;font-weight:bold}#btnChangelog{right:250px;font:inherit;font-weight:bold}#btnDonate{right:322px;font:inherit;font-weight:bold;background:#ffe4ec;color:#a82442}
+.cx-box{width:min(820px,94vw);max-height:86vh;display:flex;flex-direction:column;gap:10px;background:#f4e8ce;border:4px solid #3c261c;box-shadow:0 8px 0 rgba(38,22,16,.75);padding:14px;border-radius:10px;color:#2e1d16}
+.cx-head{display:flex;align-items:center;gap:10px;border-bottom:3px solid #bfa77c;padding-bottom:8px}
+.cx-title{font-size:18px;font-weight:900;flex:1}
+.cx-tabs{display:flex;gap:6px;flex-wrap:wrap}
+.cx-tab{padding:5px 11px;border:2px solid #4a3122;background:#e6d5b2;color:#3c261c;font-weight:800;border-radius:6px;cursor:pointer;font-size:13px}
+.cx-tab.on{background:#b8452f;color:#fff8e6;border-color:#2b1812}
+#cxSearch{width:100%;padding:7px 10px;border:2px solid #6b4e38;border-radius:6px;background:#fffaf0;font-size:14px;box-sizing:border-box}
+.cx-body{overflow-y:auto;flex:1;padding-right:4px}
+.cx-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+.cx-card{background:#fff8e6;border:2px solid #8a6c4c;border-radius:8px;padding:10px;box-shadow:0 2px 0 rgba(60,38,28,.25)}
+.cx-ch{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.cx-ic{font-size:24px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;background:#2b1d22;border-radius:6px}
+.cx-sub{font-size:11px;color:#7a5a40}
+.cx-desc{font-size:12.5px;line-height:1.45;color:#3c2a22}
+.cx-log-card{background:#fff8e6;border:2px solid #8a6c4c;border-radius:8px;padding:10px 12px;margin-bottom:10px}
+.cx-log-head{display:flex;justify-content:space-between;border-bottom:1px dashed #c8b28c;padding-bottom:4px;margin-bottom:6px;font-size:14px}
+.cx-log-row{display:flex;align-items:flex-start;gap:8px;margin:5px 0;font-size:13px;line-height:1.4}
+.cx-badge{padding:1px 7px;border-radius:4px;color:#fff;font-size:11px;font-weight:900;white-space:nowrap}
+.cx-donate{text-align:center;padding:18px 12px;background:#fff8e6;border:2px solid #8a6c4c;border-radius:10px}
+.cx-donate p{max-width:520px;margin:10px auto 16px;line-height:1.6;font-size:14px}
+.cx-donate-btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.cx-empty{text-align:center;padding:30px;opacity:.7}
 #worldMap{width:min(690px,94vw);box-sizing:border-box;max-height:94dvh;overflow:auto;background:#fff4d9;color:#49372d;border:3px solid #513e34;padding:12px;box-shadow:4px 5px 0 #463b32;font-family:inherit}
 #worldMap::backdrop{background:#282a26b8}#worldMap header{display:flex;align-items:center;justify-content:space-between;margin:0 0 10px}
 #worldMap h2{font-size:22px;margin:0}.map-close{border:2px solid #513e34;background:#f2dfb8;color:#49372d;width:32px;height:32px;cursor:pointer;font-family:inherit}
@@ -297,7 +320,7 @@ body.photo-mode #hud > *:not(#photoBadge){opacity:0!important;pointer-events:non
 <canvas id="view"></canvas>
 
 <div id="hud" class="hide"><div id="xpWrap"><div id="xpFill"></div></div><div id="fieldTarget" hidden></div><div id="fieldCompass" hidden></div>
-  <button id="btnMap" class="mute" title="世界地圖 (M)">地圖</button><button id="btnSet" class="mute set" title="設定 (Esc)">⚙</button><button id="btnMute" class="mute" title="靜音">🔊</button>
+  <button id="btnDonate" class="mute" title="贊助支持">❤️ 贊助</button><button id="btnChangelog" class="mute" title="更新日誌">📜 日誌</button><button id="btnWiki" class="mute" title="燈谷百科資料庫">📖 百科</button><button id="btnMap" class="mute" title="世界地圖 (M)">地圖</button><button id="btnSet" class="mute set" title="設定 (Esc)">⚙</button><button id="btnMute" class="mute" title="靜音">🔊</button>
   <div id="stam"></div>
   <div id="topbar" class="panel"><span id="roomInfo"></span><span id="killInfo"></span><span id="shardInfo"></span><span id="coinInfo"></span><span id="dayInfo" title="點擊切換晝夜時段">☀️ 白晝</span><span id="mealInfo" hidden></span></div>
   <div id="regionMap" class="panel hide"><div class="rm-head"><b id="rmTitle">地區地圖</b><span>Tab 關閉</span></div><canvas id="regionMapCanvas" width="220" height="220"></canvas><div class="rm-leg"><span>▲ 你</span><span style="color:#7a4ac0">● 副本</span><span style="color:#2f8a4e">● 回城</span><span style="color:#d88a00">● 採集/寶箱</span><span style="color:#2a9ab8">● 氣流</span><span style="color:#c83a3a">● 敵人</span></div></div>
@@ -434,5 +457,12 @@ body.photo-mode #hud > *:not(#photoBadge){opacity:0!important;pointer-events:non
 <div id="win" class="modal hide"><h2>山谷重新亮起來了！</h2><div class="panel" style="padding:12px 18px" id="winSum"></div><div class="heir" id="winHeir"></div><div style="display:flex;gap:12px"><button class="btn" id="btnAgain">再走一趟</button><button class="btn" id="btnTown3" style="background:var(--teal)">回燈谷鎮</button></div></div>
 <div id="wipe"></div>
 <script>/*__GAME__*/</script>
+<div id="codexModal" class="modal hide"><div class="cx-box">
+  <div class="cx-head"><div class="cx-title">📖 燈谷百科資料庫</div><button type="button" id="btnCodexClose" class="btn small">✕</button></div>
+  <div class="cx-tabs"></div>
+  <input id="cxSearch" type="text" placeholder="搜尋技能、職業、異常狀態、背包合成配方…">
+  <div class="cx-filter"></div>
+  <div class="cx-body"></div>
+</div></div>
 </body>
 </html>

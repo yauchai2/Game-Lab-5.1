@@ -131,7 +131,22 @@ export class Audio {
       case 'land': this.noise(t, 0.09, 0.4, 0, this.sfxBus, 500); this.tone('sine', 120, 60, 0.1, 0.12); break;
       case 'glide': this.noise(t, 0.4, 0.07, 2500); break;
       case 'climb': this.tone('triangle', 200 + Math.random() * 60, 150, 0.06, 0.07); break;
-      case 'step': this.noise(t, 0.04, 0.12 * v, 0, this.sfxBus, 700); break;
+      case 'step': {
+        const pitch = 135 + Math.random() * 45;
+        this.noise(t, 0.045, 0.16 * v, 0, this.sfxBus, 950);
+        this.tone('triangle', pitch, pitch * 0.55, 0.04, 0.08 * v);
+        break;
+      }
+      case 'sprintStep': {
+        const pitch = 185 + Math.random() * 55;
+        this.noise(t, 0.055, 0.24 * v, 0, this.sfxBus, 1450);
+        this.tone('triangle', pitch, pitch * 0.5, 0.045, 0.11 * v);
+        break;
+      }
+      case 'sit': this.tone('triangle', 180, 120, 0.11, 0.1); this.noise(t + 0.03, 0.05, 0.09, 0, this.sfxBus, 500); break;
+      case 'kick': this.tone('sine', 160, 65, 0.1, 0.16); this.noise(t, 0.06, 0.22, 0, this.sfxBus, 750); break;
+      case 'synth': [523, 659, 784, 1047, 1319].forEach((f, i) => this.tone('triangle', f, f * 1.03, 0.28, 0.11, i * 0.045)); break;
+      case 'wish': [880, 1175, 1568].forEach((f, i) => this.tone('sine', f, f, 0.32, 0.09, i * 0.07)); this.noise(t, 0.12, 0.14, 0, this.sfxBus, 1800); break;
       case 'slam': this.tone('sawtooth', 160, 35, 0.5, 0.25); this.noise(t, 0.4, 0.5, 0, this.sfxBus, 800); break;
       case 'wisp': for (let i = 0; i < 4; i++) this.tone('sine', 880 + i * 220, 1200 + i * 220, 0.3, 0.06, i * 0.06); break;
       case 'flask': this.tone('sine', 300, 500, 0.12, 0.12); this.tone('sine', 400, 650, 0.14, 0.1, 0.1); this.noise(t + 0.2, 0.1, 0.15, 0, this.sfxBus, 900); break;

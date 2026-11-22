@@ -106,6 +106,39 @@ export function buildMapTable() {
   P.push(B(1.7, 0.03, 1.1, 0xf3e2c0, 0, 1.09, 0), B(0.9, 0.03, 0.05, 0xc0402a, 0.1, 1.11, 0.1, 0, 0.5, 0), B(0.05, 0.03, 0.7, 0x3a7aa8, -0.4, 1.11, -0.05, 0, 0.2, 0), B(0.18, 0.18, 0.18, 0xd8402a, 0.5, 1.2, -0.3));
   g.add(M(P)); g.userData.top = 2.0; return g;
 }
+export function buildGuildKiosk() {
+  const g = new THREE.Group(), P = [];
+  P.push(B(2.8, 0.26, 2.2, 0x9b9388, 0, 0.13, 0));
+  for (const sx of [-1.2, 1.2]) for (const sz of [-0.9, 0.9]) P.push(B(0.16, 2.2, 0.16, 0x6a452e, sx, 1.2, sz));
+  P.push(B(3.2, 0.22, 2.6, 0x3c6ca8, 0, 2.4, 0), B(2.6, 0.3, 2.0, 0x2c5284, 0, 2.65, 0));
+  P.push(B(2.0, 0.88, 0.65, 0x8f5b38, 0, 0.66, 0.25), B(0.75, 1.15, 0.06, 0xd9483b, -1.5, 1.6, 0.8), B(0.45, 0.45, 0.08, 0xffd24a, -1.5, 1.75, 0.83));
+  g.add(M(P));
+  const emblem = new THREE.Mesh(new THREE.OctahedronGeometry(0.32, 0), new THREE.MeshBasicMaterial({ color: 0xffd85a }));
+  emblem.position.set(0, 3.2, 0); g.add(emblem);
+  return g;
+}
+export function buildAwakenAltar() {
+  const g = new THREE.Group(), P = [];
+  P.push(part(new THREE.CylinderGeometry(1.4, 1.65, 0.35, 8), 0x8a8298, 0, 0.17, 0));
+  P.push(part(new THREE.CylinderGeometry(0.9, 1.1, 0.55, 8), 0x6e6680, 0, 0.58, 0));
+  for (let i = 0; i < 4; i++) {
+    const a = i * Math.PI / 2 + Math.PI / 4;
+    P.push(B(0.24, 1.35, 0.24, 0x9f97b0, Math.cos(a) * 1.15, 0.85, Math.sin(a) * 1.15));
+  }
+  g.add(M(P));
+  const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(0.42, 0), new THREE.MeshBasicMaterial({ color: 0x9ee8ff }));
+  crystal.position.set(0, 1.75, 0); g.add(crystal);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(1.5, 1.75, 20), new THREE.MeshBasicMaterial({ color: 0xffd85a, transparent: true, opacity: 0.7, side: THREE.DoubleSide, depthWrite: false }));
+  ring.rotation.x = -Math.PI / 2; ring.position.y = 0.06; ring.userData.noNormal = true; g.add(ring);
+  return g;
+}
+export function buildWardrobe() {
+  const g = new THREE.Group(), P = [];
+  P.push(B(1.35, 2.05, 0.72, 0x8f5b3a, 0, 1.02, 0), B(1.5, 0.14, 0.85, 0x6a4128, 0, 2.08, 0));
+  P.push(B(0.55, 1.25, 0.06, 0x9fd8f0, 0, 1.18, 0.36), B(0.08, 0.24, 0.08, 0xffd24a, 0.38, 1.05, 0.38));
+  g.add(M(P));
+  return g;
+}
 export function buildTownScenery({ gh, rng }) {
   const g = new THREE.Group(), obstacles = [], chimneys = [], r = rng || Math.random;
   const place = (o, x, z, ry = 0, obs = 0, yoff = 0) => { o.position.set(x, gh(x, z) + yoff, z); o.rotation.y = ry; g.add(o); if (obs) obstacles.push({ x, z, r: obs, h: 0 }); if (o.userData.chimney) { const c = o.userData.chimney, cs = Math.cos(ry), sn = Math.sin(ry); chimneys.push({ x: x + c[0] * cs + c[2] * sn, y: o.position.y + c[1], z: z - c[0] * sn + c[2] * cs }); } return o; };
@@ -140,12 +173,18 @@ export function buildTownScenery({ gh, rng }) {
   place(statue(), -5, -13, 0.3, 0.9); place(statue(), 5, -13, -0.3, 0.9);
   // ---- 街燈、長椅、花盆、樹 ----
   [[-6.5, 0], [6.5, 0], [-3.2, -6], [3.2, -6], [0, 8], [-8, 6], [9, 8], [-10, -10], [10, -5]].forEach(([x, z]) => place(lampPost(), x, z, 0, 0.25));
-  [[-5.5, 3.5, 0.6], [5.5, 3.5, -0.6], [0, -5.2, 0], [-4.2, -3.8, 0.4]].forEach(([x, z, ry]) => place(bench(), x, z, faceCenter(x, z) + ry * 0, 0.7));
+  const spots = [];
+  [[-5.5, 3.5, 0.6], [5.5, 3.5, -0.6], [0, -5.2, 0], [-4.2, -3.8, 0.4]].forEach(([x, z]) => {
+    const ry = faceCenter(x, z);
+    place(bench(), x, z, ry, 0.65);
+    spots.push({ x, z, kind: 'sit', label: '坐下休憩（回復生命與法力）', top: 1.5, facing: ry });
+  });
+  spots.push({ x: -9.5, z: 7.5, kind: 'well_drink', label: '汲取甘泉（補滿蜜藥瓶）', top: 2.3 });
+  spots.push({ x: 0, z: -1, kind: 'fountain_wish', label: '許願噴泉（投 1 金幣獲得祝福）', top: 2.3 });
   [[-1.8, -16.5, [0xff8fb0, 0xffffff]], [1.8, -16.5, [0xffd45a, 0xff8fb0]], [-10.5, -4.5, [0xc59aff, 0xffffff]], [8.5, -4, [0xff8fb0, 0xffd45a]], [3, 7.5, [0xffffff, 0xffb3c9]]].forEach(([x, z, c]) => place(planter(0, 0, c), x, z, 0, 0.5));
   [[-19, -12], [18, 8], [-18, 12], [20, -2], [-3, -22], [-19, 5]].forEach(([x, z], i) => place(i % 2 ? blossom(0xf59ac0) : cypress(1.3), x, z, 0, 0.5));
   [[-4, -20], [4, -20], [-7.5, -17], [7.5, -17], [-20, -5], [-21, 8], [19, 14], [-12, 17]].forEach(([x, z]) => place(cypress(1 + r() * 0.3), x, z, 0, 0.45));
   place(blossom(), -17, -15, 0, 0.6); place(blossom(0xf7b0cf), 14, 15, 0, 0.6);
-  const spots = [];
   const spot = (o, x, z, ry, kind, label, rr = 1.1) => { place(o, x, z, ry, rr); spots.push({ x, z, kind, label, top: o.userData.top, o }); };
   spot(buildBoard(), -4.5, 6.8, faceCenter(-4.5, 6.8), 'quest', '任務布告欄', 1.2);
   spot(buildForge(), 12.5, -3.5, faceCenter(12.5, -3.5), 'forge', '鐵匠鋪', 1.5);
