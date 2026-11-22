@@ -1,4 +1,5 @@
 import { GOODS, craft } from './frontier.js';
+import { CLASSES } from './puzzle.js';
 const labels = { slime:'苔團', thorn:'棘木靈', boar:'岩背野豬', moth:'暮光蛾', stag:'古樹鹿王' };
 const weapons = { staff:'燈杖', blades:'雙刀', bow:'短弓', shield:'守衛盾' };
 const MARKET = {
@@ -67,6 +68,15 @@ export function buildLodge(g, body, title, kind) {
     const cost=3*(p.home+1);
     action(line('家園 · '+['營地','木屋','花園木屋','燈塔小屋'][p.home],'擴建消耗香杉木 ×'+cost),'擴建',p.home<3 && p.goods.wood>=cost,()=>{p.goods.wood-=cost;p.home++;g.updateHome();});
     action(line('香煎溪魚','溪銀魚 ×1 · 每秒恢復 2 點生命，持續五分鐘'),'烹調',p.goods.fish>=1,()=>{p.goods.fish--;p.mealUntil=Date.now()+300000;});
+    const curJob = g.character?.job ?? 0;
+    for (const cls of CLASSES) {
+      action(line(`轉職 · ${cls.icon} ${cls.name}`, cls.summary + ' · ' + cls.desc), curJob === cls.id ? '目前職業' : '轉職', curJob !== cls.id, () => {
+        if (!g.character) g.character = { job: cls.id };
+        else g.character.job = cls.id;
+        p.weapon = cls.weapon;
+        g.ui.toast(`已轉職為 ${cls.icon} ${cls.name}`, '#ffd85a');
+      });
+    }
     line('生物圖鑑',Object.entries(labels).map(([id,label])=> p.species[id]?label+' ×'+p.species[id]:'未發現').join('　'));
   }
 }

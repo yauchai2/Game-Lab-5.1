@@ -224,6 +224,40 @@ html,body{image-rendering:pixelated;-webkit-font-smoothing:none;font-smooth:neve
 #fieldTarget{position:absolute;left:12px;top:58px;background:#493b30e8;border-left:3px solid #f9ba68;padding:4px 8px;color:#fff1ce;font-size:13px}
 #fieldCompass{position:absolute;left:50%;top:12px;transform:translateX(-50%);background:#5a3826e8;color:#fff2d6;padding:4px 12px;border-radius:8px;font-size:13px;white-space:nowrap}
 @media(max-width:520px){#xpWrap{top:44px;width:160px}#fieldTarget{top:86px}#fieldCompass{top:52px;left:12px;transform:none}}
+/* ======== 原創像素風自訂滑鼠游標 ======== */
+html,body{cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M3 2v17l4.5-4.2L10.8 22l2.7-1.2-3.2-7.1H16z' fill='%23fff8e4' stroke='%233b2a2a' stroke-width='2.2' stroke-linejoin='miter'/%3E%3C/svg%3E") 3 2, auto}
+button,select,a,summary,.sk,.pz-cell,.pz-gem{cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M3 2v17l4.5-4.2L10.8 22l2.7-1.2-3.2-7.1H16z' fill='%23ffcf4a' stroke='%233b2a2a' stroke-width='2.2' stroke-linejoin='miter'/%3E%3C/svg%3E") 3 2, pointer}
+#view{cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Crect x='12' y='2' width='4' height='7' fill='%23fff8e4' stroke='%233b2a2a' stroke-width='1.6'/%3E%3Crect x='12' y='19' width='4' height='7' fill='%23fff8e4' stroke='%233b2a2a' stroke-width='1.6'/%3E%3Crect x='2' y='12' width='7' height='4' fill='%23fff8e4' stroke='%233b2a2a' stroke-width='1.6'/%3E%3Crect x='19' y='12' width='7' height='4' fill='%23fff8e4' stroke='%233b2a2a' stroke-width='1.6'/%3E%3Crect x='12' y='12' width='4' height='4' fill='%23ffcf4a' stroke='%233b2a2a' stroke-width='1.2'/%3E%3C/svg%3E") 14 14, crosshair}
+#view.aiming{cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Crect x='12' y='1' width='4' height='8' fill='%23ffcf4a' stroke='%233b2a2a' stroke-width='1.6'/%3E%3Crect x='12' y='19' width='4' height='8' fill='%23ffcf4a' stroke='%233b2a2a' stroke-width='1.6'/%3E%3Crect x='1' y='12' width='8' height='4' fill='%23ffcf4a' stroke='%233b2a2a' stroke-width='1.6'/%3E%3Crect x='19' y='12' width='8' height='4' fill='%23ffcf4a' stroke='%233b2a2a' stroke-width='1.6'/%3E%3Crect x='11' y='11' width='6' height='6' fill='%23e8734a' stroke='%233b2a2a' stroke-width='1.4'/%3E%3C/svg%3E") 14 14, crosshair}
+body.holding-gem,body.holding-gem *{cursor:grabbing!important}
+/* ======== 下方技能欄位與技能拼圖介面 ======== */
+#skills{pointer-events:auto;gap:10px;padding:8px 12px}
+.sk{flex-direction:column;gap:1px;padding-top:8px;width:58px;height:58px;font-size:20px;line-height:1}
+.sk .sname{font-size:11px;color:var(--ink);line-height:1.1}
+.sk .sup{position:absolute;right:2px;top:1px;font-size:10px;background:#5a3826;color:#ffd85a;padding:0 3px;line-height:1.2}
+.sk.pz-open{background:#5a3826;color:#fff2d6;font-size:15px}.sk.pz-open .k,.sk.pz-open .sname{color:#ffd85a}
+.pzp{width:min(680px,95vw);padding:14px 18px!important;max-height:92vh;overflow:auto}
+.pz-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.pz-presets,.pz-tools,.pz-tabs{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:6px 0}
+.pz-unlock{font-size:13px;color:#7a5a46;margin-bottom:6px}
+.pz-layout{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:start}
+@media(max-width:640px){.pz-layout{grid-template-columns:1fr}}
+.pz-grid{display:grid;grid-template-columns:repeat(6,44px);grid-template-rows:repeat(6,44px);gap:3px;padding:6px;background:#3b2a2a;box-shadow:var(--box)}
+.pz-cell{position:relative;border:0;background:#f3e3c3;color:#fff;font-family:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0;line-height:1;font-size:11px}
+.pz-cell.locked{background:#58453c;color:#9d887b;font-size:13px;opacity:.75}
+.pz-cell.can{background:#ffe9a0;outline:2px solid #e8734a}
+.pz-cell.filled{color:#fff;text-shadow:0 1px 0 #2b1d33;box-shadow:inset 0 0 0 2px rgba(255,255,255,.35)}
+.pz-cell .pz-ic{font-size:15px}.pz-cell .pz-lb{font-size:10px;white-space:nowrap}.pz-cell .pz-dot{width:8px;height:8px;background:rgba(255,255,255,.55);display:block}
+.pz-info{background:#f3e3c3;padding:6px 10px;font-size:13px;line-height:1.5;border-left:4px solid #e8734a;margin:6px 0}
+.pz-bag{display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:8px;max-height:240px;overflow:auto;padding:2px}
+.pz-gem{display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--paper2);border:2px solid #7a5a46;font-family:inherit;text-align:left;color:var(--ink)}
+.pz-gem.on{background:#ffe9a0;outline:3px solid #e8734a}
+.pz-gem span b{display:block;font-size:13px;font-weight:400}.pz-gem span small{font-size:11px;color:#7a5a46}
+.pz-mini{display:inline-grid;gap:1px;padding:3px;background:#3b2a2a;flex:none}.pz-mini i{display:block;width:9px;height:9px}
+.pz-shop{display:flex;flex-direction:column;gap:6px;max-height:240px;overflow:auto;padding:2px}
+.pz-shop-item{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 8px;background:var(--paper2);border-bottom:2px dotted rgba(59,42,42,.25)}
+.pz-shop-head{display:flex;align-items:center;gap:8px;font-size:13px;line-height:1.35}
+.pz-shop-head small{color:#7a5a46;font-size:12px}
 </style>
 </head>
 <body>
@@ -237,12 +271,14 @@ html,body{image-rendering:pixelated;-webkit-font-smoothing:none;font-smooth:neve
   <div class="orb" id="hpOrb"><div class="fill" id="hpFill"></div><div class="shine"></div><div class="txt" id="hpText"></div></div>
   <div class="orb" id="mpOrb"><div class="fill" id="mpFill"></div><div class="shine"></div><div class="txt" id="mpText"></div></div>
   <div id="skills" class="panel">
-    <div class="sk" id="sk-lmb" title="杖擊"><span class="k">左鍵</span>杖<div class="cd"></div></div>
-    <div class="sk" id="sk-rmb" title="餘燼彈"><span class="k">右鍵</span>焰<div class="cd"></div></div>
-    <div class="sk" id="sk-roll" title="翻滾"><span class="k">空白</span>滾<div class="cd"></div></div>
-    <div class="sk" id="sk-q" title="根鬚重擊"><span class="k">Q</span>根<div class="cd"></div></div>
-    <div class="sk" id="sk-e" title="螢火群"><span class="k">E</span>螢<div class="cd"></div></div>
-    <div class="sk" id="sk-r" title="蜜藥瓶"><span class="k">R</span>壺<span class="cnt"></span><div class="cd"></div></div>
+    <div class="sk" id="sk-lmb" title="主武器攻擊"><span class="k">左鍵</span><span class="ic">杖</span><span class="sname">普攻</span><div class="cd"></div></div>
+    <div class="sk" id="sk-s0" title="拼圖技能 1"><span class="k">右鍵</span><span class="ic">—</span><span class="sname">空位</span><span class="sup" hidden></span><div class="cd"></div></div>
+    <div class="sk" id="sk-s1" title="拼圖技能 2"><span class="k">Q</span><span class="ic">—</span><span class="sname">空位</span><span class="sup" hidden></span><div class="cd"></div></div>
+    <div class="sk" id="sk-s2" title="拼圖技能 3"><span class="k">E</span><span class="ic">—</span><span class="sname">空位</span><span class="sup" hidden></span><div class="cd"></div></div>
+    <div class="sk" id="sk-s3" title="拼圖技能 4"><span class="k">C</span><span class="ic">—</span><span class="sname">空位</span><span class="sup" hidden></span><div class="cd"></div></div>
+    <div class="sk" id="sk-roll" title="翻滾／跳躍"><span class="k">空白</span><span class="ic">💨</span><span class="sname">滾跳</span><div class="cd"></div></div>
+    <div class="sk" id="sk-r" title="蜜藥瓶"><span class="k">R</span><span class="ic">🧪</span><span class="sname">藥瓶</span><span class="cnt"></span><div class="cd"></div></div>
+    <button type="button" class="sk pz-open" id="sk-puzzle" title="技能拼圖與寶石商人 (K)"><span class="k">K</span><span class="ic">💎</span><span class="sname">拼圖</span></button>
   </div>
   <div id="tip" class="panel hide"></div>
   <div id="exitHint" class="exitHint" style="display:none"></div>
@@ -272,11 +308,12 @@ html,body{image-rendering:pixelated;-webkit-font-smoothing:none;font-smooth:neve
             <b>空白</b><span>單擊＝翻滾（無敵）；連按兩下＝跳起，按住第二下＝滑翔；頂著懸崖＝攀爬</span>
       <b>Shift</b><span>按住＝疾步衝刺（消耗體力羽毛）</span>
       <b>M</b><span>世界地圖與區域傳送</span>
+      <b>K</b><span>技能拼圖與寶石商人</span>
+      <b>右鍵 / Q / E / C</b><span>施放拼圖主動技能</span>
       <b>Enter</b><span>聊天；1–4 表情</span>
-      <b>Q / E</b><span>技能（天賦或寶石解鎖）</span>
       <b>R</b><span>蜜藥瓶回血（擊殺補充）</span>
       <b>F</b><span>互動、採集、撿起並裝備</span>
-      <b>Tab</b><span>角色與裝備</span>
+      <b>Tab</b><span>角色、職業與裝備</span>
     </div>
   </details>
   <div class="title-actions"><button class="btn" id="btnStart">進入燈谷鎮</button><button id="btnSetTitle" class="btn small" style="background:var(--teal)">⚙ 設定</button></div>
@@ -291,6 +328,34 @@ html,body{image-rendering:pixelated;-webkit-font-smoothing:none;font-smooth:neve
   <div class="sfoot"><button class="btn small" id="btnClose">繼續遊戲</button><span class="hint">Esc 開關設定</span></div>
 </div></div>
 <div id="panelM" class="modal hide"><div class="panel setp"><h3></h3><div class="pshards"></div><div class="pbody"></div><div class="sfoot"><button class="btn small" id="btnPanelClose">關閉</button><span class="hint">Esc 關閉</span></div></div></div>
+<div id="puzzleM" class="modal hide"><div class="panel pzp">
+  <div class="pz-head"><h3>💎 技能拼圖</h3><span class="pz-coins"></span></div>
+  <div class="pz-presets"></div>
+  <div class="pz-unlock"></div>
+  <div class="pz-info"></div>
+  <div class="pz-layout">
+    <div>
+      <div class="pz-grid"></div>
+      <div class="pz-tools">
+        <button type="button" class="btn small" id="pzRotate">旋轉 (R)</button>
+        <button type="button" class="btn small" id="pzTake">放回背包</button>
+        <button type="button" class="btn small" id="pzClear">清空</button>
+      </div>
+    </div>
+    <div>
+      <div class="pz-tabs">
+        <button type="button" class="btn small on" data-pztab="bag">未放置寶石</button>
+        <button type="button" class="btn small" data-pztab="shop">寶石商人</button>
+        <button type="button" class="btn small on" data-pzflt="all">全部</button>
+        <button type="button" class="btn small" data-pzflt="active">主動</button>
+        <button type="button" class="btn small" data-pzflt="support">輔助</button>
+      </div>
+      <div class="pz-bag"></div>
+      <div class="pz-shop" hidden></div>
+    </div>
+  </div>
+  <div class="sfoot"><button type="button" class="btn small" id="btnPuzzleClose">關閉</button><span class="hint">K / Esc 關閉 · 右鍵或 R 旋轉寶石</span></div>
+</div></div>
 <div id="boons" class="modal hide"><h2>選擇一份祝福</h2><div class="cards"></div></div>
 <div id="inv" class="modal hide"><div class="panel">
   <div><h3>裝備</h3><div id="invEquip"></div></div>

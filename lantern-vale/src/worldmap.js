@@ -64,9 +64,9 @@ export function bindWorldMap(game) {
     if (game.state !== 'play' || game.ui.invOpen || game.ui.panelOpen || game.ui.setOpen) return;
     game.keys = {}; game.mouse.l = game.mouse.r = false;
     const town = game.depth < 0;
-    dialog.querySelector('.map-location').textContent = town ? '所在位置 · 燈谷鎮' :
-      '所在副本 · ' + BIOMES[game.biomeFor(game.depth)].name + ' · 第 ' + (game.depth + 1) + ' 層';
-    if (game.field) dialog.querySelector('.map-location').textContent = '所在區域 · ' + FIELDS[game.field].name;
+    dialog.querySelector('.map-location').textContent = town ? '所在位置 · 燈谷鎮（安全區）' :
+      '【副本地圖】' + BIOMES[game.biomeFor(game.depth)].name + ' · 第 ' + (game.depth + 1) + ' 層（需清怪開門，或隨時撤回燈谷鎮）';
+    if (game.field) dialog.querySelector('.map-location').textContent = '【常駐普通地圖】' + FIELDS[game.field].name + '（無需清怪，可隨時傳送至他區或回城）';
     buttons.forEach((b,i)=>b.classList.toggle('here', town ? i===0 : i===game.field));
     if (game.field) select(game.field);
     else if (town) select(0);

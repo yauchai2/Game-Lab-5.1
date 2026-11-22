@@ -114,5 +114,27 @@ const createGuild = require('../server/guild.cjs');
   assert.equal(w2After.coins, 2, 'Buyer pays 10 guild coins (12 - 10)');
   assert.equal(w2After.amber, 2, 'Buyer receives amber');
 
-  console.log('ALL LOGIC & GUILD SERVER CHECKS PASSED');
+  // 7. Class system & 6x6 Skill Puzzle mechanics
+  const puzzle = await import(src('puzzle.js'));
+  assert.equal(puzzle.CLASSES.length, 4, 'Four distinct original classes defined');
+  assert.equal(puzzle.unlockedCount(1), 16, 'Lv.1 unlocks 16 center puzzle cells');
+  assert.equal(puzzle.unlockedCount(30), 36, 'Lv.30 unlocks full 6x6 (36) cells');
+  const rot1 = puzzle.rotateCells([[0, 0], [1, 0], [2, 0]], 1);
+  assert.deepEqual(rot1, [[0, 0], [0, 1], [0, 2]], '90-degree polyomino rotation normalizes cleanly');
+
+  const pzProfile = { puzzle: null };
+  const pz = puzzle.ensurePuzzle(pzProfile, 1); // 林風遊俠
+  const board = puzzle.computeBoard(pz.presets[0]);
+  assert.equal(board.length, 1, 'Ranger starts with 1 active skill (星羽箭雨) on board');
+  assert.equal(board[0].id, 'rain');
+  assert.equal(board[0].mod.multi, 2, 'Adjacent 多重投射 adds +2 projectiles/waves');
+  assert.ok(board[0].mod.cdr > 0, 'Adjacent 極速詠唱 reduces cooldown');
+  // Stack a second 熾炎增幅 adjacent to rain at (2, 1)
+  assert.equal(puzzle.canPlace(pz.presets[0], 'ember', 2, 1, 0, 1), true);
+  pz.presets[0].push({ uid: 99, id: 'ember', x: 2, y: 1, rot: 0 });
+  const board2 = puzzle.computeBoard(pz.presets[0]);
+  assert.equal(board2[0].mod.dmgMult, 1.25, 'Adjacent 熾炎增幅 boosts active skill damage +25%');
+  assert.equal(board2[0].mod.supports.length, 3, 'Three adjacent support gems linked simultaneously');
+
+  console.log('ALL LOGIC, PUZZLE, CLASS & GUILD SERVER CHECKS PASSED');
 })();

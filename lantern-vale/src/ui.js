@@ -4,6 +4,7 @@ import { bindWorldMap } from './worldmap.js';
 import { bindCharacters } from './characters.js';
 import { buildPanels } from './panels.js';
 import { loadSettings, applySettings, buildSettingsUI } from './settings.js';
+import { CLASSES, bindPuzzleUI } from './puzzle.js';
 import * as THREE from 'three';
 import { RARITY, SLOTS, itemLines, itemScore, BOONS } from './loot.js';
 
@@ -21,7 +22,9 @@ export class UI {
     game.settings = loadSettings(); buildPanels(game); buildSettingsUI(game); applySettings(game);
     $('btnMute').onclick = () => { game.audio.init(); const m = game.audio.toggleMute(); $('btnMute').textContent = m ? '🔇' : '🔊'; };
     $('btnMute').textContent = game.audio.muted ? '🔇' : '🔊';
-    bindWorldMap(game); bindTouch(game);
+    bindWorldMap(game); bindTouch(game); bindPuzzleUI(game);
+    const pzBtn = $('sk-puzzle'); if (pzBtn) pzBtn.onclick = () => { if (this.puzzleOpen) this.closePuzzle(); else this.openPuzzle(); };
+    for (let i = 0; i < 4; i++) { const el = $('sk-s' + i); if (el) el.onclick = () => game.castHotbar(i); }
     const enterCharacter = bindCharacters(game);
     $('btnTown2').onclick = () => { $('dead').classList.add('hide'); game.party = ''; game.enterTown(); };
     $('btnTown3').onclick = () => { $('win').classList.add('hide'); game.enterTown(); };
@@ -95,12 +98,12 @@ export class UI {
     if (!near) { el.style.display = 'none'; return; }
     const [sx, sy] = this.screenPos(near.x, 4.4, near.z);
     el.style.display = 'block'; el.style.left = sx + 'px'; el.style.top = sy + 'px';
-    el.textContent = { item: '前路：稀有裝備', boon: '前路：天賦祝福', heal: '前路：溫泉休憩', run: '前往晨光草原', dungeon: '消耗 1 鑰石 · 進入副本' }[near.type];
-    if(near.type==='dungeon') el.textContent=FIELDS[g.field].dungeon+' · 鑰石 ×1';
+    el.textContent = { item: '前路：稀有裝備', boon: '前路：天賦祝福', heal: '前路：溫泉休憩', run: '前往晨光草原（常駐普通地圖）', town: '返回燈谷鎮（免清怪）', dungeon: '消耗 1 鑰石 · 進入副本地圖' }[near.type];
+    if(near.type==='dungeon') el.textContent='【副本地圖】'+FIELDS[g.field].dungeon+' · 鑰石 ×1';
     el.className = 'exitHint ' + near.type;
   }
   spotHint(g) {
-    const el = $('spotHint'), s = this.panelOpen || this.invOpen || this.setOpen ? null : g.nearSpot();
+    const el = $('spotHint'), s = this.panelOpen || this.invOpen || this.setOpen || this.puzzleOpen ? null : g.nearSpot();
     if (!s) { el.style.display = 'none'; return; }
     const [sx, sy] = this.screenPos(s.x, s.top || 2.6, s.z);
     el.style.display = 'block'; el.style.left = sx + 'px'; el.style.top = sy + 'px';
@@ -143,15 +146,30 @@ export class UI {
       el.querySelector('.cd').style.height = (max > 0 ? Math.min(1, cur / max) * 100 : 0) + '%';
     };
     cd('sk-lmb', p.cds.atk, 0.5);
-    cd('sk-rmb', p.cds.bolt, 0.38);
+    const hotbar = p.hotbar || [];
+    for (let i = 0; i < 4; i++) {
+      const el = $('sk-s' + i); if (!el) continue;
+      const sk = hotbar[i];
+      const ic = el.querySelector('.ic'), sn = el.querySelector('.sname'), sup = el.querySelector('.sup');
+      if (sk) {
+        ic.textContent = sk.def.icon; sn.textContent = sk.def.short;
+        const sc = sk.mod.supports.length;
+        sup.hidden = !sc; if (sc) sup.textContent = '+' + sc;
+        el.title = `${sk.def.name}：${sk.def.desc}${sc ? '（連動輔助：' + sk.mod.supports.map(s => s.name).join('、') + '）' : ''}`;
+        const maxCd = sk.def.cd * (1 - S.cdr / 100) * (1 - sk.mod.cdr);
+        cd('sk-s' + i, p.skillCds?.[i] || 0, Math.max(0.1, maxCd), false);
+      } else {
+        ic.textContent = '—'; sn.textContent = '空位'; sup.hidden = true; el.title = '按 K 開啟技能拼圖放入主動技能';
+        cd('sk-s' + i, 0, 1, true);
+      }
+    }
     cd('sk-roll', p.cds.roll, 0.85);
-    cd('sk-q', p.cds.slam, 5 * (1 - S.cdr / 100), !p.skills.slam);
-    cd('sk-e', p.cds.wisp, 12 * (1 - S.cdr / 100), !p.skills.wisp);
     $('sk-r').querySelector('.cnt').textContent = `${p.flask.charges}/${p.flask.max}`;
     $('sk-r').classList.toggle('locked', p.flask.charges === 0);
     $('sk-r').querySelector('.cd').style.height = (p.flask.charges >= p.flask.max ? 0 : (1 - p.flask.prog) * 100) + '%';
     const stage = Math.floor(g.depth / 3) + 1, room = g.depth % 3 + 1;
-    $('roomInfo').textContent = g.field ? g.biome.name + ' · Lv.' + g.meta.p.level : g.depth < 0 ? '燈谷鎮 · 安全區' : g.depth === 9 ? '最終 · 鹿王林地' : `${g.biome.name}  ${stage}-${room}`;
+    const cls = CLASSES[g.character?.job ?? 0] || CLASSES[0];
+    $('roomInfo').textContent = g.field ? `【常駐區】${g.biome.name} · ${cls.icon}${cls.name} Lv.${g.meta.p.level}` : g.depth < 0 ? `燈谷鎮 · ${cls.icon}${cls.name} Lv.${g.meta.p.level}` : g.depth === 9 ? '【副本最終】鹿王林地' : `【副本】${g.biome.name} ${stage}-${room}`;
     $('killInfo').textContent = '擊敗 ' + p.kills;
     const target=$('fieldTarget');
     let nearest=null, distance=7;
@@ -216,8 +234,10 @@ export class UI {
       const it = p.equip[k];
       return `<div class="slot"><div class="slotname">${SLOTS[k].icon}</div><div>${it ? this.itemHTML(it) : '<div class="empty">（空）</div>'}</div></div>`;
     }).join('');
-    const progress=g.meta.p;
+    const progress=g.meta.p, cls = CLASSES[g.character?.job ?? 0] || CLASSES[0];
     const rows = [
+      ['職業', `${cls.icon} ${cls.name}`],
+      ['職業被動', cls.summary],
       ['等級 / 經驗', progress.level===30?'30 · 滿級':progress.level+' · '+progress.xp+'/'+(progress.level*40)],
       ['金幣 / 鑰石',progress.coins+' / '+progress.keys],
       ['木材 / 礦石 / 魚',progress.goods.wood+' / '+progress.goods.ore+' / '+progress.goods.fish],

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { BIOMES, mulberry32 } from './util.js';
 import { makeItem, serializeItem, deserializeItem } from './loot.js';
+import { ALL_GEMS, addGemToBag } from './puzzle.js';
 
 export const GOODS = { wood: '香杉木', ore: '星紋礦', fish: '溪銀魚' };
 export const FIELDS = [
@@ -39,7 +40,13 @@ export function awardKill(g, enemy) {
   if (g.field) {
     const material = ['wood','ore','fish'][(enemy.spawnIndex ?? 0) % 3];
     p.goods[material] += enemy.elite ? 3 : 1;
-    if (enemy.elite || enemy.legendary) p.keys++;
+    if (enemy.elite || enemy.legendary) {
+      p.keys++;
+      const pool = Object.keys(ALL_GEMS);
+      const gemId = pool[Math.floor(Math.random() * pool.length)];
+      addGemToBag(p, gemId);
+      g.ui.toast(`獲得拼圖寶石：${ALL_GEMS[gemId].name}`, '#c08cff');
+    }
     g.ui.toast(GOODS[material] + (enemy.elite ? ' +3 · 鑰石 +1' : ' +1'), '#ffe5a5');
     if (enemy.spawnIndex != null) p.timers[g.field + ':mob:' + enemy.spawnIndex] = Date.now() + (enemy.legendary ? 120000 : 25000);
   }

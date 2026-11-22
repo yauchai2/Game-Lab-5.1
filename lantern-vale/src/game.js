@@ -1,6 +1,7 @@
 import { Weather } from './weather.js';
 import { bindGuild, updateRaid } from './guild.js';
 import { FIELDS, fieldBiome, awardKill, setupField, tickField, useFieldSpot, leaveGrave, rememberGear, restoreGear } from './frontier.js';
+import { CLASSES, ensurePuzzle, computeBoard } from './puzzle.js';
 import * as THREE from 'three';
 import { World, toonMat, HALF, windU } from './world.js';
 import { BIOMES, mulberry32, clamp, lerp, angleLerp, rand, pick } from './util.js';
@@ -116,7 +117,7 @@ export class Game {
   // ---------------- input ----------------
   bindInput() {
     const CODE = { KeyW: 'w', KeyA: 'a', KeyS: 's', KeyD: 'd', ArrowUp: 'arrowup', ArrowDown: 'arrowdown', ArrowLeft: 'arrowleft', ArrowRight: 'arrowright',
-      Space: ' ', ShiftLeft: 'shift', ShiftRight: 'shift', KeyQ: 'q', KeyE: 'e', KeyR: 'r', KeyF: 'f', KeyI: 'i', KeyM: 'm', Tab: 'tab', Escape: 'escape', Enter: 'enter', KeyT: 't', Digit1: '1', Digit2: '2', Digit3: '3', Digit4: '4' };
+      Space: ' ', ShiftLeft: 'shift', ShiftRight: 'shift', KeyQ: 'q', KeyE: 'e', KeyC: 'c', KeyK: 'k', KeyR: 'r', KeyF: 'f', KeyI: 'i', KeyM: 'm', Tab: 'tab', Escape: 'escape', Enter: 'enter', KeyT: 't', Digit1: '1', Digit2: '2', Digit3: '3', Digit4: '4' };
     const typing = () => { const a = document.activeElement; return a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA'); };
     addEventListener('keydown', e => {
       if (this.raid && e.code === 'Escape') { this.net.send({t:'raidLeave'}); return; }
@@ -134,16 +135,23 @@ export class Game {
       const fresh = !this.keys[k]; this.keys[k] = true;
       this.audio.init();
       if (!fresh) return;
+      if (this.ui.puzzleOpen) {
+        if (k === 'r') { this.ui.rotateHeldGem?.(); return; }
+        if (k === 'k' || k === 'escape') { this.ui.closePuzzle?.(); return; }
+        return;
+      }
       if (k === 'm') { if (!e.repeat) this.ui.openMap?.(); return; }
       if (this.state === 'play') {
+        if (k === 'k' && !this.ui.panelOpen && !this.ui.setOpen && !this.ui.invOpen) { this.ui.openPuzzle?.(); return; }
         if (k === ' ') {
           const now = performance.now(), dbl = now - (this.lastSpace || 0) < 280; this.lastSpace = now;
           if (this.player.air || this.player.climbing) this.tryJump();          // 空中/攀爬：維持原本行為（按住滑翔）
           else if (dbl) { this.lastSpace = 0; this.player.roll = 0; this.tryJump(); } // 連按兩下：取消翻滾、跳起（按住第二下＝滑翔）
           else this.tryRoll();                                                  // 單擊：翻滾
         }
-        if (k === 'q') this.trySlam();
-        if (k === 'e') this.tryWisp();
+        if (k === 'q') this.castHotbar(1);
+        if (k === 'e') this.castHotbar(2);
+        if (k === 'c') this.castHotbar(3);
         if (k === 'r') this.tryFlask();
         if (k === 'f' && !this.ui.panelOpen) { if (!this.tryInteract()) this.tryPickup(); }
         if (['1', '2', '3', '4'].includes(k)) this.emote(+k - 1);
@@ -155,8 +163,8 @@ export class Game {
     addEventListener('keyup', e => { const k = CODE[e.code] ?? e.key.toLowerCase(); this.keys[k] = false; this.keys[e.key.toLowerCase()] = false; });
     const cv = this.pipe.renderer.domElement;
     addEventListener('mousemove', e => { this.mouse.x = e.clientX; this.mouse.y = e.clientY; });
-    cv.addEventListener('mousedown', e => { this.audio.init(); window.focus(); if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur(); if (e.button === 0) this.mouse.l = true; if (e.button === 2) this.mouse.r = true; });
-    addEventListener('mouseup', e => { if (e.button === 0) this.mouse.l = false; if (e.button === 2) this.mouse.r = false; });
+    cv.addEventListener('mousedown', e => { this.audio.init(); window.focus(); if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur(); if (e.button === 0) this.mouse.l = true; if (e.button === 2) this.mouse.r = true; cv.classList.add('aiming'); });
+    addEventListener('mouseup', e => { if (e.button === 0) this.mouse.l = false; if (e.button === 2) this.mouse.r = false; if (!this.mouse.l && !this.mouse.r) cv.classList.remove('aiming'); });
     addEventListener('contextmenu', e => e.preventDefault());
     addEventListener('blur', () => { this.keys = {}; this.mouse.l = this.mouse.r = false; });
     document.addEventListener('visibilitychange', () => { this.keys = {}; });
@@ -169,7 +177,7 @@ export class Game {
     this.scene.add(m.root);
     const p = {
       m, pos: new V3(), vel: new V3(), facing: 0, hp: 100, mana: 50, equip: { staff: null, cloak: null, charm: null },
-      boons: [], skills: { slam: false, wisp: false }, cds: { atk: 0, bolt: 0, roll: 0, slam: 0, wisp: 0 },
+      boons: [], skills: { slam: false, wisp: false }, cds: { atk: 0, bolt: 0, roll: 0, slam: 0, wisp: 0 }, skillCds: [0, 0, 0, 0], hotbar: [],
       roll: 0, rollDir: new V3(), iframes: 0, flask: { charges: 2, max: 3, prog: 0 }, healOver: 0,
       y: 0, vy: 0, air: false, climbing: false, gliding: false, wall: false, stamina: 100, lastLow: new V3(), stepT: 0, swing: 0, swingT: 0, swingCount: 0, galeBuff: false, wisps: [], wispT: 0, walkT: 0, kills: 0, dmgDealt: 0, stats: {},
     };
@@ -180,14 +188,16 @@ export class Game {
   }
   recalc() {
     const p = this.player;
-    const s = { baseDmg: 10, dmgPct: 0, addFire: 0, atkSpd: 0, crit: 5, critMult: 150, maxHp: 100, lifeOnHit: 0, moveSpd: 0, cdr: 0, mana: 50, area: 0, armor: 0, proj: 1, regen: 0 };
-    if (this.character?.job === 1) s.moveSpd += 8;
-    else if (this.character?.job === 2) s.addFire += 3;
-    else s.armor += 5;
+    const s = { baseDmg: 10, dmgPct: 0, addFire: 0, atkSpd: 0, crit: 5, critMult: 150, maxHp: 100, lifeOnHit: 0, moveSpd: 0, cdr: 0, mana: 50, manaRegen: 0, area: 0, armor: 0, proj: 1, regen: 0, rollCdr: 0 };
+    const cls = CLASSES[this.character?.job ?? 0] || CLASSES[0];
+    for (const [k, v] of Object.entries(cls.bonuses)) s[k] = (s[k] || 0) + v;
     const profile = this.meta.p;
+    const pz = ensurePuzzle(profile, cls.id);
+    p.hotbar = computeBoard(pz.presets[pz.activePreset] || []);
     showWeapon(p.m, profile.weapon);
     const attackName={staff:'杖',bow:'弓',blades:'刃',shield:'盾'}[profile.weapon] || '杖';
-    const attackSlot=document.getElementById('sk-lmb');attackSlot.childNodes[1].nodeValue=attackName;attackSlot.title=attackName+'擊';
+    const attackSlot=document.getElementById('sk-lmb');
+    if (attackSlot) { const ic = attackSlot.querySelector('.ic'); if (ic) ic.textContent = attackName; attackSlot.title = attackName + '擊'; }
     s.maxHp += (profile.level - 1) * 5; s.baseDmg += profile.level - 1;
     if (profile.weapon === 'blades') s.atkSpd += 40;
     if (profile.weapon === 'shield') s.armor += 15;
@@ -268,7 +278,7 @@ export class Game {
     const boss = depth === 9 && !title && !this.field;
     const seed = this.field ? 7201 + this.field * 319 : title ? 4242 : town ? 9001 : (this.runSeed || 1) + depth * 101;
     this.rng = mulberry32(seed + 77);
-    const { spawn, exits } = this.world.generate(seed, B, { boss, town, raid: !!extra.raid, size: FIELDS[this.field]?.size, exitCount: extra.raid ? 0 : this.field ? 1 : town ? 1 : boss ? 0 : (depth === 0 ? 2 : (this.rng() < 0.5 ? 2 : 3)) });
+    const { spawn, exits } = this.world.generate(seed, B, { boss, town, raid: !!extra.raid, size: FIELDS[this.field]?.size, exitCount: extra.raid ? 0 : this.field ? 2 : town ? 1 : boss ? 0 : (depth === 0 ? 2 : (this.rng() < 0.5 ? 2 : 3)) });
     // lights per biome
     this.sun.color.set(B.sun); this.sun.intensity = B.sunI * 2.3;
     this.hemi.color.set(B.sky); this.hemi.groundColor.set(B.ground); this.hemi.intensity = B.ambient * 1.75;
@@ -278,11 +288,14 @@ export class Game {
     const p = this.player;
     p.pos.set(spawn.x, 0, spawn.z); p.vel.set(0, 0, 0); p.facing = Math.PI; p.roll = 0;
     this.camPos.set(p.pos.x, 0, p.pos.z);
-    // exits (inactive until cleared)
+    // exits (inactive until cleared in dungeons; always open in town & persistent normal maps)
     const types = ['item', 'boon', 'heal'];
     const pool = depth === 0 ? ['boon', 'item'] : types.slice().sort(() => this.rng() - 0.5);
     if (town) { this.makeExit(exits[0], 'run'); this.exits[0].on = true; this.buildTown(); }
-    else if (this.field) { this.makeExit(exits[0], 'dungeon'); this.exits[0].on = true; }
+    else if (this.field) {
+      this.makeExit(exits[0], 'dungeon'); this.exits[0].on = true;
+      if (exits[1]) { this.makeExit(exits[1], 'town'); this.exits[1].on = true; }
+    }
     else exits.forEach((e, i) => this.makeExit(e, pool[i % pool.length]));
     this.weather.reset(B);
     // waves
@@ -312,7 +325,7 @@ export class Game {
     const g = buildArch(this.biome);
     g.position.set(e.x, 0, e.z);
     const toC = Math.atan2(-e.x, -e.z); g.rotation.y = toC;
-    const col = { item: 0xffd85a, boon: 0xc08cff, heal: 0xff6b6b, dungeon: 0xb399ec, run: 0x6fe0d0 }[type];
+    const col = { item: 0xffd85a, boon: 0xc08cff, heal: 0xff6b6b, dungeon: 0xb399ec, run: 0x6fe0d0, town: 0x58c896 }[type];
     const disc = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 2.2), new THREE.ShaderMaterial({
       uniforms: { uT: { value: 0 }, uC: { value: new THREE.Color(col) }, uOn: { value: 0 } }, transparent: true, depthWrite: false, side: THREE.DoubleSide,
       vertexShader: decalVS,
@@ -393,14 +406,17 @@ export class Game {
   }
   hitEnemy(e, hit, kx = 0, kz = 0, opts = {}) {
     if (e.dead) return;
-    e.hp -= hit.dmg; e.flash = 0.12; this.audio.sfx(hit.crit ? 'crit' : 'hit');
+    const dmg = e.vuln > 0 ? Math.round(hit.dmg * 1.3) : hit.dmg;
+    e.hp -= dmg; e.flash = 0.12; this.audio.sfx(hit.crit ? 'crit' : 'hit');
     const kb = e.type === 'stag' ? 0.15 : 1;
     e.knock.x += kx * kb; e.knock.z += kz * kb;
     if (opts.stun && e.type !== 'stag') e.stun = Math.max(e.stun, opts.stun);
-    this.player.dmgDealt += hit.dmg;
-    this.ui.dmgNum(e.pos.x, 1.2 * e.m.root.scale.x + (e.type === 'stag' ? 2.5 : 0), e.pos.z, hit.dmg, hit.crit ? 'crit' : hit.fire ? 'fire' : '');
+    if (opts.slow) e.slow = Math.max(e.slow || 0, opts.slow);
+    this.player.dmgDealt += dmg;
+    this.ui.dmgNum(e.pos.x, 1.2 * e.m.root.scale.x + (e.type === 'stag' ? 2.5 : 0), e.pos.z, dmg, hit.crit ? 'crit' : hit.fire ? 'fire' : '');
     this.fx.burst(e.pos.x, 0.6, e.pos.z, hit.crit ? 8 : 4, { c: hit.fire ? [0xffb040, 0xff7030] : [0xffffff, 0xfff2b0], s: 0.1, speed: 5, up: 3, life: 0.35 });
     if (this.player.stats.lifeOnHit) this.heal(this.player.stats.lifeOnHit, false);
+    if (opts.leech) this.heal(opts.leech, false);
     if (opts.hitstop) this.hitstop = Math.max(this.hitstop, opts.hitstop);
     if (e.hp <= 0) this.killEnemy(e);
   }
@@ -560,7 +576,7 @@ export class Game {
     this.scene.add(mesh);
     this.slashes.push({ mesh, t: 0.16, max: 0.16 });
   }
-  shockRing(x, z, radius, hit, color, stun = 0) {
+  shockRing(x, z, radius, hit, color, stun = 0, opts = {}) {
     const geo = new THREE.RingGeometry(0.85, 1, 32); geo.rotateX(-Math.PI / 2);
     const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, depthWrite: false }));
     mesh.position.set(x, 0.12, z); mesh.userData.noNormal = true;
@@ -569,7 +585,95 @@ export class Game {
     for (const e of this.enemies) {
       if (e.dead) continue;
       const d = Math.hypot(e.pos.x - x, e.pos.z - z);
-      if (d < radius + e.r) { const k = 6 / Math.max(d, 0.3); this.hitEnemy(e, hit.dmg ? { ...hit, dmg: Math.round(hit.dmg * (0.9 + Math.random() * 0.2)) } : hit, (e.pos.x - x) * k * 0.3, (e.pos.z - z) * k * 0.3, { stun }); }
+      if (d < radius + e.r) { const k = 6 / Math.max(d, 0.3); this.hitEnemy(e, hit.dmg ? { ...hit, dmg: Math.round(hit.dmg * (0.9 + Math.random() * 0.2)) } : hit, (e.pos.x - x) * k * 0.3, (e.pos.z - z) * k * 0.3, { stun, slow: opts.slow, leech: opts.leech }); }
+    }
+  }
+  castHotbar(slotIdx) {
+    const p = this.player, sk = p.hotbar?.[slotIdx];
+    if (!sk) {
+      if (slotIdx === 0) this.tryBolt();
+      else if (slotIdx === 1) this.trySlam();
+      else if (slotIdx === 2) this.tryWisp();
+      return;
+    }
+    if ((p.skillCds[slotIdx] || 0) > 0 || p.roll > 0) return;
+    const { def, mod } = sk;
+    if (def.mana && p.mana < def.mana) {
+      if (!this._noManaT || this.time - this._noManaT > 1) { this.ui.toast('法力不足', '#7fb2ff'); this._noManaT = this.time; }
+      return;
+    }
+    if (def.mana) p.mana -= def.mana;
+    p.skillCds[slotIdx] = Math.max(0.12, def.cd * (1 - p.stats.cdr / 100) * (1 - mod.cdr));
+    const run = (echoScale = 1) => this.execPuzzleSkill(def.id, mod, echoScale);
+    run(1);
+    for (let i = 1; i <= mod.echo; i++) setTimeout(() => { if (this.state === 'play') run(0.65); }, i * 240);
+  }
+  execPuzzleSkill(id, mod, scale = 1) {
+    const p = this.player, dir = this.aimDir();
+    p.facing = Math.atan2(dir.x, dir.y);
+    const slow = mod.frost ? 2.2 : 0, leech = mod.leech || 0;
+    const areaMul = (1 + p.stats.area / 100) * (1 + mod.area);
+    const dmgMul = mod.dmgMult * scale;
+    if (id === 'bolt') {
+      this.audio.sfx('bolt');
+      const n = p.stats.proj + mod.multi, spread = 0.18;
+      for (let i = 0; i < n; i++) {
+        const a = (i - (n - 1) / 2) * spread, d = dir.clone().rotateAround(new V2(), a);
+        this.fireProj(p.pos, d, { speed: 17, mult: 1.35 * dmgMul, fire: true, color: 0xffb347, size: 0.18, chain: (this.has('chain') ? 1 : 0) + mod.chain, split: p.specials.has('splitBolt'), slow, leech });
+      }
+      p.swing = 1; p.swingT = 0.15;
+    } else if (id === 'slam') {
+      this.audio.sfx('slam');
+      const R = 3.2 * areaMul * (this.has('quake') ? 1.35 : 1), cx = p.pos.x + dir.x * 1.2, cz = p.pos.z + dir.y * 1.2;
+      this.shockRing(cx, cz, R, this.rollDamage(2.2 * dmgMul, mod.fire), mod.fire ? 0xffa050 : 0xffe3a0, 1.1, { slow, leech });
+      this.puffs.burst(cx, 0.2, cz, 16, { c: [this.biome.rock, this.biome.rockDark, this.biome.dirt], s: 0.25, speed: 5, up: 6, life: 0.8 });
+      this.shake = 0.45; p.swing = 1; p.swingT = 0.28;
+    } else if (id === 'wisp') {
+      this.audio.sfx('wisp');
+      for (const w of p.wisps) this.scene.remove(w.mesh); p.wisps = [];
+      const n = 3 + mod.multi + (this.has('swarm') ? 3 : 0) + (p.specials.has('moreWisps') ? 3 : 0);
+      for (let i = 0; i < n; i++) {
+        const mesh = new THREE.Mesh(new THREE.OctahedronGeometry(0.12, 0), new THREE.MeshBasicMaterial({ color: mod.fire ? 0xff9a4a : 0xfff27a }));
+        this.scene.add(mesh);
+        p.wisps.push({ mesh, a: i / n * Math.PI * 2, cd: Math.random() * 0.4, mult: 0.48 * dmgMul, fire: mod.fire, slow, leech });
+      }
+      p.wispT = 7 + (this.has('swarm') ? 3 : 0);
+    } else if (id === 'rain') {
+      this.audio.sfx('bolt');
+      const tx = this.aim.x, tz = this.aim.z, waves = 2 + Math.floor(mod.multi / 2), R = 2.6 * areaMul;
+      for (let w = 0; w < waves; w++) {
+        this.addDecal('circle', tx + (Math.random() - 0.5) * 1.4, tz + (Math.random() - 0.5) * 1.4, R, mod.fire ? 0xff9a4a : 0x6cb8ff, 0.45 + w * 0.28, null, () => {
+          this.shockRing(tx, tz, R, this.rollDamage(1.45 * dmgMul, mod.fire), mod.fire ? 0xffa850 : 0x8cd0ff, 0, { slow, leech });
+          this.fx.burst(tx, 1.5, tz, 14, { c: [0xfff4d0, 0x6cb8ff], s: 0.12, speed: 4, up: -2, life: 0.45 });
+        });
+      }
+      p.swing = 1; p.swingT = 0.2;
+    } else if (id === 'trap') {
+      this.audio.sfx('ui');
+      const dist = Math.min(6, Math.hypot(this.aim.x - p.pos.x, this.aim.z - p.pos.z));
+      const tx = p.pos.x + dir.x * dist, tz = p.pos.z + dir.y * dist;
+      const R = 2.8 * areaMul;
+      this.addDecal('circle', tx, tz, R, 0xa882e8, 0.9, null, () => {
+        this.audio.sfx('slam');
+        this.shockRing(tx, tz, R, this.rollDamage(2.1 * dmgMul, mod.fire), 0xc09aff, 0.5, { slow: Math.max(slow, 2.5), leech });
+        this.puffs.burst(tx, 0.3, tz, 14, { c: [0xa882e8, 0x8ae0a0], s: 0.24, speed: 4, up: 4, life: 0.65 });
+      });
+    } else if (id === 'whirl') {
+      this.audio.sfx('swing');
+      const R = 3.1 * areaMul;
+      this.shockRing(p.pos.x, p.pos.z, R, this.rollDamage(1.9 * dmgMul, mod.fire), mod.fire ? 0xff7a50 : 0xff8ab0, 0, { slow, leech });
+      this.makeSlash(p.pos, dir, R); this.makeSlash(p.pos, dir.clone().negate(), R);
+      p.swing = 1; p.swingT = 0.25;
+    } else if (id === 'mark') {
+      this.audio.sfx('boon');
+      const tx = this.aim.x, tz = this.aim.z, R = 3.2 * areaMul;
+      this.addDecal('circle', tx, tz, R, 0xd06cff, 0.4, null, () => {
+        for (const e of this.enemies) if (!e.dead && Math.hypot(e.pos.x - tx, e.pos.z - tz) < R + e.r) {
+          e.vuln = 6;
+          if (slow) e.slow = Math.max(e.slow || 0, slow);
+        }
+        this.ui.toast('已標記目標（易傷 +30%）', '#e0a0ff');
+      });
     }
   }
   tryBolt() {
@@ -599,7 +703,7 @@ export class Game {
     const mv = this.moveInput();
     if (mv.lengthSq() < 0.01) { const a = this.aimDir(); mv.set(a.x, a.y); }
     p.rollDir.set(mv.x, 0, mv.y).normalize();
-    p.roll = 0.3; p.cds.roll = 0.85 * (this.has('gale') ? 0.65 : 1) * (1 - p.stats.cdr / 100);
+    p.roll = 0.3; p.cds.roll = 0.85 * (this.has('gale') ? 0.65 : 1) * (1 - (p.stats.rollCdr || 0) / 100) * (1 - p.stats.cdr / 100);
     p.facing = Math.atan2(mv.x, mv.y);
     if (this.has('gale')) p.galeBuff = true;
     this.puffs.burst(p.pos.x, 0.15, p.pos.z, 5, { c: 0xf4ecd8, s: 0.25, speed: 1.5, up: 0.5, g: -0.5, life: 0.5, grow: 1, drag: 4 });
@@ -898,7 +1002,8 @@ export class Game {
           if (r.wait <= 0) { r.wait = 3 + Math.random() * 5; const hm = r.home || [0, 2, 8], a = Math.random() * 6.28, d = (r.home ? 0.3 : 3) + Math.random() * hm[2]; r.tx = hm[0] + Math.cos(a) * d; r.tz = hm[1] + Math.sin(a) * d * 0.8; if (Math.random() < 0.45) this.say(r.id, r.lines[(Math.random() * r.lines.length) | 0]); }
         } else { const dx = r.tx - r.x, dz = r.tz - r.z, d = Math.hypot(dx, dz); r.x += dx / d * 2.2 * dt; r.z += dz / d * 2.2 * dt; r.tf = Math.atan2(dx, dz); r.a = 1; if (Math.hypot(r.x, r.z + 1) < 2.3) { r.x += (r.x / 2) * dt; r.z += ((r.z + 1) / 2) * dt; } }
         r.y = this.world.gh(r.x, r.z);
-        if (Math.hypot(p.pos.x - r.x, p.pos.z - r.z) < 4 && Math.random() < dt * 0.3) r.tf = Math.atan2(p.pos.x - r.x, p.pos.z - r.z);
+        if (Math.hypot(p.pos.x - r.x, p.pos.z - r.z) < 4.5 && r.a === 0) r.tf = Math.atan2(p.pos.x - r.x, p.pos.z - r.z);
+        r.f = angleLerp(r.f, r.tf, 1 - Math.exp(-dt * 10));
       } else {
         const k = 1 - Math.exp(-dt * 12);
         if (!r.init) { r.x = r.tx; r.y = r.ty; r.z = r.tz; r.f = r.tf; r.init = true; }
@@ -942,14 +1047,15 @@ export class Game {
 
     if (this.state === 'play') {
       for (const k in p.cds) p.cds[k] = Math.max(0, p.cds[k] - dt);
+      for (let i = 0; i < 4; i++) p.skillCds[i] = Math.max(0, (p.skillCds[i] || 0) - dt);
       p.iframes = Math.max(0, p.iframes - dt);
-      p.mana = Math.min(S.mana, p.mana + dt * 7);
+      p.mana = Math.min(S.mana, p.mana + dt * 7 * (1 + (S.manaRegen || 0) / 100));
       if (S.regen) this.heal(S.regen * dt, false);
       if (p.specials.has('mossRegen')) this.heal(S.maxHp * 0.02 * dt, false);
       if (p.healOver > 0) { p.healOver -= dt; this.heal(p.healRate * dt, false); }
-      if (!this.ui.invOpen && !this.ui.setOpen && !this.ui.panelOpen) {
+      if (!this.ui.invOpen && !this.ui.setOpen && !this.ui.panelOpen && !this.ui.puzzleOpen) {
         if (this.mouse.l) this.tryAttack();
-        if (this.mouse.r) this.tryBolt();
+        if (this.mouse.r) this.castHotbar(0);
       }
       // movement (3D: walk, sprint, jump, climb walls, glide)
       const mv = this.moveInput();
@@ -1051,6 +1157,7 @@ export class Game {
   }
   goExit(x) {
     if (this.state !== 'play') return;
+    if (x.type === 'town') { this.state = 'transition'; this.audio.sfx('warp'); this.ui.wipe(() => this.enterTown()); return; }
     if (x.type === 'dungeon') {
       if (this.meta.p.keys < 1) {
         if (!this.keyHint || this.time > this.keyHint) { this.ui.toast('需要鑰石 · 擊敗精英可取得'); this.keyHint = this.time + 3; } return;
@@ -1069,7 +1176,7 @@ export class Game {
     for (const e of this.enemies) {
       if (e.dead) continue;
       e.t += dt; e.flash = Math.max(0, e.flash - dt); e.stun = Math.max(0, e.stun - dt); e.hitCd = Math.max(0, e.hitCd - dt);
-      e.slow = Math.max(0, e.slow - dt);
+      e.slow = Math.max(0, e.slow - dt); e.vuln = Math.max(0, (e.vuln || 0) - dt);
       const toP = tmp2.set(p.pos.x - e.pos.x, p.pos.z - e.pos.z); const dist = toP.length();
       const dirP = toP.clone().normalize();
       let mvx = 0, mvz = 0;
@@ -1256,7 +1363,7 @@ export class Game {
         if (d < e.r + (pr.wave ? 0.8 : 0.25) && Math.abs(pr.mesh.position.y - (e.pos.y + 0.6)) < 2.4) {
           pr.hit.add(e);
           const n = new V2(pr.vx, pr.vz).normalize();
-          this.hitEnemy(e, this.rollDamage(pr.mult, pr.fire), n.x * 3, n.y * 3, { hitstop: 0.02 });
+          this.hitEnemy(e, this.rollDamage(pr.mult, pr.fire), n.x * 3, n.y * 3, { hitstop: 0.02, slow: pr.slow, leech: pr.leech });
           if (pr.split) {
             for (let i = 0; i < 3; i++) { const a = Math.atan2(n.y, n.x) + (i - 1) * 0.7; this.fireProj(pr.mesh.position, new V2(Math.cos(a), Math.sin(a)), { speed: 12, mult: 0.45, fire: true, color: 0xffd27a, size: 0.1, life: 0.5, hit0: e }); }
             this.projs[this.projs.length - 1].hit?.add(e);

@@ -17,9 +17,10 @@ export function bindTouch(g) {
   pad.onlostpointercapture=clear;
   const key=(code,down)=>window.dispatchEvent(new KeyboardEvent(down?'keydown':'keyup',{code,bubbles:true}));
   interact.onclick=()=>{if(g.raid){g.net.send({t:'raidLeave'});return;}key('KeyF',true);key('KeyF',false);};
-  const actions={lmb:'attack',rmb:'bolt',roll:'Space',q:'KeyQ',e:'KeyE',r:'KeyR'};
+  const actions={lmb:'attack',s0:'bolt',s1:'KeyQ',s2:'KeyE',s3:'KeyC',roll:'Space',r:'KeyR'};
   for(const [id,action] of Object.entries(actions)) {
     const el=document.getElementById('sk-'+id);
+    if (!el) continue;
     el.onpointerdown=e=>{
       e.preventDefault();el.setPointerCapture(e.pointerId);
       if(action==='attack'||action==='bolt') {

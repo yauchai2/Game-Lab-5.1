@@ -1,10 +1,11 @@
 import * as THREE from 'three';
 import { buildPlayer } from './models.js';
 import { Meta } from './meta.js';
+import { CLASSES, ensurePuzzle } from './puzzle.js';
 
 export const HOODS = [[0x2f8a7e,0x23695f],[0xd9543a,0xa83f2c],[0x6a6ad0,0x4a4aa0],[0xe0a030,0xb07f20],[0xc060b0,0x904488],[0x58a858,0x3f823f],[0x4aa0d8,0x3478a8],[0x8a6a50,0x65503c]];
 const fields = {
-  job: ['守燈人 · 護甲 +5', '巡林人 · 移速 +8%', '引火師 · 火傷 +3'],
+  job: CLASSES.map(c => `${c.icon} ${c.name} · ${c.summary}`),
   skin: ['暖米', '蜂蜜', '赤陶', '深棕'],
   hair: ['栗棕', '炭黑', '秋金', '銀灰'],
   style: ['短瀏海', '側分', '雙髻'],
@@ -90,6 +91,10 @@ export function bindCharacters(game) {
   return () => {
     game.slot = slot;
     game.meta = new Meta(slot);
+    const cls = CLASSES[game.character?.job ?? 0] || CLASSES[0];
+    const isNew = !game.meta.p.puzzle;
+    ensurePuzzle(game.meta.p, cls.id);
+    if (isNew) { game.meta.p.weapon = cls.weapon; game.meta.save(); }
     try {
       localStorage.setItem(key(slot), JSON.stringify({ ...game.character, name: game.playerName, hood: game.hoodIdx }));
       localStorage.setItem('lv_active_slot', JSON.stringify(slot));
