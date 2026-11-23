@@ -301,7 +301,7 @@ export class Game {
     if (profile.weapon === 'blades') s.atkSpd += 40;
     if (profile.weapon === 'shield') s.armor += 15;
     if (profile.gem) { s.addFire += 4; p.skills.slam = true; }
-    if (profile.mealUntil > Date.now()) s.regen += 2;
+    if (profile.mealUntil > Date.now()) s.regen += Math.round(2 * (profile.mealBoost || 1));
     const specials = new Set();
     for (const it of Object.values(p.equip)) if (it) {
       for (const m of [it.corruptImplicit, it.implicit, ...it.mods]) if (m) s[m.k] = (s[m.k] || 0) + m.v;
@@ -1880,11 +1880,20 @@ export class Game {
   placeCampfire() {
     if (this.interior || !this.field) { this.ui.toast('野外地圖才可生起營火', '#ffe08a'); return; }
     if ((this.meta.p.goods?.wood || 0) < 1) { this.ui.toast('需要 1 份香杉木才可生火（砍伐樹木取得）', '#ffb08a'); return; }
-    this.meta.p.goods.wood -= 1; this.meta.save();
+    this.meta.p.goods.wood -= 1;
     const p = this.player, x = p.pos.x + Math.sin(p.facing) * 1.4, z = p.pos.z + Math.cos(p.facing) * 1.4, y = this.world.gh(x, z);
     this.spawnCampfireAt(x, y, z);
     this.audio.sfx('campfire');
-    this.ui.toast('🔥 已生起野外營火！靠近可持續回復生命與法力', '#ffb86a');
+    const hs = this.hotspots ? getFieldHotspot(this.field, this.hotspots) : null;
+    if (hs?.kind === 'food_night') {
+      this.meta.p.mealBoost = 1.5;
+      this.meta.p.mealUntil = Math.max(this.meta.p.mealUntil || 0, Date.now()) + 450000;
+      this.recalc();
+      this.ui.toast('🍗 旅人美食夜市營火共食！料理回血 +50%（3/秒，持續 7.5 分鐘）', '#ffd85a');
+    } else {
+      this.ui.toast('🔥 已生起野外營火！靠近可持續回復生命與法力', '#ffb86a');
+    }
+    this.meta.save();
   }
   togglePhotoMode() {
     this.photoMode = !this.photoMode;

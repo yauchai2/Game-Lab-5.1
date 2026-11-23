@@ -741,5 +741,13 @@ const createGuild = require('../server/guild.cjs');
   assert.equal(hsMock.meta.p.xp, 17, 'Gold Tide hotspot island grants +40% manual XP (12 -> 17)');
   assert.equal(setMod.DEFAULTS.coopVfx, 1, 'Co-op VFX clutter culling defaults to ON (35% opacity for peers)');
 
-  console.log('ALL 27 LOGIC, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
+  // 28. Phase M3: 8% MMO Auction Tax Sink & Food Night Hotspot Campfire Feast
+  const lodgeMod = await import(src('lodge.js'));
+  assert.equal(lodgeMod.AUCTION_TAX_RATE, 0.08, 'MMO Auction House tax rate is 8%');
+  assert.equal(lodgeMod.calcAuctionNet(100), 92, '100g auction sale nets 92g after 8% tax');
+  assert.equal(lodgeMod.calcAuctionNet(10), 9, '10g auction sale nets 9g after 8% tax');
+  const fnHs = mmoProto.getFieldHotspot(2, { hotspots: [{ fieldId: 2, kind: 'food_night', name: '🍗 旅人美食夜市' }] });
+  assert.equal(fnHs.kind, 'food_night', 'Food night hotspot detected for campfire feast +50% buff');
+
+  console.log('ALL 28 LOGIC, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
 })();

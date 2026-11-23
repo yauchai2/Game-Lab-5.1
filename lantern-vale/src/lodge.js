@@ -19,10 +19,14 @@ export function trendLabel(kind, price) {
   if (price < base) return '▼ 低價';
   return '● 平盤';
 }
+export const AUCTION_TAX_RATE = 0.08;
+export function calcAuctionNet(price) {
+  return Math.max(1, price - Math.max(1, Math.round(price * AUCTION_TAX_RATE)));
+}
 function settle(p, now) {
   const pending = [];
   for (const lot of p.sales) {
-    if (lot.due <= now) p.coins += lot.price - Math.ceil(lot.price * .1);
+    if (lot.due <= now) p.coins += calcAuctionNet(lot.price);
     else pending.push(lot);
   }
   p.sales = pending;
@@ -50,7 +54,7 @@ export function buildLodge(g, body, title, kind) {
     }
     for (const [key,name] of Object.entries(GOODS)) {
       const price = quote(key, now);
-      const row = line(name + ' · ' + trendLabel(key, price), '每份 ' + price + ' 金幣 · 成交稅 10%');
+      const row = line(name + ' · ' + trendLabel(key, price), '每份 ' + price + ' 金幣 · 成交稅 8%（回收通膨）');
       action(row,'買入',p.coins >= price,() => { p.coins -= price; p.goods[key]++; });
       action(row,'寄售',p.goods[key] > 0,() => { p.goods[key]--; p.sales.push({ key, price, due:Date.now()+30000 }); });
     }
@@ -67,7 +71,7 @@ export function buildLodge(g, body, title, kind) {
   } else {
     const cost=3*(p.home+1);
     action(line('家園 · '+['營地','木屋','花園木屋','燈塔小屋'][p.home],'擴建消耗香杉木 ×'+cost),'擴建',p.home<3 && p.goods.wood>=cost,()=>{p.goods.wood-=cost;p.home++;g.updateHome();});
-    action(line('香煎溪魚','溪銀魚 ×1 · 每秒恢復 2 點生命，持續五分鐘'),'烹調',p.goods.fish>=1,()=>{p.goods.fish--;p.mealUntil=Date.now()+300000;});
+    action(line('香煎溪魚','溪銀魚 ×1 · 每秒恢復 2 點生命（在 🍗 夜市熱點島生營火可享 +50% 共食加成！）'),'烹調',p.goods.fish>=1,()=>{p.goods.fish--;p.mealBoost=1;p.mealUntil=Date.now()+300000;});
     const curJob = g.character?.job ?? 0;
     for (const cls of CLASSES) {
       action(line(`轉職 · ${cls.icon} ${cls.name}`, cls.summary + ' · ' + cls.desc), curJob === cls.id ? '目前職業' : '轉職', curJob !== cls.id, () => {
