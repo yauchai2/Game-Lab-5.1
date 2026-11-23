@@ -18,6 +18,9 @@ export const FIELDS = [
   { name: '浮空遺跡群', level: 12, biome: 0, size: 320, beast: 'skyray', dungeon: '星穹古塔', grass: 0x7bc87a, status: 'shock' },
   { name: '珊瑚潮汐灣', level: 18, biome: 0, size: 320, beast: 'skyray', dungeon: '潮汐海蝕洞', grass: 0xe8d089, status: 'freeze' },
   { name: '沉沒電光都', level: 24, biome: 2, size: 320, beast: 'thorn', dungeon: '水沒變電塔', grass: 0x5c9ab0, fog: 0x7eb8d4, status: 'shock' },
+  { name: '櫻花水都', level: 14, biome: 0, size: 320, beast: 'moth', dungeon: '櫻花水宮', grass: 0x8cc868, status: 'chill' },
+  { name: '蒼穹巨環谷', level: 22, biome: 0, size: 360, beast: 'skyray', dungeon: '天環聖殿', grass: 0x74c668, status: 'shock' },
+  { name: '紅楓工坊谷', level: 28, biome: 1, size: 360, beast: 'golem', dungeon: '紅楓鍛造爐', grass: 0x98b44c, status: 'burn' },
 ];
 export const progressDefaults = {
   level: 1, xp: 0, coins: 15, keys: 1, goods: { wood: 0, ore: 0, fish: 0 }, graves: {}, timers: {},

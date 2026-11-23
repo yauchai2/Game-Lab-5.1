@@ -6,10 +6,19 @@ import { BOONS, TIERS } from './loot.js';
 import { BAG_RECIPES } from './physbag.js';
 import { MOUNTS } from './mounts.js';
 
-export const GAME_VERSION = 'v1.0.0';
+export const GAME_VERSION = 'v1.1.0';
 export const DONATE_URL = 'https://ko-fi.com/'; // 可隨時改為個人贊助頁面或 ECPay 連結
 
 export const CHANGELOG = [
+  {
+    ver: 'v1.1.0', date: '2026-11-23',
+    items: [
+      { tag: '重要', text: '「萬象新域」大型地圖擴展！新增 3 張常駐超大地圖（總計 12 大野外區域）：🌸 櫻花水都（對稱運河、雙翼雕像與漫天櫻瓣）、🌀 蒼穹巨環谷（三重巨型碧藍天環與山坡圓頂屋）、🍁 紅楓工坊谷（棋盤石磚熔爐工坊、白樺秋楓林與放養小綿羊）！' },
+      { tag: '新增', text: '新增全新 3D 魔物「星晶巨像（Crystal Golem）」與專屬震波 AI；補齊 7–12 號區域共 6 位全新野外 NPC 與支線任務（12 張地圖全覆蓋）！' },
+      { tag: '新增', text: '技能拼圖大幅擴充：新增 3 顆創意主動技能寶石（🌸 櫻吹雪、⚡ 雷霆落雷、🗿 星晶震盪）與 2 顆進階輔助寶石（🩸 血月汲取、🌩 雷鳴連鎖）；新增第 4 隻里程碑坐騎「🦊 櫻風神狐」！' },
+      { tag: '新增', text: '升級海港渡船為 A Short Hike 風格紅白拖船（附駕駛艙、黃煙囪與救生圈），於沉沒電光都新增太陽能屋頂水上小屋，海風港鎮補齊全部 6 座出海路牌。' },
+    ],
+  },
   {
     ver: 'v1.0.0', date: '2026-11-23',
     items: [

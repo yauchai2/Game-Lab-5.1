@@ -82,6 +82,12 @@ export const FIELD_NPCS = {
   4: { name: '觀星者 露露', col: 2, lines: ['雪原的暴風雪會讓採集收穫更豐富。', '在星夜抬頭看，連極光都好像近在咫尺。'], quest: { id: 'q_f4', title: '雪原星象觀測', desc: '擊敗 5 隻雪原怪物保護觀測站', need: 5, rewardCoins: 42, rewardXp: 110 } },
   5: { name: '鑄火匠 炎叔', col: 1, lines: ['火岩區的星紋礦品質最高！', '想切磋武藝的話，打開地圖可以開啟演武挑戰。'], quest: { id: 'q_f5', title: '熔岩礦脈清理', desc: '擊敗 5 隻火岩怪物確保採礦安全', need: 5, rewardCoins: 50, rewardXp: 140 } },
   6: { name: '古樹守望者 苔翁', col: 0, lines: ['你已走過整個燈谷……鹿王樹心就在前方。', '善用技能拼圖的相鄰連動，能發揮驚人力量。'], quest: { id: 'q_f6', title: '古樹淨化試煉', desc: '擊敗 6 隻古樹林怪物守護樹心', need: 6, rewardCoins: 65, rewardXp: 180 } },
+  7: { name: '風翼旅人 嵐', col: 2, lines: ['浮空遺跡的上升氣流能帶你直衝雲端！', '連按空白滑翔擊落雲翼飛鰩吧！'], quest: { id: 'q_f7', title: '空域氣流巡查', desc: '在浮空遺跡群擊敗 4 隻魔物', need: 4, rewardCoins: 40, rewardXp: 95 } },
+  8: { name: '海灘釣客 阿浪', col: 4, lines: ['遮陽傘下乘涼最愜意了！', '潮汐灣的溪銀魚肥美又值錢喔。'], quest: { id: 'q_f8', title: '潮汐海灣護漁', desc: '在珊瑚潮汐灣擊敗 5 隻魔物', need: 5, rewardCoins: 48, rewardXp: 125 } },
+  9: { name: '電工學徒 伏特', col: 6, lines: ['太陽能屋頂還在發電呢！', '小心雷電感電狀態，承受傷害會增加。'], quest: { id: 'q_f9', title: '電光浮台維修', desc: '在沉沒電光都擊敗 5 隻魔物', need: 5, rewardCoins: 58, rewardXp: 165 } },
+  10: { name: '花都琴師 緋櫻', col: 7, lines: ['櫻花運河的倒影美得像一幅畫。', '試著在寶石商人那裡入手「🌸 櫻吹雪」吧！'], quest: { id: 'q_f10', title: '櫻花大道除障', desc: '在櫻花水都擊敗 4 隻魔物守護花季', need: 4, rewardCoins: 45, rewardXp: 110 } },
+  11: { name: '天環測量師 穹', col: 2, lines: ['那三道巨型碧藍天環是遠古星穹留下的奇蹟！', '穿過天環下方說不定能找到高階寶箱。'], quest: { id: 'q_f11', title: '巨環谷地勘查', desc: '在蒼穹巨環谷擊敗 5 隻魔物', need: 5, rewardCoins: 56, rewardXp: 155 } },
+  12: { name: '紅楓大匠 鐵楓', col: 1, lines: ['白樺楓紅下打鐵最講究火候！', '這裡的星晶巨像會掉落頂級高階裝備喔。'], quest: { id: 'q_f12', title: '紅楓工坊巨像試煉', desc: '在紅楓工坊谷擊敗 6 隻魔物', need: 6, rewardCoins: 75, rewardXp: 210 } },
 };
 
 // ======================== 4. 特設副本入口地標 ========================

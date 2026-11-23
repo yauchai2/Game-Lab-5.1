@@ -29,21 +29,27 @@ export const COSMETICS = {
   ],
 };
 
-// ======================== 2. 3D 木造渡船（Ferry Boat） ========================
+// ======================== 2. 3D 紅白海港拖船（致敬 A Short Hike 經典紅頂拖船） ========================
 export function buildFerryBoat() {
   const g = new THREE.Group();
   const hull = new THREE.Mesh(mergeGeometries([
-    part(new THREE.BoxGeometry(1.9, 0.55, 3.8), 0x8f5934, 0, 0.28, 0),
-    part(new THREE.BoxGeometry(1.5, 0.2, 3.2), 0xc48b55, 0, 0.52, 0),
-    part(new THREE.ConeGeometry(1.05, 1.1, 4), 0x8f5934, 0, 0.35, 2.35, Math.PI / 2, Math.PI / 4, 0),
-    part(new THREE.BoxGeometry(1.6, 0.18, 0.45), 0x6e4326, 0, 0.65, -0.7),
-    part(new THREE.BoxGeometry(1.6, 0.18, 0.45), 0x6e4326, 0, 0.65, 0.6),
-    part(new THREE.CylinderGeometry(0.06, 0.08, 2.4, 6), 0x6e4326, 0, 1.5, -1.2),
-    part(new THREE.BoxGeometry(1.5, 1.0, 0.08), 0xfff3d4, 0, 2.0, -1.15),
+    part(new THREE.BoxGeometry(2.3, 0.65, 4.4), 0xd85a3a, 0, 0.32, 0),
+    part(new THREE.BoxGeometry(2.4, 0.2, 4.5), 0xf0a838, 0, 0.16, 0),
+    part(new THREE.BoxGeometry(1.9, 0.16, 3.9), 0xd89d60, 0, 0.66, 0),
+    part(new THREE.ConeGeometry(1.25, 1.35, 4), 0xd85a3a, 0, 0.36, 2.75, Math.PI / 2, Math.PI / 4, 0),
+    part(new THREE.BoxGeometry(1.65, 1.2, 1.85), 0xf8ebd0, 0, 1.3, -0.35),
+    part(new THREE.BoxGeometry(1.85, 0.24, 2.05), 0xc83e32, 0, 1.98, -0.35),
+    part(new THREE.BoxGeometry(0.45, 0.38, 0.08), 0x3b2a2a, -0.4, 1.42, 0.59),
+    part(new THREE.BoxGeometry(0.45, 0.38, 0.08), 0x3b2a2a, 0.4, 1.42, 0.59),
+    part(new THREE.CylinderGeometry(0.14, 0.18, 0.9, 6), 0xf2b830, 0, 2.45, -0.7),
+    part(new THREE.TorusGeometry(0.26, 0.08, 6, 10), 0xfff8ec, 1.18, 0.72, -0.2, 0, Math.PI / 2, 0),
+    part(new THREE.TorusGeometry(0.26, 0.08, 6, 10), 0xfff8ec, -1.18, 0.72, -0.2, 0, Math.PI / 2, 0),
+    part(new THREE.BoxGeometry(0.55, 0.45, 0.55), 0xb8783e, -0.45, 0.92, 1.35),
+    part(new THREE.BoxGeometry(0.45, 0.38, 0.45), 0xc98a4a, 0.48, 0.88, -1.65),
   ]), toonMat({ vertexColors: true }));
   hull.castShadow = true; hull.receiveShadow = true;
-  const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.28, 0.24), new THREE.MeshBasicMaterial({ color: 0xffd86b }));
-  lamp.position.set(0, 1.15, 2.15);
+  const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.3, 0.26), new THREE.MeshBasicMaterial({ color: 0xffdf7a }));
+  lamp.position.set(0, 1.2, 2.35);
   g.add(hull, lamp);
   return g;
 }
@@ -149,10 +155,13 @@ export function buildHarborTown(g) {
     { kind: 'goto_field_7', label: '前往 浮空遺跡群（Lv.12）', x: -12.5, z: -10.5, top: 2.6 },
     { kind: 'goto_field_8', label: '前往 珊瑚潮汐灣（Lv.18）', x: 0, z: -13.0, top: 2.6 },
     { kind: 'goto_field_9', label: '前往 沉沒電光都（Lv.24）', x: 12.5, z: -10.5, top: 2.6 },
+    { kind: 'goto_field_10', label: '前往 🌸 櫻花水都（Lv.14）', x: -15.5, z: -3.5, top: 2.6 },
+    { kind: 'goto_field_11', label: '前往 🌀 蒼穹巨環谷（Lv.22）', x: -6.5, z: -14.2, top: 2.6 },
+    { kind: 'goto_field_12', label: '前往 🍁 紅楓工坊谷（Lv.28）', x: 6.5, z: -14.2, top: 2.6 },
   ];
 
-  // 三座出海探索指示木牌
-  [[-12.5, -10.5, 0x8ae8ff], [0, -13.0, 0xffdc5e], [12.5, -10.5, 0xff9a4a]].forEach(([sx, sz, col]) => {
+  // 六座出海探索指示木牌（直達全 6 張海灣與新大陸區域）
+  [[-12.5, -10.5, 0x8ae8ff], [0, -13.0, 0xffdc5e], [12.5, -10.5, 0xff9a4a], [-15.5, -3.5, 0xffa6c9], [-6.5, -14.2, 0x58d4f0], [6.5, -14.2, 0xe95c3f]].forEach(([sx, sz, col]) => {
     const post = new THREE.Mesh(mergeGeometries([
       part(new THREE.BoxGeometry(0.2, 2.2, 0.2), 0x6b4530, 0, 1.1, 0),
       part(new THREE.BoxGeometry(1.8, 0.65, 0.14), 0xf6e6c2, 0, 2.0, 0),
@@ -303,7 +312,91 @@ export function buildZoneLandmarks(g) {
       pole.position.set(pos.x, y, pos.z); pole.castShadow = true; grp.add(pole);
       g.world.obstacles.push({ x: pos.x, z: pos.z, r: 0.4, h: y });
     }
+    // 太陽能屋頂水上小屋與小黃船（致敬沉沒太陽能城市參考圖）
+    for (let k = 0; k < 2; k++) {
+      const pt = g.world.randomWalkable(r, g.player.pos, 18 + k * 14);
+      const y = g.world.gh(pt.x, pt.z);
+      const roofHut = new THREE.Mesh(mergeGeometries([
+        part(new THREE.BoxGeometry(5.2, 1.4, 4.4), 0x46788e, 0, 0.7, 0),
+        part(new THREE.BoxGeometry(3.4, 2.2, 2.8), 0x8e6b54, 0.4, 2.4, 0),
+        part(new THREE.BoxGeometry(3.8, 0.16, 3.2), 0x3b72c8, 0.4, 3.85, 0, 0.35, 0, 0),
+        part(new THREE.BoxGeometry(2.6, 0.14, 1.4), 0xc88a4a, -1.6, 1.5, 1.4),
+        part(new THREE.BoxGeometry(0.9, 0.35, 2.1), 0xf6c445, -3.5, 0.25, 2.2, 0, 0.4, 0),
+      ]), toonMat({ vertexColors: true }));
+      roofHut.position.set(pt.x, y, pt.z); roofHut.castShadow = true; grp.add(roofHut);
+      addBox(pt.x, pt.z, 2.8, 2.4, y);
+    }
     buildSeaBuoy(H * 0.65, H * 0.55);
+  } else if (g.field === 10) {
+    // 櫻花水都：對稱碧藍運河大道、中央噴泉、雙翼雕像與櫻花林蔭
+    const canal = new THREE.Mesh(mergeGeometries([
+      part(new THREE.BoxGeometry(5.6, 0.28, 18), 0xd8d2c6, 0, 0.14, 0),
+      part(new THREE.BoxGeometry(4.2, 0.32, 16.8), 0x4cc4ec, 0, 0.16, 0),
+      part(new THREE.BoxGeometry(5.8, 0.36, 2.6), 0xe6dfd2, 0, 0.32, 0),
+      part(new THREE.BoxGeometry(5.8, 0.36, 2.6), 0xe6dfd2, 0, 0.32, -6.5),
+      part(new THREE.CylinderGeometry(1.7, 1.9, 0.6, 10), 0xeae4d8, 0, 0.55, 4.5),
+      part(new THREE.OctahedronGeometry(0.55, 0), 0xffb3d1, 0, 1.55, 4.5),
+      ...[-3.8, 3.8].flatMap(sx => [
+        part(new THREE.BoxGeometry(1.4, 0.6, 1.4), 0xd8d2c6, sx, 0.3, 6.2),
+        part(new THREE.CylinderGeometry(0.32, 0.44, 1.7, 6), 0xf4efe6, sx, 1.45, 6.2),
+        part(new THREE.BoxGeometry(1.3, 1.1, 0.12), 0xffffff, sx, 1.9, 5.9, 0, sx > 0 ? -0.4 : 0.4, 0),
+        part(new THREE.BoxGeometry(0.1, 3.6, 0.1), 0x3b2a2a, sx * 1.25, 1.8, 7.6),
+        part(new THREE.BoxGeometry(0.75, 1.6, 0.06), 0xd9483b, sx * 1.25, 2.4, 7.6),
+        part(new THREE.BoxGeometry(0.45, 0.45, 0.08), 0xffd85a, sx * 1.25, 2.55, 7.64),
+      ]),
+    ]), toonMat({ vertexColors: true }));
+    canal.position.set(0, g.world.gh(0, -14), -14); canal.castShadow = true; canal.receiveShadow = true;
+    grp.add(canal);
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * Math.PI * 2, dist = 14 + (i % 3) * 14;
+      const x = Math.cos(a) * dist, z = Math.sin(a) * dist;
+      if (!g.world.isWalk(x, z)) continue;
+      const y = g.world.gh(x, z);
+      const sk = new THREE.Mesh(mergeGeometries([
+        part(new THREE.CylinderGeometry(0.18, 0.28, 2.2, 6), 0x6b4530, 0, 1.1, 0),
+        part(new THREE.IcosahedronGeometry(1.6, 1), i % 2 ? 0xffa6c9 : 0xffc4dc, 0, 2.9, 0),
+        part(new THREE.IcosahedronGeometry(1.1, 1), 0xffe0ec, 0.9, 3.2, 0.4),
+      ]), toonMat({ vertexColors: true }));
+      sk.position.set(x, y, z); sk.castShadow = true; grp.add(sk);
+      g.world.obstacles.push({ x, z, r: 0.7, h: y });
+    }
+  } else if (g.field === 11) {
+    // 蒼穹巨環谷：地平線三重巨型碧藍天環＋山坡圓頂白屋
+    buildMegaSkyRing(0, -H * 0.42, 0, 19.5, 0x58b8f0, 0.08);
+    buildMegaSkyRing(H * 0.14, -H * 0.25, 2.5, 13.5, 0x68caf8, 0.22);
+    buildMegaSkyRing(-H * 0.16, -H * 0.56, 4.0, 11.0, 0x7ad6ff, -0.18);
+    for (let i = 0; i < 4; i++) {
+      const pt = g.world.randomWalkable(r, g.player.pos, 16 + i * 10);
+      const y = g.world.gh(pt.x, pt.z);
+      const dome = new THREE.Mesh(mergeGeometries([
+        part(new THREE.SphereGeometry(2.2, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), 0xf6f4ee, 0, 0, 0),
+        part(new THREE.CylinderGeometry(2.3, 2.4, 0.25, 10), 0xa87448, 0, 0.12, 0),
+        part(new THREE.BoxGeometry(0.85, 1.1, 0.2), 0xd85842, 0, 0.55, 2.15),
+        part(new THREE.CylinderGeometry(0.28, 0.32, 1.2, 6), 0x9a8f86, 0.7, 2.2, -0.4),
+      ]), toonMat({ vertexColors: true }));
+      dome.position.set(pt.x, y, pt.z); dome.castShadow = true; grp.add(dome);
+      g.world.obstacles.push({ x: pt.x, z: pt.z, r: 2.3, h: y });
+    }
+  } else if (g.field === 12) {
+    // 紅楓工坊谷：黑白棋盤石磚廣場、發光熔爐與木工桌
+    const pt = g.world.randomWalkable(r, g.player.pos, 16);
+    const y = g.world.gh(pt.x, pt.z);
+    const tiles = [];
+    for (let ix = -3; ix <= 3; ix++) for (let iz = -3; iz <= 3; iz++) {
+      tiles.push(part(new THREE.BoxGeometry(1.15, 0.12, 1.15), (ix + iz) % 2 === 0 ? 0xf2e4cc : 0x625046, ix * 1.18, 0.06, iz * 1.18));
+    }
+    tiles.push(
+      part(new THREE.CylinderGeometry(1.1, 1.45, 2.2, 8), 0x9e978e, 0, 1.1, -3.2),
+      part(new THREE.CylinderGeometry(0.45, 0.65, 1.4, 6), 0x867f76, 0, 2.8, -3.2),
+      part(new THREE.BoxGeometry(0.8, 0.7, 0.2), 0xffb838, 0, 0.75, -2.0),
+      part(new THREE.BoxGeometry(2.4, 0.85, 1.0), 0x9a643a, -2.8, 0.42, 1.5),
+      part(new THREE.BoxGeometry(2.4, 0.85, 1.0), 0x9a643a, 2.8, 0.42, 1.5),
+    );
+    const yard = new THREE.Mesh(mergeGeometries(tiles), toonMat({ vertexColors: true }));
+    yard.position.set(pt.x, y, pt.z); yard.castShadow = true; yard.receiveShadow = true;
+    grp.add(yard);
+    g.world.obstacles.push({ x: pt.x, z: pt.z - 3.2, r: 1.6, h: y });
+    buildAncientFountain(pt.x + 14, pt.z + 10, g.world.gh(pt.x + 14, pt.z + 10));
   }
   g.world.group.add(grp);
 }

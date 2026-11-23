@@ -68,6 +68,27 @@ export const MOUNTS = [
       return { unlocked, prog, text };
     },
   },
+  {
+    id: 'fox',
+    name: '櫻風神狐',
+    icon: '🦊',
+    tier: 4,
+    speedMult: 1.72,
+    jumpBonus: 3.1,
+    hoverWater: true,
+    color: 0xffb3cf,
+    accent: 0xffd85a,
+    milestone: '探索 6 個野外區域 或 旅人達 Lv.18',
+    perk: '移速 +72% · 超高跳躍 · 水面疾行並灑落櫻花瓣軌跡',
+    check: p => {
+      const visited = (p.visitedFields || []).length;
+      const lv = p.level || 1;
+      const unlocked = visited >= 6 || lv >= 18;
+      const prog = Math.max(Math.min(1, visited / 6), Math.min(1, lv / 18));
+      const text = unlocked ? '已解鎖' : `探索 ${visited}/6 區 或 Lv.${lv}/18`;
+      return { unlocked, prog, text };
+    },
+  },
 ];
 
 export function mountStatuses(metaP) {
@@ -123,6 +144,25 @@ export function buildMountMesh(mountId) {
     }
     for (const [lx, lz] of [[-0.26, 0.42], [0.26, 0.42], [-0.26, -0.42], [0.26, -0.42]]) {
       const leg = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.56, 0.18), toonMat({ color: 0xd8cbb8 }));
+      leg.position.set(lx, 0.28, lz); leg.castShadow = true; g.add(leg); legs.push(leg);
+    }
+  } else if (mountId === 'fox') {
+    // 櫻風神狐（九尾靈狐風格，粉白蓬鬆毛髮＋金鈴項圈＋雙尾）
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.48, 1.32), toonMat({ color: 0xfff2f6 }));
+    body.position.set(0, 0.72, 0); body.castShadow = true; g.add(body);
+    const scarf = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.16, 0.56), toonMat({ color: 0xeb6a98 }));
+    scarf.position.set(0, 0.98, 0.05); g.add(scarf);
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.36, 0.48), toonMat({ color: 0xfff6f8 }));
+    head.position.set(0, 1.15, 0.68); g.add(head);
+    for (const s of [-1, 1]) {
+      const ear = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.38, 4), toonMat({ color: 0xff9ec2 }));
+      ear.position.set(s * 0.16, 1.46, 0.62); ear.rotation.z = -s * 0.2; g.add(ear);
+      const tail = new THREE.Mesh(new THREE.ConeGeometry(0.24, 1.05, 6), toonMat({ color: 0xffb3cf }));
+      tail.position.set(s * 0.22, 0.95, -0.95); tail.rotation.x = -0.95; tail.rotation.z = -s * 0.35; g.add(tail);
+      wings.push(tail);
+    }
+    for (const [lx, lz] of [[-0.2, 0.44], [0.2, 0.44], [-0.2, -0.44], [0.2, -0.44]]) {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.56, 0.13), toonMat({ color: 0xeb7aa8 }));
       leg.position.set(lx, 0.28, lz); leg.castShadow = true; g.add(leg); legs.push(leg);
     }
   } else {

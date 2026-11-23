@@ -11,7 +11,7 @@ import { World, toonMat, HALF, windU } from './world.js';
 import { BIOMES, mulberry32, clamp, lerp, angleLerp, rand, pick } from './util.js';
 import { buildTownScenery, buildGuildKiosk, buildAwakenAltar, buildWardrobe, buildSheep } from './town.js';
 import { loadSettings, applySettings, buildSettingsUI } from './settings.js';
-import { showWeapon, applyCosmetics, buildPlayer, buildNPC, buildSlime, buildThorn, buildBoar, buildMoth, buildSkyRay, buildStag, buildArch, buildHouse, buildFountain, buildBoard, buildStall } from './models.js';
+import { showWeapon, applyCosmetics, buildPlayer, buildNPC, buildSlime, buildThorn, buildBoar, buildMoth, buildSkyRay, buildGolem, buildStag, buildArch, buildHouse, buildFountain, buildBoard, buildStall } from './models.js';
 import { Net } from './net.js';
 import { Meta } from './meta.js';
 import { buildPanels } from './panels.js';
@@ -304,6 +304,16 @@ export class Game {
     this.loadRoom(FIELDS[id].biome * 3, null, false, { fromDir });
     setupField(this, restored);
     if (restored) this.restoreFieldState(id);
+    if (id === 12) {
+      // 紅楓工坊谷：放養 4 隻蓬鬆小綿羊於工坊草地（致敬螢幕擷圖 5）
+      for (let i = 0; i < 4; i++) {
+        const sp = this.world.randomWalkable(this.rng, this.player.pos, 10 + i * 6);
+        const sm = buildSheep();
+        sm.position.set(sp.x, this.world.gh(sp.x, sp.z), sp.z);
+        this.scene.add(sm);
+        this.sheep.push({ mesh: sm, hx: sp.x, hz: sp.z, x: sp.x, z: sp.z, tx: sp.x, tz: sp.z, f: i * 1.4, wait: 1 + i, hop: 0, ph: i * 1.9 });
+      }
+    }
     // 抵達新地圖後，將玩家放在「返回上一張地圖的傳送門」旁 4.8m 內側（並設冷卻防誤觸）
     const matchExit = this.exits.find(x =>
       (fromDir === 'north' && x.type === 'dungeon') ||
@@ -512,6 +522,7 @@ export class Game {
       boar: { hp: 58, spd: 2.6, dmg: 16, r: 0.55, build: buildBoar },
       moth: { hp: 36, spd: 3.0, dmg: 14, r: 0.45, build: buildMoth },
       skyray: { hp: 44, spd: 3.4, dmg: 15, r: 0.55, flying: true, alt: 2.35, build: buildSkyRay },
+      golem: { hp: 115, spd: 2.0, dmg: 22, r: 0.78, build: buildGolem },
       stag: { hp: 1100, spd: 2.4, dmg: 18, r: 1.2, build: buildStag },
     }[type];
     if (type !== 'stag') { if (this.meta.has('swift')) DEF.spd *= 1.25; if (this.meta.has('tough')) DEF.hp *= 1.5; }
@@ -617,7 +628,7 @@ export class Game {
     if (e.rival) { this.dueling=false; this.ui.toast('演武勝利'); }
     e.dead = true; this.audio.sfx(e.type === 'stag' ? 'bossDie' : 'enemyDie');
     this.scene.remove(e.m.root);
-    const col = { slime: [0x7fc35a, 0xb5e080], thorn: [0x8a5a3b, 0x6aa84a], boar: [0x9a6a4a, 0x5a3b2c], moth: [0xb48ae0, 0xffd27a], skyray: [0x58d4e8, 0xffe480], stag: [0xffb050, 0xe8dcc8] }[e.type];
+    const col = { slime: [0x7fc35a, 0xb5e080], thorn: [0x8a5a3b, 0x6aa84a], boar: [0x9a6a4a, 0x5a3b2c], moth: [0xb48ae0, 0xffd27a], skyray: [0x58d4e8, 0xffe480], golem: [0x7b7874, 0x6ae8ff, 0x5f9a4a], stag: [0xffb050, 0xe8dcc8] }[e.type];
     this.puffs.burst(e.pos.x, 0.4, e.pos.z, e.type === 'stag' ? 40 : 12, { c: col, s: 0.24, speed: 4.5, up: 4.5, life: 0.8 });
     this.puffs.burst(e.pos.x, 0.3, e.pos.z, 6, { c: 0xffffff, s: 0.4, speed: 1.5, up: 1, g: -1, life: 0.8, grow: 1.4, drag: 3 });
     this.shake = Math.max(this.shake, e.type === 'stag' ? 1 : e.elite ? 0.42 : 0.22);
@@ -1010,6 +1021,42 @@ export class Game {
       this.puffs.burst(ox, p.y + 0.5, oz, 16, { c: [0xb48ae0, 0x5c3e80, 0xffd27a], s: 0.24, speed: 4, up: 2, life: 0.7 });
       this.fx.burst(p.pos.x, p.y + 0.6, p.pos.z, 14, { c: [0xff7aa8, 0xb48ae0], s: 0.12, speed: 5, up: 2, life: 0.45 });
       p.swing = 1; p.swingT = 0.24;
+    } else if (id === 'sakura') {
+      this.audio.sfx('nova');
+      const R = 4.4 * areaMul;
+      this.shockRing(p.pos.x, p.pos.z, R, this.rollDamage(1.85 * dmgMul, mod.fire), 0xffa6c9, 0.25, { slow: Math.max(slow, 1.5), leech: leech + 3 });
+      this.spawnGroundZone('sakura', p.pos.x, p.pos.z, R * 0.95, 5.2, 0.52 * dmgMul, { color: 0xffa6c9, healPlayer: true, slow: 1.2 });
+      this.fx.burst(p.pos.x, p.y + 1.0, p.pos.z, 28, { c: [0xffa6c9, 0xffd6e7, 0xffffff], s: 0.12, speed: 6, up: 4, life: 0.85 });
+      p.swing = 1; p.swingT = 0.24;
+    } else if (id === 'thunder') {
+      this.audio.sfx('crit');
+      const maxT = 3 + mod.multi + (mod.chain || 0);
+      const targets = this.enemies.filter(e => !e.dead && Math.hypot(e.pos.x - this.aim.x, e.pos.z - this.aim.z) < 11 * areaMul).slice(0, maxT);
+      if (!targets.length) {
+        this.spawnBeam(this.aim.x, 9, this.aim.z, this.aim.x, 0.2, this.aim.z, 0x8ef0ff);
+        this.shockRing(this.aim.x, this.aim.z, 2.8 * areaMul, this.rollDamage(2.0 * dmgMul, mod.fire), 0x8ef0ff, 0.4, { slow, leech });
+      } else {
+        let prev = null;
+        targets.forEach(t => {
+          this.spawnBeam(t.pos.x, t.pos.y + 9, t.pos.z, t.pos.x, t.pos.y + 0.5, t.pos.z, 0x8ef0ff);
+          if (prev) this.spawnBeam(prev.pos.x, prev.pos.y + 0.8, prev.pos.z, t.pos.x, t.pos.y + 0.8, t.pos.z, 0xc88cff);
+          this.hitEnemy(t, this.rollDamage(2.1 * dmgMul, mod.fire), 0, 0, { stun: 0.35, shock: Math.max(5.0, mod.shock || 0), slow, leech });
+          this.fx.burst(t.pos.x, t.pos.y + 0.9, t.pos.z, 12, { c: [0x8ef0ff, 0xffffff, 0xc88cff], s: 0.12, speed: 5, up: 3, life: 0.45 });
+          prev = t;
+        });
+      }
+      this.shake = Math.max(this.shake, 0.32); p.swing = 1; p.swingT = 0.22;
+    } else if (id === 'quakeg') {
+      this.audio.sfx('slam');
+      const R = 4.2 * areaMul, cx = p.pos.x + dir.x * 1.4, cz = p.pos.z + dir.y * 1.4;
+      this.shockRing(cx, cz, R, this.rollDamage(2.1 * dmgMul, mod.fire), 0x6ae8ff, 1.3, { slow, leech });
+      this.puffs.burst(cx, 0.2, cz, 18, { c: [0x6ae8ff, 0x7b7874, 0xffffff], s: 0.28, speed: 5.5, up: 5, life: 0.75 });
+      this.addDecal('circle', cx, cz, R * 1.2, 0x6ae8ff, 0.42, null, () => {
+        this.audio.sfx('slam');
+        this.shockRing(cx, cz, R * 1.2, this.rollDamage(1.9 * dmgMul, mod.fire), 0x7ae8ff, 1.0, { slow, leech });
+        this.shake = Math.max(this.shake, 0.48);
+      });
+      p.swing = 1; p.swingT = 0.28;
     }
   }
   tryBolt() {
@@ -1889,7 +1936,7 @@ export class Game {
     cv.classList.toggle('hover-enemy', !!hitE);
     cv.classList.toggle('hover-interact', !hitE && !!(hitS || hitR || hitD));
     if (hitE) {
-      const names = { slime: '青苔史萊姆', thorn: '棘芽射手', boar: '衝鋒野豬', moth: '月影飛蛾', skyray: '雲翼飛鰩（空中）', stag: '古樹鹿王' };
+      const names = { slime: '青苔史萊姆', thorn: '棘芽射手', boar: '衝鋒野豬', moth: '月影飛蛾', skyray: '雲翼飛鰩（空中）', golem: '星晶巨像', stag: '古樹鹿王' };
       const st = hitE.statuses || {};
       const tags = `${st.freeze > 0 ? ' ❄️' : ''}${st.poison > 0 ? ' 🧪' : ''}${st.burn > 0 ? ' 🔥' : ''}${st.shock > 0 ? ' ⚡' : ''}`;
       badge.textContent = `⚔ ${hitE.elite ? '★ ' : ''}${names[hitE.type] || hitE.type}${tags} · ${Math.ceil(hitE.hp)}/${Math.ceil(hitE.maxHp)}`;
@@ -2063,6 +2110,24 @@ export class Game {
         }
         const fl = Math.sin(e.t * (e.groundedT > 0 ? 4 : 11)) * (e.groundedT > 0 ? 0.15 : 0.45);
         if (e.m.wings) { e.m.wings[0].rotation.z = fl; e.m.wings[1].rotation.z = -fl; }
+      } else if (e.type === 'golem') {
+        e.cd -= dt;
+        if (e.state === 'move') {
+          follow(0.75);
+          e.m.body.position.y = Math.abs(Math.sin(e.t * 4.5 + e.ph)) * 0.1;
+          if (dist < 4.5 && e.cd <= 0) {
+            e.state = 'slam'; e.t = 0;
+            this.addDecal('circle', e.pos.x, e.pos.z, 3.6, 0x6ae8ff, 0.85, null, () => {
+              if (e.dead) return;
+              this.audio.sfx('slam');
+              this.puffs.burst(e.pos.x, 0.3, e.pos.z, 14, { c: [0x6ae8ff, 0x8a8680], s: 0.32, speed: 4.5, up: 3, life: 0.65 });
+              if (Math.hypot(p.pos.x - e.pos.x, p.pos.z - e.pos.z) < 3.8) this.hurtPlayer(e.dmg * 1.25, e.pos, 'shock');
+            });
+          }
+        } else if (e.state === 'slam') {
+          e.m.body.position.y = Math.sin(Math.min(1, e.t / 0.85) * Math.PI) * 0.45;
+          if (e.t > 1.05) { e.state = 'move'; e.cd = 2.8 + Math.random(); }
+        }
       } else if (e.type === 'stag') this.updateBoss(e, dt, dist, dirP, follow, (x, z) => { mvx = x; mvz = z; });
 
       if (mvx || mvz) {
@@ -2282,6 +2347,9 @@ export class Game {
     }
     if (this.state === 'play' && !this.interior && !this.isNight && Math.random() < dt * 2.4) {
       this.fx.emit(p.pos.x + (Math.random() - 0.5) * 16, p.y + 0.8 + Math.random() * 1.6, p.pos.z + (Math.random() - 0.5) * 16, { c: [0xffe46a, 0xffa8d8, 0x8ef0ff, 0xffffff], s: 0.08, vx: (Math.random() - 0.5) * 1.4, vz: (Math.random() - 0.5) * 1.4, vy: 0.35, g: -0.1, life: 2.2 });
+    }
+    if (this.state === 'play' && this.field === 10 && Math.random() < dt * 11) {
+      this.fx.emit(p.pos.x + (Math.random() - 0.5) * 20, p.y + 4.8 + Math.random() * 2.5, p.pos.z + (Math.random() - 0.5) * 20, { c: [0xffa6c9, 0xffd6e7, 0xffffff], s: 0.09, vx: 1.1, vz: 0.6, vy: -1.1, g: 0.25, life: 3.4 });
     }
     for (const b of this.world?.buoys || []) {
       b.mesh.position.y = b.y0 + Math.sin(this.time * 2.2 + b.ph) * 0.08;

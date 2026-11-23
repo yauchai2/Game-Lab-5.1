@@ -9,8 +9,8 @@ const createGuild = require('../server/guild.cjs');
   const frontier = await import(src('frontier.js'));
   const lodge = await import(src('lodge.js'));
 
-  // 1. Nine ultra-grand persistent regions (2x expanded again: 240–400) & status affinities
-  assert.equal(frontier.FIELDS.length, 10);
+  // 1. Twelve ultra-grand persistent regions (240–400) & status affinities
+  assert.equal(frontier.FIELDS.length, 13);
   assert.deepEqual(
     frontier.FIELDS.slice(1).map(f => [f.name, f.level, f.size]),
     [
@@ -23,6 +23,9 @@ const createGuild = require('../server/guild.cjs');
       ['浮空遺跡群', 12, 320],
       ['珊瑚潮汐灣', 18, 320],
       ['沉沒電光都', 24, 320],
+      ['櫻花水都', 14, 320],
+      ['蒼穹巨環谷', 22, 360],
+      ['紅楓工坊谷', 28, 360],
     ],
   );
   assert.equal(frontier.FIELDS[3].status, 'poison');
@@ -158,9 +161,12 @@ const createGuild = require('../server/guild.cjs');
   assert.equal(alive.dayInfo(0.92).isNight, true, 'Night phase sets isNight=true');
   assert.ok(Math.abs(alive.dayInfo(0.75).sunMult - alive.dayInfo(0.74).sunMult) < 0.1, 'Day/Night lighting transitions smoothly');
   assert.equal(Object.values(alive.SECOND_CLASSES).flat().length, 8, 'Eight 2nd-tier classes defined');
-  assert.equal(Object.keys(alive.FIELD_NPCS).length, 6, 'Six unique field NPCs & quests defined');
-  for (const id of ['meteor', 'nova', 'prism', 'phantom']) {
+  assert.equal(Object.keys(alive.FIELD_NPCS).length, 12, 'All 12 wild fields have unique NPCs & quests');
+  for (const id of ['meteor', 'nova', 'prism', 'phantom', 'sakura', 'thunder', 'quakeg']) {
     assert.ok(puzzle.ACTIVE_GEMS[id], `Flashy creative skill ${id} registered in puzzle gems`);
+  }
+  for (const id of ['vamp', 'storm']) {
+    assert.ok(puzzle.SUPPORT_GEMS[id], `Support gem ${id} registered in puzzle gems`);
   }
 
   // 9. Full i18n, Multi-Shape Physics Backpack, Town-Only Stash, 2D Fluid Vials & Custom Keybinds
@@ -231,21 +237,24 @@ const createGuild = require('../server/guild.cjs');
   assert.equal(upgraded.item.rarity, 1, 'Two same-rarity gears collide and fuse into higher rarity');
 
   const codex = await import(src('codex.js'));
-  assert.equal(codex.GAME_VERSION, 'v1.0.0', 'Codex exports current version v1.0.0');
-  assert.ok(codex.CHANGELOG.length >= 7, 'Changelog contains structured version history through v1.0.0');
+  assert.equal(codex.GAME_VERSION, 'v1.1.0', 'Codex exports current version v1.1.0');
+  assert.ok(codex.CHANGELOG.length >= 8, 'Changelog contains structured version history through v1.1.0');
 
-  // 12. Tier System (T1-T6) & 3D Mount Milestone System
+  // 12. Tier System (T1-T6) & 3D Mount Milestone System (4 mounts including Sakura Spirit Fox)
   const loot = await import(src('loot.js'));
   assert.equal(loot.tierInfo(1).tag, 'T1');
   assert.equal(loot.tierInfo(5).name, '傳世階');
   const mounts = await import(src('mounts.js'));
-  assert.equal(mounts.MOUNTS.length, 3, 'Three original mounts defined');
+  assert.equal(mounts.MOUNTS.length, 4, 'Four original mounts defined');
   assert.equal(mounts.activeMountDef({ level: 1, kills: 0 }), null, 'New player starts with mounts locked');
   assert.equal(mounts.activeMountDef({ level: 5, kills: 0 }).id, 'stag', 'Lv.5 unlocks Forest Stag mount');
   assert.equal(mounts.activeMountDef({ level: 1, visitedFields: [1, 2, 3], mountId: 'alpaca' }).id, 'alpaca', 'Exploring 3 fields unlocks Cloud Alpaca mount');
   assert.equal(mounts.activeMountDef({ level: 10, secondClass: 'sunblade', mountId: 'manta' }).id, 'manta', 'Second-class awakening unlocks Starwing Manta mount');
+  assert.equal(mounts.activeMountDef({ level: 18, mountId: 'fox' }).id, 'fox', 'Lv.18 unlocks Sakura Spirit Fox mount');
 
-  // 13. v1.0.0 Art, Terrain Smoothness (GW=181), Sheep & Ancient Blessing Shrines
+  // 13. v1.1.0 Art, Terrain Smoothness (GW=181), Sheep, Golem & Ancient Blessing Shrines
+  const models = await import(src('models.js'));
+  assert.equal(typeof models.buildGolem, 'function', 'Crystal Golem 3D enemy builder exported');
   const world = await import(src('world.js'));
   assert.equal(world.GW, 181, 'Terrain grid upgraded to 181x181 for smooth non-jagged large fields');
   const town = await import(src('town.js'));

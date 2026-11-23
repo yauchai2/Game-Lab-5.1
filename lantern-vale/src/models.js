@@ -180,6 +180,25 @@ export function buildSkyRay() {
   return { root, body, mat: m.material, wings: [wL, wR], shadowRing };
 }
 
+// 全新 3D 魔物：星晶巨像（Crystal Golem，苔岩身軀＋發光星晶核心＋雙重石拳）
+export function buildGolem() {
+  const root = new THREE.Group(); const body = new THREE.Group(); root.add(body);
+  const parts = [
+    part(new THREE.BoxGeometry(1.05, 1.1, 0.85), 0x7b7874, 0, 1.05, 0),
+    part(new THREE.BoxGeometry(0.95, 0.22, 0.78), 0x5f9a4a, 0, 1.65, 0), // 苔蘚肩背
+    part(new THREE.BoxGeometry(0.55, 0.45, 0.55), 0x8e8a84, 0, 1.85, 0.12),
+    part(new THREE.OctahedronGeometry(0.28, 0), 0x6ae8ff, 0, 1.15, 0.46), // 發光胸核
+    part(new THREE.BoxGeometry(0.12, 0.1, 0.05), 0x7ae8ff, -0.14, 1.88, 0.41),
+    part(new THREE.BoxGeometry(0.12, 0.1, 0.05), 0x7ae8ff, 0.14, 1.88, 0.41),
+    part(new THREE.BoxGeometry(0.36, 0.9, 0.36), 0x6a6764, -0.78, 0.9, 0.12), // 重拳左
+    part(new THREE.BoxGeometry(0.36, 0.9, 0.36), 0x6a6764, 0.78, 0.9, 0.12),  // 重拳右
+    part(new THREE.BoxGeometry(0.32, 0.55, 0.36), 0x5c5956, -0.28, 0.28, 0),
+    part(new THREE.BoxGeometry(0.32, 0.55, 0.36), 0x5c5956, 0.28, 0.28, 0),
+  ];
+  const m = mesh(mergeGeometries(parts)); body.add(m);
+  return { root, body, mat: m.material };
+}
+
 export function buildStag() {
   const root = new THREE.Group(); const body = new THREE.Group(); root.add(body);
   const parts = [

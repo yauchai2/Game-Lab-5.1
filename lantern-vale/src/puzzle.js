@@ -64,6 +64,9 @@ export const ACTIVE_GEMS = {
   nova:    { id: 'nova',    type: 'active', name: '極光新星', short: '極光', icon: '❄',  color: '#46b0e8', price: 26, cd: 5.8,  mana: 12, shape: [[1,0],[0,1],[1,1],[2,1]], desc: '爆發雙層冰晶極光環，重創並深度冰緩周圍敵人。' },
   prism:   { id: 'prism',   type: 'active', name: '折光棱鏡', short: '棱鏡', icon: '💎', color: '#38b5a0', price: 26, cd: 7.0,  mana: 12, shape: [[0,0],[0,1],[1,1]], desc: '立起旋轉折光水晶，自動向周圍敵人折射光束。' },
   phantom: { id: 'phantom', type: 'active', name: '影霧幻陣', short: '幻陣', icon: '🌫', color: '#9c5ad8', price: 26, cd: 5.5,  mana: 10, shape: [[0,0],[1,0],[1,1]], desc: '原地留下發光幻影並瞬移閃避，片刻後引爆重創敵人。' },
+  sakura:  { id: 'sakura',  type: 'active', name: '櫻吹雪',   short: '櫻雪', icon: '🌸', color: '#eb7aa8', price: 24, cd: 5.2,  mana: 11, shape: [[1,0],[0,1],[1,1]], desc: '捲起漫天櫻花旋風斬擊敵人並留下持續回復與傷害的花瓣領域。' },
+  thunder: { id: 'thunder', type: 'active', name: '雷霆落雷', short: '落雷', icon: '⚡', color: '#5c84e8', price: 26, cd: 4.8,  mana: 12, shape: [[0,0],[0,1],[1,1],[1,2]], desc: '自天穹召喚多道連鎖雷霆劈擊附近敵人，施加感電（易傷 +25%）。' },
+  quakeg:  { id: 'quakeg',  type: 'active', name: '星晶震盪', short: '星震', icon: '🗿', color: '#64a89e', price: 28, cd: 6.2,  mana: 14, shape: [[0,0],[1,0],[0,1],[1,1]], desc: '召喚星晶巨像之力連續重擊地面 2 波，大幅擊退並暈眩群敵。' },
 };
 
 export const SUPPORT_GEMS = {
@@ -75,6 +78,8 @@ export const SUPPORT_GEMS = {
   haste: { id: 'haste', type: 'support', name: '極速詠唱', short: '極速', icon: '⏩', color: '#58a858', price: 13, shape: [[0,0]], desc: '相鄰主動技能冷卻時間縮減 18%。' },
   frost: { id: 'frost', type: 'support', name: '霜緩附魔', short: '霜緩', icon: '❄', color: '#5aa0e0', price: 14, shape: [[0,0],[1,0]], desc: '相鄰主動技能命中時緩速敵人 45%。' },
   leech: { id: 'leech', type: 'support', name: '生命汲取', short: '汲血', icon: '♥', color: '#c84862', price: 14, shape: [[0,0]], desc: '相鄰主動技能命中敵人時回復 4 點生命。' },
+  vamp:  { id: 'vamp',  type: 'support', name: '血月汲取', short: '血月', icon: '🩸', color: '#a8324c', price: 20, shape: [[0,0],[0,1]], desc: '相鄰主動技能傷害 +15% 且每次命中回復 6 點生命。' },
+  storm: { id: 'storm', type: 'support', name: '雷鳴連鎖', short: '雷鳴', icon: '🌩', color: '#4a6cd8', price: 20, shape: [[0,0],[1,0]], desc: '相鄰主動技能附加感電（+25% 易傷）且額外連鎖 +1 目標。' },
 };
 
 export const ALL_GEMS = { ...ACTIVE_GEMS, ...SUPPORT_GEMS };
@@ -179,7 +184,7 @@ export function computeBoard(placed) {
         }
       }
     }
-    const mod = { multi: 0, echo: 0, area: 0, dmgMult: 1, fire: def.id === 'bolt', chain: 0, cdr: 0, frost: 0, leech: 0, supports: linkedDefs };
+    const mod = { multi: 0, echo: 0, area: 0, dmgMult: 1, fire: def.id === 'bolt', chain: 0, cdr: 0, frost: 0, leech: 0, shock: 0, supports: linkedDefs };
     for (const s of linkedDefs) {
       if (s.id === 'multi') mod.multi += 2;
       if (s.id === 'echo') mod.echo += 1;
@@ -189,6 +194,8 @@ export function computeBoard(placed) {
       if (s.id === 'haste') mod.cdr = Math.min(0.6, mod.cdr + 0.18);
       if (s.id === 'frost') mod.frost += 1;
       if (s.id === 'leech') mod.leech += 4;
+      if (s.id === 'vamp') { mod.dmgMult += 0.15; mod.leech += 6; }
+      if (s.id === 'storm') { mod.shock += 4.5; mod.chain += 1; }
     }
     skills.push({ uid: item.uid, id: def.id, def, mod });
   }
