@@ -287,6 +287,12 @@ export class World {
     return Math.max(h, -0.3);
   }
   isLand(x, z) { if (this.isPier(x, z)) return true; const k = this.idx(x, z); return k >= 0 && this.height[k] > -0.25 && this.RR[k] < 1.0; }
+  shallowAt(x, z) {
+    if (!this.bp || !this.bpCell || this.isPier(x, z)) return null;
+    const k = this.idx(x, z);
+    if (k < 0 || this.bpCell[k] !== 1) return null;
+    return this.bp.shallowKind || null;
+  }
 
   clear() {
     this.waterMat?.uniforms.uShore.value.dispose();

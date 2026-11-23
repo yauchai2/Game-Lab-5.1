@@ -1,5 +1,7 @@
 import { buildPlayer } from './models.js';
-import { FIELDS } from './frontier.js';
+import { FIELDS, teleportToCheckpoint } from './frontier.js';
+import { FIELD_BLUEPRINTS } from './field_blueprints.js';
+import { FAMILY_META, getTerrainEffect } from './terrain_fx.js';
 import illustration from './worldmap.svg';
 import { BIOMES } from './util.js';
 import { t } from './i18n.js';
@@ -25,11 +27,26 @@ export const WORLD_REGIONS = [
 export function bindWorldMap(game) {
   const dialog = document.getElementById('worldMap');
   const atlas = dialog.querySelector('.atlas');
+  const mapInfo = dialog.querySelector('.map-info');
   const name = dialog.querySelector('.region-name');
   const detail = dialog.querySelector('.region-detail');
   atlas.innerHTML = illustration;
   const buttons = [];
   let selected = WORLD_REGIONS[0];
+
+  // PoE 2 五大拓撲圖例列（置於地圖正下方）
+  const legend = document.createElement('div');
+  legend.className = 'map-legend';
+  legend.innerHTML = Object.values(FAMILY_META).map(f =>
+    `<span class="map-leg-item" title="${f.desc}"><i class="map-leg-dot" style="background:${f.color}"></i>${f.icon} ${f.name}</span>`
+  ).join('');
+  atlas.insertAdjacentElement('afterend', legend);
+
+  // 區域徽章列（拓撲／規模／特殊淺區地貌／檢查點進度）與同圖檢查點瞬移列
+  const badgesEl = document.createElement('div'); badgesEl.className = 'map-badges';
+  const cpRow = document.createElement('div'); cpRow.className = 'map-cp-row';
+  name.insertAdjacentElement('afterend', badgesEl);
+  detail.insertAdjacentElement('afterend', cpRow);
 
   const wpBtn = document.createElement('button'); wpBtn.className = 'btn small map-travel';
   const duel = document.createElement('button'); duel.className = 'btn small';
@@ -62,6 +79,16 @@ export function bindWorldMap(game) {
     game.ui.banner('火岩演武場', '已開啟模擬對戰 · 擊敗對手結束挑戰');
   };
 
+  function getCpUnlockedList(fieldId) {
+    if (game.field === fieldId && game.checkpoints?.length) {
+      return game.checkpoints.filter(c => c.unlocked).map(c => c.idx);
+    }
+    const saved = game.meta?.p?.unlockedCps?.[fieldId];
+    if (Array.isArray(saved) && saved.length) return saved;
+    const visited = game.meta?.p?.visitedFields || [];
+    return visited.includes(fieldId) ? [0] : [];
+  }
+
   function select(reg) {
     selected = reg;
     const lang = game.settings?.lang || 'zh-TW';
@@ -70,8 +97,59 @@ export function bindWorldMap(game) {
     const isWp = game.waypoint?.id === reg.id;
     wpBtn.textContent = isWp ? t(lang, 'clearWaypoint') : `🧭 ${t(lang, 'setWaypoint')}`;
     name.textContent = `${reg.name} · ${reg.level}`;
+
+    const bp = reg.kind === 'field' ? FIELD_BLUEPRINTS[reg.id] : null;
+    if (bp) {
+      const fam = FAMILY_META[bp.family] || FAMILY_META.open;
+      const tfx = getTerrainEffect(bp.shallowKind);
+      const totalCps = bp.checkpoints?.length || 0;
+      const unlockedList = getCpUnlockedList(reg.id);
+      const unlockedCount = Math.min(totalCps, unlockedList.length);
+      const badges = [
+        `<span class="map-badge" style="background:${fam.color}" title="${fam.desc}">${fam.icon} ${fam.name}</span>`,
+        `<span class="map-badge soft">📐 ${bp.planSize}</span>`,
+      ];
+      if (tfx) badges.push(`<span class="map-badge soft" title="${tfx.desc}">${tfx.icon} ${tfx.name}</span>`);
+      if (totalCps > 0) badges.push(`<span class="map-badge soft">🔵 檢查點 ${unlockedCount}/${totalCps}</span>`);
+      badgesEl.innerHTML = badges.join('');
+      badgesEl.hidden = false;
+
+      // 若玩家正位於此野外地圖，提供同圖已解鎖藍光檢查點一鍵瞬移
+      if (game.field === reg.id && game.checkpoints?.length) {
+        cpRow.innerHTML = '';
+        const lbl = document.createElement('span');
+        lbl.style.cssText = 'font-size:12px;font-weight:800;color:#2b5c72';
+        lbl.textContent = '同圖檢查點瞬移：';
+        cpRow.appendChild(lbl);
+        for (const cp of game.checkpoints) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'map-cp-btn' + (cp.unlocked ? '' : ' locked');
+          btn.textContent = cp.unlocked ? `🔵 ${cp.name}` : `🔒 ${cp.name}`;
+          btn.disabled = !cp.unlocked;
+          btn.title = cp.unlocked ? `瞬移至「${cp.name}」` : '尚未探索解鎖，靠近該藍光石陣即可開啟';
+          if (cp.unlocked) {
+            btn.onclick = () => { dialog.close(); teleportToCheckpoint(game, cp.idx); };
+          }
+          cpRow.appendChild(btn);
+        }
+        cpRow.hidden = false;
+      } else {
+        cpRow.innerHTML = '';
+        cpRow.hidden = true;
+      }
+    } else {
+      badgesEl.innerHTML = reg.kind === 'town'
+        ? `<span class="map-badge" style="background:#7a5a3a">🏠 主城樞紐</span>`
+        : `<span class="map-badge" style="background:#2b7da8">⛵ 跨海港口</span>`;
+      badgesEl.hidden = false;
+      cpRow.innerHTML = '';
+      cpRow.hidden = true;
+    }
+
     const grave = reg.kind === 'field' ? game.meta.p.graves[reg.id] : null;
-    detail.textContent = `${reg.desc} 【抵達方式】${reg.route}${grave ? ' · 🪦 墓碑在此！' : ''}`;
+    const terrainNote = bp && getTerrainEffect(bp.shallowKind) ? ` 【地貌互動】${getTerrainEffect(bp.shallowKind).desc}` : '';
+    detail.textContent = `${reg.desc}${terrainNote} 【抵達方式】${reg.route}${grave ? ' · 🪦 墓碑在此！' : ''}`;
     buttons.forEach((button, j) => {
       button.setAttribute('aria-pressed', WORLD_REGIONS[j].id === reg.id);
       button.classList.toggle('wp', game.waypoint?.id === WORLD_REGIONS[j].id);
@@ -80,8 +158,14 @@ export function bindWorldMap(game) {
 
   WORLD_REGIONS.forEach(reg => {
     const button = document.createElement('button');
+    const bp = reg.kind === 'field' ? FIELD_BLUEPRINTS[reg.id] : null;
+    const fam = bp ? FAMILY_META[bp.family] : null;
     button.textContent = reg.name;
     button.style.left = reg.x + '%'; button.style.top = reg.y + '%';
+    if (fam) {
+      button.style.borderLeft = `4px solid ${fam.color}`;
+      button.title = `${reg.name}（${fam.icon} ${fam.name}）`;
+    }
     button.onclick = () => select(reg);
     atlas.appendChild(button); buttons.push(button);
   });

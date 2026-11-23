@@ -2,6 +2,7 @@ import { Weather } from './weather.js';
 import { bindGuild, updateRaid } from './guild.js';
 import { FIELDS, fieldBiome, awardKill, setupField, tickField, useFieldSpot, leaveGrave, rememberGear, restoreGear } from './frontier.js';
 import { FIELD_BLUEPRINTS } from './field_blueprints.js';
+import { getTerrainEffect, updateFieldTerrainFx } from './terrain_fx.js';
 import { buildDungeonScenery } from './dungeon_scene.js';
 import { CLASSES, ensurePuzzle, computeBoard } from './puzzle.js';
 import { dayInfo, findSecondClass, buildDungeonLandmark, tickSkyFeatures, buildInterior } from './world_alive.js';
@@ -652,6 +653,7 @@ export class Game {
     if (e.vuln > 0) mult *= 1.3;
     if (e.brokenWeakens?.has('armor')) mult *= 1.3;
     if (e.statuses.shock > 0) mult *= 1.25;
+    if (e.wet > 0 && opts.shock) mult *= 1.2;
     if (p.statuses?.overload > 0) mult *= 1.25;
     let dmg = Math.round(hit.dmg * mult);
     if (!opts.isDoT && (this.tide?.microBuffs?.dice20 || 0) > 0 && Math.random() < 0.22) {
@@ -686,10 +688,11 @@ export class Game {
       this.ui.toast('🦅 空中破翼擊落！體力 +40 · 踏跳反彈', '#7ae8ff');
       this.fx.burst(e.pos.x, e.pos.y + 0.6, e.pos.z, 14, { c: [0x7ae8ff, 0xffe480, 0xffffff], s: 0.14, speed: 6, up: 4, life: 0.5 });
     }
-    // 異常狀態附加（冰凍、中毒、灼燒、感電）
+    // 異常狀態附加（冰凍、中毒、灼燒、感電；潮濕敵人受寒冰命中幾乎必凍）
     if (opts.slow && e.type !== 'stag') {
       e.slow = Math.max(e.slow || 0, opts.slow);
-      if (Math.random() < 0.42) { e.statuses.freeze = Math.max(e.statuses.freeze, 2.0); this.fx.burst(e.pos.x, e.pos.y + 0.6, e.pos.z, 8, { c: [0x8eeeff, 0xffffff], s: 0.12, speed: 3.5, up: 2, life: 0.4 }); }
+      const freezeChance = e.wet > 0 ? 0.85 : 0.42;
+      if (Math.random() < freezeChance) { e.statuses.freeze = Math.max(e.statuses.freeze, e.wet > 0 ? 2.6 : 2.0); this.fx.burst(e.pos.x, e.pos.y + 0.6, e.pos.z, 8, { c: [0x8eeeff, 0xffffff], s: 0.12, speed: 3.5, up: 2, life: 0.4 }); }
     }
     if (hit.fire && !opts.isDoT && Math.random() < 0.45) e.statuses.burn = Math.max(e.statuses.burn, 3.6);
     if (opts.poison) e.statuses.poison = Math.max(e.statuses.poison, opts.poison);
@@ -1653,6 +1656,24 @@ export class Game {
         }
       }
     }
+    // v5 藍圖特殊淺區地貌連鎖反應（冰湖融冰、熔岩急冷、淺水感電／結冰、毒沼爆燃）
+    if (!reacted && this.field && this.world?.shallowAt) {
+      const sk = this.world.shallowAt(x, z);
+      const tfx = getTerrainEffect(sk);
+      if (tfx?.surfaceBase) {
+        const effEl = (tfx.surfaceBase === 'magma' && element === 'frost') ? 'water' : element;
+        const rx = resolveSurfaceReaction(tfx.surfaceBase, effEl);
+        if (rx) {
+          this.spawnGroundZone(rx.nextKind, x, z, Math.max(2.6, radius), 6.0, rx.bonusDmgMult * 0.6, { color: rx.color });
+          this.audio.sfx('reaction');
+          this.fx.burst(x, this.world.gh(x, z) + 0.8, z, 20, { c: [rx.color, 0xffffff], s: 0.14, speed: 5.8, up: 4.2, life: 0.6 });
+          this.ui.dmgNum(x, this.world.gh(x, z) + 1.9, z, `${tfx.icon} ${rx.label.split('！')[0]}!`, 'crit');
+          if ((this._rxToastCd || 0) <= this.time) { this._rxToastCd = this.time + 1.2; this.ui.toast(`${tfx.icon} 地貌連鎖 · ${rx.label}`, '#' + rx.color.toString(16).padStart(6, '0')); }
+          if (rx.bonusDmgMult > 0) this.shockRing(x, z, Math.max(2.8, radius), this.rollDamage(rx.bonusDmgMult * 0.85, !!rx.fire), rx.color, rx.stun || 0, { slow: rx.slow, isReaction: true, isTrigger: true });
+          reacted = true;
+        }
+      }
+    }
     // 下雨天氣自動淋濕地面：若無重疊區域，降雨中的冰／火／雷法術直接與雨濕地面反應！
     if (!reacted && this.weather?.isRaining && ['frost', 'fire', 'shock'].includes(element)) {
       const rx = resolveSurfaceReaction('water', element);
@@ -2060,6 +2081,7 @@ export class Game {
           }
         }
       }
+      updateFieldTerrainFx(this, dt);
       p.sprinting = false;
       const frozen = (p.statuses?.freeze || 0) > 0;
       const mountDef = this.mount?.def || null;
@@ -2087,15 +2109,17 @@ export class Game {
         const mountSpd = mountDef ? mountDef.speedMult : 1;
         const buffSpd = ((this.shrineBuffs?.fury || 0) > 0 ? 1.2 : 1) * ((this.shrineBuffs?.sheep || 0) > 0 ? 1.1 : 1);
         const glideSpd = p.gliding ? (p.souls?.mobility?.id === 'skyray' ? 1.95 : 1.35) : 1;
-        const f = chillMul * mountSpd * buffSpd * (attacking ? 0.55 : 1) * (p.climbing ? 0.22 : 1) * glideSpd * (canSprint ? 1.25 : 1);
+        const terrainSpd = p.terrainFx ? (p.terrainFx.speedMult || 1) : 1;
+        const f = chillMul * mountSpd * buffSpd * terrainSpd * (attacking ? 0.55 : 1) * (p.climbing ? 0.22 : 1) * glideSpd * (canSprint ? 1.25 : 1);
         if (mountDef?.ramKnockback && mv.lengthSq() > 0.2) {
           for (const e of this.enemies) if (!e.dead && e.type !== 'stag' && e.pos.distanceTo(p.pos) < e.r + 1.0) {
             const dx = e.pos.x - p.pos.x, dz = e.pos.z - p.pos.z, d = Math.hypot(dx, dz) || 1;
             e.knock.x += (dx / d) * 6; e.knock.z += (dz / d) * 6;
           }
         }
-        p.vel.x = lerp(p.vel.x, mv.x * spd * f, 1 - Math.exp(-dt * (p.air ? 6 : 14)));
-        p.vel.z = lerp(p.vel.z, mv.y * spd * f, 1 - Math.exp(-dt * (p.air ? 6 : 14)));
+        const accel = p.air ? 6 : (p.terrainFx?.accelRate || 14);
+        p.vel.x = lerp(p.vel.x, mv.x * spd * f, 1 - Math.exp(-dt * accel));
+        p.vel.z = lerp(p.vel.z, mv.y * spd * f, 1 - Math.exp(-dt * accel));
         this.movePlayer(p.vel.x * dt, p.vel.z * dt);
         if (mv.lengthSq() > 0.01 && !attacking) p.facing = angleLerp(p.facing, Math.atan2(mv.x, mv.y), 1 - Math.exp(-dt * 14));
         if (mv.lengthSq() > 0.01 && !p.air && !p.climbing) {

@@ -212,6 +212,71 @@ async function runCapture(req) {
           await snapSpot('p2c_f10_sakura_city.png', 10, 0.19, 0.22, 12.0, { type: 'moth', elite: false, dx: 3.2, dz: -3.2 });
           await snapSpot('p2c_f11_sky_rings.png', 11, 0.56, 0.34, 12.5, { type: 'skyray', elite: false, dx: 3.2, dz: -3.0 });
           await snapSpot('p2c_f12_maple_forge.png', 12, 0.66, 0.48, 12.0, { type: 'golem', elite: true, dx: 3.5, dz: -3.2 });
+          // Phase 3C：特殊地貌互動玩法（#04 冰湖滑行 HUD、#05 熔岩急冷蒸汽連鎖）與升級世界地圖（同圖檢查點瞬移＋拓撲徽章）
+          await page.evaluate(() => {
+            const g = window.__game;
+            g.enterField(4);
+            // 精準定位至 #04 極寒冰湖淺區中心 (bpCell === 1)
+            const half = g.world.half || 180;
+            const bpCell = g.world.bpCell;
+            let tx = 0, tz = 0;
+            if (bpCell) {
+              outer: for (let j = 115; j < 165; j++) {
+                for (let i = 110; i < 165; i++) {
+                  if (bpCell[j * 181 + i] === 1 && bpCell[j * 181 + i + 2] === 1 && bpCell[(j - 2) * 181 + i] === 1) {
+                    tx = -half + i * g.world.res;
+                    tz = -half + j * g.world.res;
+                    break outer;
+                  }
+                }
+              }
+            }
+            const y = g.world.gh(tx, tz);
+            g.player.pos.set(tx, y, tz); g.player.y = y; g.player.air = false;
+            g.camPos.set(tx, 0, tz - 3.0);
+          });
+          await page.waitForTimeout(700);
+          await page.keyboard.down('KeyW');
+          await page.waitForTimeout(450);
+          await page.screenshot({ path: path.join(runDir, 'p3c_terrain_ice.png') });
+          await page.keyboard.up('KeyW');
+
+          // 在 #04 開啟升級世界地圖（解鎖 2 個檢查點以展示同圖一鍵瞬移列＋PoE 2 拓撲徽章＋零捲動完整版面）
+          await page.evaluate(() => {
+            const g = window.__game;
+            if (g.checkpoints?.[1]) g.checkpoints[1].unlocked = true;
+            g.ui.openMap?.();
+          });
+          await page.waitForTimeout(650);
+          await page.screenshot({ path: path.join(runDir, 'p3c_worldmap_field.png') });
+          await closeAllUI();
+
+          // #05 熔岩護城河：直接於熔岩淺區施放寒冰觸發「急冷蒸汽雲」地貌元素連鎖
+          await page.evaluate(() => {
+            const g = window.__game;
+            g.enterField(5);
+            const half = g.world.half || 160;
+            const bpCell = g.world.bpCell;
+            let tx = 0, tz = 0;
+            if (bpCell) {
+              outer: for (let j = 35; j < 150; j++) {
+                for (let i = 35; i < 150; i++) {
+                  if (bpCell[j * 181 + i] === 1) {
+                    tx = -half + i * g.world.res;
+                    tz = -half + j * g.world.res;
+                    break outer;
+                  }
+                }
+              }
+            }
+            const y = g.world.gh(tx, tz);
+            g.player.pos.set(tx, y, tz); g.player.y = y; g.player.air = false;
+            g.camPos.set(tx, 0, tz - 3.5);
+            g.applyElementAt(tx, tz, 'frost', 3.6);
+          });
+          await page.waitForTimeout(650);
+          await page.screenshot({ path: path.join(runDir, 'p3c_terrain_lava_rx.png') });
+
           // 切回 field:1 正常狀態，確保 09_field_1.png 與後續鏡頭一致
           await page.evaluate(() => window.__game.enterField(1));
           await page.waitForTimeout(1000);

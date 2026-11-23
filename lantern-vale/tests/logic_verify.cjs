@@ -526,5 +526,50 @@ const createGuild = require('../server/guild.cjs');
     assert.ok(fsMod.existsSync(full) && fsMod.statSync(full).size > 2000, `GLB asset exists and non-empty: ${rel}`);
   }
 
-  console.log('ALL 21 LOGIC, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
+  // 22. Phase 3C: Blueprint Special Terrain Gameplay Engine + PoE 2 Topology Metadata
+  const tfxMod = await import(src('terrain_fx.js'));
+  assert.equal(Object.keys(tfxMod.FAMILY_META).length, 5, 'All 5 PoE 2 topology families defined in FAMILY_META');
+  for (let fid = 1; fid <= 12; fid++) {
+    const bp = bpMod.FIELD_BLUEPRINTS[fid];
+    assert.ok(tfxMod.FAMILY_META[bp.family], `Field #${fid} family (${bp.family}) present in FAMILY_META`);
+    const eff = tfxMod.getTerrainEffect(bp.shallowKind);
+    assert.ok(eff && eff.name && eff.icon, `Field #${fid} shallowKind (${bp.shallowKind}) mapped in TERRAIN_EFFECTS`);
+  }
+  // Ice lake skating + Hot spring healing + Lava moat enemy burn + Elemental terrain reaction
+  const mockTerrainGame = (shallowKind) => ({
+    field: 4,
+    world: { bpCell: new Uint8Array(4), shallowAt: () => shallowKind },
+    player: {
+      air: false, climbing: false, y: 0,
+      pos: { x: 0, z: 0 }, vel: { x: 4, z: 0 },
+      hp: 60, mana: 20, stats: { maxHp: 100, mana: 100 },
+      statuses: { poison: 2, burn: 2, chill: 2 },
+    },
+    enemies: [{ dead: false, flying: false, type: 'boar', hp: 100, maxHp: 100, pos: { x: 2, y: 0, z: 2 }, statuses: {} }],
+    ui: { toast() {}, dmgNum() {} },
+    fx: { burst() {} },
+    puffs: { emit() {} },
+    _terrainEnemyTick: 0,
+  });
+  const iceG = mockTerrainGame('ice_lake');
+  tfxMod.updateFieldTerrainFx(iceG, 0.1);
+  assert.equal(iceG.player.terrainFx.id, 'ice_lake');
+  assert.ok(iceG.player.terrainFx.speedMult >= 1.35 && iceG.player.terrainFx.accelRate <= 4, 'Ice lake grants skating boost & glide inertia');
+  assert.ok(iceG.enemies[0].slow > 0, 'Ice lake slows enemies standing on it');
+
+  const hsG = mockTerrainGame('hot_spring');
+  tfxMod.updateFieldTerrainFx(hsG, 0.5);
+  assert.ok(hsG.player.hp > 60 && hsG.player.mana > 20, 'Hot spring heals HP & restores Mana');
+  assert.equal(hsG.player.statuses.poison, 0, 'Hot spring cleanses poison');
+  assert.equal(hsG.player.statuses.burn, 0, 'Hot spring cleanses burn');
+
+  const lavaG = mockTerrainGame('lava_moat');
+  tfxMod.updateFieldTerrainFx(lavaG, 0.1);
+  assert.ok(lavaG.enemies[0].statuses.burn >= 2.5 && lavaG.enemies[0].hp < 100, 'Lava moat burns enemies standing in it');
+
+  assert.equal(elements.resolveSurfaceReaction(tfxMod.getTerrainEffect('poison_bog').surfaceBase, 'fire').nextKind, 'magma', 'Poison bog + fire triggers toxic_blast');
+  assert.equal(elements.resolveSurfaceReaction(tfxMod.getTerrainEffect('ice_lake').surfaceBase, 'fire').nextKind, 'steam', 'Ice lake + fire melts into steam');
+  assert.equal(elements.resolveSurfaceReaction(tfxMod.getTerrainEffect('creek').surfaceBase, 'shock').nextKind, 'electrified_water', 'Shallow creek + shock triggers electrified_water');
+
+  console.log('ALL 22 LOGIC, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
 })();

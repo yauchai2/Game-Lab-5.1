@@ -476,9 +476,13 @@ export function setupField(g, restored = false) {
   }
   g.fieldSpawns = spawns;
 
-  // v5 藍光傳送檢查點（消除回頭路）
+  // v5 藍光傳送檢查點（消除回頭路，已解鎖進度持久化至 meta.p.unlockedCps）
   g.checkpoints = [];
   if (bp?.checkpoints?.length) {
+    g.meta.p.unlockedCps = g.meta.p.unlockedCps || {};
+    const saved = Array.isArray(g.meta.p.unlockedCps[g.field]) ? g.meta.p.unlockedCps[g.field] : [0];
+    if (!saved.includes(0)) saved.push(0);
+    g.meta.p.unlockedCps[g.field] = saved;
     bp.checkpoints.forEach(([cu, cv, cpName], idx) => {
       const w = uvToWorld(cu, cv, g.world.half);
       const pt = g.world.isLand(w.x, w.z) ? w : g.world.randomWalkable(r, g.player.pos, 8);
@@ -486,7 +490,7 @@ export function setupField(g, restored = false) {
       const y = g.world.gh(pt.x, pt.z);
       mesh.position.set(pt.x, y, pt.z);
       g.world.group.add(mesh);
-      const cp = { idx, name: cpName || `檢查點 ${idx + 1}`, x: pt.x, z: pt.z, y, unlocked: idx === 0, mesh };
+      const cp = { idx, name: cpName || `檢查點 ${idx + 1}`, x: pt.x, z: pt.z, y, unlocked: saved.includes(idx), mesh };
       g.checkpoints.push(cp);
       g.spots.push({ kind: 'checkpoint', cpIdx: idx, label: `🔵 傳送檢查點 · ${cp.name}（[F] 瞬移）`, x: pt.x, z: pt.z, top: y + 2.4, mesh });
     });
@@ -547,22 +551,43 @@ export function tickField(g, dt) {
     if (legendary) g.ui.bossBar(true, f.name + '守護獸');
   });
   for (const spot of g.spots) if (GOODS[spot.kind]) spot.mesh.visible = !(g.meta.p.timers[g.field + ':' + spot.kind] > now);
-  // 自動解鎖靠近的藍光傳送檢查點
+  // 自動解鎖靠近的藍光傳送檢查點並寫入存檔
   for (const cp of g.checkpoints || []) {
     if (!cp.unlocked && Math.hypot(g.player.pos.x - cp.x, g.player.pos.z - cp.z) < 7.0) {
       cp.unlocked = true;
+      g.meta.p.unlockedCps = g.meta.p.unlockedCps || {};
+      const list = Array.isArray(g.meta.p.unlockedCps[g.field]) ? g.meta.p.unlockedCps[g.field] : [0];
+      if (!list.includes(cp.idx)) { list.push(cp.idx); g.meta.p.unlockedCps[g.field] = list; g.meta.save(); }
       g.audio?.sfx?.('win');
       g.fx?.burst?.(cp.x, cp.y + 1.5, cp.z, 20, { c: [0x38d0ff, 0xffffff, 0x9cf2ff], s: 0.14, speed: 5, up: 4, life: 0.65 });
       g.ui?.toast?.(`🔵 已解鎖傳送檢查點：${cp.name}`, '#6ae8ff');
     }
   }
 }
+
+export function teleportToCheckpoint(g, cpIdx) {
+  const cp = (g.checkpoints || []).find(c => c.idx === cpIdx);
+  if (!cp || !cp.unlocked) return false;
+  g.player.pos.set(cp.x + 1.6, cp.y, cp.z + 1.6);
+  g.player.y = g.world.gh(cp.x + 1.6, cp.z + 1.6);
+  g.camPos?.set?.(cp.x + 1.6, 0, cp.z + 1.6);
+  g.audio?.sfx?.('wisp');
+  g.fx?.burst?.(cp.x + 1.6, g.player.y + 1.2, cp.z + 1.6, 22, { c: [0x38d0ff, 0xffffff, 0xa8f2ff], s: 0.14, speed: 5, up: 4, life: 0.6 });
+  g.ui?.toast?.(`🔵 瞬移至「${cp.name}」`, '#6ae8ff');
+  return true;
+}
+
 export function useFieldSpot(g,s) {
   const p = g.meta.p;
   if (s.kind === 'checkpoint') {
     const cps = g.checkpoints || [];
     const cur = cps[s.cpIdx];
-    if (cur && !cur.unlocked) cur.unlocked = true;
+    if (cur && !cur.unlocked) {
+      cur.unlocked = true;
+      p.unlockedCps = p.unlockedCps || {};
+      const list = Array.isArray(p.unlockedCps[g.field]) ? p.unlockedCps[g.field] : [0];
+      if (!list.includes(cur.idx)) { list.push(cur.idx); p.unlockedCps[g.field] = list; g.meta.save(); }
+    }
     const unlocked = cps.filter(c => c.unlocked);
     if (unlocked.length <= 1) {
       g.heal?.(g.player.stats.maxHp * 0.35, false);
@@ -573,13 +598,7 @@ export function useFieldSpot(g,s) {
     }
     const curPos = unlocked.findIndex(c => c.idx === s.cpIdx);
     const next = unlocked[(curPos + 1) % unlocked.length];
-    g.player.pos.set(next.x + 1.6, next.y, next.z + 1.6);
-    g.player.y = g.world.gh(next.x + 1.6, next.z + 1.6);
-    g.camPos?.set?.(next.x + 1.6, 0, next.z + 1.6);
-    g.audio?.sfx?.('wisp');
-    g.fx?.burst?.(next.x + 1.6, g.player.y + 1.2, next.z + 1.6, 22, { c: [0x38d0ff, 0xffffff, 0xa8f2ff], s: 0.14, speed: 5, up: 4, life: 0.6 });
-    g.ui?.toast?.(`🔵 瞬移至「${next.name}」`, '#6ae8ff');
-    return true;
+    return teleportToCheckpoint(g, next.idx);
   }
   if (s.kind.startsWith('shrine_')) {
     s.mesh.visible = false;
