@@ -18,6 +18,8 @@ import { mountStatuses } from './mounts.js';
 import { MONSTER_SOULS, SOUL_SLOTS, ensureSouls, equipSoul, unequipSoul } from './souls.js';
 import { DENSITY_TIERS, LEAGUE_MECHANICS, ensureAtlas, setAtlasDensity, toggleAtlasMechanic, computeAtlasSummary } from './atlas.js';
 import { TIDE_PHASES, ULTIMATES, MICRO_BUFFS, lootMultForTide, castUltimate, cycleUltimate } from './tide.js';
+import { canCorruptGear, CORRUPT_UNLOCK_LV, nextMilestone } from './progression.js';
+import { applyHudIcons } from './icons.js';
 
 const $ = id => document.getElementById(id);
 const v3 = new THREE.Vector3();
@@ -33,6 +35,7 @@ export class UI {
     this.game = game;
     this.atStash = false;
     this.status = new StatusCard(this);
+    applyHudIcons();
     game.settings = loadSettings(); buildPanels(game); buildSettingsUI(game); applySettings(game);
     const menuBtn = $('btnMenu'), menuPop = $('menuPop');
     if (menuBtn && menuPop) {
@@ -172,8 +175,11 @@ export class UI {
       const it = eq[k];
       if (!it) return `<div class="eq-mini" data-eqslot="${k}"><div><b>${SLOTS[k].icon} ${SLOTS[k].name}</b></div><span style="opacity:.6">（空欄位）</span></div>`;
       const ti = tierInfo(it.tier || 1), R = RARITY[it.rarity];
+      const corruptOk = canCorruptGear(game);
       const cBtn = !it.corrupted
-        ? `<button type="button" class="btn small corrupt-btn eq-corrupt" data-corrupt-slot="${k}" ${shards >= CORRUPT_COST ? '' : 'disabled'}>☠️ 腐化 ✦${CORRUPT_COST}</button>`
+        ? (corruptOk
+            ? `<button type="button" class="btn small corrupt-btn eq-corrupt" data-corrupt-slot="${k}" ${shards >= CORRUPT_COST ? '' : 'disabled'}>☠️ 腐化 ✦${CORRUPT_COST}</button>`
+            : `<span style="font-size:10px;opacity:.65">🔒 Lv.${CORRUPT_UNLOCK_LV} 解鎖腐化</span>`)
         : `<span style="font-size:11px;color:#c82868;font-weight:700">☠️ 已腐化</span>`;
       return `<div class="eq-mini" data-eqslot="${k}"><div><span class="tier-tag" style="color:${ti.color}">${ti.tag}</span><b style="color:${R.color}">${it.name}</b></div><small>${SLOTS[k].name} · 戰力 ${itemScore(it)}</small>${cBtn}</div>`;
     }).join('');
@@ -752,6 +758,7 @@ export class UI {
       ['公會', progress.guildName || '未加入（可至公會大廳創立）'],
       ['職業被動', cls.summary],
       ['等級 / 經驗', progress.level === 30 ? '30 · 滿級' : progress.level + ' · ' + progress.xp + '/' + (progress.level * 40)],
+      ...(nextMilestone(progress.level) ? [['下一里程碑', `Lv.${nextMilestone(progress.level).lv} · ${nextMilestone(progress.level).title}`]] : []),
       ['金幣 / 鑰石', progress.coins + ' / ' + progress.keys],
       ['木材 / 礦石 / 魚', progress.goods.wood + ' / ' + progress.goods.ore + ' / ' + progress.goods.fish],
       ['生命', `${Math.ceil(p.hp)} / ${S.maxHp}`], ['法力', `${S.mana}`], ['基礎傷害', `${S.baseDmg + S.addFire}`], ['傷害加成', `+${S.dmgPct}%`],

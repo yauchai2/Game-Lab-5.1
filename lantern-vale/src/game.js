@@ -15,6 +15,7 @@ import { preloadNatureAssets, attachMonsterGlb, attachLandmarkGlb } from './asse
 import { BIOMES, mulberry32, clamp, lerp, angleLerp, rand, pick } from './util.js';
 import { buildTownScenery, buildGuildKiosk, buildAwakenAltar, buildWardrobe, buildSheep, TOWN_LAYOUT, buildCottage } from './town.js';
 import { loadSettings, applySettings, buildSettingsUI, DIFFICULTY_MODES } from './settings.js';
+import { getFieldDanger } from './progression.js';
 import { showWeapon, applyCosmetics, buildPlayer, buildNPC, buildSlime, buildThorn, buildBoar, buildMoth, buildSkyRay, buildGolem, buildStag, buildArch, buildHouse, buildFountain, buildBoard, buildStall } from './models.js';
 import { Net } from './net.js';
 import { Meta } from './meta.js';
@@ -393,6 +394,10 @@ export class Game {
         this.player.facing = ang;
         this.camPos.set(sx, 0, sz);
       }
+    }
+    const dng = getFieldDanger(FIELDS[id].level, this.meta?.p?.level || 1);
+    if (dng.redZone) {
+      this.ui.toast(`🔴 越級警戒：${FIELDS[id].name}（建議 Lv.${FIELDS[id].level}）敵方減傷 45% · 傷害 ×1.5`, '#ff7a7a');
     }
   }
   startRun() {

@@ -2,6 +2,7 @@ import { buildPlayer } from './models.js';
 import { FIELDS, teleportToCheckpoint } from './frontier.js';
 import { FIELD_BLUEPRINTS } from './field_blueprints.js';
 import { FAMILY_META, getTerrainEffect, getRealmRule } from './terrain_fx.js';
+import { getFieldDanger } from './progression.js';
 import { t } from './i18n.js';
 
 // Phase 4A（點子 1）：三層「星燈雲海浮島」航海星圖（表界 / 沉淵 / 星穹）
@@ -260,7 +261,10 @@ export function bindWorldMap(game) {
       btn.style.top = reg.y + '%';
       if (fam) btn.style.borderLeft = `4px solid ${fam.color}`;
       const prefix = reg.id === curReg.id ? '📍 ' : lit ? '🏮 ' : '☁️ ';
-      btn.innerHTML = `${prefix}${reg.name}<span class="lv-sub">${reg.level}</span>`;
+      const f = reg.kind === 'field' ? FIELDS[reg.id] : null;
+      const dng = f ? getFieldDanger(f.level, game.meta?.p?.level || 1) : null;
+      const dngTag = dng ? ` ${dng.icon}` : '';
+      btn.innerHTML = `${prefix}${reg.name}<span class="lv-sub">${reg.level}${dngTag}</span>`;
       btn.classList.toggle('here', reg.id === curReg.id);
       btn.classList.toggle('fogged', !lit);
       btn.classList.toggle('match', !!q && matchesQuery(reg, q));
@@ -305,7 +309,9 @@ export function bindWorldMap(game) {
       const rule = f?.realmRule ? getRealmRule(f.realmRule) : null;
       const totalCps = bp.checkpoints?.length || 0;
       const unlockedCount = Math.min(totalCps, getCpUnlockedList(reg.id).length);
+      const dng = getFieldDanger(f.level, game.meta?.p?.level || 1);
       const badges = [
+        `<span class="map-badge" style="background:${dng.color}" title="${dng.desc}">${dng.icon} ${dng.label}</span>`,
         `<span class="map-badge" style="background:${fam.color}" title="${fam.desc}">${fam.icon} ${fam.name}</span>`,
       ];
       if (rule) badges.push(`<span class="map-badge" style="background:${rule.color}" title="${rule.desc}">${rule.icon} 規則：${rule.name}</span>`);

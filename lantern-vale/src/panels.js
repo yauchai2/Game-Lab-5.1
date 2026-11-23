@@ -3,6 +3,7 @@ import { drawExchange } from './guild.js';
 import { buildLodge } from './lodge.js';
 // 城鎮互動面板：任務布告欄 / 鐵匠鋪 / 出發地圖桌 / 公會大廳 / 二轉覺醒 / 野外委託
 import { RARITY, SLOTS, itemLines, FORGE, forgeItem, CORRUPT_COST, corruptItem } from './loot.js';
+import { canCorruptGear, CORRUPT_UNLOCK_LV } from './progression.js';
 import { MODS, MOD_MAX } from './meta.js';
 import { CLASSES, ALL_GEMS, addGemToBag } from './puzzle.js';
 import { SECOND_CLASSES, findSecondClass } from './world_alive.js';
@@ -50,10 +51,12 @@ export function buildPanels(g) {
       const ok = f.ok(it), c = f.cost(it), can = ok && M.p.shards >= c;
       h += row(`<div>${f.name}</div><small>${f.desc}</small>`, `<button class="btn small" data-forge="${k}" ${can ? '' : 'disabled'}>${ok ? `✦ ${c}` : '不可'}</button>`);
     }
-    const canCorrupt = !it.corrupted && M.p.shards >= CORRUPT_COST;
+    const corruptUnlocked = canCorruptGear(g);
+    const canCorrupt = corruptUnlocked && !it.corrupted && M.p.shards >= CORRUPT_COST;
     const corruptBar = `<div class="corrupt-bar" title="四種不可逆結果機率各 25%"><span style="background:#b8245c">25% 神話</span><span style="background:#d98026">25% 超頻</span><span style="background:#3e7d72">25% 穩固</span><span style="background:#5a4848">25% 碎裂</span></div>`;
-    h += row(`<div><b style="color:#b8245c">☠️ 裝備腐化改造（不可逆賭博）</b>${corruptBar}</div><small>神諭詞綴 / 全詞綴 ×1.45 / 保持穩固 / 碎裂報廢（各 25%）</small>`,
-      `<button class="btn small" style="background:#9b2458" data-corrupt ${canCorrupt ? '' : 'disabled'}>${it.corrupted ? '已腐化' : `✦ ${CORRUPT_COST}`}</button>`);
+    const cBtnText = it.corrupted ? '已腐化' : !corruptUnlocked ? `🔒 Lv.${CORRUPT_UNLOCK_LV} 解鎖` : `✦ ${CORRUPT_COST}`;
+    h += row(`<div><b style="color:#b8245c">☠️ 裝備腐化改造（不可逆賭博）</b>${corruptBar}</div><small>${corruptUnlocked ? '神諭詞綴 / 全詞綴 ×1.45 / 保持穩固 / 碎裂報廢（各 25%）' : `旅人等級達 Lv.${CORRUPT_UNLOCK_LV} 後解鎖（保護新手初期裝備不會意外碎裂）`}</small>`,
+      `<button class="btn small" style="background:#9b2458" data-corrupt ${canCorrupt ? '' : 'disabled'}>${cBtnText}</button>`);
     body.innerHTML = h;
     body.querySelectorAll('[data-fslot]').forEach(b => b.onclick = () => { sel = b.dataset.fslot; g.audio.sfx('ui'); render(); });
     const saveGear = nextIt => {

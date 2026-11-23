@@ -665,5 +665,21 @@ const createGuild = require('../server/guild.cjs');
   // base = 10 + 5*2 = 20; +25% upward bonus = 25
   assert.equal(upMock.meta.p.xp, 25, 'Manual kill of Lv.5 enemy at Lv.1 grants +25% upward XP bonus (20 -> 25)');
 
-  console.log('ALL 24 LOGIC, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
+  // 25. Phase B2 + U3: Progressive System Unlocks, Field Danger Tiers & Pixel SVG Icon Library
+  const progMod = await import(src('progression.js'));
+  assert.equal(progMod.getFieldDanger(1, 1).tier, 'normal', 'Same-level field is normal');
+  assert.equal(progMod.getFieldDanger(5, 1).tier, 'challenge', '+4 level field is challenge (+25% XP)');
+  assert.equal(progMod.getFieldDanger(5, 1).xpBonus, 0.25);
+  assert.equal(progMod.getFieldDanger(10, 1).redZone, true, '+9 level field triggers red-zone warning');
+  assert.equal(progMod.getFieldDanger(1, 6).tier, 'easy', '-5 level field is easy');
+  assert.equal(progMod.canCorruptGear({ meta: { p: { level: 3 } } }), false, 'Corrupt Forge locked at Lv.3');
+  assert.equal(progMod.canCorruptGear({ meta: { p: { level: 8 } } }), true, 'Corrupt Forge unlocked at Lv.8');
+  assert.equal(progMod.canCorruptGear({ dev: { on: true }, meta: { p: { level: 1 } } }), true, 'Dev mode bypasses Lv.8 Corrupt Forge lock');
+  assert.equal(progMod.nextMilestone(1).lv, 3, 'Next milestone after Lv.1 is Lv.3');
+  assert.ok(progMod.milestoneText(5).includes('藥劑上限'), 'Lv.5 milestone text matches flask unlock');
+  const icoMod = await import(src('icons.js'));
+  assert.ok(Object.keys(icoMod.ICONS).length >= 12, 'Warm-wood pixel SVG icon library has >= 12 icons');
+  assert.ok(icoMod.ICONS.lantern.includes('<svg') && icoMod.ICONS.flask.includes('<svg'), 'Icons are valid SVG markup');
+
+  console.log('ALL 25 LOGIC, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
 })();

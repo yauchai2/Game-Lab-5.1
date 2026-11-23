@@ -9,6 +9,7 @@ import { ALL_GEMS, addGemToBag } from './puzzle.js';
 import { spawnSkyFeatures, startGatherMini, openHighChest, FIELD_NPCS } from './world_alive.js';
 import { buildZoneLandmarks } from './harbor.js';
 import { addGearToBag } from './physbag.js';
+import { milestoneText } from './progression.js';
 
 export const GOODS = { wood: '香杉木', ore: '星紋礦', fish: '溪銀魚' };
 export const FIELDS = [
@@ -68,16 +69,11 @@ export function awardKill(g, enemy) {
     const st = p.fieldQuests[qid] || { have: 0, done: false };
     if (!st.done) { st.have++; p.fieldQuests[qid] = st; }
   }
-  const MILESTONES = {
-    5:  '🧪 生命藥劑上限提升至 2 瓶！可前往低語森林探險',
-    9:  '⚔️ 旅人成長里程碑！進階技能拼圖與地城試煉開放',
-    14: '🧪 生命藥劑上限達 3 瓶！可遠征沉淵與星穹群島',
-    22: '👑 頂尖旅人覺醒！解鎖高危深淵與異星裂谷挑戰',
-  };
   while (p.level < 30 && p.xp >= p.level * 40) {
     p.xp -= p.level * 40; p.level++;
     g.ui.toast('旅人等級提升至 ' + p.level, '#ffdc80');
-    if (MILESTONES[p.level]) g.ui.toast(MILESTONES[p.level], '#7fe08a');
+    const ms = milestoneText(p.level);
+    if (ms) g.ui.toast(ms, '#7fe08a');
     g.recalc();
   }
   if (p.level === 30) p.xp = 0;
