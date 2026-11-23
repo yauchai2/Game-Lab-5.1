@@ -194,23 +194,182 @@ function buildBlueprintLandmarks(g, bp) {
       ]), toonMat({ vertexColors: true }));
       placeGlb('snow_house', pos.x, pos.z, fb, { scale: 1.05, rotY: 0.45, yOffset: -0.15 }, 2.6);
     } else if (poi.landmark === 'cliff_lighthouse') {
-      // #07 東側巨崖：4379 浮空島紅白相間燈塔＋守塔海島木屋（提亮 Pixel-Toon）
+      // #07 東側巨崖：4379 浮空島燈塔＋守塔海島木屋（明亮日光 Pixel-Toon）
       const fbTower = new THREE.Mesh(mergeGeometries([
         part(new THREE.CylinderGeometry(1.3, 2.1, 3.2, 10), 0xfff4e2, 0, 1.6, 0),
         part(new THREE.CylinderGeometry(1.15, 1.3, 2.6, 10), 0xdc4438, 0, 4.5, 0),
         part(new THREE.CylinderGeometry(1.0, 1.15, 2.6, 10), 0xfff4e2, 0, 7.1, 0),
         part(new THREE.ConeGeometry(1.35, 1.5, 10), 0xdc4438, 0, 9.4, 0),
       ]), toonMat({ vertexColors: true }));
-      placeGlb('lighthouse', pos.x, pos.z, fbTower, { scale: 1.05, rotY: -0.4, yOffset: -0.2, emissive: 0x4a4236, emissiveIntensity: 0.42 }, 2.6);
-      placeGlb('island_house', pos.x - 7.0, pos.z + 4.4, null, { scale: 1.0, rotY: 0.55, yOffset: -0.15, emissive: 0x463e34, emissiveIntensity: 0.40 }, 2.6);
+      placeGlb('lighthouse', pos.x, pos.z, fbTower, { scale: 1.05, rotY: -0.4, yOffset: -0.2, emissive: 0x5c5246, emissiveIntensity: 0.48 }, 2.6);
+      placeGlb('island_house', pos.x - 7.0, pos.z + 4.4, null, { scale: 1.0, rotY: 0.55, yOffset: -0.15, emissive: 0x564c40, emissiveIntensity: 0.46 }, 2.6);
     } else if (poi.landmark === 'star_aqueduct') {
       // #07 北端星穹斷柱水道：4167 巨石陣門柱
       placeGlb('stonehenge', pos.x - 6.0, pos.z + 2.5, null, { scale: 1.1, rotY: 0.2, yOffset: -0.15 }, 2.0);
       placeGlb('stonehenge', pos.x + 6.0, pos.z + 2.5, null, { scale: 1.1, rotY: -0.2, yOffset: -0.15 }, 2.0);
+    } else if (poi.landmark === 'birch_cabin') {
+      // #02 西南：白樺封板廢屋（4379 森林木屋）
+      placeGlb('forest_cabin', pos.x, pos.z, null, { scale: 1.1, rotY: 0.4, yOffset: -0.15, emissive: 0x3a3428, emissiveIntensity: 0.36 }, 2.8);
+      placeGlb('giant_shroom', pos.x + 5.8, pos.z + 2.5, null, { scale: 0.9, rotY: 0.8, yOffset: -0.1 }, 1.2);
+    } else if (poi.landmark === 'canopy_vault') {
+      // #02 東北樹冠吊橋秘庫
+      placeGlb('windmill', pos.x, pos.z, null, { scale: 0.92, rotY: -0.3, yOffset: -0.2 }, 2.6);
+      placeGlb('stonehenge', pos.x - 6.5, pos.z + 4.5, null, { scale: 0.85, rotY: 0.5, yOffset: -0.15 }, 1.8);
+    } else if (poi.landmark === 'forest_tomb') {
+      // #02 東南古墓毒霧凹地
+      placeGlb('stonehenge', pos.x - 6.8, pos.z - 2.0, null, { scale: 1.05, rotY: 0.2, yOffset: -0.15 }, 2.0);
+      placeGlb('stonehenge', pos.x + 6.8, pos.z - 2.0, null, { scale: 1.05, rotY: -0.2, yOffset: -0.15 }, 2.0);
+      placeGlb('giant_shroom', pos.x, pos.z + 6.2, null, { scale: 1.15, rotY: 1.2, yOffset: -0.1, tint: 0x9ef0b8, emissive: 0x206844, emissiveIntensity: 0.42 }, 1.4);
+    } else if (poi.landmark === 'kraken_wreck') {
+      // #03 中央：海怪觸手沉船礁（4379 海盜船＋4 條赤紅巨型章魚觸手實體弧牆）
+      placeGlb('pirate_boat', pos.x, pos.z, null, { scale: 1.35, rotY: 0.65, yOffset: -0.1, emissive: 0x423026, emissiveIntensity: 0.36 }, 2.8);
+      const tentParts = [];
+      for (let t = 0; t < 4; t++) {
+        const a = t * 1.57 + 0.45;
+        tentParts.push(
+          part(new THREE.TorusGeometry(3.2, 0.58, 6, 12, Math.PI * 0.85), 0xd84438, Math.cos(a) * 6.5, 1.4, Math.sin(a) * 6.5, 0.25, a, 0),
+          part(new THREE.ConeGeometry(0.62, 3.6, 6), 0xe85a48, Math.cos(a) * 8.4, 3.6, Math.sin(a) * 8.4, 0.3, a, -0.2),
+        );
+      }
+      const tents = new THREE.Mesh(mergeGeometries(tentParts), toonMat({ vertexColors: true }));
+      tents.castShadow = true;
+      place(tents, pos.x, pos.z, 0);
+    } else if (poi.landmark === 'stilt_village') {
+      // #03 東側：高腳吊橋木屋村
+      placeGlb('beach_house', pos.x, pos.z, null, { scale: 1.05, rotY: -0.45, yOffset: -0.15, emissive: 0x3a342a, emissiveIntensity: 0.36 }, 2.8);
+      placeGlb('giant_shroom', pos.x - 6.2, pos.z + 3.8, null, { scale: 1.0, rotY: 0.3, yOffset: -0.1 }, 1.2);
+    } else if (poi.landmark === 'shroom_grove') {
+      // #03 北礁螢光巨菇群
+      placeGlb('giant_shroom', pos.x, pos.z, null, { scale: 1.35, rotY: 0.2, yOffset: -0.1, tint: 0xa4f4e0, emissive: 0x26786a, emissiveIntensity: 0.42 }, 1.6);
+      placeGlb('giant_shroom', pos.x + 4.8, pos.z + 2.8, null, { scale: 1.0, rotY: 1.4, yOffset: -0.1, tint: 0xa4f4e0, emissive: 0x26786a, emissiveIntensity: 0.42 }, 1.2);
+    } else if (poi.landmark === 'ember_furnace') {
+      // #05 東北：燼岩熔爐高台
+      placeGlb('forge_furnace', pos.x - 5.5, pos.z + 2.0, null, { scale: 1.2, rotY: 0.35, yOffset: -0.15, emissive: 0x622614, emissiveIntensity: 0.45 }, 2.4);
+      placeGlb('red_crystal', pos.x + 5.8, pos.z + 1.5, null, { scale: 1.15, rotY: -0.4, yOffset: -0.15, tint: 0xffc6a8, emissive: 0xa42a12, emissiveIntensity: 0.44 }, 1.6);
+    } else if (poi.landmark === 'lava_arena') {
+      // #05 中央熔岩演武孤島：四方立體多面火紅晶簇
+      for (const [ox, oz, ry] of [[-7.2, -5.5, 0.4], [7.2, -5.5, -0.5], [-7.0, 5.8, 1.2], [7.0, 5.8, -1.1]]) {
+        placeGlb('red_crystal', pos.x + ox, pos.z + oz, null, { scale: 1.0, rotY: ry, yOffset: -0.2, tint: 0xffc4a2, emissive: 0x9e2810, emissiveIntensity: 0.42 }, 1.4);
+      }
+    } else if (poi.landmark === 'mine_trestle') {
+      // #05 西崖：礦車棧橋站
+      placeGlb('mine_cart', pos.x, pos.z, null, { scale: 1.45, rotY: 0.25, yOffset: -0.05 }, 1.6);
+      placeGlb('mine_cart', pos.x + 3.8, pos.z + 2.6, null, { scale: 1.4, rotY: 0.3, yOffset: -0.05 }, 1.6);
+      placeGlb('forge_furnace', pos.x - 5.5, pos.z - 2.2, null, { scale: 1.1, rotY: 0.6, yOffset: -0.15, emissive: 0x5c2414, emissiveIntensity: 0.42 }, 2.2);
+    } else if (poi.landmark === 'redrock_oasis') {
+      // #05 東南：紅岩瀑布綠洲（4379 棕櫚椰子樹群）
+      placeGlb('coconut_tree', pos.x - 4.2, pos.z - 2.2, null, { scale: 1.15, rotY: 0.4, yOffset: -0.15, emissive: 0x364228, emissiveIntensity: 0.34 }, 1.0);
+      placeGlb('coconut_tree', pos.x + 4.8, pos.z - 1.5, null, { scale: 1.05, rotY: 2.1, yOffset: -0.15, emissive: 0x364228, emissiveIntensity: 0.34 }, 1.0);
+      placeGlb('coconut_tree', pos.x + 1.2, pos.z + 4.8, null, { scale: 0.95, rotY: -1.0, yOffset: -0.15, emissive: 0x364228, emissiveIntensity: 0.34 }, 1.0);
+    } else if (poi.landmark === 'ancient_pagoda') {
+      // #06 西北：五重古塔峰
+      placeGlb('windmill', pos.x, pos.z, null, { scale: 1.25, rotY: 0.2, yOffset: -0.2 }, 3.2);
+      placeGlb('stonehenge', pos.x - 7.5, pos.z + 5.0, null, { scale: 1.0, rotY: 0.5, yOffset: -0.15 }, 2.0);
+    } else if (poi.landmark === 'spirit_terrace') {
+      // #06 東坡：三疊螢光靈泉梯田
+      placeGlb('giant_shroom', pos.x - 4.5, pos.z - 2.0, null, { scale: 1.35, rotY: 0.3, yOffset: -0.1, tint: 0x9cf8e4, emissive: 0x268276, emissiveIntensity: 0.48 }, 1.5);
+      placeGlb('giant_shroom', pos.x + 5.2, pos.z + 2.5, null, { scale: 1.15, rotY: 1.8, yOffset: -0.1, tint: 0x9cf8e4, emissive: 0x268276, emissiveIntensity: 0.48 }, 1.4);
+    } else if (poi.landmark === 'world_tree_core') {
+      // #06 中央：盤根神樹核（宏偉世界巨樹＋古石陣）
+      const wTree = new THREE.Mesh(mergeGeometries([
+        part(new THREE.CylinderGeometry(2.4, 3.8, 12.5, 8), 0x623e28, 0, 6.2, 0),
+        part(new THREE.IcosahedronGeometry(7.6, 1), 0x458858, 0, 14.2, 0),
+        part(new THREE.IcosahedronGeometry(5.5, 1), 0x6cb868, 4.2, 12.2, 2.2),
+        part(new THREE.IcosahedronGeometry(5.0, 1), 0x58a25a, -4.0, 12.6, -2.0),
+      ]), toonMat({ vertexColors: true }));
+      wTree.castShadow = true;
+      place(wTree, pos.x, pos.z, 3.8);
+      placeGlb('stonehenge', pos.x - 9.0, pos.z + 5.5, null, { scale: 1.05, rotY: 0.4, yOffset: -0.15 }, 2.0);
+    } else if (poi.landmark === 'forest_camp') {
+      placeGlb('forest_cabin', pos.x, pos.z, null, { scale: 1.05, rotY: -0.4, yOffset: -0.15, emissive: 0x3a3428, emissiveIntensity: 0.35 }, 2.6);
+    } else if (poi.landmark === 'pirate_fort') {
+      // #08 西側：擱淺海盜帆船崖堡（4379 海盜帆船＋瞭望燈塔＋椰子樹）
+      placeGlb('lighthouse', pos.x, pos.z, null, { scale: 1.0, rotY: 0.3, yOffset: -0.2, emissive: 0x4a4236, emissiveIntensity: 0.42 }, 2.6);
+      placeGlb('pirate_boat', pos.x - 6.5, pos.z + 5.8, null, { scale: 1.45, rotY: 0.55, yOffset: -0.1, emissive: 0x44362a, emissiveIntensity: 0.38 }, 2.8);
+      placeGlb('coconut_tree', pos.x + 5.5, pos.z + 4.2, null, { scale: 1.1, rotY: -0.6, yOffset: -0.15, emissive: 0x38462c, emissiveIntensity: 0.36 }, 1.0);
+    } else if (poi.landmark === 'coconut_beach') {
+      // #08 東南：椰林釣魚金沙灘
+      placeGlb('beach_house', pos.x, pos.z, null, { scale: 1.05, rotY: -0.5, yOffset: -0.15, emissive: 0x443c32, emissiveIntensity: 0.38 }, 2.8);
+      placeGlb('coconut_tree', pos.x - 6.2, pos.z + 3.2, null, { scale: 1.2, rotY: 0.3, yOffset: -0.15, emissive: 0x38462c, emissiveIntensity: 0.36 }, 1.0);
+      placeGlb('coconut_tree', pos.x + 5.8, pos.z - 2.5, null, { scale: 1.1, rotY: 2.0, yOffset: -0.15, emissive: 0x38462c, emissiveIntensity: 0.36 }, 1.0);
+    } else if (poi.landmark === 'coral_reef') {
+      placeGlb('pirate_boat', pos.x, pos.z, null, { scale: 1.2, rotY: -0.8, yOffset: -0.1, emissive: 0x44362a, emissiveIntensity: 0.38 }, 2.4);
+    } else if (poi.landmark === 'tesla_tower') {
+      // #09 西北：水沒變電巨塔（燈塔塔體＋電光晶柱）
+      placeGlb('lighthouse', pos.x, pos.z - 3.5, null, { scale: 1.15, rotY: 0.1, yOffset: -0.2, tint: 0xb8e6ff, emissive: 0x26547a, emissiveIntensity: 0.45 }, 2.6);
+      placeGlb('ice_crystal', pos.x - 5.5, pos.z + 2.5, null, { scale: 1.05, rotY: 0.4, yOffset: -0.15, flatTint: 0x62e2ff, emissive: 0x2896d8, emissiveIntensity: 0.55 }, 1.4);
+      placeGlb('ice_crystal', pos.x + 5.5, pos.z + 2.5, null, { scale: 1.05, rotY: -0.4, yOffset: -0.15, flatTint: 0x62e2ff, emissive: 0x2896d8, emissiveIntensity: 0.55 }, 1.4);
+    } else if (poi.landmark === 'stilt_plaza' || poi.landmark === 'market_pier') {
+      // #09 水上高腳港屋群
+      placeGlb('beach_house', pos.x, pos.z, null, { scale: 1.05, rotY: -0.45, yOffset: -0.15, emissive: 0x3c444e, emissiveIntensity: 0.38 }, 2.8);
+      placeGlb('island_house', pos.x + 7.2, pos.z - 3.5, null, { scale: 0.95, rotY: 0.55, yOffset: -0.15, emissive: 0x3c444e, emissiveIntensity: 0.38 }, 2.4);
+    } else if (poi.landmark === 'clock_roof') {
+      placeGlb('snow_tower', pos.x, pos.z, null, { scale: 1.05, rotY: 0.3, yOffset: -0.15, tint: 0xc8dce8, emissive: 0x2e465c, emissiveIntensity: 0.38 }, 2.6);
+    } else if (poi.landmark === 'sakura_shrine') {
+      // #10 西北：巨櫻山頂水宮（4379 朱紅鳥居＋粉嫩春櫻樹群）
+      placeGlb('torii_gate', pos.x, pos.z + 5.2, null, { scale: 1.2, rotY: 0, yOffset: -0.15, tint: 0xffc8c0, emissive: 0x7c2620, emissiveIntensity: 0.46 }, 0);
+      placeGlb('sakura_tree', pos.x - 6.8, pos.z + 1.5, null, { scale: 1.25, rotY: 0.4, yOffset: -0.15, flatTint: 0xffb8da, emissive: 0xc4588a, emissiveIntensity: 0.52 }, 1.4);
+      placeGlb('sakura_tree', pos.x + 6.8, pos.z + 1.5, null, { scale: 1.2, rotY: -0.5, yOffset: -0.15, flatTint: 0xffcce6, emissive: 0xc86492, emissiveIntensity: 0.52 }, 1.4);
+    } else if (poi.landmark === 'sakura_bridge') {
+      // #10 中央：朱紅橋頭鳥居與粉嫩櫻花樹
+      placeGlb('torii_gate', pos.x - 6.5, pos.z + 3.2, null, { scale: 1.05, rotY: 0.25, yOffset: -0.15, tint: 0xffc8c0, emissive: 0x7c2620, emissiveIntensity: 0.46 }, 0);
+      placeGlb('sakura_tree', pos.x + 6.5, pos.z - 2.8, null, { scale: 1.15, rotY: 1.1, yOffset: -0.15, flatTint: 0xffb8da, emissive: 0xc4588a, emissiveIntensity: 0.52 }, 1.4);
+    } else if (poi.landmark === 'sea_torii_island') {
+      // #10 西南：海上鳥居孤島
+      placeGlb('torii_gate', pos.x, pos.z + 3.5, null, { scale: 1.15, rotY: 0.4, yOffset: -0.15, tint: 0xffc8c0, emissive: 0x7c2620, emissiveIntensity: 0.46 }, 0);
+      placeGlb('island_house', pos.x, pos.z - 2.5, null, { scale: 1.0, rotY: 0.2, yOffset: -0.15, emissive: 0x52423c, emissiveIntensity: 0.42 }, 2.5);
+      placeGlb('sakura_tree', pos.x - 5.2, pos.z - 1.0, null, { scale: 1.1, rotY: 0.8, yOffset: -0.15, flatTint: 0xffc4e0, emissive: 0xc4588a, emissiveIntensity: 0.52 }, 1.3);
+    } else if (poi.landmark === 'tea_house') {
+      // #10 東北：九曲竹林茶屋
+      placeGlb('island_house', pos.x, pos.z, null, { scale: 1.0, rotY: -0.45, yOffset: -0.15, emissive: 0x52463e, emissiveIntensity: 0.42 }, 2.5);
+      placeGlb('sakura_tree', pos.x + 5.8, pos.z + 2.4, null, { scale: 1.1, rotY: 0.3, yOffset: -0.15, flatTint: 0xffb8da, emissive: 0xc4588a, emissiveIntensity: 0.52 }, 1.3);
+    } else if (poi.landmark === 'canyon_train') {
+      // #11 西段：峽谷蒸汽火車棧橋（礦車列車＋斜嵌碧藍巨環）
+      placeGlb('mine_cart', pos.x - 3.5, pos.z, null, { scale: 1.65, rotY: 0.5, yOffset: -0.05 }, 1.8);
+      placeGlb('mine_cart', pos.x + 0.5, pos.z - 2.0, null, { scale: 1.6, rotY: 0.5, yOffset: -0.05 }, 1.8);
+      placeGlb('mine_cart', pos.x + 4.5, pos.z - 4.0, null, { scale: 1.55, rotY: 0.5, yOffset: -0.05 }, 1.8);
+    } else if (poi.landmark === 'mega_sky_ring') {
+      // #11 中段：標誌性斜嵌碧藍加速巨環
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(10.5, 1.35, 8, 24, Math.PI), toonMat({ color: 0x58c8f8, emissive: 0x1e6ca8, emissiveIntensity: 0.35 }));
+      ring.rotation.y = 0.25; ring.castShadow = true;
+      place(ring, pos.x, pos.z, 0);
+    } else if (poi.landmark === 'sky_sanctum') {
+      // #11 東北：白雪尖峰天環聖殿
+      placeGlb('snow_tower', pos.x - 5.5, pos.z + 2.5, null, { scale: 1.05, rotY: 0.35, yOffset: -0.15 }, 2.6);
+      placeGlb('ice_crystal', pos.x + 6.0, pos.z + 2.2, null, { scale: 1.15, rotY: -0.3, yOffset: -0.15, flatTint: 0xa4ecff, emissive: 0x3b8ec4, emissiveIntensity: 0.42 }, 1.5);
+    } else if (poi.landmark === 'alpine_camp') {
+      placeGlb('forest_cabin', pos.x, pos.z, null, { scale: 1.0, rotY: -0.5, yOffset: -0.15, emissive: 0x3c362c, emissiveIntensity: 0.36 }, 2.6);
+    } else if (poi.landmark === 'maple_foundry') {
+      // #12 東北：紅楓鍛造爐高台（4137 秋楓鐵匠工坊＋4130 鍛造熔爐＋火紅晶簇）
+      placeGlb('blacksmith', pos.x - 6.2, pos.z + 3.2, null, { scale: 1.1, rotY: 0.4, yOffset: -0.15, emissive: 0x483024, emissiveIntensity: 0.36 }, 3.0);
+      placeGlb('forge_furnace', pos.x + 6.2, pos.z + 2.5, null, { scale: 1.2, rotY: -0.5, yOffset: -0.15, emissive: 0x622614, emissiveIntensity: 0.45 }, 2.4);
+    } else if (poi.landmark === 'forge_plaza') {
+      // #12 東側：巨像鍛造廣場（秋楓鍛造屋＋立體火紅星晶）
+      placeGlb('blacksmith', pos.x - 8.5, pos.z - 3.5, null, { scale: 1.15, rotY: 0.35, yOffset: -0.15, emissive: 0x583c2c, emissiveIntensity: 0.44 }, 3.0);
+      placeGlb('red_crystal', pos.x + 8.0, pos.z - 2.8, null, { scale: 1.1, rotY: -0.5, yOffset: -0.15, tint: 0xffc6a8, emissive: 0x9e2c14, emissiveIntensity: 0.44 }, 1.6);
+    } else if (poi.landmark === 'sheep_barn') {
+      // #12 西南：風車穀倉綿羊牧場（旋轉風車塔＋秋楓農舍）
+      const millRig = new THREE.Group();
+      const millY = g.world.gh(pos.x, pos.z);
+      millRig.position.set(pos.x, millY, pos.z);
+      millRig.rotation.y = 0.4;
+      grp.add(millRig);
+      g.world.obstacles.push({ x: pos.x, z: pos.z, r: 3.0, h: millY });
+      attachLandmarkGlb(millRig, 'windmill', null, { scale: 1.0, yOffset: -0.2 });
+      const bladeHub = new THREE.Group();
+      bladeHub.position.set(0, 6.4, 2.35);
+      millRig.add(bladeHub);
+      attachLandmarkGlb(bladeHub, 'windmill_blades', null, { scale: 1.0 });
+      g.spinners.push({ obj: bladeHub, axis: 'z', speed: -0.5 });
+      placeGlb('cottage', pos.x + 8.5, pos.z + 4.5, null, { scale: 1.05, rotY: -0.6, yOffset: -0.15 }, 2.8);
+    } else if (poi.landmark === 'maple_onsen') {
+      // #12 西北：三疊秋楓露天溫泉
+      placeGlb('forest_cabin', pos.x - 6.0, pos.z - 3.2, null, { scale: 1.0, rotY: 0.5, yOffset: -0.15, emissive: 0x463428, emissiveIntensity: 0.36 }, 2.6);
+      placeGlb('sakura_tree', pos.x + 5.8, pos.z - 2.0, null, { scale: 1.15, rotY: 0.6, yOffset: -0.15, tint: 0xff9248, emissive: 0x622e18, emissiveIntensity: 0.40 }, 1.3);
     }
   }
 
-  // 首批三張圖的起點迎賓地標（讓玩家一進入地圖就看見高辨識度 3D 實模！）
+  // 各張地圖起點迎賓地標（讓玩家一進入地圖就看見高辨識度 3D 實模！）
   if (bp.id === 1) {
     // #01 西南風車南瓜農莊（4137 直立木石風車塔＋動態旋轉四翼大扇葉＋農舍木屋＋南瓜田）
     const farmPos = uvToWorld(0.24, 0.74, half);
@@ -244,16 +403,33 @@ function buildBlueprintLandmarks(g, bp) {
     ]), toonMat({ vertexColors: true }));
     pumpkins.castShadow = true;
     place(pumpkins, farmPos.x, farmPos.z, 0);
+  } else if (bp.id === 2) {
+    const startP = uvToWorld(0.36, 0.82, half);
+    placeGlb('giant_shroom', startP.x + 5.5, startP.z - 3.5, null, { scale: 1.1, rotY: 0.4, yOffset: -0.1 }, 1.2);
   } else if (bp.id === 4) {
     // #04 南坡雪營起點旁：雪山木屋＋淡冰晶標誌
     const campPos = uvToWorld(0.18, 0.78, half);
     placeGlb('snow_house', campPos.x, campPos.z, null, { scale: 1.0, rotY: -0.5, yOffset: -0.15 }, 2.6);
     placeGlb('ice_crystal', campPos.x + 6.5, campPos.z - 4.0, null, { scale: 0.75, rotY: 0.4, yOffset: -0.15, flatTint: 0xa4ecff, emissive: 0x3b8ec4, emissiveIntensity: 0.42 }, 1.2);
+  } else if (bp.id === 5) {
+    const startP = uvToWorld(0.26, 0.80, half);
+    placeGlb('red_crystal', startP.x + 6.0, startP.z - 3.2, null, { scale: 0.95, rotY: 0.3, yOffset: -0.15, flatTint: 0xff6e38, emissive: 0xd43818, emissiveIntensity: 0.52 }, 1.4);
   } else if (bp.id === 7) {
     // #07 南島浮空碼頭起點：4379 浮空島木屋＋4167 古石陣
     const dockPos = uvToWorld(0.19, 0.82, half);
     placeGlb('island_house', dockPos.x, dockPos.z, null, { scale: 0.95, rotY: -0.5, yOffset: -0.15, emissive: 0x463e34, emissiveIntensity: 0.40 }, 2.5);
     placeGlb('stonehenge', dockPos.x - 6.8, dockPos.z - 3.0, null, { scale: 0.85, rotY: 0.5, yOffset: -0.15 }, 1.8);
+  } else if (bp.id === 8) {
+    // #08 南岸椰林迎賓金沙灘
+    const startP = uvToWorld(0.46, 0.80, half);
+    placeGlb('beach_house', startP.x + 6.5, startP.z - 2.0, null, { scale: 0.95, rotY: -0.45, yOffset: -0.15, emissive: 0x443c32, emissiveIntensity: 0.38 }, 2.6);
+    placeGlb('coconut_tree', startP.x - 5.5, startP.z - 3.5, null, { scale: 1.15, rotY: 0.6, yOffset: -0.15, emissive: 0x38462c, emissiveIntensity: 0.36 }, 1.0);
+  } else if (bp.id === 10) {
+    // #10 東南落櫻南堤起點：朱紅迎賓鳥居＋粉嫩櫻花樹
+    const startP = uvToWorld(0.80, 0.78, half);
+    placeGlb('torii_gate', startP.x, startP.z, null, { scale: 1.15, rotY: 0.45, yOffset: -0.15, tint: 0xffc8c0, emissive: 0x7c2620, emissiveIntensity: 0.46 }, 0);
+    placeGlb('sakura_tree', startP.x - 6.0, startP.z - 2.0, null, { scale: 1.15, rotY: 0.3, yOffset: -0.15, flatTint: 0xffb8da, emissive: 0xc4588a, emissiveIntensity: 0.52 }, 1.3);
+    placeGlb('sakura_tree', startP.x + 5.8, startP.z - 3.0, null, { scale: 1.05, rotY: 1.6, yOffset: -0.15, flatTint: 0xffcce6, emissive: 0xc86492, emissiveIntensity: 0.52 }, 1.3);
   }
   g.world.group.add(grp);
 }

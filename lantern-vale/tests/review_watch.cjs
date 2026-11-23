@@ -164,7 +164,7 @@ async function runCapture(req) {
               g.camPos.set(x, 0, z - 4.0);
               if (sn) {
                 const e = g.spawnEnemy(sn.type, { x: x + (sn.dx || 2.8), z: z + (sn.dz || -3.6) }, !!sn.elite);
-                e.level = n === 1 ? 3 : n === 4 ? 16 : 13;
+                e.level = [0, 3, 7, 12, 16, 22, 26, 14, 20, 26, 16, 24, 29][n] || 10;
                 e.hp = e.maxHp;
               }
             }, { n: fNum, uu: u, vv: v, offZ: dz, sn: spawnNear });
@@ -177,6 +177,16 @@ async function runCapture(req) {
           await snapSpot('p2b_04_f4_icespires.png', 4, 0.85, 0.20, 11.5, { type: 'boar', elite: true, dx: -3.2, dz: -3.5 });
           await snapSpot('p2b_05_f7_lighthouse.png', 7, 0.74, 0.56, 11.5, { type: 'skyray', elite: false, dx: 3.2, dz: -3.2 });
           await snapSpot('p2b_06_f7_aqueduct.png', 7, 0.54, 0.17, 11.0, { type: 'skyray', elite: true, dx: -2.8, dz: -3.5 });
+          // Phase 2C：其餘全部 9 張重製野外地圖實機奇觀與專屬怪物特寫
+          await snapSpot('p2c_f02_whisper_forest.png', 2, 0.15, 0.80, 10.5, { type: 'thorn', elite: true, dx: 3.2, dz: -3.0 });
+          await snapSpot('p2c_f03_mist_marsh.png', 3, 0.50, 0.54, 11.5, { type: 'moth', elite: true, dx: 3.4, dz: -3.2 });
+          await snapSpot('p2c_f05_ember_volcano.png', 5, 0.51, 0.53, 12.0, { type: 'boar', elite: true, dx: 3.4, dz: -3.2 });
+          await snapSpot('p2c_f06_ancient_woods.png', 6, 0.52, 0.52, 14.0, { type: 'golem', elite: false, dx: 4.0, dz: -3.5 });
+          await snapSpot('p2c_f08_coral_bay.png', 8, 0.24, 0.43, 12.0, { type: 'skyray', elite: false, dx: 3.2, dz: -3.0 });
+          await snapSpot('p2c_f09_sunken_city.png', 9, 0.66, 0.54, 11.5, { type: 'thorn', elite: false, dx: 3.2, dz: -3.0 });
+          await snapSpot('p2c_f10_sakura_city.png', 10, 0.19, 0.22, 12.0, { type: 'moth', elite: false, dx: 3.2, dz: -3.2 });
+          await snapSpot('p2c_f11_sky_rings.png', 11, 0.56, 0.34, 12.5, { type: 'skyray', elite: false, dx: 3.2, dz: -3.0 });
+          await snapSpot('p2c_f12_maple_forge.png', 12, 0.66, 0.48, 12.0, { type: 'golem', elite: true, dx: 3.5, dz: -3.2 });
           // 切回 field:1 正常狀態，確保 09_field_1.png 與後續鏡頭一致
           await page.evaluate(() => window.__game.enterField(1));
           await page.waitForTimeout(1000);

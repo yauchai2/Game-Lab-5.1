@@ -139,13 +139,33 @@ export const LANDMARK_FILES = {
   cave_arch:       'assets/landmarks/cave_arch.glb',
   lighthouse:      'assets/landmarks/lighthouse.glb',
   island_house:    'assets/landmarks/island_house.glb',
+  torii_gate:      'assets/landmarks/torii_gate.glb',
+  sakura_tree:     'assets/landmarks/sakura_tree.glb',
+  beach_house:     'assets/landmarks/beach_house.glb',
+  coconut_tree:    'assets/landmarks/coconut_tree.glb',
+  pirate_boat:     'assets/landmarks/pirate_boat.glb',
+  forest_cabin:    'assets/landmarks/forest_cabin.glb',
+  mine_cart:       'assets/landmarks/mine_cart.glb',
+  forge_furnace:   'assets/landmarks/forge_furnace.glb',
+  red_crystal:     'assets/landmarks/red_crystal.glb',
+  giant_shroom:    'assets/landmarks/giant_shroom.glb',
+  blacksmith:      'assets/landmarks/blacksmith.glb',
 };
 
 export const MONSTER_FILES = {
-  plant_chewer: 'assets/monsters/plant_chewer.glb',
-  golem_ice:    'assets/monsters/golem_ice.glb',
-  beholder:     'assets/monsters/beholder.glb',
-  flying_demon: 'assets/monsters/flying_demon.glb',
+  plant_chewer:  'assets/monsters/plant_chewer.glb',
+  golem_ice:     'assets/monsters/golem_ice.glb',
+  golem_fire:    'assets/monsters/golem_fire.glb',
+  golem_earth:   'assets/monsters/golem_earth.glb',
+  scorpion_king: 'assets/monsters/scorpion_king.glb',
+  spore:         'assets/monsters/spore.glb',
+  beholder:      'assets/monsters/beholder.glb',
+  flying_demon:  'assets/monsters/flying_demon.glb',
+  crab_monster:  'assets/monsters/crab_monster.glb',
+  chest_monster: 'assets/monsters/chest_monster.glb',
+  werewolf:      'assets/monsters/werewolf.glb',
+  black_knight:  'assets/monsters/black_knight.glb',
+  specter:       'assets/monsters/specter.glb',
 };
 
 const _glbCache = new Map();
@@ -247,8 +267,8 @@ export function preloadNatureAssets(onReady) {
   // Node.js 測試環境或本機 file:// 開啟時自動採用內建程序化幾何體，避免 CORS 報錯
   if (typeof window === 'undefined' || window.location?.protocol === 'file:') return;
 
-  // 順帶非同步預載首批怪物低面實模（總計 < 750KB）
-  for (const url of Object.values(MONSTER_FILES)) loadGlbAsset(url);
+  // 預載最常用的起手怪物實模，其餘生態專屬怪進入對應地圖時按需瞬載快取
+  for (const k of ['plant_chewer', 'golem_ice', 'golem_fire', 'beholder']) loadGlbAsset(MONSTER_FILES[k]);
 
   const loader = new GLTFLoader();
   const basePath = 'assets/nature/';

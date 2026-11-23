@@ -573,18 +573,25 @@ export class Game {
     const s = elite ? 1.35 : 1;
     m.root.scale.setScalar(s);
     this.scene.add(m.root);
-    // v6 生態專屬低面 3D 怪物實模（首批三張圖：#01 食人花南瓜怪、#04 冰霜巨人、#07 獨眼浮游魔＆飛翼魔）
-    if (this.field === 1 && type === 'slime' && (elite || Math.random() < 0.6)) {
-      attachMonsterGlb(m, 'plant_chewer', { scale: 1.05, emissive: 0x2a2418, emissiveIntensity: 0.25 });
-    } else if (this.field === 4 && (type === 'boar' || type === 'stag')) {
-      attachMonsterGlb(m, 'golem_ice', { scale: type === 'stag' ? 1.45 : 1.05, emissive: 0x223648, emissiveIntensity: 0.30 });
-    } else if (this.field === 7 && (type === 'skyray' || type === 'stag')) {
-      const isBossFly = elite || type === 'stag';
-      attachMonsterGlb(m, isBossFly ? 'flying_demon' : 'beholder', {
-        scale: type === 'stag' ? 1.35 : 1.25,
-        emissive: isBossFly ? 0x482c58 : 0x4a284e,
-        emissiveIntensity: 0.45,
-      });
+    // v6 全 12 張野外地圖生態專屬低面 3D 怪物實模（依地圖與精英／守護獸自動分配）
+    if (this.field) {
+      const isBossOrElite = elite || type === 'stag';
+      const MAP_MON = {
+        1:  () => (type === 'slime' && (isBossOrElite || Math.random() < 0.6)) ? ['plant_chewer', { scale: 1.05, emissive: 0x362e1e, emissiveIntensity: 0.30 }] : null,
+        2:  () => [isBossOrElite ? 'werewolf' : 'spore', { scale: type === 'stag' ? 1.4 : isBossOrElite ? 1.18 : 1.08, emissive: isBossOrElite ? 0x3c5474 : 0x364a30, emissiveIntensity: 0.48 }],
+        3:  () => [isBossOrElite ? 'specter' : 'spore', { scale: type === 'stag' ? 1.38 : 1.12, emissive: 0x345258, emissiveIntensity: 0.46 }],
+        4:  () => (type === 'boar' || type === 'stag') ? ['golem_ice', { scale: type === 'stag' ? 1.45 : 1.08, emissive: 0x2c4862, emissiveIntensity: 0.38 }] : null,
+        5:  () => [isBossOrElite ? 'scorpion_king' : 'golem_fire', { scale: type === 'stag' ? 1.4 : 1.12, emissive: 0x6a301a, emissiveIntensity: 0.48 }],
+        6:  () => [isBossOrElite ? 'werewolf' : 'golem_earth', { scale: type === 'stag' ? 1.45 : 1.12, tint: 0xd8f0d4, emissive: isBossOrElite ? 0x3c5474 : 0x426646, emissiveIntensity: 0.54 }],
+        7:  () => (type === 'skyray' || type === 'stag') ? [isBossOrElite ? 'flying_demon' : 'beholder', { scale: type === 'stag' ? 1.35 : 1.25, emissive: isBossOrElite ? 0x58366c : 0x5a3260, emissiveIntensity: 0.50 }] : null,
+        8:  () => [isBossOrElite ? 'flying_demon' : 'crab_monster', { scale: type === 'stag' ? 1.38 : 1.2, emissive: 0x52362e, emissiveIntensity: 0.46 }],
+        9:  () => [isBossOrElite ? 'specter' : 'chest_monster', { scale: type === 'stag' ? 1.35 : 1.18, emissive: 0x38506c, emissiveIntensity: 0.48 }],
+        10: () => [isBossOrElite ? 'specter' : (Math.random() < 0.55 ? 'plant_chewer' : 'spore'), { scale: type === 'stag' ? 1.35 : 1.12, emissive: 0x5c364c, emissiveIntensity: 0.46 }],
+        11: () => [isBossOrElite ? 'flying_demon' : 'beholder', { scale: type === 'stag' ? 1.4 : 1.22, emissive: 0x385276, emissiveIntensity: 0.48 }],
+        12: () => [isBossOrElite ? 'black_knight' : 'golem_earth', { scale: type === 'stag' ? 1.4 : 1.15, tint: 0xe6e0d6, emissive: isBossOrElite ? 0x6c4232 : 0x4a6c4e, emissiveIntensity: 0.56 }],
+      };
+      const pickMon = MAP_MON[this.field]?.();
+      if (pickMon) attachMonsterGlb(m, pickMon[0], pickMon[1]);
     }
     const e = {
       type, m, pos: new V3(pos.x, 0, pos.z), vel: new V3(), knock: new V3(), facing: Math.random() * 6,
