@@ -681,5 +681,51 @@ const createGuild = require('../server/guild.cjs');
   assert.ok(Object.keys(icoMod.ICONS).length >= 12, 'Warm-wood pixel SVG icon library has >= 12 icons');
   assert.ok(icoMod.ICONS.lantern.includes('<svg') && icoMod.ICONS.flask.includes('<svg'), 'Icons are valid SVG markup');
 
-  console.log('ALL 25 LOGIC, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
+  // 26. Phase M1: MMO Protocol, Velocity Envelope Anti-Cheat, 30m AOI Spatial Grid, Zone Tide, Dynamic Sharding & Hotspots
+  const mmoProto = await import(src('mmo_protocol.js'));
+  const zoneEng = require(path.join(__dirname, '..', 'server', 'zone_engine.cjs'));
+  // Velocity Envelope: allow ice_lake skating, block blatant speedhack/teleport
+  const legalIce = mmoProto.validateMoveDelta({ x: 0, z: 0 }, { x: 1.4, z: 0 }, 0.1, { terrain: 'ice_lake' });
+  assert.equal(legalIce.ok, true, 'Ice lake skating within legal velocity envelope');
+  const speedHack = mmoProto.validateMoveDelta({ x: 0, z: 0 }, { x: 25, z: 0 }, 0.1, {});
+  assert.equal(speedHack.ok, false, 'Teleport/speedhack rejected by velocity envelope');
+  assert.ok(speedHack.violation > 0 && speedHack.clamped.x < 5, 'Speedhack returns violation score & clamped position');
+  // Shared Tagging >= 3% personal loot
+  const looters = mmoProto.resolveLootRecipients({ p1: 500, p2: 35, p3: 10 }, 1000);
+  assert.deepEqual(looters, ['p1', 'p2'], 'Players dealing >= 3% HP receive independent personal loot');
+  // Co-op Elemental Synergy
+  assert.equal(mmoProto.resolveCoopSynergy('p1', 'p2').dmgMult, 1.15, 'Cross-player synergy grants +15% damage');
+  assert.equal(mmoProto.resolveCoopSynergy('p1', 'p1').isCoop, false, 'Self-trigger is not co-op synergy');
+  // Daily Lantern Oil
+  const oilProf = {};
+  assert.equal(mmoProto.consumeLanternOil(oilProf, 600, '2026-11-24'), 6600, 'Consuming 10m oil leaves 6600s');
+  assert.equal(mmoProto.refillLanternOil(oilProf, 1800, '2026-11-24'), 8400, 'Quest refill adds +30m oil');
+  // 30m x 30m AOI Spatial Grid
+  const grid = new zoneEng.SpatialGrid(30);
+  grid.insert({ id: 1, x: 5, z: 5 });
+  grid.insert({ id: 2, x: 28, z: 10 });
+  grid.insert({ id: 3, x: 140, z: 140 });
+  const near = grid.queryNearby(5, 5, 1).map(p => p.id);
+  assert.ok(near.includes(1) && near.includes(2) && !near.includes(3), '30m AOI grid culls distant players 140m away');
+  // Zone-Wide Ember Tide & World Tide Boss HP scaling
+  const zt = new zoneEng.ZoneTide('field:1');
+  for (let i = 0; i < 60; i++) zt.addKill(2, 4);
+  assert.equal(zt.bossActive, true, 'Zone-wide kills trigger World Tide Boss at 100% heat');
+  assert.ok(zt.bossHpMult > 2.5, 'World Tide Boss scales HP for 4 players');
+  const postBoss = zt.onBossDefeated();
+  assert.equal(postBoss.restTimer, 25, 'Defeating World Tide Boss starts 25s shared campfire rest');
+  // Dynamic Sharding with party affinity
+  const shards = new Map();
+  const sA = zoneEng.assignShard(shards, 'field:1', 'alpha');
+  for (let i = 0; i < 24; i++) zoneEng.assignShard(shards, 'field:1');
+  const sMate = zoneEng.assignShard(shards, 'field:1', 'alpha');
+  const sOverflow = zoneEng.assignShard(shards, 'field:1', 'beta');
+  assert.equal(sMate, sA, 'Party mate joins same shard up to hard cap 30');
+  assert.equal(sOverflow, 'field:1#2', 'New party overflows to shard #2 once soft cap 25 is reached');
+  // Star Chart 30-min Hotspots
+  const hs = zoneEng.pickHotspots(1795450000000);
+  assert.equal(hs.hotspots.length, 2, 'Two distinct hotspot islands selected per 30-min window');
+  assert.notEqual(hs.hotspots[0].fieldId, hs.hotspots[1].fieldId, 'Hotspot islands are distinct');
+
+  console.log('ALL 26 LOGIC, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
 })();

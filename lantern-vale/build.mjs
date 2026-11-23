@@ -1,6 +1,16 @@
 import * as esbuild from 'esbuild';
 import fs from 'fs';
-const r = await esbuild.build({ entryPoints: ['src/main.js'], bundle: true, loader: { '.svg': 'text' }, minify: true, format: 'iife', write: false, target: 'es2020' });
+const isProd = process.argv.includes('--prod') || process.env.NODE_ENV === 'production';
+const r = await esbuild.build({
+  entryPoints: ['src/main.js'],
+  bundle: true,
+  loader: { '.svg': 'text' },
+  minify: true,
+  format: 'iife',
+  write: false,
+  target: 'es2020',
+  define: { __LV_PROD__: String(isProd) },
+});
 const js = r.outputFiles[0].text.replace(/<\/script/g, '<\\/script');
 const html = fs.readFileSync('src/index.html', 'utf8').replace('/*__GAME__*/', () => js);
 fs.mkdirSync('dist', { recursive: true });

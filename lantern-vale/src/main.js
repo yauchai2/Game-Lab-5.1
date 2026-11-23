@@ -9,7 +9,7 @@ const audio = new Audio();
 const game = new Game(pipe, ui, audio);
 ui.audio = audio;
 ui.bind(game);
-window.__game = game; // debug / screenshot hook
+if (typeof __LV_PROD__ === 'undefined' || !__LV_PROD__) window.__game = game; // debug / screenshot hook (stripped in --prod)
 let last = performance.now();
 function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
