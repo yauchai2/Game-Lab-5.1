@@ -12,6 +12,11 @@ export const NATURE_FILES = {
   shroom: { file: 'Mushroom_Common.gltf',     targetH: 0.5,  sink: 0.04 },
   fern:   { file: 'Fern_1.gltf',              targetH: 0.56, sink: 0.04 },
   flower: { file: 'Flower_3_Group.gltf',      targetH: 0.48, sink: 0.04 },
+  pine2:  { file: 'Pine_2.gltf',              targetH: 4.2,  sink: 0.16 },
+  tree2:  { file: 'CommonTree_2.gltf',        targetH: 4.0,  sink: 0.16 },
+  tree3:  { file: 'CommonTree_3.gltf',        targetH: 3.8,  sink: 0.16 },
+  rock3:  { file: 'Rock_Medium_3.gltf',       targetH: 1.0,  sink: 0.14 },
+  tuft:   { file: 'Grass_Common_Short.gltf',  targetH: 0.42, sink: 0.02 },
 };
 
 export const natureAssets = {};
@@ -38,8 +43,8 @@ function classifyPart(matName, meshName, key) {
   if (/bark|trunk|wood/.test(n)) return 'bark';
   if (/rock|stone/.test(n)) return 'rock';
   if (/mushroom|shroom/.test(n)) return 'shroom';
-  if (key === 'rock1' || key === 'rock2') return 'rock';
-  if (key === 'fern') return 'foliage';
+  if (key === 'rock1' || key === 'rock2' || key === 'rock3') return 'rock';
+  if (key === 'fern' || key === 'tuft') return 'foliage';
   if (key === 'flower') return 'flower';
   if (key === 'shroom') return 'shroom';
   return 'foliage';
@@ -94,13 +99,13 @@ export function buildAssetMaterial(part, opts = {}) {
     const lifted = liftBright(opts.tint ?? 0x76b852, 0.74);
     col.lerp(lifted, opts.tintMix ?? 0.42);
     emissive.copy(raw);
-    emissiveIntensity = 0.42;
+    emissiveIntensity = 0.58;
   } else if (part.role === 'rock') {
     const raw = new THREE.Color(opts.rockTint ?? 0x9e978e);
     const lifted = liftBright(opts.rockTint ?? 0x9e978e, 0.78);
-    col.lerp(lifted, 0.38);
+    col.lerp(lifted, 0.6);
     emissive.copy(raw);
-    emissiveIntensity = 0.34;
+    emissiveIntensity = 0.55;
   } else if (part.role === 'bark') {
     col.setHex(0xf6e6d4);
     emissive.setHex(0x6b4a32);

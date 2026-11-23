@@ -10,7 +10,7 @@ import * as THREE from 'three';
 import { World, toonMat, HALF, windU } from './world.js';
 import { preloadNatureAssets } from './assets.js';
 import { BIOMES, mulberry32, clamp, lerp, angleLerp, rand, pick } from './util.js';
-import { buildTownScenery, buildGuildKiosk, buildAwakenAltar, buildWardrobe, buildSheep } from './town.js';
+import { buildTownScenery, buildGuildKiosk, buildAwakenAltar, buildWardrobe, buildSheep, TOWN_LAYOUT, buildCottage } from './town.js';
 import { loadSettings, applySettings, buildSettingsUI } from './settings.js';
 import { showWeapon, applyCosmetics, buildPlayer, buildNPC, buildSlime, buildThorn, buildBoar, buildMoth, buildSkyRay, buildGolem, buildStag, buildArch, buildHouse, buildFountain, buildBoard, buildStall } from './models.js';
 import { Net } from './net.js';
@@ -433,6 +433,7 @@ export class Game {
     this.sun.color.set(B.sun); this.sun.intensity = B.sunI * 1.45;
     this.hemi.color.set(B.sky); this.hemi.groundColor.set(B.ground); this.hemi.intensity = B.ambient * 1.15;
     this.pipe.postMat.uniforms.uGrade.value.set(...B.grade);
+    this.pipe.postMat.uniforms.uCloud.value = B.key === 'snow' ? 0.4 : (anyTown ? 0.45 : 1);
     this.pipe.postMat.uniforms.uShaft.value.set(...B.shaft);
     const p = this.player; p.sitting = null;
     if (town && extra.fromDir === 'north') { p.pos.set(0, 0, -13.0); p.facing = 0; }
@@ -894,7 +895,7 @@ export class Game {
     if ((p.skillCds[slotIdx] || 0) > 0 || p.roll > 0) return;
     const { def, mod } = sk;
     if (def.mana && p.mana < def.mana) {
-      if (!this._noManaT || this.time - this._noManaT > 1) { this.ui.toast('法力不足', '#7fb2ff'); this._noManaT = this.time; }
+      if (!this._noManaT || this.time - this._noManaT > 1) { this.ui.toast('法力不足', '#7fb2ff'); this.ui.status?.noMana(); this._noManaT = this.time; }
       return;
     }
     if (def.mana) { p.mana -= def.mana; this.ui.mpVial?.impulse((Math.random() - 0.5) * 1.4, 1.3); }
@@ -1069,7 +1070,7 @@ export class Game {
   }
   tryBolt() {
     const p = this.player; if (p.cds.bolt > 0 || p.roll > 0) return;
-    if (p.mana < 8) { if (!this._noManaT || this.time - this._noManaT > 1) { this.ui.toast('法力不足', '#7fb2ff'); this._noManaT = this.time; } return; }
+    if (p.mana < 8) { if (!this._noManaT || this.time - this._noManaT > 1) { this.ui.toast('法力不足', '#7fb2ff'); this.ui.status?.noMana(); this._noManaT = this.time; } return; }
     this.audio.sfx('bolt'); p.mana -= 8; p.cds.bolt = 0.38 / (1 + p.stats.atkSpd / 200);
     const dir = this.aimDir(); p.facing = Math.atan2(dir.x, dir.y);
     const n = p.stats.proj, spread = 0.2;
@@ -1491,18 +1492,17 @@ export class Game {
     const pierData = buildWoodenPier(19.0, 27.6, 5.2); g.add(pierData.group);
     this.world.pierBounds.push(pierData.bounds);
     const ferry = buildFerryBoat(); ferry.position.set(0, -0.02, 29.8); g.add(ferry);
+    const TL = TOWN_LAYOUT;
     const chest = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.75, 0.75), toonMat({ color: 0x9a643a }));
-    chest.position.set(3.6, 0.38, 7.4); chest.castShadow = true; g.add(chest);
-    // 補齊公會大廳涼亭、星燈覺醒祭壇與造型衣櫃 3D 實體模型（不再有憑空互動點）
-    add(buildGuildKiosk(), 6.5, -6.5, -0.5, 1.4);
-    add(buildAwakenAltar(), -2.2, -6.5, 0, 1.35);
-    add(buildWardrobe(), -1.6, 8.6, 0.18, 0.75);
+    chest.position.set(TL.stash[0], this.world.gh(TL.stash[0], TL.stash[1]) + 0.38, TL.stash[1]); chest.rotation.y = Math.atan2(-TL.stash[0], -TL.stash[1]); chest.castShadow = true; g.add(chest);
+    // 祭壇在東北石台上，衣櫃在旅人小屋門口
+    const altar = add(buildAwakenAltar(), TL.altar[0], TL.altar[1], 0, 1.35); altar.position.y = 1.0;
+    add(buildWardrobe(), TL.wardrobe[0], TL.wardrobe[1], Math.PI / 2, 0.75);
     this.worldBoxes.push(
-      { x: -6, z: 10, hw: 1.5, hd: 1.3, h: 0 },
-      { x: 8, z: 4, hw: 1.2, hd: 0.8, h: 0 },
-      { x: 3.6, z: 7.4, hw: 0.65, hd: 0.45, h: 0 },
-      { x: 6.5, z: -6.5, hw: 1.5, hd: 1.2, h: 0 },
-      { x: -1.6, z: 8.6, hw: 0.75, hd: 0.45, h: 0 },
+      { x: TL.stash[0], z: TL.stash[1], hw: 0.65, hd: 0.45, h: 0 },
+      { x: TL.wardrobe[0], z: TL.wardrobe[1], hw: 0.45, hd: 0.75, h: 0 },
+      { x: TL.home[0], z: TL.home[1], hw: 1.7, hd: 1.7, h: 0 },
+      { x: TL.altar[0], z: TL.altar[1], hw: 2.5, hd: 2.5, h: 0 },
     );
     // 可踢飛滾動的 3D 物理物件（彩色海灘球與酒桶）
     const mkProp = (kind, x, z, col) => {
@@ -1513,24 +1513,24 @@ export class Game {
       mesh.position.set(x, y, z); this.scene.add(mesh);
       this.physProps.push({ kind, mesh, x, y, z, vx: 0, vy: 0, vz: 0, r: 0.38 });
     };
-    mkProp('ball', 2.4, 2.2, 0xff6b6b); mkProp('ball', -2.8, 12.2, 0x4cc9f0);
-    mkProp('barrel', -7.2, -1.5, 0x9c663a); mkProp('barrel', 6.2, 2.8, 0x8a5832);
+    mkProp('ball', 2.4, 4.2, 0xff6b6b); mkProp('ball', -11.5, 15, 0x4cc9f0);
+    mkProp('barrel', -8.8, -5.6, 0x9c663a); mkProp('barrel', 9.4, 2.2, 0x8a5832);
     // 城鎮草地漫步的蓬鬆小綿羊（致敬螢幕擷圖 5 風格，可按 F 撫摸獲得軟綿祝福）
-    [[-8.5, 11.5], [5.8, 12.2], [-11.5, 6.2], [11.2, 7.8]].forEach(([sx, sz], idx) => {
+    [[-12.8, 13.6], [-11, 15.4], [-13.2, 15.8], [-11.4, 13]].forEach(([sx, sz], idx) => {
       const sm = buildSheep();
       sm.position.set(sx, this.world.gh(sx, sz), sz);
       this.scene.add(sm);
       this.sheep.push({ mesh: sm, hx: sx, hz: sz, x: sx, z: sz, tx: sx, tz: sz, f: idx * 1.5, wait: 1 + idx, hop: 0, ph: idx * 2.1 });
     });
     this.spots.push(
-      { kind: 'market', label: '溪畔拍賣行', x: 8, z: 4, top: 2.5 },
-      { kind: 'enter_home', label: '推門進入旅人小屋（室內）', x: -6, z: 7.4, top: 2.5 },
-      { kind: 'enter_tavern', label: '推門進入楓之酒館（室內）', x: -10.5, z: -2.5, top: 2.5 },
-      { kind: 'guild', label: '燈谷公會大廳（加入公會／討伐）', x: 6.5, z: -6.5, top: 3.1 },
-      { kind: 'ascend', label: '星燈覺醒祭壇（二轉職業覺醒）', x: -2.2, z: -6.5, top: 2.6 },
+      { kind: 'market', label: '工匠街拍賣行', x: TL.market[0], z: TL.market[1], top: 2.5 },
+      { kind: 'enter_home', label: '推門進入旅人小屋（室內）', x: TL.home[0] + 2.3, z: TL.home[1], top: 2.5 },
+      { kind: 'enter_tavern', label: '推門進入楓之酒館（室內）', x: TL.tavern[0] + 3.1, z: TL.tavern[1] + 0.8, top: 2.5 },
+      { kind: 'guild', label: '燈谷公會大廳（加入公會／討伐）', x: TL.guild[0] + 3.0, z: TL.guild[1], top: 3.1 },
+      { kind: 'ascend', label: '星燈覺醒祭壇（二轉職業覺醒）', x: TL.altar[0], z: TL.altar[1] + 2.9, top: 3.6 },
       { kind: 'ferry_harbor', label: '登船前往海風港鎮（南碼頭啟航）', x: 0, z: 26.2, top: 2.8 },
-      { kind: 'open_stash', label: '燈谷公共倉庫（城鎮限定）', x: 3.6, z: 7.4, top: 2.2 },
-      { kind: 'open_cosmetics', label: '造型衣櫃（更換外觀）', x: -1.6, z: 8.6, top: 2.3 },
+      { kind: 'open_stash', label: '燈谷公共倉庫（城鎮限定）', x: TL.stash[0], z: TL.stash[1], top: 2.2 },
+      { kind: 'open_cosmetics', label: '造型衣櫃（更換外觀）', x: TL.wardrobe[0], z: TL.wardrobe[1], top: 2.3 },
     );
     this.updateHome();
     // offline villagers
@@ -1561,17 +1561,17 @@ export class Game {
     if (!this.townGroup) return;
     if (this.homeModel) this.townGroup.remove(this.homeModel);
     const rank = this.meta.p.home;
-    this.homeModel = buildHouse([0x84705a,0xa6754f,0x64885b,0xdeae69][rank], 0xf4dcaa, 2.3+rank*.4, 2.2);
-    this.homeModel.position.set(-6,0,10); this.townGroup.add(this.homeModel);
+    this.homeModel = buildCottage([0xc08850,0xe0553c,0x5aae60,0xffb840][rank] ?? 0xe0553c, 0xf6ebd0, 3.0 + rank * 0.3, 2.8 + rank * 0.2, rank >= 2 ? 2 : 1);
+    this.homeModel.position.set(TOWN_LAYOUT.home[0], this.world.gh(TOWN_LAYOUT.home[0], TOWN_LAYOUT.home[1]), TOWN_LAYOUT.home[1]); this.homeModel.rotation.y = Math.PI / 2; this.townGroup.add(this.homeModel);
   }
   spawnBots() {
     const defs = [
       ['鐘錶匠 米糕', 1, ['今天適合遠行！', '南邊棧橋可以搭船。'], null, 'clockmaker'],
       ['草藥師 阿杏', 5, ['甜莓配蘋果酒能合出特調！', '中毒記得喝蘋果酒。'], null, 'cat'],
       ['守夜人 老燈', 3, ['雙燈照路，夜行小心。', '連放三招可觸發過載！'], null, 'owl'],
-      ['酒館主廚 楓', 4, ['蘋果酒剛釀好～', '進屋烤火最舒服。'], [-10, -4, 1.5], 'chef'],
-      ['行腳商 豆豆', 2, ['背包裡能碰撞合成喔！', '倉庫箱在廣場南邊。'], [8, 2.5, 2], 'peddler'],
-      ['鐵匠 石頭', 6, ['打冰凍怪會觸發碎冰！', '北門外就是晨光草原。'], [0, -11.5, 1.2], 'smith'],
+      ['酒館主廚 楓', 4, ['蘋果酒剛釀好～', '進屋烤火最舒服。'], [-9, -7.6, 1.5], 'chef'],
+      ['行腳商 豆豆', 2, ['背包裡能碰撞合成喔！', '倉庫箱在廣場東北角。'], [9.6, 6.4, 2], 'peddler'],
+      ['鐵匠 石頭', 6, ['打冰凍怪會觸發碎冰！', '北門外就是晨光草原。'], [11.2, -8.4, 1.2], 'smith'],
       ['碼頭舵手 小潮', 7, ['走到棧橋盡頭即可登船！', '海風很舒服吧？'], [1.5, 20.8, 1.2], 'captain'],
     ];
     defs.forEach(([name, col, lines, home, arch], i) => {
@@ -2517,7 +2517,7 @@ export class Game {
       this.camera.updateProjectionMatrix();
     }
     this.camPunch = Math.max(0, (this.camPunch || 0) - dt * 0.45);
-    const baseDist = this.camDistOverride || (this.interior ? 17 : this.photoMode ? 18 : this.state === 'title' ? 34 : 29);
+    const baseDist = this.camDistOverride || (this.interior ? 17 : this.photoMode ? 18 : this.state === 'title' ? 40 : 37);
     const dist = baseDist * (this.interior ? 1 : (this.camZoom || 1)) * (1 - (this.camPunch || 0));
     const yaw = this.state === 'title' ? 0.45 : 0.62;
     const horiz = dist * preset.zK;

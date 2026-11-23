@@ -10,7 +10,7 @@ import { COSMETICS } from './harbor.js';
 import { applyCosmetics } from './models.js';
 import { PhysicsContainer, ensurePhysicsStorage, useBagItem, transferBagItem, synthesizeBagItems } from './physbag.js';
 import { bindCodexUI } from './codex.js';
-import { FluidVial } from './vials.js';
+import { StatusCard } from './statuscard.js';
 import { t } from './i18n.js';
 import * as THREE from 'three';
 import { RARITY, SLOTS, itemLines, itemScore, BOONS, deserializeItem, tierInfo } from './loot.js';
@@ -29,8 +29,7 @@ export class UI {
   bind(game) {
     this.game = game;
     this.atStash = false;
-    if ($('hpCanvas')) this.hpVial = new FluidVial($('hpCanvas'), 'hp');
-    if ($('mpCanvas')) this.mpVial = new FluidVial($('mpCanvas'), 'mp');
+    this.status = new StatusCard(this);
     game.settings = loadSettings(); buildPanels(game); buildSettingsUI(game); applySettings(game);
     const menuBtn = $('btnMenu'), menuPop = $('menuPop');
     if (menuBtn && menuPop) {
@@ -319,15 +318,14 @@ export class UI {
     this.nums = this.nums.filter(n => n.t <= 0.85);
     if (g.state === 'title') return;
     const p = g.player, S = p.stats;
-    { const st = $('stam'); if (!st.children.length) for (let i = 0; i < 10; i++) st.appendChild(document.createElement('i'));
-      const n = p.stamina / 10; for (let i = 0; i < 10; i++) st.children[i].classList.toggle('empty', i + 0.5 > n);
-      st.classList.toggle('hide', p.stamina >= 99.5 && !p.air && !p.climbing); }
     const st = p.statuses || {};
-    const vialStates = { poison: st.poison > 0, freeze: st.freeze > 0, chill: st.chill > 0, shock: st.shock > 0, overload: st.overload > 0, frenzy: st.overload > 0 || (p.hp / S.maxHp < 0.28) };
-    if (this.hpVial) { this.hpVial.step(1 / 60, p.hp / S.maxHp, vialStates); this.hpVial.draw(); }
-    if (this.mpVial) { this.mpVial.step(1 / 60, p.mana / S.mana, vialStates); this.mpVial.draw(); }
+    if (this.status) this.status.update(g);
     $('hpText').textContent = `${Math.ceil(p.hp)}/${S.maxHp}`;
     $('mpText').textContent = `${Math.floor(p.mana)}/${S.mana}`;
+    { const c0 = CLASSES[g.character?.job ?? 0] || CLASSES[0], c2 = findSecondClass(g.meta.p.secondClass), ic = (c2 || c0).icon;
+      const ie = $('pcIcon'); if (ie && ie._v !== ic) { ie.textContent = ic; ie._v = ic; }
+      const lv = $('pcLv'); if (lv) lv.textContent = g.meta.p.level;
+      const nm = $('pcName'); const nv = g.character?.name || (c2 || c0).name; if (nm && nm._v !== nv) { nm.textContent = nv; nm._v = nv; } }
     const sbEl = $('statusBar');
     if (sbEl) {
       const lang = g.settings?.lang || 'zh-TW';
@@ -419,8 +417,6 @@ export class UI {
       mealEl.hidden = left <= 0;
       if (left > 0) mealEl.textContent = `🐟 回血 ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
     }
-    const xpFill = $('xpFill');
-    if (xpFill) xpFill.style.width = (pr.level >= 30 ? 100 : Math.min(100, pr.xp / (pr.level * 40) * 100)) + '%';
     const compass = $('fieldCompass');
     if (compass) {
       if (g.waypoint) {

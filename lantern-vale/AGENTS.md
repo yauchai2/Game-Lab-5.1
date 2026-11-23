@@ -66,3 +66,9 @@ WASD 移動；左鍵杖擊；右鍵餘燼彈；**空白鍵：單擊翻滾、連�
 - Mixamo MCP：`~/mcp-servers/unity-mcp-mixamo/Server`（Python），需要 Alan 自己的 Mixamo token。
 - 這兩個都尚未接進 Claude；Codex 若要使用請先確認是否已設定。
 - `temporary/` 素材資料夾內容會變；只有 Quaternius Stylized Nature MegaKit 確認為 CC0，其餘授權不明，僅供參考不可直接用。
+
+## 城鎮布局規則（2026-11-23 重做）
+- 燈谷鎮布局集中在 `src/town.js` 的 `TOWN_LAYOUT` 與 `buildTownScenery`；`game.js` 的互動點座標都讀 `TOWN_LAYOUT`，不要再手寫座標。
+- 五區：北冒險者台地（出發門、地圖桌、公會大廳）、東北祭壇石台、西生活區（酒館、旅人小屋、衣櫃、井）、東工匠街（鐵匠、拍賣行）、南碼頭（魚攤、燈塔）、西南牧場。主街南北、橫街東西，建築門一律朝街。
+- 牆一律奶油灰泥＋深咖啡木樑；屋頂只用 4 色（磚紅、湖藍、芥末黃、苔綠）。樹只用圓潤闊葉樹、柏樹、櫻花（2 棵），只種在外圍與岩壁上。
+- 新增設施前先在規劃文件找分區：https://claude.ai/artifact/K8TX6RyM3NNnPispynnmpa
