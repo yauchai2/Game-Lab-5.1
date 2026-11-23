@@ -5,3 +5,5 @@ dist/
 
 lantern-vale/server/data/
 lantern-vale/shots/
+lantern-vale/review/output/
+lantern-vale/review/done.json

@@ -378,8 +378,12 @@ export function buildZoneLandmarks(g) {
       g.world.obstacles.push({ x: pt.x, z: pt.z, r: 2.3, h: y });
     }
   } else if (g.field === 12) {
-    // 紅楓工坊谷：黑白棋盤石磚廣場、發光熔爐與木工桌
-    const pt = g.world.randomWalkable(r, g.player.pos, 16);
+    // 紅楓工坊谷：黑白棋盤石磚廣場、發光熔爐與木工桌（挑選 6.5m 內無樹木遮擋的空曠平地）
+    let pt = g.world.randomWalkable(r, g.player.pos, 18);
+    for (let t = 0; t < 160; t++) {
+      const cand = g.world.randomWalkable(r, g.player.pos, 18);
+      if (!g.world.obstacles.some(o => Math.hypot(o.x - cand.x, o.z - cand.z) < o.r + 6.5)) { pt = cand; break; }
+    }
     const y = g.world.gh(pt.x, pt.z);
     const tiles = [];
     for (let ix = -3; ix <= 3; ix++) for (let iz = -3; iz <= 3; iz++) {

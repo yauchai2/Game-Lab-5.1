@@ -4,7 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "node build.mjs",
+    "test": "node tests/logic_verify.cjs",
+    "review:once": "node tests/review_watch.cjs --once",
+    "review:watch": "node tests/review_watch.cjs --watch"
   },
   "keywords": [],
   "author": "",

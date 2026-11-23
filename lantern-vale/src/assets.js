@@ -4,14 +4,14 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { toonMat, windPatch } from './world.js';
 
 export const NATURE_FILES = {
-  tree:   { file: 'CommonTree_5.gltf',        targetH: 3.35, sink: 0.14 },
-  pine:   { file: 'Pine_5.gltf',              targetH: 3.65, sink: 0.14 },
-  bush:   { file: 'Bush_Common_Flowers.gltf', targetH: 1.15, sink: 0.08 },
-  rock1:  { file: 'Rock_Medium_1.gltf',       targetH: 1.15, sink: 0.14 },
-  rock2:  { file: 'Rock_Medium_2.gltf',       targetH: 1.05, sink: 0.14 },
-  shroom: { file: 'Mushroom_Common.gltf',     targetH: 0.48, sink: 0.04 },
-  fern:   { file: 'Fern_1.gltf',              targetH: 0.58, sink: 0.04 },
-  flower: { file: 'Flower_3_Group.gltf',      targetH: 0.52, sink: 0.04 },
+  tree:   { file: 'CommonTree_5.gltf',        targetH: 4.2,  sink: 0.16 },
+  pine:   { file: 'Pine_5.gltf',              targetH: 4.5,  sink: 0.16 },
+  bush:   { file: 'Bush_Common_Flowers.gltf', targetH: 1.25, sink: 0.08 },
+  rock1:  { file: 'Rock_Medium_1.gltf',       targetH: 1.2,  sink: 0.14 },
+  rock2:  { file: 'Rock_Medium_2.gltf',       targetH: 1.1,  sink: 0.14 },
+  shroom: { file: 'Mushroom_Common.gltf',     targetH: 0.5,  sink: 0.04 },
+  fern:   { file: 'Fern_1.gltf',              targetH: 0.56, sink: 0.04 },
+  flower: { file: 'Flower_3_Group.gltf',      targetH: 0.48, sink: 0.04 },
 };
 
 export const natureAssets = {};
@@ -76,18 +76,46 @@ function normalizeScene(scene, targetH, sink, key) {
   return { key, parts };
 }
 
+function liftBright(hex, minL = 0.72) {
+  const c = new THREE.Color(hex);
+  const hsl = { h: 0, s: 0, l: 0 };
+  c.getHSL(hsl);
+  c.setHSL(hsl.h, Math.min(0.85, hsl.s * 1.08), Math.max(minL, hsl.l + 0.22));
+  return c;
+}
+
 export function buildAssetMaterial(part, opts = {}) {
   const col = new THREE.Color(0xffffff);
-  if (part.role === 'foliage' && opts.tint !== undefined) {
-    col.lerp(new THREE.Color(opts.tint), opts.tintMix ?? 0.52);
-  } else if (part.role === 'rock' && opts.rockTint !== undefined) {
-    col.lerp(new THREE.Color(opts.rockTint), 0.42);
-  } else if (part.role === 'flower' && opts.tint !== undefined) {
-    col.lerp(new THREE.Color(opts.tint), 0.18);
+  let emissive = new THREE.Color(0x000000);
+  let emissiveIntensity = 0;
+
+  if (part.role === 'foliage') {
+    const raw = new THREE.Color(opts.tint ?? 0x76b852);
+    const lifted = liftBright(opts.tint ?? 0x76b852, 0.74);
+    col.lerp(lifted, opts.tintMix ?? 0.42);
+    emissive.copy(raw);
+    emissiveIntensity = 0.42;
+  } else if (part.role === 'rock') {
+    const raw = new THREE.Color(opts.rockTint ?? 0x9e978e);
+    const lifted = liftBright(opts.rockTint ?? 0x9e978e, 0.78);
+    col.lerp(lifted, 0.38);
+    emissive.copy(raw);
+    emissiveIntensity = 0.34;
+  } else if (part.role === 'bark') {
+    col.setHex(0xf6e6d4);
+    emissive.setHex(0x6b4a32);
+    emissiveIntensity = 0.28;
+  } else if (part.role === 'flower' || part.role === 'shroom') {
+    col.setHex(0xffffff);
+    emissive.setHex(0xfff0dc);
+    emissiveIntensity = 0.24;
   }
+
   const mat = toonMat({
     color: col,
     map: part.map || null,
+    emissive,
+    emissiveIntensity,
     alphaTest: part.alphaTest || 0,
     side: part.doubleSide ? THREE.DoubleSide : THREE.FrontSide,
   });

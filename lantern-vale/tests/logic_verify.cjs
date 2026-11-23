@@ -237,8 +237,8 @@ const createGuild = require('../server/guild.cjs');
   assert.equal(upgraded.item.rarity, 1, 'Two same-rarity gears collide and fuse into higher rarity');
 
   const codex = await import(src('codex.js'));
-  assert.equal(codex.GAME_VERSION, 'v0.12.0-alpha', 'Codex exports current internal alpha version v0.12.0-alpha');
-  assert.ok(codex.CHANGELOG.length >= 9, 'Changelog contains structured version history through v0.12.0-alpha');
+  assert.equal(codex.GAME_VERSION, 'v0.12.1-alpha', 'Codex exports current internal alpha version v0.12.1-alpha');
+  assert.ok(codex.CHANGELOG.length >= 10, 'Changelog contains structured version history through v0.12.1-alpha');
 
   // 14. v0.12.0-alpha Stylized Nature MegaKit 3D glTF Asset Pipeline & Files
   const fs = require('node:fs');

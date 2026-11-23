@@ -1,0 +1,13 @@
+{
+  "id": "v0.12.1-alpha-verify",
+  "width": 1280,
+  "height": 720,
+  "recordVideo": true,
+  "shots": [
+    "title",
+    "town",
+    "field:1",
+    "field:10",
+    "field:12"
+  ]
+}

@@ -600,6 +600,7 @@ export class World {
       const cnt = 3 + Math.floor(r() * 6);
       for (let m = 0; m < cnt; m++) {
         const x = cx + (r() - 0.5) * 2, z = cz + (r() - 0.5) * 2;
+        if (opts.town && (Math.hypot(x, z) < 14.5 || Math.hypot(x + 4.5, z - 12.5) < 6.0)) continue;
         const kk = this.idx(x, z); if (kk < 0 || T[kk] === 0 || RR[kk] > 0.97) continue;
         // skip cliff faces
         if (Math.abs(H[kk] - H[kk + 1]) > 0.5 || Math.abs(H[kk] - H[kk + GW]) > 0.5) continue;

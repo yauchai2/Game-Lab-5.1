@@ -6,10 +6,17 @@ import { BOONS, TIERS } from './loot.js';
 import { BAG_RECIPES } from './physbag.js';
 import { MOUNTS } from './mounts.js';
 
-export const GAME_VERSION = 'v0.12.0-alpha';
+export const GAME_VERSION = 'v0.12.1-alpha';
 export const DONATE_URL = 'https://ko-fi.com/'; // 可隨時改為個人贊助頁面或 ECPay 連結
 
 export const CHANGELOG = [
+  {
+    ver: 'v0.12.1-alpha', date: '2026-11-23',
+    items: [
+      { tag: '修正', text: '大幅提亮 Stylized Nature MegaKit 3D 樹木、松樹、灌木與岩石的日光色彩與環境補光（徹底消除過暗剪影），並微調樹冠高度比例。' },
+      { tag: '修正', text: '排除燈谷鎮中央石磚廣場與南側小水池內的雜草與野花穿插；修正紅楓工坊谷棋盤廣場避開樹木重疊，並補上內嵌圖示消除 404。' },
+    ],
+  },
   {
     ver: 'v0.12.0-alpha', date: '2026-11-23',
     items: [
