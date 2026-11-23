@@ -7,47 +7,70 @@ const M = (parts, opts = {}) => { const m = new THREE.Mesh(mergeGeometries(parts
 const B = (w, h, d, c, x, y, z, rx = 0, ry = 0, rz = 0) => part(new THREE.BoxGeometry(w, h, d), c, x, y, z, rx, ry, rz);
 const faceCenter = (x, z) => Math.atan2(-x, -z);
 
-// 山牆屋頂：兩片斜板＋瓦片橫紋＋三角山牆
+// 山牆屋頂：兩片斜板＋交錯瓦片列＋屋脊帽＋三角山牆
 function gable(w, d, h, roof, roofDark, wall, y0) {
-  const slope = Math.hypot(w / 2, h), ang = Math.atan2(h, w / 2), L = slope + 0.35, parts = [];
+  const slope = Math.hypot(w / 2, h), ang = Math.atan2(h, w / 2), L = slope + 0.55, parts = [], N = 6;
+  const light = new THREE.Color(roof).offsetHSL(0, 0, 0.07).getHex();
   for (const s of [-1, 1]) {
     const cx = s * w / 4, cy = y0 + h / 2 + 0.07;
-    parts.push(B(L, 0.14, d + 0.5, roof, cx, cy, 0, 0, 0, -s * ang));
+    parts.push(B(L, 0.14, d + 0.7, roof, cx, cy, 0, 0, 0, -s * ang));
     const ux = s * Math.cos(ang), uy = -Math.sin(ang), nx = s * Math.sin(ang), ny = Math.cos(ang);
-    for (let k = 0; k < 4; k++) { const t = ((k + 0.5) / 4 - 0.5) * L * 0.9; // 瓦片橫紋
-      parts.push(B(L * 0.06, 0.05, d + 0.52, roofDark, cx + ux * t + nx * 0.08, cy + uy * t + ny * 0.08, 0, 0, 0, -s * ang)); }
+    for (let k = 0; k < N; k++) { const t = ((k + 0.5) / N - 0.5) * L * 0.94; // 瓦片列
+      parts.push(B(L / N * 0.86, 0.05, d + 0.72, k % 2 ? roofDark : light, cx + ux * t + nx * 0.08, cy + uy * t + ny * 0.08, 0, 0, 0, -s * ang)); }
+    parts.push(B(0.12, 0.12, d + 0.72, 0x5a3a28, s * (w / 2 + 0.2), y0 - 0.02, 0)); // 屋簷木梁
   }
-  parts.push(B(0.18, 0.14, d + 0.55, roofDark, 0, y0 + h + 0.08, 0)); // 屋脊
-  // 前後三角山牆
+  parts.push(B(0.26, 0.16, d + 0.78, 0x5a3a28, 0, y0 + h + 0.1, 0)); // 屋脊木帽
   const tri = new THREE.Shape(); tri.moveTo(-w / 2, 0); tri.lineTo(w / 2, 0); tri.lineTo(0, h); tri.closePath();
   for (const z of [-d / 2 + 0.01, d / 2 - 0.01]) { const g = new THREE.ShapeGeometry(tri); if (z < 0) g.rotateY(Math.PI); parts.push(part(g, wall, 0, y0, z)); }
+  // 山牆木樑（人字紋）
+  for (const z of [-d / 2 - 0.02, d / 2 + 0.02]) for (const sg of [-1, 1]) parts.push(B(slope * 0.98, 0.1, 0.07, 0x5a3a28, sg * w / 4, y0 + h / 2 - 0.02, z, 0, 0, -sg * ang));
   return parts;
 }
+function timber(parts, w, y0, h, z, col) {
+  const n = Math.max(2, Math.round(w / 1.05)), pw = w / n;
+  parts.push(B(w + 0.16, 0.14, 0.1, col, 0, y0 + 0.07, z), B(w + 0.16, 0.14, 0.1, col, 0, y0 + h - 0.07, z));
+  for (let i = 0; i <= n; i++) parts.push(B(0.13, h, 0.1, col, -w / 2 + i * pw, y0 + h / 2, z));
+  const bl = Math.hypot(pw, h * 0.5), ba = Math.atan2(pw, h * 0.5);
+  for (const [i, sg] of [[0, 1], [n - 1, -1]]) parts.push(B(0.09, bl, 0.08, col, -w / 2 + (i + 0.5) * pw, y0 + h * 0.5, z + 0.01, 0, 0, sg * ba));
+}
+function shutters(x, y, z, col) { return [B(0.2, 0.62, 0.07, col, x - 0.4, y, z), B(0.2, 0.62, 0.07, col, x + 0.4, y, z)]; }
 function window3(x, y, z, lit) { return [B(0.56, 0.56, 0.08, 0x6a4a32, x, y, z), B(0.42, 0.42, 0.1, lit ? 0xffd88a : 0x4a5a7a, x, y, z + 0.01), B(0.05, 0.42, 0.11, 0x6a4a32, x, y, z + 0.015), B(0.42, 0.05, 0.11, 0x6a4a32, x, y, z + 0.015)]; }
 function flowerBox(x, y, z, cols) { const p = [B(0.7, 0.18, 0.22, 0x7a4a33, x, y, z)]; cols.forEach((c, i) => p.push(part(new THREE.IcosahedronGeometry(0.1, 0), c, x - 0.25 + i * 0.25, y + 0.16, z))); return p; }
 
 export function buildCottage(roof, wall = 0xf3e2c0, w = 3.6, d = 3.0, floors = 1) {
-  const g = new THREE.Group(), H = 1.7 * floors, parts = [];
-  parts.push(B(w, H, d, wall, 0, H / 2, 0), B(w + 0.2, 0.3, d + 0.2, 0x8f8a82, 0, 0.15, 0)); // 牆身＋石基
-  parts.push(B(0.8, 1.25, 0.1, 0x7a4a33, 0, 0.7, d / 2 + 0.03), B(0.9, 0.12, 0.2, 0x6a4a32, 0, 1.38, d / 2 + 0.08)); // 門＋門簷
-  parts.push(...window3(-w / 2 + 0.75, 1.1, d / 2 + 0.03, true), ...window3(w / 2 - 0.75, 1.1, d / 2 + 0.03, false));
-  parts.push(...flowerBox(w / 2 - 0.75, 0.72, d / 2 + 0.14, [0xff8fb0, 0xffd45a, 0xffffff]));
-  if (floors > 1) { parts.push(...window3(-w / 4, 2.7, d / 2 + 0.03, true), ...window3(w / 4, 2.7, d / 2 + 0.03, true)); parts.push(B(w + 0.1, 0.12, d + 0.1, 0x6a4a32, 0, 1.7, 0)); }
-  for (const s of [-1, 1]) for (let k = 0; k < 3; k++) parts.push(B(0.1, H, 0.1, 0x6a4a32, s * (w / 2 + 0.02), H / 2, -d / 2 + 0.05 + k * d / 2)); // 木樑
-  parts.push(B(0.45, 1.1, 0.45, 0x9a8f86, w / 4, H + 1.25, -d / 4), B(0.55, 0.12, 0.55, 0x7a7068, w / 4, H + 1.85, -d / 4)); // 煙囪
-  parts.push(...gable(w, d, 1.5, roof, new THREE.Color(roof).multiplyScalar(0.72).getHex(), wall, H));
-  g.add(M(parts)); g.userData.chimney = [w / 4, H + 1.95, -d / 4];
+  const g = new THREE.Group(), parts = [], T = 0x5a3a28, shut = new THREE.Color(roof).multiplyScalar(0.85).getHex(), plaster = 0xf6ebd0;
+  const upper = floors > 1, jet = upper ? 0.22 : 0, H = 1.7 * floors, W2 = w + jet * 2;
+  parts.push(B(w + 0.22, 0.34, d + 0.22, 0x9a948a, 0, 0.17, 0)); // 石基
+  parts.push(B(w, 1.7, d, plaster, 0, 0.85 + 0.0, 0)); // 一樓
+  timber(parts, w, 0.34, 1.36, d / 2 + 0.03, T);
+  for (const sx of [-1, 1]) { parts.push(B(0.1, 1.36, d, T, sx * (w / 2 + 0.03), 1.02, 0)); for (let k = 0; k < 3; k++) parts.push(B(0.1, 1.36, 0.12, T, sx * (w / 2 + 0.03), 1.02, -d / 2 + k * d / 2)); }
+  parts.push(B(0.86, 1.2, 0.1, 0x7a4a33, 0, 0.94, d / 2 + 0.06), B(1.0, 0.14, 0.16, T, 0, 1.58, d / 2 + 0.06), B(0.07, 1.2, 0.12, T, -0.46, 0.94, d / 2 + 0.07), B(0.07, 1.2, 0.12, T, 0.46, 0.94, d / 2 + 0.07)); // 門
+  parts.push(...window3(-w / 2 + 0.8, 1.2, d / 2 + 0.06, true), ...window3(w / 2 - 0.8, 1.2, d / 2 + 0.06, false));
+  parts.push(...shutters(-w / 2 + 0.8, 1.2, d / 2 + 0.07, shut), ...shutters(w / 2 - 0.8, 1.2, d / 2 + 0.07, shut));
+  parts.push(...flowerBox(w / 2 - 0.8, 0.84, d / 2 + 0.18, [0xff8fb0, 0xffd45a, 0xffffff]));
+  if (upper) {
+    parts.push(B(W2 + 0.1, 0.16, d + jet * 2 + 0.1, T, 0, 1.78, 0)); // 懸挑樓板
+    parts.push(B(W2, 1.6, d + jet * 2, plaster, 0, 2.62, 0));
+    timber(parts, W2, 1.86, 1.52, d / 2 + jet + 0.03, T);
+    parts.push(...window3(-W2 / 4, 2.7, d / 2 + jet + 0.06, true), ...window3(W2 / 4, 2.7, d / 2 + jet + 0.06, true));
+    parts.push(...shutters(-W2 / 4, 2.7, d / 2 + jet + 0.07, shut), ...shutters(W2 / 4, 2.7, d / 2 + jet + 0.07, shut));
+    for (const sx of [-1, 1]) parts.push(B(0.1, 1.52, d + jet * 2, T, sx * (W2 / 2 + 0.03), 2.62, 0));
+  }
+  const top = upper ? 3.42 : 1.7;
+  parts.push(B(0.5, 1.2, 0.5, 0xa89c92, w / 4, top + 1.2, -d / 4), B(0.62, 0.14, 0.62, 0x7a7068, w / 4, top + 1.84, -d / 4)); // 煙囪
+  parts.push(...gable(upper ? W2 : w, upper ? d + jet * 2 : d, 1.6, roof, new THREE.Color(roof).multiplyScalar(0.9).getHex(), plaster, top));
+  g.add(M(parts)); g.userData.chimney = [w / 4, top + 2.0, -d / 4];
   return g;
 }
 export function buildTavern() {
   const g = new THREE.Group(), parts = [], w = 6.0, d = 4.4, H = 2.4;
-  parts.push(B(w, H, d, 0xefe0c2, 0, H / 2, 0), B(w + 0.3, 0.4, d + 0.3, 0x8f8a82, 0, 0.2, 0));
-  for (let k = 0; k < 5; k++) parts.push(B(0.12, H, 0.12, 0x6a4a32, -w / 2 + k * w / 4, H / 2, d / 2 + 0.03));
-  parts.push(B(w, 0.12, 0.12, 0x6a4a32, 0, H - 0.05, d / 2 + 0.03));
+  parts.push(B(w, H, d, 0xf6ebd0, 0, H / 2, 0), B(w + 0.3, 0.4, d + 0.3, 0x9a948a, 0, 0.2, 0));
+  timber(parts, w, 0.4, H - 0.4, d / 2 + 0.03, 0x5a3a28);
+  for (const sx of [-1, 1]) for (let k = 0; k < 4; k++) parts.push(B(0.12, H - 0.4, 0.12, 0x5a3a28, sx * (w / 2 + 0.03), H / 2 + 0.2, -d / 2 + k * d / 3));
   parts.push(...window3(-2.1, 1.4, d / 2 + 0.04, true), ...window3(2.1, 1.4, d / 2 + 0.04, true), ...window3(-0.9, 1.4, d / 2 + 0.04, true));
   parts.push(B(0.9, 1.5, 0.12, 0x6a3f2a, 1.0, 0.85, d / 2 + 0.05));
   parts.push(...flowerBox(-2.1, 0.85, d / 2 + 0.16, [0xff8fb0, 0xffffff, 0xc59aff]), ...flowerBox(2.1, 0.85, d / 2 + 0.16, [0xffd45a, 0xff8fb0, 0xffffff]));
-  parts.push(...gable(w, d, 2.0, 0xb8452f, 0x8e3524, 0xefe0c2, H));
+  parts.push(...gable(w, d, 2.0, 0xc2452f, 0x8e3524, 0xf6ebd0, H));
   // 前廊雨篷（木瓦）
   parts.push(B(3.0, 0.14, 1.8, 0x9a6a3a, -1.2, 2.0, d / 2 + 0.8, 0.28, 0, 0), B(0.12, 2.0, 0.12, 0x6a4a32, -2.6, 1.0, d / 2 + 1.5), B(0.12, 2.0, 0.12, 0x6a4a32, 0.2, 1.0, d / 2 + 1.5));
   // 吧檯
@@ -159,6 +182,11 @@ export function buildSheep() {
   g.add(M(P));
   return g;
 }
+function roundTree(k = 1) {
+  const g = new THREE.Group(), gs = [0x9ccf5a, 0xb2dc6c, 0x86c24e];
+  g.add(M([part(new THREE.CylinderGeometry(0.16, 0.24, 1.9, 6), 0x7a5238, 0, 0.95, 0), part(new THREE.IcosahedronGeometry(1.35, 1), gs[0], 0, 2.7, 0), part(new THREE.IcosahedronGeometry(0.95, 1), gs[1], 0.85, 3.1, 0.3), part(new THREE.IcosahedronGeometry(0.9, 1), gs[2], -0.85, 2.5, -0.4)], { wind: [0.24, 1.2, 2.0] }));
+  g.scale.setScalar(k); return g;
+}
 function birchMapleTown(cols = [0xe95c3f, 0xf39237, 0xf6c445]) {
   const g = new THREE.Group();
   g.add(M([
@@ -182,23 +210,26 @@ function picketFence(len = 3.2) {
 export function buildTownScenery({ gh, rng }) {
   const g = new THREE.Group(), obstacles = [], chimneys = [], r = rng || Math.random;
   const place = (o, x, z, ry = 0, obs = 0, yoff = 0) => { o.position.set(x, gh(x, z) + yoff, z); o.rotation.y = ry; g.add(o); if (obs) obstacles.push({ x, z, r: obs, h: 0 }); if (o.userData.chimney) { const c = o.userData.chimney, cs = Math.cos(ry), sn = Math.sin(ry); chimneys.push({ x: x + c[0] * cs + c[2] * sn, y: o.position.y + c[1], z: z - c[0] * sn + c[2] * cs }); } return o; };
-  // ---- 石板廣場與放射小徑 ----
-  const stones = [], tone = [0xe6dcc4, 0xd8cdb2, 0xcfc4aa, 0xeee4cd, 0xc9bfa6];
-  const stone = (x, z, s = 0.62) => { const y = gh(x, z) + 0.05; stones.push(part(new THREE.BoxGeometry(s * (0.8 + r() * 0.35), 0.08, s * (0.8 + r() * 0.35)), tone[(r() * tone.length) | 0], x, y, z, 0, r() * 3.14, 0)); };
-  for (let a = 0; a < 6.283; a += 0.07) for (let rad = 2.6; rad < 7.4; rad += 0.62) { const aa = a + (rad * 7 % 1) * 0.07; stone(Math.cos(aa) * rad, Math.sin(aa) * rad); }
+  // ---- 石板廣場：灰泥底＋同心石環＋八角護欄 ----
+  const stones = [], tone = [0xd9cdb4, 0xcabda3, 0xe4d8c0, 0xbfb299, 0xd2c6ac];
+  const g0 = gh(0, 0);
+  const stone = (x, z, s = 0.62) => { const y = gh(x, z) + 0.05; stones.push(part(new THREE.BoxGeometry(s * (0.8 + r() * 0.3), 0.08, s * (0.8 + r() * 0.3)), tone[(r() * tone.length) | 0], x, y, z, 0, r() * 3.14, 0)); };
+  stones.push(part(new THREE.CylinderGeometry(8.0, 8.0, 0.05, 40), 0x8c8170, 0, g0 + 0.02, 0));
+  for (let rad = 3.5; rad < 7.6; rad += 0.56) { const n = Math.round(rad * 6.283 / 0.66); for (let i = 0; i < n; i++) { const aa = (i + (rad * 3 % 1)) / n * 6.283; stone(Math.cos(aa) * rad, Math.sin(aa) * rad, 0.6); } }
+  stones.push(part(new THREE.CylinderGeometry(3.45, 3.45, 0.09, 8), 0xe8dec6, 0, g0 + 0.06, 0));
+  for (let i = 0; i < 8; i++) { const aa = i / 8 * 6.283 + 0.3927, rr = 3.3; stones.push(B(2.5, 0.42, 0.55, 0xf0e6cf, Math.cos(aa) * rr, g0 + 0.2, Math.sin(aa) * rr, 0, -aa - 1.5708, 0)); }
   const path = (x0, z0, x1, z1, wd = 1.5) => { const L = Math.hypot(x1 - x0, z1 - z0), n = Math.ceil(L / 0.75); for (let i = 0; i <= n; i++) { const t = i / n, x = x0 + (x1 - x0) * t, z = z0 + (z1 - z0) * t, nx = -(z1 - z0) / L, nz = (x1 - x0) / L; for (let k = -1; k <= 1; k++) { if (Math.abs(k) * 0.62 > wd / 2 + 0.1) continue; stone(x + nx * k * 0.62 + (r() - .5) * .12, z + nz * k * 0.62 + (r() - .5) * .12, 0.58); } } };
-  path(0, -7, 0, -17, 2.0); path(7, 0, 17, 1, 1.6); path(-7, 0, -14, 0, 1.6); path(0, 7, 0, 18, 1.6); path(6, -5, 12, -9, 1.2); path(-6, -5, -10, -8, 1.2);
+  path(0, -7.6, 0, -17, 2.0); path(7.6, 0, 17, 1, 1.6); path(-7.6, 0, -14, 0, 1.6); path(0, 7.6, 0, 18, 1.6);
   g.add(M(stones));
   // ---- 噴泉＋中央（沿用原噴泉在 game.js） ----
   // ---- 建築 ----
   place(buildTavern(), -13.5, -8, faceCenter(-13.5, -8) + 0.15, 3.4);
   obstacles.push({ x: -15.5, z: -9, r: 2.2, h: 0 }, { x: -11.5, z: -7, r: 2.2, h: 0 });
-  const homes = [[12, -9, 0xd9543a, 0xf6e7c8, 3.8, 3.2, 2], [14.5, 1, 0x3f8ab0, 0xf0dfc0, 3.4, 3.0, 1], [-15.5, 3, 0xe0a030, 0xf6e7c8, 3.4, 3.0, 1], [-11, 11, 0x8a5ab8, 0xf2e2c4, 3.6, 3.0, 2], [11, 12, 0x58a858, 0xf6e7c8, 3.2, 2.8, 1], [17, -6, 0xc9503a, 0xefdcc0, 3.2, 2.8, 1]];
-  homes.forEach(([x, z, roof, wall, w, d, fl]) => place(buildCottage(roof, wall, w, d, fl), x, z, faceCenter(x, z) + (r() - 0.5) * 0.25, Math.max(w, d) * 0.62));
-  // ---- 酒館露天座 ----
-  [[-8.6, -2.6, 0x58a8c0], [-7.6, -6.2, 0xe0a030], [-12.4, -2.4, 0xd9543a]].forEach(([x, z, u]) => place(buildTable(u), x, z, 0, 1.0));
+  const homes = [[13, -10, 0xf06048, 0xf6ebd0, 3.8, 3.2, 2], [17.5, 2, 0x58a0e0, 0xf6ebd0, 3.4, 3.0, 1], [-16.5, 3, 0xffb840, 0xf6ebd0, 3.4, 3.0, 2], [-12, 13, 0x5aae60, 0xf6ebd0, 3.4, 3.0, 1], [12.5, 13, 0xf06048, 0xf6ebd0, 3.2, 2.8, 1], [18, -7, 0x58a0e0, 0xf6ebd0, 3.2, 2.8, 1]];
+  homes.forEach(([x, z, roof, wall, w, d, fl]) => place(buildCottage(roof, wall, w, d, fl), x, z, faceCenter(x, z), Math.max(w, d) * 0.62));
+  place(buildTable(0xf06048), -8.6, -2.6, 0, 1.0); place(buildTable(0x58a0e0), -12.4, -2.4, 0, 1.0);
   // ---- 市集 ----
-  [[6.2, 5.5, 0x58a858, -0.5], [9.5, 3.8, 0xd9543a, -0.8], [11.6, -0.2, 0x58a858, -1.2]].forEach(([x, z, c, ry]) => place(stall(c), x, z, ry, 1.5));
+  [[9.5, 3.8, 0xf06048, -0.8], [11.6, -0.2, 0x58a0e0, -1.2]].forEach(([x, z, c, ry]) => place(stall(c), x, z, ry, 1.5));
   place(M([barrel(0, 0), barrel(0.6, 0.1), crate(0.3, 0.7, 0.55), crate(0.3, 0.7, 0.45, 0.55)]), 8, 6.8, 0.4, 0.9);
   // ---- 花園 ----
   const bed = (x, z, w, d) => { const p = [B(w, 0.22, d, 0xb0a89a, x, 0.11, z), B(w - 0.3, 0.26, d - 0.3, 0x6a8f3a, x, 0.13, z)]; for (let k = 0; k < 40; k++) p.push(part(new THREE.IcosahedronGeometry(0.08 + r() * 0.05, 0), [0xfff1f4, 0xffffff, 0xffe27a, 0xffb3c9][(r() * 4) | 0], x + (r() - .5) * (w - 0.6), 0.34, z + (r() - .5) * (d - 0.6))); const m = M(p); m.position.y = gh(x, z); g.add(m); obstacles.push({ x, z, r: Math.max(w, d) * 0.45, h: 0 }); };
@@ -210,9 +241,8 @@ export function buildTownScenery({ gh, rng }) {
   place(bridge(5.0), 1, 15, 1.5708, 0, 0.0); obstacles.push({ x: -2.4, z: 15, r: 0.5, h: 0 });
   // ---- 大門：旗幟與雕像 ----
   place(banner(0xd9543a), -3.2, -15.5, 0, 0.3); place(banner(0xd9543a), 3.2 + 1.0, -15.5, Math.PI, 0.3);
-  place(statue(), -5, -13, 0.3, 0.9); place(statue(), 5, -13, -0.3, 0.9);
   // ---- 街燈、長椅、花盆、樹 ----
-  [[-6.5, 0], [6.5, 0], [-3.2, -6], [3.2, -6], [0, 8], [-8, 6], [9, 8], [-10, -10], [10, -5]].forEach(([x, z]) => place(lampPost(), x, z, 0, 0.25));
+  for (let i = 0; i < 8; i++) { if (i === 5 || i === 6) continue; const aa = (22.5 + 45 * i) * Math.PI / 180; place(lampPost(), Math.cos(aa) * 8.6, Math.sin(aa) * 8.6, 0, 0.25); }
   const spots = [];
   [[-5.5, 3.5, 0.6], [5.5, 3.5, -0.6], [0, -5.2, 0], [-4.2, -3.8, 0.4]].forEach(([x, z]) => {
     const ry = faceCenter(x, z);
@@ -221,12 +251,11 @@ export function buildTownScenery({ gh, rng }) {
   });
   spots.push({ x: -9.5, z: 7.5, kind: 'well_drink', label: '汲取甘泉（補滿蜜藥瓶）', top: 2.3 });
   spots.push({ x: 0, z: -1, kind: 'fountain_wish', label: '許願噴泉（投 1 金幣獲得祝福）', top: 2.3 });
-  [[-1.8, -16.5, [0xff8fb0, 0xffffff]], [1.8, -16.5, [0xffd45a, 0xff8fb0]], [-10.5, -4.5, [0xc59aff, 0xffffff]], [8.5, -4, [0xff8fb0, 0xffd45a]], [3, 7.5, [0xffffff, 0xffb3c9]]].forEach(([x, z, c]) => place(planter(0, 0, c), x, z, 0, 0.5));
-  [[-19, -12], [18, 8], [-18, 12], [20, -2], [-3, -22], [-19, 5]].forEach(([x, z], i) => place(i % 2 ? blossom(0xf59ac0) : birchMapleTown(), x, z, 0, 0.5));
-  [[-4, -20], [4, -20], [-7.5, -17], [7.5, -17], [-20, -5], [-21, 8], [19, 14], [-12, 17]].forEach(([x, z], i) => place(i % 3 === 0 ? birchMapleTown([0xf39237, 0xf6c445, 0xe95c3f]) : cypress(1 + r() * 0.3), x, z, 0, 0.45));
-  place(blossom(), -17, -15, 0, 0.6); place(blossom(0xf7b0cf), 14, 15, 0, 0.6);
-  // 溫暖白木小柵欄點綴花園與牧草地邊緣
-  place(picketFence(3.8), -8.6, 10.6, 0.25, 0.4); place(picketFence(3.2), 6.4, 11.4, -0.35, 0.4); place(picketFence(3.4), -13.2, 6.4, 1.35, 0.4);
+  [[-1.8, -16.5, [0xff8fb0, 0xffffff]], [1.8, -16.5, [0xffd45a, 0xff8fb0]]].forEach(([x, z, c]) => place(planter(0, 0, c), x, z, 0, 0.5));
+  // 統一的圓潤低多邊形樹（淺萊姆綠），後方高聳柏樹當背景
+  [[-19, -12], [19, 9], [-18, 12], [21, -3], [-20, 5], [-4, -21], [4, -21], [16, 15], [-15, 17], [-21, -4], [22, 5]].forEach(([x, z], i) => place(roundTree(1.05 + (i % 3) * 0.15), x, z, i, 0.6));
+  [[-7.5, -19], [7.5, -19], [-11, -17], [11, -17], [-23, 0], [-22, 10], [23, 12], [24, -8], [-8, 20], [9, 21]].forEach(([x, z], i) => place(cypress(1.3 + (i % 3) * 0.25), x, z, 0, 0.45));
+  place(blossom(), -17, -15, 0, 0.6); place(blossom(0xf7b0cf), 14, 16, 0, 0.6);
   const spot = (o, x, z, ry, kind, label, rr = 1.1) => { place(o, x, z, ry, rr); spots.push({ x, z, kind, label, top: o.userData.top, o }); };
   spot(buildBoard(), -4.5, 6.8, faceCenter(-4.5, 6.8), 'quest', '任務布告欄', 1.2);
   spot(buildForge(), 12.5, -3.5, faceCenter(12.5, -3.5), 'forge', '鐵匠鋪', 1.5);

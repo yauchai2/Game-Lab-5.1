@@ -433,7 +433,7 @@ export class Game {
     this.sun.color.set(B.sun); this.sun.intensity = B.sunI * 1.45;
     this.hemi.color.set(B.sky); this.hemi.groundColor.set(B.ground); this.hemi.intensity = B.ambient * 1.15;
     this.pipe.postMat.uniforms.uGrade.value.set(...B.grade);
-    this.pipe.postMat.uniforms.uCloud.value = B.key === 'snow' ? 0.4 : 1;
+    this.pipe.postMat.uniforms.uCloud.value = B.key === 'snow' ? 0.4 : (anyTown ? 0.45 : 1);
     this.pipe.postMat.uniforms.uShaft.value.set(...B.shaft);
     const p = this.player; p.sitting = null;
     if (town && extra.fromDir === 'north') { p.pos.set(0, 0, -13.0); p.facing = 0; }

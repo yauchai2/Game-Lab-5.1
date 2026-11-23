@@ -13,7 +13,7 @@ const WATER_Y = -0.32;
 let _grad = null;
 export function toonGradient() {
   if (_grad) return _grad;
-  const data = new Uint8Array([90, 170, 235, 255]);
+  const data = new Uint8Array([140, 188, 238, 255]);
   _grad = new THREE.DataTexture(data, 4, 1, THREE.RedFormat);
   _grad.minFilter = _grad.magFilter = THREE.NearestFilter;
   _grad.needsUpdate = true;
