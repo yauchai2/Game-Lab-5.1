@@ -156,6 +156,10 @@ export const LANDMARK_FILES = {
   town_blacksmith: 'assets/landmarks/town_blacksmith.glb',
   cottage_b:       'assets/landmarks/cottage_b.glb',
   cottage_c:       'assets/landmarks/cottage_c.glb',
+  cave_skull:      'assets/landmarks/cave_skull.glb',
+  crystal_pillar:  'assets/landmarks/crystal_pillar.glb',
+  fire_torch:      'assets/landmarks/fire_torch.glb',
+  cave_campfire:   'assets/landmarks/cave_campfire.glb',
 };
 
 export const MONSTER_FILES = {

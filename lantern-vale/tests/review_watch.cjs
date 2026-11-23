@@ -275,13 +275,30 @@ async function runCapture(req) {
       } else if (shot === 'boss') {
         await ensureStarted();
         await closeAllUI();
+        // 先拍兩張 Phase 3B 主題地城房特寫（寒霜冰窟＋燼岩熔爐）
+        await page.evaluate(() => {
+          const g = window.__game;
+          g.field = 0; g.originField = 4; g.state = 'play';
+          g.loadRoom(0, null, false);
+          g.waveIdx = 0; g.spawnWave();
+        });
+        await page.waitForTimeout(1400);
+        await page.screenshot({ path: path.join(runDir, 'p3b_dungeon_snow.png') });
+        await page.evaluate(() => {
+          const g = window.__game;
+          g.field = 0; g.originField = 5; g.state = 'play';
+          g.loadRoom(0, null, false);
+          g.waveIdx = 0; g.spawnWave();
+        });
+        await page.waitForTimeout(1400);
+        await page.screenshot({ path: path.join(runDir, 'p3b_dungeon_ember.png') });
         await page.evaluate(() => {
           const g = window.__game;
           g.field = 0; g.state = 'play';
           g.loadRoom(9, null, false);
           g.waveIdx = 0; g.spawnWave();
         });
-        await page.waitForTimeout(1400);
+        await page.waitForTimeout(1600);
         if (recordVideo) {
           await page.keyboard.press('KeyQ');
           await page.waitForTimeout(500);

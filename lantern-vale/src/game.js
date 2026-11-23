@@ -2,6 +2,7 @@ import { Weather } from './weather.js';
 import { bindGuild, updateRaid } from './guild.js';
 import { FIELDS, fieldBiome, awardKill, setupField, tickField, useFieldSpot, leaveGrave, rememberGear, restoreGear } from './frontier.js';
 import { FIELD_BLUEPRINTS } from './field_blueprints.js';
+import { buildDungeonScenery } from './dungeon_scene.js';
 import { CLASSES, ensurePuzzle, computeBoard } from './puzzle.js';
 import { dayInfo, findSecondClass, buildDungeonLandmark, tickSkyFeatures, buildInterior } from './world_alive.js';
 import { buildHarborTown, buildFerryBoat, buildWoodenPier } from './harbor.js';
@@ -498,7 +499,10 @@ export class Game {
       this.ui.banner(boss ? (atlas.twinBoss ? '雙王試煉 · 鹿王林地' : '古樹鹿王的林地') : B.name, boss ? '最終之戰' : `第 ${stage} 區 · 第 ${room} 間 · ${atlas.dangerLabel}`);
       this.fade = 1;
     } else { this.cleared = true; this.waveIdx = 0; }
-    if (!anyTown && !title && !this.field) { this.meta.event('depth', depth + 1); if (depth + 1 > this.meta.p.best.depth) { this.meta.p.best.depth = depth + 1; this.meta.save(); } this.placePickups(); }
+    if (!anyTown && !title && !this.field) {
+      buildDungeonScenery(this, { depth, boss, biome: B });
+      this.meta.event('depth', depth + 1); if (depth + 1 > this.meta.p.best.depth) { this.meta.p.best.depth = depth + 1; this.meta.save(); } this.placePickups();
+    }
     p.y = 0; p.vy = 0; p.air = false; p.climbing = false; p.stamina = 100; p.lastLow.set(p.pos.x, 0, p.pos.z);
     this.world.computeFlow(p.pos.x, p.pos.z);
     this.musicKey = title ? 'title' : anyTown ? 'town' : boss ? 'boss' : B.key; this.audio.setMusic(this.musicKey, 0);
@@ -592,6 +596,17 @@ export class Game {
       };
       const pickMon = MAP_MON[this.field]?.();
       if (pickMon) attachMonsterGlb(m, pickMon[0], pickMon[1]);
+    } else if (this.depth >= 0 && type !== 'stag') {
+      // 地城房內依生態自動掛上專屬低面實模怪物
+      const bk = this.biome?.key || 'meadow';
+      const DUN_MON = {
+        meadow: () => elite ? ['werewolf', { scale: 1.15, emissive: 0x3c5474, emissiveIntensity: 0.46 }] : (type === 'thorn' ? ['spore', { scale: 1.05, emissive: 0x364a30, emissiveIntensity: 0.44 }] : ['plant_chewer', { scale: 1.05, emissive: 0x362e1e, emissiveIntensity: 0.32 }]),
+        autumn: () => elite ? ['black_knight', { scale: 1.15, tint: 0xe6e0d6, emissive: 0x6c4232, emissiveIntensity: 0.54 }] : ['golem_earth', { scale: 1.05, tint: 0xd8f0d4, emissive: 0x426646, emissiveIntensity: 0.50 }],
+        snow:   () => ['golem_ice', { scale: elite ? 1.2 : 1.02, emissive: 0x2c4862, emissiveIntensity: 0.40 }],
+        ember:  () => elite ? ['scorpion_king', { scale: 1.18, emissive: 0x6a301a, emissiveIntensity: 0.48 }] : ['golem_fire', { scale: 1.05, emissive: 0x6a301a, emissiveIntensity: 0.46 }],
+      };
+      const pickDun = DUN_MON[bk]?.();
+      if (pickDun) attachMonsterGlb(m, pickDun[0], pickDun[1]);
     }
     const e = {
       type, m, pos: new V3(pos.x, 0, pos.z), vel: new V3(), knock: new V3(), facing: Math.random() * 6,

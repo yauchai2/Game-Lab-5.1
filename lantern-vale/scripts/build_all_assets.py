@@ -67,6 +67,12 @@ JOBS = [
     dict(out="landmarks/cottage_b.glb",       pkg="4137", mesh="Assets/Tarbo-FantasyVillage/Meshes/Buildings/TB_Bd_House.FBX",              tex=T_VILLAGE_A, keep_res=True, target_h=5.2),
     dict(out="landmarks/cottage_c.glb",       pkg="4137", mesh="Assets/Tarbo-FantasyVillage/Meshes/Buildings/TB_Bd_SWHouse.FBX",            tex=T_VILLAGE_B, keep_res=True, target_h=5.4),
 
+    # ---- Phase 3B Dungeon & Boss Arena Landmarks (4130 Mining & Cave) ----
+    dict(out="landmarks/cave_skull.glb",      pkg="4130", mesh="Assets/PurePoly/Mining_Pack/Meshes/PP_Cave_Skull_01.fbx",                   tex=T_MINING, keep_res=True, target_h=8.8),
+    dict(out="landmarks/crystal_pillar.glb",  pkg="4130", mesh="Assets/PurePoly/Mining_Pack/Meshes/PP_Crystal_Column_01_Blue.fbx",          tex=T_MINING, keep_res=True, target_h=5.8),
+    dict(out="landmarks/fire_torch.glb",      pkg="4130", mesh="Assets/PurePoly/Mining_Pack/Meshes/PP_Fire_Torch_New_01.fbx",               tex=T_MINING, keep_res=True, target_h=2.8),
+    dict(out="landmarks/cave_campfire.glb",   pkg="4130", mesh="Assets/PurePoly/Mining_Pack/Meshes/PP_Campfire_01.fbx",                     tex=T_MINING, keep_res=True, target_h=1.4),
+
     # ---- Monsters (13 species covering all 12 maps) ----
     dict(out="monsters/plant_chewer.glb",  pkg="4356", mesh="Assets/Monsters Ultimate Pack 04 Cute Series/Plant Chewer Cute Series/FBX/Plant Chewer.FBX",   tex="Assets/Monsters Ultimate Pack 04 Cute Series/Plant Chewer Cute Series/Textures/Plant Chewer.psd",   target_h=1.45, is_monster=True),
     dict(out="monsters/golem_ice.glb",     pkg="4356", mesh="Assets/Monsters Ultimate Pack 04 Cute Series/Golem Ice Cute Series/FBX/Golem Ice.FBX",         tex="Assets/Monsters Ultimate Pack 04 Cute Series/Golem Ice Cute Series/Textures/Golem Ice.psd",         target_h=2.05, is_monster=True),
