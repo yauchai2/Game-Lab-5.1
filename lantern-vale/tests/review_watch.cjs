@@ -277,46 +277,13 @@ async function runCapture(req) {
           await page.waitForTimeout(650);
           await page.screenshot({ path: path.join(runDir, 'p3c_terrain_lava_rx.png') });
 
-          // Phase 4A：三層星燈雲海航海星圖（沉淵暗域＆星穹外境）＋ 4 張全新風格異界實機預覽（沙漠／哥德／深海／科幻）
-          await page.evaluate(() => {
-            const g = window.__game;
-            g.enterField(14); // 太陽金字塔聖殿（沙漠）
-          });
-          await page.waitForTimeout(1000);
-          await page.screenshot({ path: path.join(runDir, 'p4a_f14_desert.png') });
-
-          await page.evaluate(() => {
-            const g = window.__game;
-            g.enterField(16); // 幽霧哥德墓園（哥德＋提燈驅暗）
-          });
-          await page.waitForTimeout(1000);
-          await page.screenshot({ path: path.join(runDir, 'p4a_f16_gothic.png') });
-
-          await page.evaluate(() => {
-            const g = window.__game;
-            g.enterField(18); // 深海螢光沉淵（深海＋低重力漂浮）
-          });
-          await page.waitForTimeout(1000);
-          await page.screenshot({ path: path.join(runDir, 'p4a_f18_deepsea.png') });
-
-          // 在沉淵層打開三層星燈航海星圖
-          await page.evaluate(() => window.__game.ui.openMap?.());
-          await page.waitForTimeout(650);
-          await page.screenshot({ path: path.join(runDir, 'p4a_starchart_abyss.png') });
-          await closeAllUI();
-
-          await page.evaluate(() => {
-            const g = window.__game;
-            g.enterField(19); // 星際白銀前哨站（純白科幻＋光能過載場）
-          });
-          await page.waitForTimeout(1000);
-          await page.screenshot({ path: path.join(runDir, 'p4a_f19_scifi.png') });
-
-          // 在星穹層打開三層星燈航海星圖
-          await page.evaluate(() => window.__game.ui.openMap?.());
-          await page.waitForTimeout(650);
-          await page.screenshot({ path: path.join(runDir, 'p4a_starchart_sky.png') });
-          await closeAllUI();
+          // Phase 4B：全部 6 大全新異界低面實模奇觀實機特寫（埃及金字塔、叢林神廟、哥德古堡、深海巨蛸、科幻前哨站、異星母巢）
+          await snapSpot('p4b_f14_pyramid.png', 14, 0.50, 0.48, 12.5);
+          await snapSpot('p4b_f15_jungle.png', 15, 0.50, 0.52, 9.0);
+          await snapSpot('p4b_f16_gothic.png', 16, 0.22, 0.78, 3.0);
+          await snapSpot('p4b_f18_deepsea.png', 18, 0.22, 0.76, 3.0);
+          await snapSpot('p4b_f19_scifi.png', 19, 0.50, 0.50, 9.5);
+          await snapSpot('p4b_f20_alien.png', 20, 0.50, 0.50, 9.5);
 
           // 切回 field:1 正常狀態，確保 09_field_1.png 與後續鏡頭一致
           await page.evaluate(() => window.__game.enterField(1));

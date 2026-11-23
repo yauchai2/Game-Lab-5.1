@@ -530,7 +530,7 @@ const createGuild = require('../server/guild.cjs');
   const p2bAssets = await import(src('assets.js'));
   const fsMod = require('node:fs');
   const gameDir = path.resolve(__dirname, '../game');
-  assert.equal(Object.keys(p2bAssets.LANDMARK_FILES).length, 31, '31 landmark GLBs registered (fields + towns + dungeons)');
+  assert.equal(Object.keys(p2bAssets.LANDMARK_FILES).length, 49, '49 landmark GLBs registered (20 fields + 2 towns + dungeons)');
   const dunMod = await import(src('dungeon_scene.js'));
   assert.equal(typeof dunMod.buildDungeonScenery, 'function', 'Dungeon scenery builder exported');
   assert.equal(Object.keys(p2bAssets.MONSTER_FILES).length, 13, '13 monster GLBs registered');

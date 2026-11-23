@@ -439,6 +439,73 @@ function buildBlueprintLandmarks(g, bp) {
     placeGlb('torii_gate', startP.x, startP.z, null, { scale: 1.15, rotY: 0.45, yOffset: -0.15, tint: 0xffc8c0, emissive: 0x7c2620, emissiveIntensity: 0.46 }, 0);
     placeGlb('sakura_tree', startP.x - 6.0, startP.z - 2.0, null, { scale: 1.15, rotY: 0.3, yOffset: -0.15, flatTint: 0xffb8da, emissive: 0xc4588a, emissiveIntensity: 0.52 }, 1.3);
     placeGlb('sakura_tree', startP.x + 5.8, startP.z - 3.0, null, { scale: 1.05, rotY: 1.6, yOffset: -0.15, flatTint: 0xffcce6, emissive: 0xc86492, emissiveIntensity: 0.52 }, 1.3);
+  } else if (bp.id === 13) {
+    // #13 黃金風沙原：綠洲民居、方尖碑與紅砂石棺（4351 POLY - Egypt）
+    const pOasis = uvToWorld(0.28, 0.34, half);
+    placeGlb('egypt_house', pOasis.x - 6.5, pOasis.z - 4.0, null, { scale: 1.15, rotY: 0.5, yOffset: -0.15, tint: 0xffe4b8, emissive: 0x624628, emissiveIntensity: 0.38 }, 2.6);
+    placeGlb('egypt_obelisk', pOasis.x + 7.0, pOasis.z - 5.5, null, { scale: 1.1, rotY: -0.3, yOffset: -0.15, tint: 0xf6cf92, emissive: 0x5c4224, emissiveIntensity: 0.36 }, 1.6);
+    const pStart = uvToWorld(0.22, 0.78, half);
+    placeGlb('egypt_obelisk', pStart.x - 6.5, pStart.z - 6.0, null, { scale: 1.05, rotY: 0.4, yOffset: -0.15, tint: 0xf4cc8c, emissive: 0x5c4224, emissiveIntensity: 0.38 }, 1.5);
+    placeGlb('egypt_house', pStart.x + 8.0, pStart.z - 5.0, null, { scale: 1.05, rotY: -0.7, yOffset: -0.15, tint: 0xffe6bc, emissive: 0x604426, emissiveIntensity: 0.38 }, 2.4);
+    const pTower = uvToWorld(0.78, 0.68, half);
+    placeGlb('egypt_sphinx', pTower.x, pTower.z - 4.5, null, { scale: 1.0, rotY: -0.8, yOffset: -0.15, tint: 0xf5cc88, emissive: 0x604624, emissiveIntensity: 0.36 }, 3.0);
+  } else if (bp.id === 14) {
+    // #14 太陽金字塔聖殿：中央巨型金字塔、人面獅身像、雙側方尖碑與法老石棺（4351 POLY - Egypt）
+    const pMid = uvToWorld(0.50, 0.48, half);
+    placeGlb('egypt_pyramid', pMid.x, pMid.z - 6.0, null, { scale: 1.45, rotY: 0.0, yOffset: -0.25, tint: 0xf8d89c, emissive: 0x6a4e26, emissiveIntensity: 0.38 }, 6.5);
+    placeGlb('egypt_sphinx', pMid.x - 12.5, pMid.z + 6.5, null, { scale: 1.15, rotY: 0.6, yOffset: -0.15, tint: 0xf6d08e, emissive: 0x624824, emissiveIntensity: 0.38 }, 3.2);
+    placeGlb('egypt_obelisk', pMid.x + 12.0, pMid.z + 6.0, null, { scale: 1.15, rotY: -0.4, yOffset: -0.15, tint: 0xf8d698, emissive: 0x644a26, emissiveIntensity: 0.38 }, 1.6);
+    const pSouth = uvToWorld(0.50, 0.82, half);
+    placeGlb('egypt_pyramid', pSouth.x + 11.5, pSouth.z - 12.5, null, { scale: 1.05, rotY: 0.2, yOffset: -0.2, tint: 0xf8d89c, emissive: 0x6a4e26, emissiveIntensity: 0.38 }, 4.5);
+    placeGlb('egypt_sphinx', pSouth.x - 8.5, pSouth.z - 7.5, null, { scale: 1.05, rotY: 0.75, yOffset: -0.15, tint: 0xf6d08e, emissive: 0x624824, emissiveIntensity: 0.38 }, 2.8);
+    placeGlb('egypt_sarcophagus', pSouth.x + 6.5, pSouth.z - 4.5, null, { scale: 1.25, rotY: -0.5, yOffset: -0.1, tint: 0xffd87c, emissive: 0x6e4c1e, emissiveIntensity: 0.44 }, 1.5);
+  } else if (bp.id === 15) {
+    // #15 失落藤蔓神廟：古神廟石牆、石像、石柱與空中石磚棧道（4352 Jungle ＋ 4118 Lost Lands）
+    const pMid = uvToWorld(0.50, 0.52, half);
+    placeGlb('jungle_ruin_wall', pMid.x, pMid.z - 6.0, null, { scale: 1.15, rotY: 0.15, yOffset: -0.2, tint: 0xc8c0a6, emissive: 0x3a4830, emissiveIntensity: 0.38 }, 3.0);
+    placeGlb('jungle_statue', pMid.x - 7.5, pMid.z - 3.5, null, { scale: 1.1, rotY: 0.5, yOffset: -0.15, tint: 0xd0c6aa, emissive: 0x3e4c32, emissiveIntensity: 0.40 }, 1.8);
+    placeGlb('jungle_pillar', pMid.x + 7.5, pMid.z - 3.0, null, { scale: 1.1, rotY: -0.3, yOffset: -0.15, tint: 0xcac2a8, emissive: 0x3c4830, emissiveIntensity: 0.38 }, 1.4);
+    const pStart = uvToWorld(0.20, 0.80, half);
+    placeGlb('jungle_statue', pStart.x - 6.0, pStart.z - 5.5, null, { scale: 1.05, rotY: 0.6, yOffset: -0.15, tint: 0xd0c6aa, emissive: 0x3e4c32, emissiveIntensity: 0.40 }, 1.6);
+    placeGlb('jungle_ruin_wall', pStart.x + 7.5, pStart.z - 7.5, null, { scale: 0.95, rotY: -0.5, yOffset: -0.2, tint: 0xc8c0a6, emissive: 0x3a4830, emissiveIntensity: 0.38 }, 2.6);
+    placeGlb('lost_stonewalk', pStart.x - 1.5, pStart.z - 8.5, null, { scale: 0.55, rotY: 0.4, yOffset: -0.25, tint: 0xd8cca8, emissive: 0x443c2c, emissiveIntensity: 0.34 }, 0);
+  } else if (bp.id === 16 || bp.id === 17) {
+    // #16 幽霧哥德墓園 ＆ #17 深淵哥德古堡：暗紫哥德鐘樓、巨型骷髏祭壇、紫晶柱與燃燒火炬
+    const pStart = uvToWorld(bp.id === 16 ? 0.22 : 0.16, bp.id === 16 ? 0.78 : 0.80, half);
+    placeGlb('bell_tower', pStart.x - 7.5, pStart.z - 7.0, null, { scale: 1.15, rotY: 0.5, yOffset: -0.2, flatTint: 0x5c547c, emissive: 0x362a5c, emissiveIntensity: 0.48 }, 2.6);
+    placeGlb('cave_skull', pStart.x + 8.5, pStart.z - 8.5, null, { scale: 1.1, rotY: -0.6, yOffset: -0.15, flatTint: 0x6a628c, emissive: 0x463274, emissiveIntensity: 0.50 }, 2.8);
+    placeGlb('purple_crystal', pStart.x + 5.5, pStart.z - 3.5, null, { scale: 0.95, rotY: 0.4, yOffset: -0.1, flatTint: 0xb872ff, emissive: 0x7c38d8, emissiveIntensity: 0.62 }, 1.2);
+    placeGlb('fire_torch', pStart.x - 3.8, pStart.z - 4.2, null, { scale: 1.15, rotY: 0, yOffset: -0.1, emissive: 0xff8c38, emissiveIntensity: 0.65 }, 0.5);
+    const pBoss = uvToWorld(0.50, bp.id === 16 ? 0.50 : 0.20, half);
+    placeGlb('bell_tower', pBoss.x, pBoss.z - 7.5, null, { scale: 1.35, rotY: 0, yOffset: -0.2, flatTint: 0x544c72, emissive: 0x3c2c66, emissiveIntensity: 0.52 }, 3.0);
+    placeGlb('stonehenge', pBoss.x - 8.0, pBoss.z - 3.0, null, { scale: 1.05, rotY: 0.3, yOffset: -0.15, flatTint: 0x625a82, emissive: 0x382858, emissiveIntensity: 0.46 }, 2.2);
+  } else if (bp.id === 18) {
+    // #18 深海螢光沉淵：飄浮巨型深海烏賊、發光巨型海菇與亞特蘭提斯海殿（4123 Alien Planets Vol2）
+    const pStart = uvToWorld(0.22, 0.76, half);
+    placeGlb('depth_shroom', pStart.x - 6.5, pStart.z - 5.0, null, { scale: 1.15, rotY: 0.3, yOffset: -0.15, emissive: 0x386a78, emissiveIntensity: 0.48 }, 1.8);
+    placeGlb('depth_temple', pStart.x + 7.5, pStart.z - 7.5, null, { scale: 1.05, rotY: -0.5, yOffset: -0.15, emissive: 0x2c6880, emissiveIntensity: 0.46 }, 2.6);
+    placeGlb('alien_squid', pStart.x + 1.5, pStart.z - 6.5, null, { scale: 1.0, rotY: 0.2, yOffset: 1.8, emissive: 0x6a3c88, emissiveIntensity: 0.56 }, 0);
+    const pMid = uvToWorld(0.54, 0.62, half);
+    placeGlb('depth_tower', pMid.x, pMid.z - 6.5, null, { scale: 1.25, rotY: 0.4, yOffset: -0.15, emissive: 0x2c7890, emissiveIntensity: 0.52 }, 2.6);
+    placeGlb('alien_squid', pMid.x - 7.5, pMid.z - 4.0, null, { scale: 1.1, rotY: -0.5, yOffset: 2.2, emissive: 0x7a429c, emissiveIntensity: 0.58 }, 0);
+  } else if (bp.id === 19) {
+    // #19 星際白銀前哨站：星艦登陸平台、太空飛艇與量子反應爐（4123 Alien Planets Vol2）
+    const pStart = uvToWorld(0.22, 0.76, half);
+    placeGlb('scifi_platform', pStart.x - 7.5, pStart.z - 7.0, null, { scale: 1.1, rotY: 0.4, yOffset: -0.15, tint: 0xdff6ff, emissive: 0x2c6c98, emissiveIntensity: 0.50 }, 2.8);
+    placeGlb('sky_flyer', pStart.x + 6.5, pStart.z - 6.5, null, { scale: 1.15, rotY: -0.7, yOffset: 1.6, tint: 0xeaf8ff, emissive: 0x3888c4, emissiveIntensity: 0.54 }, 2.0);
+    placeGlb('scifi_reactor', pStart.x + 0.5, pStart.z - 12.0, null, { scale: 1.1, rotY: 0, yOffset: -0.15, tint: 0xd4f0ff, emissive: 0x3084b8, emissiveIntensity: 0.52 }, 2.6);
+    const pMid = uvToWorld(0.50, 0.50, half);
+    placeGlb('scifi_reactor', pMid.x, pMid.z - 6.5, null, { scale: 1.35, rotY: 0.3, yOffset: -0.15, tint: 0xdcf4ff, emissive: 0x3894cc, emissiveIntensity: 0.56 }, 3.2);
+    placeGlb('sky_flyer', pMid.x - 9.0, pMid.z - 3.0, null, { scale: 1.1, rotY: 0.9, yOffset: 2.8, tint: 0xf0faff, emissive: 0x4298d4, emissiveIntensity: 0.56 }, 0);
+  } else if (bp.id === 20) {
+    // #20 異星蜂巢裂谷：巨型紫紅異星塔、共鳴結晶群與墜落太空飛艇（4123 ＋ 4384 Polyworks）
+    const pStart = uvToWorld(0.50, 0.82, half);
+    placeGlb('alien_hive_tower', pStart.x - 7.5, pStart.z - 8.5, null, { scale: 1.15, rotY: 0.4, yOffset: -0.15, tint: 0xf4b8ff, emissive: 0x7c2c9c, emissiveIntensity: 0.56 }, 2.6);
+    placeGlb('purple_crystal', pStart.x + 6.5, pStart.z - 5.0, null, { scale: 1.15, rotY: -0.4, yOffset: -0.1, flatTint: 0xe068ff, emissive: 0x9c32d8, emissiveIntensity: 0.65 }, 1.5);
+    placeGlb('sky_flyer', pStart.x + 9.0, pStart.z - 10.0, null, { scale: 1.05, rotY: 1.2, yOffset: 0.6, tint: 0xf0c8ff, emissive: 0x6a3288, emissiveIntensity: 0.50 }, 2.2);
+    const pMid = uvToWorld(0.50, 0.50, half);
+    placeGlb('alien_hive_tower', pMid.x, pMid.z - 6.5, null, { scale: 1.4, rotY: 0, yOffset: -0.15, tint: 0xffc0ff, emissive: 0x8e34b0, emissiveIntensity: 0.60 }, 3.2);
+    placeGlb('purple_crystal', pMid.x - 8.0, pMid.z - 3.5, null, { scale: 1.25, rotY: 0.8, yOffset: -0.1, flatTint: 0x6ef0ff, emissive: 0x3098c8, emissiveIntensity: 0.62 }, 1.6);
   }
   g.world.group.add(grp);
 }
