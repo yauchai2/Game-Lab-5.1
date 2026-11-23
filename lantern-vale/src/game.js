@@ -895,7 +895,7 @@ export class Game {
     if ((p.skillCds[slotIdx] || 0) > 0 || p.roll > 0) return;
     const { def, mod } = sk;
     if (def.mana && p.mana < def.mana) {
-      if (!this._noManaT || this.time - this._noManaT > 1) { this.ui.toast('法力不足', '#7fb2ff'); this._noManaT = this.time; }
+      if (!this._noManaT || this.time - this._noManaT > 1) { this.ui.toast('法力不足', '#7fb2ff'); this.ui.status?.noMana(); this._noManaT = this.time; }
       return;
     }
     if (def.mana) { p.mana -= def.mana; this.ui.mpVial?.impulse((Math.random() - 0.5) * 1.4, 1.3); }
@@ -1070,7 +1070,7 @@ export class Game {
   }
   tryBolt() {
     const p = this.player; if (p.cds.bolt > 0 || p.roll > 0) return;
-    if (p.mana < 8) { if (!this._noManaT || this.time - this._noManaT > 1) { this.ui.toast('法力不足', '#7fb2ff'); this._noManaT = this.time; } return; }
+    if (p.mana < 8) { if (!this._noManaT || this.time - this._noManaT > 1) { this.ui.toast('法力不足', '#7fb2ff'); this.ui.status?.noMana(); this._noManaT = this.time; } return; }
     this.audio.sfx('bolt'); p.mana -= 8; p.cds.bolt = 0.38 / (1 + p.stats.atkSpd / 200);
     const dir = this.aimDir(); p.facing = Math.atan2(dir.x, dir.y);
     const n = p.stats.proj, spread = 0.2;

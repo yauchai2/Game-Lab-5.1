@@ -335,12 +335,42 @@ body.holding-gem,body.holding-gem *{cursor:grabbing!important}
 .gm-needle{position:absolute;top:-4px;bottom:-4px;width:6px;background:#fff8e4;border:2px solid #3b2a2a;transform:translateX(-50%)}
 body.photo-mode #hud > *:not(#photoBadge){opacity:0!important;pointer-events:none!important}
 #photoBadge{position:fixed;bottom:14px;right:14px;background:#5a3826cc;color:#fff2d6;padding:4px 10px;border-radius:6px;font-size:12px;pointer-events:none}
+/* ===== 旅人狀態卡（HP/MP 重做） ===== */
+#xpWrap,#stam,.vial{display:none!important}
+#pcard{position:absolute;left:16px;bottom:16px;display:flex;gap:10px;align-items:center;padding:8px 12px 10px 8px;pointer-events:none;z-index:3;will-change:transform}
+#pcard .pc-por{position:relative;width:52px;height:52px;background:var(--paper2);box-shadow:var(--box);margin:4px;display:flex;align-items:center;justify-content:center;font-size:28px}
+#pcard .pc-por b{position:absolute;right:-10px;bottom:-10px;min-width:22px;padding:1px 4px;background:var(--brown,#5a3826);color:var(--cream,#fff2d6);font-size:12px;text-align:center;box-shadow:var(--box)}
+#pcard .pc-por b:before{content:"Lv";font-size:9px;margin-right:1px;opacity:.8}
+#pcard .pc-main{display:flex;flex-direction:column;gap:3px}
+#pcard .pc-name{color:var(--brown,#5a3826);font-weight:900;font-size:13px;letter-spacing:1px;line-height:1.1}
+#pcard .pc-row{display:flex;align-items:center;gap:6px}
+#pcard .pc-ic{width:16px;text-align:center;font-size:15px;font-weight:900;line-height:1}
+#pcard .hp .pc-ic{color:#e0553c}#pcard .mp .pc-ic{color:#4a8ae0}
+#pcard .pc-bar{width:200px;height:20px;box-shadow:var(--box);margin:4px;background:#5a3826;line-height:0}
+#pcard .pc-bar canvas{width:200px;height:20px;image-rendering:pixelated;display:block}
+#pcard .pc-num{min-width:62px;color:var(--brown,#5a3826);font-weight:900;font-size:13px;font-variant-numeric:tabular-nums}
+#pcard .pc-xp{height:5px;margin:3px 4px 0 26px;width:200px;background:#e6d3ab;box-shadow:0 0 0 2px #5a3826}
+#pcard .pc-xp i{display:block;height:100%;width:0;background:#ffb840;transition:width .25s}
+#pcFeather{position:absolute;left:10px;top:-34px;width:90px;height:24px;image-rendering:pixelated;transition:opacity .3s}
+#hudFx{position:fixed;inset:0;width:100vw;height:100vh;image-rendering:pixelated;pointer-events:none;z-index:4}
+#pcard.low .hp .pc-ic{animation:pcBeat .7s infinite}
+#pcard.low .hp .pc-bar{animation:pcGlow .7s infinite}
+@keyframes pcBeat{0%,100%{transform:scale(1)}15%{transform:scale(1.45)}30%{transform:scale(1)}45%{transform:scale(1.25)}}
+@keyframes pcGlow{0%,100%{box-shadow:var(--box)}20%{box-shadow:var(--box),0 0 0 7px rgba(224,85,60,.45)}}
+#statusBar{left:16px;bottom:140px;transform:none;justify-content:flex-start}
+#boss{background:var(--paper);box-shadow:var(--boxsh);padding:6px 12px 8px;width:min(520px,80vw)}
+#boss .name{color:var(--brown,#5a3826);text-shadow:none;font-weight:900;font-size:16px;margin-bottom:2px}
+#boss .bar{height:14px;background:#5a3826}
+#boss .fill{background:repeating-linear-gradient(90deg,#e0553c 0 18px,#c8402e 18px 20px);transition:width .2s}
+@media(max-width:1440px){#skills{left:auto;right:12px;transform:none}}
+@media(max-width:820px){#pcard{transform-origin:left bottom;scale:.8}#skills{bottom:120px;left:50%;right:auto;transform:translateX(-50%);scale:.82;transform-origin:center bottom}}
+@media(max-width:520px){#pcard{scale:.72;left:6px;bottom:6px}#statusBar{bottom:150px}#skills{scale:.62;bottom:92px;left:50%!important;right:auto!important;transform:none!important;translate:-50% 0;transform-origin:center bottom}}
 </style>
 </head>
 <body>
 <canvas id="view"></canvas>
 
-<div id="hud" class="hide"><div id="xpWrap"><div id="xpFill"></div></div><div id="fieldTarget" hidden></div><div id="fieldCompass" hidden></div>
+<div id="hud" class="hide"><div id="fieldTarget" hidden></div><div id="fieldCompass" hidden></div>
   <button id="btnMap" class="mute" title="世界地圖 (M)">🗺️ 地圖</button><button id="btnMenu" class="mute" title="展開功能選單">☰ 選單</button>
   <div id="menuPop" class="panel hide">
     <button type="button" id="btnWiki">📖 百科資料庫</button>
@@ -359,8 +389,17 @@ body.photo-mode #hud > *:not(#photoBadge){opacity:0!important;pointer-events:non
   <div id="photoBadge" class="hide">📷 拍照純淨模式 · 按 P 恢復介面</div>
   <div id="boss" class="hide"><div class="name"></div><div class="bar"><div class="fill"></div></div></div>
   <div id="statusBar"></div>
-  <div class="vial" id="hpOrb"><canvas id="hpCanvas" width="82" height="124"></canvas><div class="txt" id="hpText"></div><div class="vtag">HP</div></div>
-  <div class="vial" id="mpOrb"><canvas id="mpCanvas" width="82" height="124"></canvas><div class="txt" id="mpText"></div><div class="vtag">MP</div></div>
+  <div id="pcard" class="panel">
+    <canvas id="pcFeather" width="45" height="12"></canvas>
+    <div class="pc-por"><span id="pcIcon">🛡</span><b id="pcLv">1</b></div>
+    <div class="pc-main">
+      <div class="pc-name" id="pcName">旅人</div>
+      <div class="pc-row hp"><span class="pc-ic">♥</span><div class="pc-bar"><canvas id="pcHp" width="100" height="10"></canvas></div><span class="pc-num" id="hpText"></span></div>
+      <div class="pc-row mp"><span class="pc-ic">★</span><div class="pc-bar"><canvas id="pcMp" width="100" height="10"></canvas></div><span class="pc-num" id="mpText"></span></div>
+      <div class="pc-xp"><i></i></div>
+    </div>
+  </div>
+  <canvas id="hudFx"></canvas>
   <div id="skills" class="panel">
     <div class="sk" id="sk-s0" title="拼圖技能 1"><span class="k key">右鍵</span><span class="ic">—</span><span class="sname">空位</span><span class="sup" hidden></span><div class="cd"></div></div>
     <div class="sk" id="sk-s1" title="拼圖技能 2"><span class="k key">Q</span><span class="ic">—</span><span class="sname">空位</span><span class="sup" hidden></span><div class="cd"></div></div>
