@@ -8,8 +8,15 @@ export const KEY_PRESETS = {
   mmo:  { sk0: '1', sk1: '2', sk2: '3', sk3: '4', flask: '5', recall: 'h' },
 };
 
+export const DIFFICULTY_MODES = {
+  cozy:     { id: 'cozy',     name: '🌿 旅人休閒', enemyDmg: 0.70, enemyHp: 0.85, lootBonus: 0,    noGrave: true,  desc: '敵傷 70% · 死亡不掉墓碑，輕鬆逛 20 座島嶼' },
+  standard: { id: 'standard', name: '⚔️ 標準冒險', enemyDmg: 1.00, enemyHp: 1.00, lootBonus: 0,    noGrave: false, desc: '循序漸進平衡基準（推薦）' },
+  veteran:  { id: 'veteran',  name: '🔥 餘燼專家', enemyDmg: 1.35, enemyHp: 1.25, lootBonus: 0.25, noGrave: false, desc: '敵傷 135% · 敵血 125% · 掉寶 +25%' },
+};
+
 export const DEFAULTS = {
   master: 9, music: 6, sfx: 8, pixel: 3, camAngle: 0, wind: 1, water: 1, shafts: 1, shake: 0, dmg: 1, chat: 1,
+  difficulty: 'standard',
   lang: 'zh-TW',
   keybinds: { ...KEY_PRESETS.arpg },
 };
@@ -61,6 +68,7 @@ function getRows(lang) {
       ['sfx', t(lang, 'rowSfx'), 'num'],
     ],
     video: [
+      ['difficulty', '遊戲難度模式', ['cozy', 'standard', 'veteran']],
       ['pixel', t(lang, 'rowPixel'), ['', '', t(lang, 'optFine'), t(lang, 'optStd'), t(lang, 'optCoarse')]],
       ['camAngle', t(lang, 'rowCamAngle'), [t(lang, 'cam45'), t(lang, 'cam55'), t(lang, 'cam36')]],
       ['wind', t(lang, 'rowWind'), [off, t(lang, 'optBreeze'), t(lang, 'optGale')]],
@@ -168,6 +176,19 @@ export function buildSettingsUI(g) {
     }
     getRows(lang)[tab].forEach(([key, label, opts]) => {
       const r = document.createElement('div'); r.className = 'srow'; const v = g.settings[key];
+      if (key === 'difficulty') {
+        const idx = Math.max(0, opts.indexOf(v));
+        const modeObj = DIFFICULTY_MODES[opts[idx]] || DIFFICULTY_MODES.standard;
+        r.title = modeObj.desc;
+        r.innerHTML = `<span class="sl">${label}<div style="font-size:10px;opacity:.68;margin-top:2px">${modeObj.desc}</div></span><span class="sv"><button class="arr" data-d="-1">◀</button><b class="sval" style="min-width:96px">${modeObj.name}</b><button class="arr" data-d="1">▶</button></span>`;
+        r.querySelectorAll('.arr').forEach(b => b.onclick = () => {
+          const ni = (idx + +b.dataset.d + opts.length) % opts.length;
+          set(key, opts[ni]);
+          g.ui?.toast?.(`已切換難度：${DIFFICULTY_MODES[opts[ni]].name}`, '#ffd85a');
+        });
+        body.appendChild(r);
+        return;
+      }
       const lo = opts === 'num' ? 0 : (key === 'pixel' ? 2 : 0), hi = opts === 'num' ? 10 : (key === 'pixel' ? 4 : opts.length - 1);
       const txt = opts === 'num' ? String(v) : opts[v];
       r.innerHTML = `<span class="sl">${label}</span><span class="sv"><button class="arr" data-d="-1">◀</button><b class="sval">${txt}</b><button class="arr" data-d="1">▶</button></span>`;

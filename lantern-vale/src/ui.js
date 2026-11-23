@@ -45,6 +45,8 @@ export class UI {
     $('btnMute').textContent = game.audio.muted ? '🔇 音效：關' : '🔊 音效：開';
     bindWorldMap(game); bindTouch(game); bindPuzzleUI(game); bindCodexUI(game);
     const pzBtn = $('sk-puzzle'); if (pzBtn) pzBtn.onclick = () => { if (this.puzzleOpen) this.closePuzzle(); else this.openPuzzle(); };
+    const pzX = $('btnPuzzleX'); if (pzX) pzX.onclick = () => this.closePuzzle?.();
+    const pnX = $('btnPanelX'); if (pnX) pnX.onclick = () => this.closePanel?.();
     const autoBtn = $('sk-auto'); if (autoBtn) autoBtn.onclick = () => game.toggleAutopilot?.();
     const apModeBtn = $('apToggleMode'); if (apModeBtn) apModeBtn.onclick = () => { const ap = game.autopilot; if (ap) game.toggleAutopilot?.(ap.mode === 'full' ? 'assist' : 'full'); };
     const apSalvBtn = $('apToggleSalv'); if (apSalvBtn) apSalvBtn.onclick = () => { const ap = game.autopilot; if (ap) { ap.autoSalvage = !ap.autoSalvage; game.ui.toast(ap.autoSalvage ? '♻️ 已開啟掛機自動分解白／綠裝' : '♻️ 已關閉掛機自動分解', '#e8dcc8'); } };
@@ -370,13 +372,15 @@ export class UI {
   }
   toast(text, color = '#fff') {
     const box = $('toasts'); if (!box) return;
-    while (box.children.length >= 3) box.firstChild.remove();
+    while (box.children.length >= 2) box.firstChild.remove();
     const el = document.createElement('div'); el.className = 'toast'; el.textContent = text; el.style.color = color;
     box.appendChild(el);
     setTimeout(() => el.remove(), 2600);
   }
   banner(title, sub) {
     const b = $('banner'); b.querySelector('h2').textContent = title; b.querySelector('p').textContent = sub;
+    const bossOn = !$('boss')?.classList.contains('hide');
+    b.style.top = bossOn ? '23%' : '13%';
     b.classList.remove('show'); void b.offsetWidth; b.classList.add('show');
   }
   bossBar(on, name, frac, parts) {

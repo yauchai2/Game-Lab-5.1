@@ -643,5 +643,27 @@ const createGuild = require('../server/guild.cjs');
   assert.ok(apMock.autopilot.sparkBuffT >= 59, 'Exiting autopilot with 2 Spark stacks activates 60s Return Surge');
   assert.equal(apMod.manualSparkMult(apMock), 1.5, 'Return Surge multiplies manual XP & loot by 1.5x');
 
-  console.log('ALL 23 LOGIC, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
+  // 24. Phase B1: Difficulty Modes, Cozy No-Grave Protection & Upward-Level +25% XP Bonus
+  const setMod = await import(src('settings.js'));
+  assert.ok(setMod.DIFFICULTY_MODES.cozy && setMod.DIFFICULTY_MODES.standard && setMod.DIFFICULTY_MODES.veteran, 'Three difficulty modes defined');
+  assert.equal(setMod.DEFAULTS.difficulty, 'standard', 'Default difficulty is standard');
+  assert.equal(setMod.DIFFICULTY_MODES.cozy.noGrave, true, 'Cozy mode protects against grave material loss');
+  const cozyMock = {
+    field: 1, originField: 1, settings: { difficulty: 'cozy' },
+    meta: { p: { ...structuredClone(frontier.progressDefaults), goods: { wood: 12, ore: 8, fish: 4 } }, save() {} },
+    player: { pos: { x: 1, z: 1 }, equip: {} },
+  };
+  assert.equal(frontier.leaveGrave(cozyMock), 0, 'Cozy mode leaveGrave loses 0 materials');
+  assert.equal(cozyMock.meta.p.goods.wood, 12, 'Cozy mode preserves all wood on death');
+  // Test +25% XP bonus when killing an enemy 4 levels higher (manual mode)
+  const upMock = {
+    field: 1, depth: 0, isNight: false,
+    meta: { p: { ...structuredClone(frontier.progressDefaults), level: 1, xp: 0 }, save() {} },
+    ui: { toast() {} }, recalc() {},
+  };
+  frontier.awardKill(upMock, { type: 'thorn', level: 5, elite: false, spawnIndex: 0 });
+  // base = 10 + 5*2 = 20; +25% upward bonus = 25
+  assert.equal(upMock.meta.p.xp, 25, 'Manual kill of Lv.5 enemy at Lv.1 grants +25% upward XP bonus (20 -> 25)');
+
+  console.log('ALL 24 LOGIC, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
 })();

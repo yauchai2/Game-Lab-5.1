@@ -15,7 +15,12 @@
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --paper:#fff6e2; } }
 :root[data-theme="dark"]{ --paper:#fff6e2; }
 *{box-sizing:border-box}
-html,body{margin:0;height:100%;overflow:hidden;background:#1a1426;color:var(--ink);font-family:'DotGothic16',ui-monospace,monospace;user-select:none}
+:root{
+  --font-ui:"PingFang TC","Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif;
+  --font-pixel:'DotGothic16',"PingFang TC",ui-monospace,monospace;
+}
+html,body{margin:0;height:100%;overflow:hidden;background:#1a1426;color:var(--ink);font-family:var(--font-ui);user-select:none;-webkit-font-smoothing:antialiased}
+#title h1,#banner h2,#pcard .pc-num,.num.comic{font-family:var(--font-pixel)}
 #view{position:fixed;inset:0;image-rendering:pixelated;image-rendering:crisp-edges;cursor:crosshair}
 .hide,[hidden]{display:none!important}
 .panel{background:var(--paper);border:3px solid var(--ink);border-radius:10px;box-shadow:0 4px 0 var(--ink)}
@@ -245,24 +250,29 @@ html,body{image-rendering:pixelated;-webkit-font-smoothing:none;font-smooth:neve
 #menuPop button{position:static!important;width:100%;text-align:left;padding:6px 10px;font:inherit;font-size:14px;background:var(--paper2);color:var(--ink);border:2px solid #7a5a46!important;box-shadow:none!important;cursor:pointer;margin:0}
 #menuPop button:hover{background:var(--gold)}
 #menuPop #btnDonate{background:#ffe4ec;color:#a82442}
-#tideHud{position:absolute;right:12px;top:54px;width:238px;padding:8px 10px;background:#3b2a2af0!important;color:#fff6e2;pointer-events:auto;z-index:16;font-size:12.5px}
+#rightStack{position:absolute;right:12px;top:54px;width:238px;display:flex;flex-direction:column;gap:8px;pointer-events:none;z-index:16}
+#tideHud{position:static;width:100%;box-sizing:border-box;padding:8px 10px;background:#3b2a2af0!important;color:#fff6e2;border:2px solid #8a684a;border-radius:6px;pointer-events:auto;font-size:12.5px}
 #tideHud .td-head{display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:4px;font-weight:900}
-#tideHud .td-track{height:10px;background:#241818;border:2px solid #2b1812;margin:3px 0 6px;overflow:hidden}
+#tideHud .td-track{height:10px;background:#241818;border:2px solid #2b1812;margin:3px 0 6px;overflow:hidden;border-radius:3px}
 #tideHud .td-fill{height:100%;width:0%;background:linear-gradient(90deg,#7fe08a,#ffd85a,#ff6a3a);transition:width .18s}
 #tideHud .td-ult-row{display:flex;align-items:center;gap:6px;margin-top:4px}
-#tideHud .td-ult-btn{flex:1;font-family:inherit;font-size:12px;padding:4px 7px;background:#5a3826;color:#ffe9a0;border:2px solid #2b1812;cursor:pointer;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#tideHud .td-ult-btn{flex:1;font-family:inherit;font-size:12px;padding:4px 7px;background:#5a3826;color:#ffe9a0;border:2px solid #2b1812;border-radius:5px;cursor:pointer;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:700}
 #tideHud .td-ult-btn.ready{background:#e8734a;color:#fff8e4;outline:2px solid #ffd85a;animation:pulseSt .55s infinite alternate}
-#tideHud .td-cyc-btn{font-family:inherit;font-size:12px;padding:4px 7px;background:#5a3826;color:#fff6e2;border:2px solid #2b1812;cursor:pointer}
+#tideHud .td-cyc-btn{font-family:inherit;font-size:12px;padding:4px 7px;background:#5a3826;color:#fff6e2;border:2px solid #2b1812;border-radius:5px;cursor:pointer}
 #tideHud .td-buffs{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
-#tideHud .td-b{background:#5a3826;color:#ffd85a;border:1px solid #ffcf4a;padding:1px 5px;font-size:11px}
-#autoHud{position:absolute;right:12px;top:174px;width:238px;padding:8px 10px;background:#2b2334f0!important;color:#fff6e2;border:2px solid #ffd85a;pointer-events:auto;z-index:16;font-size:12px;box-shadow:0 4px 0 rgba(20,14,28,.65)}
+#tideHud .td-b{background:#5a3826;color:#ffd85a;border:1px solid #ffcf4a;border-radius:4px;padding:1px 5px;font-size:11px}
+#autoHud{position:static;width:100%;box-sizing:border-box;padding:8px 10px;background:#3b2a2af0!important;color:#fff6e2;border:2px solid #ffd85a;border-radius:6px;pointer-events:auto;font-size:12px;box-shadow:0 4px 0 rgba(43,24,18,.65)}
 #autoHud .ap-head{display:flex;justify-content:space-between;align-items:center;font-weight:900;color:#ffe478;margin-bottom:4px}
-#autoHud .ap-stats{display:grid;grid-template-columns:1fr 1fr;gap:3px 6px;font-size:11.5px;color:#e8def8;margin-bottom:5px}
-#autoHud .ap-spark{background:#1d1626;border:1px solid #8a64b8;padding:3px 6px;border-radius:4px;margin-bottom:5px;font-size:11.5px;color:#ffd86b;font-weight:800}
+#autoHud .ap-stats{display:grid;grid-template-columns:1fr 1fr;gap:3px 6px;font-size:11.5px;color:#f4e6cf;margin-bottom:5px}
+#autoHud .ap-spark{background:#291c18;border:1px solid #a87c4a;padding:3px 6px;border-radius:4px;margin-bottom:5px;font-size:11.5px;color:#ffd86b;font-weight:800}
 #autoHud .ap-btns{display:flex;flex-wrap:wrap;gap:4px}
-#autoHud .ap-btn{flex:1;min-width:46%;font-family:inherit;font-size:11px;padding:3px 5px;background:#45365a;color:#fff6e2;border:1.5px solid #22182e;cursor:pointer;border-radius:4px;font-weight:700}
-#autoHud .ap-btn.on{background:#6e5094;border-color:#ffd85a;color:#fff0a8}
+#autoHud .ap-btn{flex:1;min-width:46%;font-family:inherit;font-size:11px;padding:3px 5px;background:#5a3826;color:#fff6e2;border:1.5px solid #2b1812;cursor:pointer;border-radius:5px;font-weight:700}
+#autoHud .ap-btn.on{background:#7c4f30;border-color:#ffd85a;color:#fff0a8}
 #autoHud .ap-btn.stop{background:#c84a38;color:#fff;border-color:#2b1812;width:100%}
+#comboBadge{position:static;align-self:flex-end;padding:6px 14px;background:linear-gradient(135deg,#d93a49,#e8734a);color:#fff8e4;border:3px solid #2b1812;border-radius:6px;box-shadow:0 4px 0 #2b1812;font-size:18px;font-weight:900;text-align:right;pointer-events:none;transition:transform .12s}
+#comboBadge small{display:block;font-size:11px;color:#ffe9a0;font-weight:400}
+.modal-x{border:2px solid #513e34;background:#f2dfb8;color:#49372d;width:30px;height:30px;cursor:pointer;font-family:inherit;font-weight:900;border-radius:6px;flex-shrink:0}
+.modal-x:hover{background:#d9543a;color:#fff}
 #sk-auto.on{outline:2px solid #ffd85a;background:#684828!important;box-shadow:0 0 8px rgba(255,216,90,.6)}
 .st-spark{background:linear-gradient(90deg,#e87a24,#d94258);animation:pulseSt .55s infinite alternate}
 /* Godot 風格底部除錯工具列 (F3 / `) */
@@ -309,8 +319,6 @@ html,body{image-rendering:pixelated;-webkit-font-smoothing:none;font-smooth:neve
 .dbg-dev-box button.on{background:#236c8a;border-color:#7ef0ff;color:#fff}
 #devPill{position:fixed;left:50%;top:44px;transform:translateX(-50%);z-index:990;background:#163848ee;color:#7ef0ff;border:2px solid #58d4ff;border-radius:99px;padding:2px 11px;font-family:ui-monospace,monospace;font-size:11.5px;font-weight:900;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.45)}
 #devPill.hide{display:none}
-#comboBadge{position:absolute;right:12px;top:216px;padding:6px 14px;background:linear-gradient(135deg,#d93a49,#e8734a);color:#fff8e4;border:3px solid #2b1812;box-shadow:0 4px 0 #2b1812;font-size:18px;font-weight:900;text-align:right;pointer-events:none;transition:transform .12s}
-#comboBadge small{display:block;font-size:11px;color:#ffe9a0;font-weight:400}
 .cx-box{width:min(820px,94vw);max-height:86vh;display:flex;flex-direction:column;gap:10px;background:#f4e8ce;border:4px solid #3c261c;box-shadow:0 8px 0 rgba(38,22,16,.75);padding:14px;border-radius:10px;color:#2e1d16}
 .cx-head{display:flex;align-items:center;gap:10px;border-bottom:3px solid #bfa77c;padding-bottom:8px}
 .cx-title{font-size:18px;font-weight:900;flex:1}
@@ -510,24 +518,26 @@ body.photo-mode #hud > *:not(#photoBadge){opacity:0!important;pointer-events:non
     <button type="button" id="btnDebug">🛠️ 除錯工具 (F3)</button>
     <button type="button" id="btnDonate">❤️ 贊助支持</button>
   </div>
-  <div id="tideHud" class="panel hide">
-    <div class="td-head"><span id="tdPhase">🌿 晨光巡遊</span><span id="tdMult">×1.0</span></div>
-    <div class="td-track"><div class="td-fill" id="tdFill"></div></div>
-    <div class="td-ult-row"><button type="button" class="td-ult-btn" id="btnTideUlt">⚡ [V] 星燈雷雨風暴 0%</button><button type="button" class="td-cyc-btn" id="btnTideCycle" title="切換大絕 (Shift+V)">↻</button></div>
-    <div class="td-buffs" id="tdBuffs"></div>
-  </div>
-  <div id="autoHud" class="panel hide">
-    <div class="ap-head"><span id="apMode">🏮 提燈巡遊中</span><span id="apTime">00:00</span></div>
-    <div class="ap-stats" id="apStats"></div>
-    <div class="ap-spark" id="apSpark">🔥 手動星火：0/5</div>
-    <div class="ap-btns">
-      <button type="button" class="ap-btn" id="apToggleMode">🔄 全自動</button>
-      <button type="button" class="ap-btn on" id="apToggleSalv">♻️ 拆白綠裝</button>
-      <button type="button" class="ap-btn on" id="apToggleCozy">🎥 桌寵鏡頭</button>
-      <button type="button" class="ap-btn stop" id="apStop">🕹️ [Z] 接管手動（引爆星火）</button>
+  <div id="rightStack">
+    <div id="tideHud" class="panel hide">
+      <div class="td-head"><span id="tdPhase">🌿 晨光巡遊</span><span id="tdMult">×1.0</span></div>
+      <div class="td-track"><div class="td-fill" id="tdFill"></div></div>
+      <div class="td-ult-row"><button type="button" class="td-ult-btn" id="btnTideUlt">⚡ [V] 星燈雷雨風暴 0%</button><button type="button" class="td-cyc-btn" id="btnTideCycle" title="切換大絕 (Shift+V)">↻</button></div>
+      <div class="td-buffs" id="tdBuffs"></div>
     </div>
+    <div id="autoHud" class="panel hide">
+      <div class="ap-head"><span id="apMode">🏮 提燈巡遊中</span><span id="apTime">00:00</span></div>
+      <div class="ap-stats" id="apStats"></div>
+      <div class="ap-spark" id="apSpark">🔥 手動星火：0/5</div>
+      <div class="ap-btns">
+        <button type="button" class="ap-btn" id="apToggleMode">🔄 全自動</button>
+        <button type="button" class="ap-btn on" id="apToggleSalv">♻️ 拆白綠裝</button>
+        <button type="button" class="ap-btn on" id="apToggleCozy">🎥 桌寵鏡頭</button>
+        <button type="button" class="ap-btn stop" id="apStop">🕹️ [Z] 接管手動（引爆星火）</button>
+      </div>
+    </div>
+    <div id="comboBadge" class="hide"></div>
   </div>
-  <div id="comboBadge" class="hide"></div>
   <div id="stam"></div>
   <div id="topbar" class="panel"><span id="roomInfo"></span><span id="killInfo" hidden></span><span id="shardInfo"></span><span id="coinInfo"></span><span id="dayInfo" title="點擊切換晝夜時段">☀️ 白晝</span><span id="mealInfo" hidden></span></div>
   <div id="regionMap" class="panel hide"><div class="rm-head"><b id="rmTitle">地區地圖</b><span>Tab 關閉</span></div><canvas id="regionMapCanvas" width="220" height="220"></canvas><div class="rm-leg"><span>▲ 你</span><span style="color:#7a4ac0">● 副本</span><span style="color:#2f8a4e">● 回城</span><span style="color:#d88a00">● 採集/寶箱</span><span style="color:#2a9ab8">● 氣流</span><span style="color:#c83a3a">● 敵人</span></div></div>
@@ -612,9 +622,9 @@ body.photo-mode #hud > *:not(#photoBadge){opacity:0!important;pointer-events:non
   <div class="sbody"></div>
   <div class="sfoot"><button class="btn small" id="btnClose">繼續遊戲</button><span class="hint">Esc 開關設定</span></div>
 </div></div>
-<div id="panelM" class="modal hide"><div class="panel setp"><h3></h3><div class="pshards"></div><div class="pbody"></div><div class="sfoot"><button class="btn small" id="btnPanelClose">關閉</button><span class="hint">Esc 關閉</span></div></div></div>
+<div id="panelM" class="modal hide"><div class="panel setp"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px"><h3 style="margin:0"></h3><button type="button" class="modal-x" id="btnPanelX" aria-label="關閉">✕</button></div><div class="pshards"></div><div class="pbody"></div><div class="sfoot"><button class="btn small" id="btnPanelClose">關閉</button><span class="hint">Esc 關閉</span></div></div></div>
 <div id="puzzleM" class="modal hide"><div class="panel pzp">
-  <div class="pz-head"><h3>💎 技能拼圖</h3><span class="pz-coins"></span></div>
+  <div class="pz-head"><h3>💎 技能拼圖</h3><div style="display:flex;align-items:center;gap:10px"><span class="pz-coins"></span><button type="button" class="modal-x" id="btnPuzzleX" aria-label="關閉技能拼圖">✕</button></div></div>
   <div class="pz-presets"></div>
   <div class="pz-unlock"></div>
   <div class="pz-info"></div>

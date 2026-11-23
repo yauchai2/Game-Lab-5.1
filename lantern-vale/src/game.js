@@ -14,7 +14,7 @@ import { World, toonMat, HALF, windU } from './world.js';
 import { preloadNatureAssets, attachMonsterGlb, attachLandmarkGlb } from './assets.js';
 import { BIOMES, mulberry32, clamp, lerp, angleLerp, rand, pick } from './util.js';
 import { buildTownScenery, buildGuildKiosk, buildAwakenAltar, buildWardrobe, buildSheep, TOWN_LAYOUT, buildCottage } from './town.js';
-import { loadSettings, applySettings, buildSettingsUI } from './settings.js';
+import { loadSettings, applySettings, buildSettingsUI, DIFFICULTY_MODES } from './settings.js';
 import { showWeapon, applyCosmetics, buildPlayer, buildNPC, buildSlime, buildThorn, buildBoar, buildMoth, buildSkyRay, buildGolem, buildStag, buildArch, buildHouse, buildFountain, buildBoard, buildStall } from './models.js';
 import { Net } from './net.js';
 import { Meta } from './meta.js';
@@ -258,7 +258,7 @@ export class Game {
     const p = {
       m, pos: new V3(), vel: new V3(), facing: 0, hp: 100, mana: 50, equip: { staff: null, cloak: null, charm: null },
       boons: [], skills: { slam: false, wisp: false }, cds: { atk: 0, bolt: 0, roll: 0, slam: 0, wisp: 0 }, skillCds: [0, 0, 0, 0], hotbar: [],
-      roll: 0, rollDir: new V3(), iframes: 0, flask: { charges: 2, max: 3, prog: 0 }, healOver: 0,
+      roll: 0, rollDir: new V3(), iframes: 0, flask: { charges: 1, max: 1, prog: 0 }, healOver: 0,
       statuses: { poison: 0, freeze: 0, chill: 0, burn: 0, shock: 0, overload: 0 }, statusTick: 0, castCombo: 0, castComboT: 0, prevVx: 0, prevVz: 0,
       y: 0, vy: 0, air: false, climbing: false, gliding: false, wall: false, stamina: 100, lastLow: new V3(), stepT: 0, swing: 0, swingT: 0, swingCount: 0, galeBuff: false, wisps: [], wispT: 0, walkT: 0, kills: 0, dmgDealt: 0, stats: {},
     };
@@ -269,10 +269,22 @@ export class Game {
   }
   recalc() {
     const p = this.player;
-    const s = { baseDmg: 10, dmgPct: 0, addFire: 0, atkSpd: 0, crit: 5, critMult: 150, maxHp: 100, lifeOnHit: 0, moveSpd: 0, cdr: 0, mana: 50, manaRegen: 0, area: 0, armor: 0, proj: 1, regen: 0, rollCdr: 0 };
-    const cls = CLASSES[this.character?.job ?? 0] || CLASSES[0];
-    for (const [k, v] of Object.entries(cls.bonuses)) s[k] = (s[k] || 0) + v;
     const profile = this.meta.p;
+    const lv = Math.max(1, profile.level || 1);
+    // Phase B1：循序漸進開局數值（Lv.1 基礎 6 傷 / 70 HP，每級穩定成長）
+    const s = {
+      baseDmg: 6 + Math.floor((lv - 1) * 1.1), dmgPct: 0, addFire: 0, atkSpd: 0,
+      crit: 5 + Math.floor((lv - 1) * 0.4), critMult: 150,
+      maxHp: 70 + (lv - 1) * 6, lifeOnHit: 0, moveSpd: 0, cdr: 0,
+      mana: 45 + Math.floor((lv - 1) * 1.5), manaRegen: 0, area: 0, armor: 0, proj: 1, regen: 0, rollCdr: 0,
+    };
+    const cls = CLASSES[this.character?.job ?? 0] || CLASSES[0];
+    for (const [k, v] of Object.entries(cls.bonuses)) {
+      // 衛士減傷隨等級循序成長（Lv.1 8% → Lv.15+ 15%）
+      s[k] = (s[k] || 0) + (k === 'armor' ? Math.min(v, 8 + Math.floor(lv * 0.5)) : v);
+    }
+    const baseFlaskMax = lv >= 14 ? 3 : lv >= 5 ? 2 : 1;
+    if (p.flask) p.flask.max = Math.max(baseFlaskMax, p.flask.max || 1);
     const sc = findSecondClass(profile.secondClass);
     if (sc) for (const [k, v] of Object.entries(sc.bonuses)) s[k] = (s[k] || 0) + v;
     if (p.m?.aura) { p.m.aura.visible = !!sc; if (sc && p.m.auraMat) p.m.auraMat.color.setHex(sc.aura); }
@@ -591,7 +603,12 @@ export class Game {
   }
 
   spawnEnemy(type, pos, elite) {
-    const d = this.field ? FIELDS[this.field].level / 2 : this.depth, scale = 1 + d * 0.22;
+    const d = this.field ? FIELDS[this.field].level / 2 : this.depth;
+    const lv = this.field ? FIELDS[this.field].level : (1 + this.depth * 3);
+    const diff = DIFFICULTY_MODES[this.settings?.difficulty || 'standard'] || DIFFICULTY_MODES.standard;
+    // Phase B1：分段難度曲線（Lv.1–5 平緩起步，Lv.6–30 階梯成長）× 難度檔位倍率
+    const scale = (lv <= 5 ? (1 + (lv - 1) * 0.16) : (1.64 * Math.pow(1.08, lv - 5))) * diff.enemyHp;
+    const dmgScale = (lv <= 5 ? (1 + (lv - 1) * 0.12) : (1.48 * Math.pow(1.055, lv - 5))) * diff.enemyDmg;
     const atlas = (!this.field && this.depth >= 0) ? computeAtlasSummary(ensureAtlas(this.meta.p)) : null;
     const DEF = {
       slime: { hp: 30, spd: 2.7, dmg: 9, r: 0.45, build: () => buildSlime(pick(this.rng, [0x7fc35a, 0x9bd06a, 0x6fb86a])) },
@@ -649,7 +666,7 @@ export class Game {
     }
     const e = {
       type, m, pos: new V3(pos.x, 0, pos.z), vel: new V3(), knock: new V3(), facing: Math.random() * 6,
-      hp: DEF.hp * scale * (elite ? 2.6 : 1) * (type === 'stag' && !this.field ? 1 / scale : 1), dmg: DEF.dmg * (1 + d * 0.12) * (elite ? 1.3 : 1),
+      hp: DEF.hp * scale * (elite ? 2.6 : 1) * (type === 'stag' && !this.field ? 1 / scale : 1), dmg: DEF.dmg * dmgScale * (elite ? 1.3 : 1),
       spd: DEF.spd * (elite ? 1.15 : 1), r: DEF.r * s, flying: !!DEF.flying, alt: DEF.alt || 0, groundedT: 0,
       state: 'move', t: 0, cd: 1 + Math.random() * 1.5, stun: 0, slow: 0, flash: 0, elite, ph: Math.random() * 10,
       hitCd: 0,
@@ -696,6 +713,8 @@ export class Game {
     if (p.realmRule?.id === 'lantern_glow' && Math.hypot(e.pos.x - p.pos.x, e.pos.z - p.pos.z) <= (p.realmRule.lightRadius || 12.5)) {
       mult *= (p.realmRule.dmgBonus || 1.25);
     }
+    // Phase B1：越級風險機制（怪物高出玩家 ≥6 級時減傷 45%，防低等跨區白嫖）
+    if ((e.level || 1) - (this.meta.p.level || 1) >= 6) mult *= 0.55;
     let dmg = Math.round(hit.dmg * mult);
     if (!opts.isDoT && (this.tide?.microBuffs?.dice20 || 0) > 0 && Math.random() < 0.22) {
       dmg = Math.round(dmg * 2.2);
@@ -857,7 +876,8 @@ export class Game {
     const comboDrop = Math.min(0.12, this.combo.count * 0.008);
     const goldDrop = (this.shrineBuffs?.gold || 0) > 0 ? 0.25 : 0;
     const atlasDrop = atlas ? atlas.lootBonus * 0.22 : 0;
-    const baseDropChance = e.elite ? 1 : e.type === 'stag' ? 1 : (0.08 + comboDrop + goldDrop + atlasDrop);
+    const diffDrop = (DIFFICULTY_MODES[this.settings?.difficulty || 'standard']?.lootBonus || 0) * 0.25;
+    const baseDropChance = e.elite ? 1 : e.type === 'stag' ? 1 : (0.08 + comboDrop + goldDrop + atlasDrop + diffDrop);
     const dropChance = autoOn ? baseDropChance * AUTO_RATES.dropChanceMult : Math.min(1, baseDropChance * sparkMul);
     if (r < dropChance && this.field) {
       const capR = autoOn ? Math.min(AUTO_RATES.maxDropRarity, e.elite ? 2 : 1) : (e.elite ? 2 : 1);
@@ -893,7 +913,9 @@ export class Game {
     if (this.recallT > 0) { this.recallT = 0; this.ui.toast('受到攻擊，回城中斷！', '#ff8a8a'); }
     this.audio.sfx('hurt');
     const shockMul = p.statuses?.shock > 0 ? 1.2 : 1;
-    dmg = Math.round(dmg * shockMul * (1 - p.stats.armor / 100) * (this.meta.has('fragile') ? 1.35 : 1));
+    const fieldLv = this.field > 0 ? (FIELDS[this.field]?.level || 1) : 0;
+    const dangerMul = (fieldLv > 0 && (fieldLv - (this.meta?.p?.level || 1)) >= 6) ? 1.5 : 1;
+    dmg = Math.round(dmg * shockMul * dangerMul * (1 - p.stats.armor / 100) * (this.meta.has('fragile') ? 1.35 : 1));
     p.hp -= dmg; p.iframes = 0.6;
     this.hurtFlash = 0.5; this.shake = Math.max(this.shake, 0.38); this.hitstop = 0.06;
     // 劇烈衝擊液體瓶（左右晃動＋水花四濺）

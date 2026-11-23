@@ -53,7 +53,9 @@ export function awardKill(g, enemy) {
   const autoOn = !!(g.autopilot && g.autopilot.mode !== 'off');
   const sparkMul = (!autoOn && (g.autopilot?.sparkBuffT || 0) > 0) ? 1.5 : 1;
   const level = enemy.level || Math.min(30, g.depth * 2 + 1);
-  const mult = (g.isNight ? 1.25 : 1) * (p.guildName ? 1.1 : 1) * (autoOn ? 0.30 : sparkMul);
+  const lvDiff = level - (p.level || 1);
+  const upwardMul = (!autoOn && lvDiff >= 3 && lvDiff <= 5) ? 1.25 : 1;
+  const mult = (g.isNight ? 1.25 : 1) * (p.guildName ? 1.1 : 1) * (autoOn ? 0.30 : sparkMul) * upwardMul;
   const xpGain = Math.max(1, Math.round((10 + level * (enemy.elite ? 4 : 2)) * mult));
   const rawCoins = enemy.elite ? 5 : 2;
   const coinGain = autoOn ? (Math.random() < 0.30 ? Math.max(1, Math.round(rawCoins * 0.5)) : 0) : Math.round(rawCoins * sparkMul);
@@ -66,9 +68,17 @@ export function awardKill(g, enemy) {
     const st = p.fieldQuests[qid] || { have: 0, done: false };
     if (!st.done) { st.have++; p.fieldQuests[qid] = st; }
   }
+  const MILESTONES = {
+    5:  '🧪 生命藥劑上限提升至 2 瓶！可前往低語森林探險',
+    9:  '⚔️ 旅人成長里程碑！進階技能拼圖與地城試煉開放',
+    14: '🧪 生命藥劑上限達 3 瓶！可遠征沉淵與星穹群島',
+    22: '👑 頂尖旅人覺醒！解鎖高危深淵與異星裂谷挑戰',
+  };
   while (p.level < 30 && p.xp >= p.level * 40) {
     p.xp -= p.level * 40; p.level++;
-    g.ui.toast('旅人等級提升至 ' + p.level, '#ffdc80'); g.recalc();
+    g.ui.toast('旅人等級提升至 ' + p.level, '#ffdc80');
+    if (MILESTONES[p.level]) g.ui.toast(MILESTONES[p.level], '#7fe08a');
+    g.recalc();
   }
   if (p.level === 30) p.xp = 0;
   let matGain = 0;
@@ -761,6 +771,7 @@ export function useFieldSpot(g,s) {
   }
 }
 export function leaveGrave(g) {
+  if (g.settings?.difficulty === 'cozy') { rememberGear(g); return 0; }
   const p = g.meta.p, field = g.field || g.originField || 1;
   const goods = {};
   const kinds = Object.keys(GOODS);
