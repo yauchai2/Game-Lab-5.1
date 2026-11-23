@@ -8,6 +8,7 @@ import { addGearToBag } from './physbag.js';
 import { t } from './i18n.js';
 import * as THREE from 'three';
 import { World, toonMat, HALF, windU } from './world.js';
+import { preloadNatureAssets } from './assets.js';
 import { BIOMES, mulberry32, clamp, lerp, angleLerp, rand, pick } from './util.js';
 import { buildTownScenery, buildGuildKiosk, buildAwakenAltar, buildWardrobe, buildSheep } from './town.js';
 import { loadSettings, applySettings, buildSettingsUI } from './settings.js';
@@ -120,6 +121,13 @@ export class Game {
     // title scene: a pretty room in the background
     this.player = this.makePlayer();
     this.loadRoom(0, null, true);
+    preloadNatureAssets(() => {
+      if (this.state === 'title') this.loadRoom(0, null, true);
+      else if (this.state === 'play' && !this.interior && !this.sailing) {
+        if (this.depth === -1) this.enterTown();
+        else if (this.depth === -2) this.enterHarbor();
+      }
+    });
   }
 
   // ---------------- input ----------------

@@ -237,8 +237,19 @@ const createGuild = require('../server/guild.cjs');
   assert.equal(upgraded.item.rarity, 1, 'Two same-rarity gears collide and fuse into higher rarity');
 
   const codex = await import(src('codex.js'));
-  assert.equal(codex.GAME_VERSION, 'v0.11.0-alpha', 'Codex exports current internal alpha version v0.11.0-alpha');
-  assert.ok(codex.CHANGELOG.length >= 8, 'Changelog contains structured version history through v0.11.0-alpha');
+  assert.equal(codex.GAME_VERSION, 'v0.12.0-alpha', 'Codex exports current internal alpha version v0.12.0-alpha');
+  assert.ok(codex.CHANGELOG.length >= 9, 'Changelog contains structured version history through v0.12.0-alpha');
+
+  // 14. v0.12.0-alpha Stylized Nature MegaKit 3D glTF Asset Pipeline & Files
+  const fs = require('node:fs');
+  const assetsMod = await import(src('assets.js'));
+  assert.equal(Object.keys(assetsMod.NATURE_FILES).length, 8, 'Eight curated glTF nature models registered');
+  assert.equal(typeof assetsMod.preloadNatureAssets, 'function', 'preloadNatureAssets exported');
+  const natureDir = path.resolve(__dirname, '../game/assets/nature');
+  for (const cfg of Object.values(assetsMod.NATURE_FILES)) {
+    assert.ok(fs.existsSync(path.join(natureDir, cfg.file)), `glTF asset exists: ${cfg.file}`);
+    assert.ok(fs.existsSync(path.join(natureDir, cfg.file.replace('.gltf', '.bin'))), `bin buffer exists for ${cfg.file}`);
+  }
 
   // 12. Tier System (T1-T6) & 3D Mount Milestone System (4 mounts including Sakura Spirit Fox)
   const loot = await import(src('loot.js'));

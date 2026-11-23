@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { mulberry32, Noise, clamp, smooth, rand, pick, lerp } from './util.js';
+import { natureAssets, buildAssetMaterial } from './assets.js';
 
 export const HALF = 30;          // world spans -30..30
 export const RES = 1 / 3;        // 更高密度的地形網格解析度，告別大地圖巨大鋸齒三角
@@ -245,7 +246,7 @@ export class World {
   clear() {
     this.waterMat?.uniforms.uShore.value.dispose();
     this.scene.remove(this.group);
-    this.group.traverse(o => { if (o.isInstancedMesh) o.dispose(); if (o.geometry) o.geometry.dispose(); if (o.material && o.material.dispose) o.material.dispose(); });
+    this.group.traverse(o => { if (o.isInstancedMesh) o.dispose(); if (o.geometry && !o.userData?.sharedGeo) o.geometry.dispose(); if (o.material && o.material.dispose && !o.userData?.sharedMat) o.material.dispose(); });
     this.group = new THREE.Group();
     this.scene.add(this.group);
     this.obstacles = [];
@@ -492,6 +493,25 @@ export class World {
       this.group.add(m);
       return m;
     };
+    const instAsset = (assetKey, fallbackGeo, list, opts2 = {}) => {
+      if (!list.length) return null;
+      const asset = natureAssets[assetKey];
+      if (!asset?.parts?.length) return inst(fallbackGeo, list, opts2);
+      const mtx = new THREE.Matrix4(), q4 = new THREE.Quaternion(), e = new THREE.Euler(), s = new THREE.Vector3(), p = new THREE.Vector3();
+      for (const part of asset.parts) {
+        const mat = buildAssetMaterial(part, opts2);
+        const m = new THREE.InstancedMesh(part.geo, mat, list.length);
+        m.userData.sharedGeo = true;
+        list.forEach((it, idx) => {
+          e.set(it.rx || 0, it.ry || 0, it.rz || 0); q4.setFromEuler(e);
+          s.set(it.s, it.sy ?? it.s, it.s); p.set(it.x, it.y, it.z);
+          mtx.compose(p, q4, s); m.setMatrixAt(idx, mtx);
+        });
+        m.castShadow = opts2.cast !== false; m.receiveShadow = true;
+        this.group.add(m);
+      }
+      return true;
+    };
 
     const pineT = [pineGeo(P, r, snow), pineGeo(P, r, snow)];
     const roundT = P.leaf.slice(0, 3).map(h => roundTreeGeo(P, r, h));
@@ -600,15 +620,18 @@ export class World {
         this.obstacles.push({ x, z, r: 0.25, h: 0 });
       }
     }
-    inst(pineT[0], pines[0], { wind: [0.20, 0.7, 2.2] }); inst(pineT[1], pines[1], { wind: [0.20, 0.7, 2.2] });
-    rounds.forEach((l, i) => inst(roundT[i], l, { wind: [0.24, 0.8, 2.0] }));
+    instAsset('pine', pineT[0], pines[0], { wind: [0.20, 0.7, 2.4], tint: P.pine[0], tintMix: P.key === 'snow' ? 0.65 : 0.45 });
+    instAsset('pine', pineT[1], pines[1], { wind: [0.20, 0.7, 2.4], tint: P.pine[1] ?? P.pine[0], tintMix: P.key === 'snow' ? 0.65 : 0.45 });
+    rounds.forEach((l, i) => instAsset('tree', roundT[i], l, { wind: [0.24, 0.8, 2.2], tint: P.leaf[i], tintMix: P.key === 'meadow' ? 0.32 : 0.58 }));
     inst(birchT, birches, { wind: [0.26, 0.8, 2.2] });
-    inst(rockGeo(P, r), rocks);
-    inst(bushGeo(P, r), bushes, { wind: [0.18, 0.08, 0.75] });
+    const rocksA = rocks.filter((_, i) => i % 2 === 0), rocksB = rocks.filter((_, i) => i % 2 === 1);
+    instAsset('rock1', rockGeo(P, r), rocksA, { rockTint: P.rock });
+    instAsset('rock2', rockGeo(P, r), rocksB, { rockTint: P.rockDark });
+    instAsset('bush', bushGeo(P, r), bushes, { wind: [0.18, 0.08, 0.75], tint: P.leaf[0], tintMix: 0.35 });
     inst(grassGeo(P.grassDark), grass, { cast: false, wind: [0.32, 0.0, 0.42] });
-    inst(grassGeo(P.leaf[0]), grass2, { cast: false, wind: [0.32, 0.0, 0.42] });
-    inst(flowerGeo(), flowers, { cast: false, wind: [0.25, 0.0, 0.3] });
-    inst(mushroomGeo(), shrooms);
+    instAsset('fern', grassGeo(P.leaf[0]), grass2, { cast: false, wind: [0.30, 0.0, 0.48], tint: P.leaf[0], tintMix: 0.38 });
+    instAsset('flower', flowerGeo(), flowers, { cast: false, wind: [0.24, 0.0, 0.35] });
+    instAsset('shroom', mushroomGeo(), shrooms);
     inst(pillarGeo(P, r), pillars);
     inst(logGeo(P), logs);
     const postM = inst(lanternPostGeo(), posts);

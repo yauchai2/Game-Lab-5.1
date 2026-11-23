@@ -6,10 +6,17 @@ import { BOONS, TIERS } from './loot.js';
 import { BAG_RECIPES } from './physbag.js';
 import { MOUNTS } from './mounts.js';
 
-export const GAME_VERSION = 'v0.11.0-alpha';
+export const GAME_VERSION = 'v0.12.0-alpha';
 export const DONATE_URL = 'https://ko-fi.com/'; // 可隨時改為個人贊助頁面或 ECPay 連結
 
 export const CHANGELOG = [
+  {
+    ver: 'v0.12.0-alpha', date: '2026-11-23',
+    items: [
+      { tag: '重要', text: '正式導入 Stylized Nature MegaKit 雕刻級 3D glTF 自然資產（常綠樹、松樹、開花灌木、雙款雕刻岩石、蕨類、野花叢、森林菇群），並建立專屬像素賽璐璐（Pixel-Toon）256px 貼圖與風吹著色器轉換管線！' },
+      { tag: '新增', text: '支援 GPU Instancing 批次繪製與 12 大生態群系動態調色（雪原冷霜、秋楓暖橘、櫻都淡粉、草原翠綠），並保留本機離線開啟（file://）自動程序化回退機制。' },
+    ],
+  },
   {
     ver: 'v0.11.0-alpha', date: '2026-11-23',
     items: [
