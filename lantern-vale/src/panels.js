@@ -51,7 +51,8 @@ export function buildPanels(g) {
       h += row(`<div>${f.name}</div><small>${f.desc}</small>`, `<button class="btn small" data-forge="${k}" ${can ? '' : 'disabled'}>${ok ? `✦ ${c}` : '不可'}</button>`);
     }
     const canCorrupt = !it.corrupted && M.p.shards >= CORRUPT_COST;
-    h += row(`<div><b style="color:#b8245c">☠️ 裝備腐化改造（不可逆賭博）</b></div><small>25% 誕生毀天滅地神諭詞綴 · 25% 全詞綴 ×1.45 超頻 · 25% 穩固 · 25% 碎裂報廢！</small>`,
+    const corruptBar = `<div class="corrupt-bar" title="四種不可逆結果機率各 25%"><span style="background:#b8245c">25% 神話</span><span style="background:#d98026">25% 超頻</span><span style="background:#3e7d72">25% 穩固</span><span style="background:#5a4848">25% 碎裂</span></div>`;
+    h += row(`<div><b style="color:#b8245c">☠️ 裝備腐化改造（不可逆賭博）</b>${corruptBar}</div><small>神諭詞綴 / 全詞綴 ×1.45 / 保持穩固 / 碎裂報廢（各 25%）</small>`,
       `<button class="btn small" style="background:#9b2458" data-corrupt ${canCorrupt ? '' : 'disabled'}>${it.corrupted ? '已腐化' : `✦ ${CORRUPT_COST}`}</button>`);
     body.innerHTML = h;
     body.querySelectorAll('[data-fslot]').forEach(b => b.onclick = () => { sel = b.dataset.fslot; g.audio.sfx('ui'); render(); });

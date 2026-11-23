@@ -95,6 +95,7 @@ export class PhysicsContainer {
     this.hover = null;
     this.selectedUid = null;
     this.onSelect = opts.onSelect || (() => {});
+    this.onHover = opts.onHover || null;
     this.onDoubleClick = opts.onDoubleClick || (() => {});
     this.onSynthesize = opts.onSynthesize || null;
     this.bgTheme = opts.theme || 'bag';
@@ -357,7 +358,11 @@ export class PhysicsContainer {
         b.y = Math.max(b.hh + 8, Math.min(this.H - b.hh - 8, p.y + this.drag.oy));
         this.drag.lx = p.x; this.drag.ly = p.y;
       } else {
-        this.hover = this._hit(p.x, p.y);
+        const nextHover = this._hit(p.x, p.y);
+        if (nextHover !== this.hover) {
+          this.hover = nextHover;
+          this.onHover?.(nextHover ? nextHover.data : null);
+        }
         this.canvas.style.cursor = this.hover ? 'grab' : '';
       }
     });
@@ -382,7 +387,9 @@ export class PhysicsContainer {
     };
     this.canvas.addEventListener('pointerup', end);
     this.canvas.addEventListener('pointercancel', end);
-    this.canvas.addEventListener('pointerleave', () => { this.hover = null; });
+    this.canvas.addEventListener('pointerleave', () => {
+      if (this.hover) { this.hover = null; this.onHover?.(null); }
+    });
   }
 }
 

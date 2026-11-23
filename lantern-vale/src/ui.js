@@ -84,28 +84,32 @@ export class UI {
   }
   _bindInvTabs(game) {
     const bagCv = $('bagCanvas'), stashCv = $('stashCanvas');
-    const showSel = (boxId, btnsId, item, fromKey) => {
+    const selMap = { bagItems: null, stashItems: null };
+    const showSel = (boxId, btnsId, item, fromKey, isPreview = false) => {
+      if (!isPreview) selMap[fromKey] = item;
+      const targetItem = item || selMap[fromKey];
       const info = $(boxId), btns = $(btnsId);
       if (!info || !btns) return;
       const lang = game.settings?.lang || 'zh-TW';
-      if (!item) { info.textContent = t(lang, 'bagEmpty'); btns.innerHTML = ''; return; }
-      if (item.kind === 'gear' && item.item) {
-        const gear = deserializeItem(item.item);
-        info.innerHTML = this.itemHTML(gear, game.player.equip[gear.slot]);
+      if (!targetItem) { info.textContent = t(lang, 'bagEmpty'); btns.innerHTML = ''; return; }
+      if (targetItem.kind === 'gear' && targetItem.item) {
+        const gear = deserializeItem(targetItem.item);
+        info.innerHTML = (isPreview && item ? `<div style="font-size:10px;opacity:.65;margin-bottom:2px">🔍 懸停預覽對比</div>` : '') + this.itemHTML(gear, game.player.equip[gear.slot]);
       } else {
-        const ti = tierInfo(item.tier || 1);
-        info.innerHTML = `<div><span class="tier-tag" style="color:${ti.color}">${ti.tag} ${ti.name}</span><b>${item.icon || ''} ${item.name}</b></div><div style="margin-top:4px;font-size:12.5px">${item.desc || '物理背包物品'}</div>`;
+        const ti = tierInfo(targetItem.tier || 1);
+        info.innerHTML = `<div><span class="tier-tag" style="color:${ti.color}">${ti.tag} ${ti.name}</span><b>${targetItem.icon || ''} ${targetItem.name}</b></div><div style="margin-top:4px;font-size:12.5px">${targetItem.desc || '物理背包物品'}</div>`;
       }
+      if (isPreview) return;
       btns.innerHTML = '';
       const act = document.createElement('button'); act.className = 'btn small';
-      act.textContent = item.kind === 'gear' ? t(lang, 'equipItem') : t(lang, 'useItem');
-      act.onclick = () => { useBagItem(game, item, fromKey); this.syncPhysBags(game); this.renderBagEquipStrip(game); this.renderInv(game, true); showSel(boxId, btnsId, null, fromKey); };
+      act.textContent = targetItem.kind === 'gear' ? t(lang, 'equipItem') : t(lang, 'useItem');
+      act.onclick = () => { useBagItem(game, targetItem, fromKey); this.syncPhysBags(game); this.renderBagEquipStrip(game); this.renderInv(game, true); showSel(boxId, btnsId, null, fromKey); };
       btns.appendChild(act);
       if (this.atStash) {
         const otherKey = fromKey === 'bagItems' ? 'stashItems' : 'bagItems';
         const mv = document.createElement('button'); mv.className = 'btn small'; mv.style.background = 'var(--teal)';
         mv.textContent = otherKey === 'stashItems' ? t(lang, 'toStash') : t(lang, 'toBag');
-        mv.onclick = () => { transferBagItem(game, item, fromKey, otherKey); this.syncPhysBags(game); showSel(boxId, btnsId, null, fromKey); };
+        mv.onclick = () => { transferBagItem(game, targetItem, fromKey, otherKey); this.syncPhysBags(game); showSel(boxId, btnsId, null, fromKey); };
         btns.appendChild(mv);
       }
     };
@@ -113,6 +117,7 @@ export class UI {
       this.bagPhys = new PhysicsContainer(bagCv, {
         theme: 'bag',
         onSelect: it => showSel('bagSelInfo', 'bagBtns', it, 'bagItems'),
+        onHover: it => showSel('bagSelInfo', 'bagBtns', it, 'bagItems', true),
         onDoubleClick: it => { useBagItem(game, it, 'bagItems'); this.syncPhysBags(game); this.renderBagEquipStrip(game); this.renderInv(game, true); },
         onSynthesize: (a, b, mx, my) => { synthesizeBagItems(game, a, b, 'bagItems', mx, my); this.syncPhysBags(game); showSel('bagSelInfo', 'bagBtns', null, 'bagItems'); },
       });
@@ -121,6 +126,7 @@ export class UI {
       this.stashPhys = new PhysicsContainer(stashCv, {
         theme: 'stash',
         onSelect: it => showSel('stashSelInfo', 'stashBtns', it, 'stashItems'),
+        onHover: it => showSel('stashSelInfo', 'stashBtns', it, 'stashItems', true),
         onDoubleClick: it => { transferBagItem(game, it, 'stashItems', 'bagItems'); this.syncPhysBags(game); },
         onSynthesize: (a, b, mx, my) => { synthesizeBagItems(game, a, b, 'stashItems', mx, my); this.syncPhysBags(game); showSel('stashSelInfo', 'stashBtns', null, 'stashItems'); },
       });
@@ -692,7 +698,34 @@ export class UI {
     let cmp = '';
     if (cur !== undefined) {
       const diff = itemScore(it) - itemScore(cur);
-      cmp = `<div class="cmp ${diff >= 0 ? 'up' : 'down'}">${cur ? (diff >= 0 ? `▲ 比目前好 ${diff}` : `▼ 比目前差 ${-diff}`) : '▲ 空欄位'}</div><div class="hint">雙擊或點擊按鈕裝備（舊裝備自動收入物理背包）</div>`;
+      let deltaHtml = '';
+      if (cur) {
+        const STAT_LABELS = {
+          baseDmg: ['攻擊', ''], addFire: ['火傷', ''], dmgPct: ['傷害', '%'], atkSpd: ['攻速', '%'],
+          crit: ['暴擊', '%'], critMult: ['暴傷', '%'], maxHp: ['生命', ''], armor: ['減傷', '%'],
+          moveSpd: ['移速', '%'], cdr: ['冷卻', '%'], mana: ['法力', ''], area: ['範圍', '%'],
+          regen: ['回血', ''], lifeOnHit: ['擊回', ''], proj: ['彈數', ''],
+        };
+        const collectStats = g => {
+          const m = {};
+          if (!g) return m;
+          if (g.implicit) m[g.implicit.k] = (m[g.implicit.k] || 0) + g.implicit.v;
+          if (g.corruptImplicit) m[g.corruptImplicit.k] = (m[g.corruptImplicit.k] || 0) + g.corruptImplicit.v;
+          for (const md of g.mods || []) m[md.k] = (m[md.k] || 0) + md.v;
+          return m;
+        };
+        const sNew = collectStats(it), sCur = collectStats(cur);
+        const keys = new Set([...Object.keys(sNew), ...Object.keys(sCur)]);
+        const chips = [];
+        for (const k of keys) {
+          const d = Math.round(((sNew[k] || 0) - (sCur[k] || 0)) * 10) / 10;
+          if (!d || !STAT_LABELS[k]) continue;
+          const [lb, unit] = STAT_LABELS[k];
+          chips.push(`<span class="cmp-chip ${d > 0 ? 'up' : 'down'}">${lb} ${d > 0 ? '▲+' + d : '▼' + d}${unit}</span>`);
+        }
+        if (chips.length) deltaHtml = `<div class="cmp-deltas">${chips.join('')}</div>`;
+      }
+      cmp = `<div class="cmp ${diff >= 0 ? 'up' : 'down'}">${cur ? (diff >= 0 ? `▲ 戰力比目前好 +${diff}` : `▼ 戰力比目前差 ${diff}`) : '▲ 空欄位'}</div>${deltaHtml}<div class="hint">雙擊或點擊按鈕裝備（舊裝備自動收入物理背包）</div>`;
     }
     return `<div class="iname" style="color:${R.color}"><span class="tier-tag" style="color:${ti.color}">${ti.tag}</span>${it.name}</div><div class="ibase">${ti.name} · ${R.name} · ${SLOTS[it.slot].name} · ${it.base} · 戰力 ${itemScore(it)}</div><div class="sep"></div>${lines}${cmp}`;
   }

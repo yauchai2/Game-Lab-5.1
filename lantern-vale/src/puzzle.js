@@ -489,6 +489,53 @@ export function bindPuzzleUI(g) {
       }
     }
 
+    // Phase U2：SVG 發光邏輯電路連線（主動 ↔ 輔助／觸發橋接）
+    const svgNS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(svgNS, 'svg');
+    svg.setAttribute('class', 'pz-svg');
+    svg.setAttribute('viewBox', '0 0 291 291');
+    const seenEdges = new Set();
+    for (let y = 0; y < GRID; y++) {
+      for (let x = 0; x < GRID; x++) {
+        const a = occ.get(x + ',' + y);
+        if (!a) continue;
+        const aAct = !!ACTIVE_GEMS[a.id], aSup = !!SUPPORT_GEMS[a.id];
+        for (const [nx, ny] of [[x + 1, y], [x, y + 1]]) {
+          if (nx >= GRID || ny >= GRID) continue;
+          const b = occ.get(nx + ',' + ny);
+          if (!b || b.uid === a.uid) continue;
+          const bAct = !!ACTIVE_GEMS[b.id], bSup = !!SUPPORT_GEMS[b.id];
+          if (!((aAct && bSup) || (aSup && bAct))) continue;
+          const edgeKey = `${x},${y}-${nx},${ny}`;
+          if (seenEdges.has(edgeKey)) continue;
+          seenEdges.add(edgeKey);
+          const supId = aSup ? a.id : b.id;
+          const stroke = supId === 'coh' ? '#62e8ff' : supId === 'coc' ? '#ff7ad8' : '#ffd85a';
+          const x1 = 6 + x * 47 + 22, y1 = 6 + y * 47 + 22;
+          const x2 = 6 + nx * 47 + 22, y2 = 6 + ny * 47 + 22;
+          const glow = document.createElementNS(svgNS, 'line');
+          glow.setAttribute('x1', x1); glow.setAttribute('y1', y1);
+          glow.setAttribute('x2', x2); glow.setAttribute('y2', y2);
+          glow.setAttribute('stroke', stroke); glow.setAttribute('stroke-width', '7');
+          glow.setAttribute('stroke-linecap', 'round'); glow.setAttribute('opacity', '0.32');
+          svg.append(glow);
+          const line = document.createElementNS(svgNS, 'line');
+          line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+          line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+          line.setAttribute('stroke', stroke); line.setAttribute('stroke-width', '3');
+          line.setAttribute('stroke-linecap', 'round');
+          svg.append(line);
+          for (const [px, py] of [[x1, y1], [x2, y2]]) {
+            const dot = document.createElementNS(svgNS, 'circle');
+            dot.setAttribute('cx', px); dot.setAttribute('cy', py); dot.setAttribute('r', '3.5');
+            dot.setAttribute('fill', '#fff8e6'); dot.setAttribute('stroke', stroke); dot.setAttribute('stroke-width', '1.8');
+            svg.append(dot);
+          }
+        }
+      }
+    }
+    gridEl.append(svg);
+
     // Tabs visibility
     modal.querySelectorAll('[data-pztab]').forEach(b => b.classList.toggle('on', b.dataset.pztab === modeTab));
     modal.querySelectorAll('[data-pzflt]').forEach(b => b.classList.toggle('on', b.dataset.pzflt === gemFilter));
