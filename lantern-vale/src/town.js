@@ -207,10 +207,56 @@ function picketFence(len = 3.2) {
   g.add(M(P));
   return g;
 }
+// ---- 新建築：公會大廳、燈塔、魚攤、祭壇石台、牧場圍欄 ----
+function buildGuildHall() {
+  const g = buildCottage(0x58a0e0, 0xf6ebd0, 5.2, 4.2, 2);
+  const p = [];
+  for (const sx of [-1.6, 1.6]) p.push(part(new THREE.CylinderGeometry(0.06, 0.08, 2.2, 5), 0x5a3a28, sx, 4.6, 2.5), B(0.7, 1.2, 0.05, 0x3f78b8, sx + 0.38, 5.0, 2.5), B(0.3, 0.3, 0.06, 0xffd24a, sx + 0.38, 5.15, 2.53));
+  p.push(B(1.6, 0.5, 0.1, 0x7a4a33, 0, 1.95, 2.25), B(1.3, 0.3, 0.06, 0xffe7a0, 0, 1.95, 2.31));
+  g.add(M(p)); return g;
+}
+function lighthouse() {
+  const g = new THREE.Group(), p = [];
+  p.push(part(new THREE.CylinderGeometry(1.9, 2.1, 0.6, 10), 0x9a948a, 0, 0.3, 0));
+  for (let k = 0; k < 5; k++) p.push(part(new THREE.CylinderGeometry(1.25 - k * 0.12, 1.37 - k * 0.12, 1.4, 10), k % 2 ? 0xe0553c : 0xf8f2e6, 0, 1.3 + k * 1.4, 0));
+  p.push(part(new THREE.CylinderGeometry(1.0, 1.0, 0.18, 10), 0x5a3a28, 0, 8.0, 0), part(new THREE.CylinderGeometry(0.62, 0.62, 1.0, 8), 0xfff0b0, 0, 8.6, 0), part(new THREE.ConeGeometry(0.85, 0.9, 8), 0xe0553c, 0, 9.55, 0));
+  p.push(B(0.7, 1.1, 0.1, 0x7a4a33, 0, 1.15, 1.32));
+  g.add(M(p)); g.userData.top = 10.5; return g;
+}
+function fishStall() {
+  const g = new THREE.Group(), p = [B(2.2, 0.8, 1.0, 0x8a5a3b, 0, 0.4, 0), B(2.0, 0.08, 0.8, 0xbfe4f0, 0, 0.84, 0)];
+  for (let i = 0; i < 4; i++) p.push(B(0.42, 0.1, 0.16, [0x7ab0c8, 0xe89a6a, 0x9ab8c8, 0xf0b070][i], -0.7 + i * 0.46, 0.92, 0.05, 0, 0.3, 0));
+  for (const sx of [-1, 1]) p.push(B(0.1, 2.0, 0.1, 0x6a4a32, sx, 1.0, -0.45));
+  p.push(B(2.4, 0.1, 1.3, 0x3f78b8, 0, 2.0, -0.05, 0.25, 0, 0), B(2.4, 0.1, 0.4, 0xf8f2e6, 0, 1.86, 0.55, 0.25, 0, 0));
+  g.add(M(p)); return g;
+}
+function altarStage() {
+  const g = new THREE.Group(), p = [];
+  p.push(B(5.0, 0.5, 5.0, 0xb8b0a2, 0, 0.25, 0), B(4.2, 0.5, 4.2, 0xcac2b4, 0, 0.75, 0));
+  for (let k = 0; k < 2; k++) p.push(B(1.8, 0.25, 0.5, 0xd8d0c2, 0, 0.12 + k * 0.5, 2.75 - k * 0.42));
+  for (const [x, z] of [[-1.8, -1.8], [1.8, -1.8], [-1.8, 1.8], [1.8, 1.8]]) p.push(B(0.42, 1.8, 0.42, 0xe8e0d0, x, 1.9, z), B(0.6, 0.18, 0.6, 0xd8d0c2, x, 2.85, z));
+  g.add(M(p)); return g;
+}
+function fenceRing(rad = 3.2) {
+  const g = new THREE.Group(), p = [], n = 22;
+  for (let i = 0; i < n; i++) { if (i === 5 || i === 6) continue; const a = i / n * 6.283, x = Math.cos(a) * rad, z = Math.sin(a) * rad; p.push(B(0.12, 0.8, 0.12, 0xf2e4cc, x, 0.4, z)); const a2 = (i + 0.5) / n * 6.283, L = 2 * rad * Math.sin(Math.PI / n); p.push(B(L, 0.09, 0.06, 0xdec8a4, Math.cos(a2) * rad, 0.6, Math.sin(a2) * rad, 0, -a2 + Math.PI / 2, 0), B(L, 0.09, 0.06, 0xdec8a4, Math.cos(a2) * rad, 0.3, Math.sin(a2) * rad, 0, -a2 + Math.PI / 2, 0)); }
+  g.add(M(p)); return g;
+}
+function crates() { return M([barrel(0, 0), barrel(0.65, 0.15), crate(0.3, 0.75, 0.55), crate(0.3, 0.75, 0.45, 0.55), crate(-0.6, 0.6, 0.5)]); }
+function fishingNet() { const g = new THREE.Group(); g.add(M([B(0.1, 1.6, 0.1, 0x6a4a32, -1, 0.8, 0), B(0.1, 1.6, 0.1, 0x6a4a32, 1, 0.8, 0), B(2.1, 0.08, 0.08, 0x6a4a32, 0, 1.55, 0), B(1.9, 1.0, 0.03, 0xcfc0a0, 0, 1.0, 0)])); return g; }
+
+// 燈谷鎮（依規劃重做）：中央廣場＋南北主街＋東西橫街；北冒險者台地、東北祭壇、西生活區、東工匠街、南碼頭、西南牧場
+export const TOWN_LAYOUT = {
+  board: [-5.2, -5.2], stash: [5.2, -5.2], mapTable: [-3.4, -11], guild: [-9, -12.5], altar: [9, -12.5],
+  tavern: [-14, -5.5], home: [-14, 6.5], wardrobe: [-11.3, 9.2], well: [-9.2, 5.2],
+  forge: [14, -5.5], market: [13.2, 3.4], pasture: [-12, 14.5], lighthouse: [15, 18],
+};
 export function buildTownScenery({ gh, rng }) {
-  const g = new THREE.Group(), obstacles = [], chimneys = [], r = rng || Math.random;
+  const g = new THREE.Group(), obstacles = [], chimneys = [], r = rng || Math.random, L = TOWN_LAYOUT;
+  const PX = Math.PI / 2;
   const place = (o, x, z, ry = 0, obs = 0, yoff = 0) => { o.position.set(x, gh(x, z) + yoff, z); o.rotation.y = ry; g.add(o); if (obs) obstacles.push({ x, z, r: obs, h: 0 }); if (o.userData.chimney) { const c = o.userData.chimney, cs = Math.cos(ry), sn = Math.sin(ry); chimneys.push({ x: x + c[0] * cs + c[2] * sn, y: o.position.y + c[1], z: z - c[0] * sn + c[2] * cs }); } return o; };
-  // ---- 石板廣場：灰泥底＋同心石環＋八角護欄 ----
+  const boxObs = (x, z, w, d) => { const n = Math.max(1, Math.round(Math.max(w, d) / Math.min(w, d))); for (let i = 0; i < n; i++) { const t = (i + 0.5) / n - 0.5; obstacles.push(w > d ? { x: x + t * w, z, r: d * 0.55, h: 0 } : { x, z: z + t * d, r: w * 0.55, h: 0 }); } };
+  // ---- 鋪面 ----
   const stones = [], tone = [0xd9cdb4, 0xcabda3, 0xe4d8c0, 0xbfb299, 0xd2c6ac];
   const g0 = gh(0, 0);
   const stone = (x, z, s = 0.62) => { const y = gh(x, z) + 0.05; stones.push(part(new THREE.BoxGeometry(s * (0.8 + r() * 0.3), 0.08, s * (0.8 + r() * 0.3)), tone[(r() * tone.length) | 0], x, y, z, 0, r() * 3.14, 0)); };
@@ -218,47 +264,56 @@ export function buildTownScenery({ gh, rng }) {
   for (let rad = 3.5; rad < 7.6; rad += 0.56) { const n = Math.round(rad * 6.283 / 0.66); for (let i = 0; i < n; i++) { const aa = (i + (rad * 3 % 1)) / n * 6.283; stone(Math.cos(aa) * rad, Math.sin(aa) * rad, 0.6); } }
   stones.push(part(new THREE.CylinderGeometry(3.45, 3.45, 0.09, 8), 0xe8dec6, 0, g0 + 0.06, 0));
   for (let i = 0; i < 8; i++) { const aa = i / 8 * 6.283 + 0.3927, rr = 3.3; stones.push(B(2.5, 0.42, 0.55, 0xf0e6cf, Math.cos(aa) * rr, g0 + 0.2, Math.sin(aa) * rr, 0, -aa - 1.5708, 0)); }
-  const path = (x0, z0, x1, z1, wd = 1.5) => { const L = Math.hypot(x1 - x0, z1 - z0), n = Math.ceil(L / 0.75); for (let i = 0; i <= n; i++) { const t = i / n, x = x0 + (x1 - x0) * t, z = z0 + (z1 - z0) * t, nx = -(z1 - z0) / L, nz = (x1 - x0) / L; for (let k = -1; k <= 1; k++) { if (Math.abs(k) * 0.62 > wd / 2 + 0.1) continue; stone(x + nx * k * 0.62 + (r() - .5) * .12, z + nz * k * 0.62 + (r() - .5) * .12, 0.58); } } };
-  path(0, -7.6, 0, -17, 2.0); path(7.6, 0, 17, 1, 1.6); path(-7.6, 0, -14, 0, 1.6); path(0, 7.6, 0, 18, 1.6);
+  // 主街（整齊石板，4 公尺寬）＋橫街（3 公尺）
+  const street = (x0, z0, x1, z1, wd) => { const len = Math.hypot(x1 - x0, z1 - z0), n = Math.ceil(len / 0.62), m = Math.round(wd / 0.62); const ux = (x1 - x0) / len, uz = (z1 - z0) / len; for (let i = 0; i <= n; i++) for (let k = 0; k < m; k++) { const off = (k - (m - 1) / 2) * 0.62 + (i % 2) * 0.12; const x = x0 + ux * i * 0.62 - uz * off, z = z0 + uz * i * 0.62 + ux * off; const y = gh(x, z) + 0.05; stones.push(B(0.56, 0.08, 0.56, tone[(r() * tone.length) | 0], x, y, z, 0, Math.atan2(ux, uz), 0)); } };
+  street(0, -7.4, 0, -18.5, 4.0); street(0, 7.4, 0, 19.2, 4.0); street(-7.4, 0, -17, 0, 3.0); street(7.4, 0, 17, 0, 3.0);
+  // 小巷（圓卵石）：酒館露天座、家門口、魚攤
+  const lane = (x0, z0, x1, z1) => { const len = Math.hypot(x1 - x0, z1 - z0), n = Math.ceil(len / 0.7); for (let i = 0; i <= n; i++) { const t = i / n; for (const o of [-0.45, 0.45]) stone(x0 + (x1 - x0) * t + (r() - 0.5) * 0.2 + o * (z1 !== z0 ? 1 : 0), z0 + (z1 - z0) * t + o * (z1 === z0 ? 1 : 0), 0.5); } };
+  lane(-10.5, 0, -10.5, 6.5); lane(10.5, 0, 10.5, -5.5); lane(0, 14, 5, 14);
   g.add(M(stones));
-  // ---- 噴泉＋中央（沿用原噴泉在 game.js） ----
-  // ---- 建築 ----
-  place(buildTavern(), -13.5, -8, faceCenter(-13.5, -8) + 0.15, 3.4);
-  obstacles.push({ x: -15.5, z: -9, r: 2.2, h: 0 }, { x: -11.5, z: -7, r: 2.2, h: 0 });
-  const homes = [[13, -10, 0xf06048, 0xf6ebd0, 3.8, 3.2, 2], [17.5, 2, 0x58a0e0, 0xf6ebd0, 3.4, 3.0, 1], [-16.5, 3, 0xffb840, 0xf6ebd0, 3.4, 3.0, 2], [-12, 13, 0x5aae60, 0xf6ebd0, 3.4, 3.0, 1], [12.5, 13, 0xf06048, 0xf6ebd0, 3.2, 2.8, 1], [18, -7, 0x58a0e0, 0xf6ebd0, 3.2, 2.8, 1]];
-  homes.forEach(([x, z, roof, wall, w, d, fl]) => place(buildCottage(roof, wall, w, d, fl), x, z, faceCenter(x, z), Math.max(w, d) * 0.62));
-  place(buildTable(0xf06048), -8.6, -2.6, 0, 1.0); place(buildTable(0x58a0e0), -12.4, -2.4, 0, 1.0);
-  // ---- 市集 ----
-  [[9.5, 3.8, 0xf06048, -0.8], [11.6, -0.2, 0x58a0e0, -1.2]].forEach(([x, z, c, ry]) => place(stall(c), x, z, ry, 1.5));
-  place(M([barrel(0, 0), barrel(0.6, 0.1), crate(0.3, 0.7, 0.55), crate(0.3, 0.7, 0.45, 0.55)]), 8, 6.8, 0.4, 0.9);
-  // ---- 花園 ----
-  const bed = (x, z, w, d) => { const p = [B(w, 0.22, d, 0xb0a89a, x, 0.11, z), B(w - 0.3, 0.26, d - 0.3, 0x6a8f3a, x, 0.13, z)]; for (let k = 0; k < 40; k++) p.push(part(new THREE.IcosahedronGeometry(0.08 + r() * 0.05, 0), [0xfff1f4, 0xffffff, 0xffe27a, 0xffb3c9][(r() * 4) | 0], x + (r() - .5) * (w - 0.6), 0.34, z + (r() - .5) * (d - 0.6))); const m = M(p); m.position.y = gh(x, z); g.add(m); obstacles.push({ x, z, r: Math.max(w, d) * 0.45, h: 0 }); };
-  bed(-6.5, 9, 3.4, 1.6); bed(-2.5, 11.5, 2.8, 1.5); bed(4, 10.5, 3.0, 1.6);
-  place(well(), -9.5, 7.5, 0, 1.1);
-  // ---- 水池與小橋 ----
-  const pond = new THREE.Mesh(new THREE.CylinderGeometry(3.0, 3.0, 0.1, 18), pondMat()); pond.scale.set(1.3, 1, 0.8); pond.position.set(1, gh(1, 15) + 0.08, 15); g.add(pond);
-  const rim = []; for (let a = 0; a < 6.283; a += 0.3) rim.push(part(new THREE.DodecahedronGeometry(0.35, 0), [0x9a948a, 0xb0a89a][(a * 3 | 0) % 2], 1 + Math.cos(a) * 3.9, 0.15, 15 + Math.sin(a) * 2.5)); const rm = M(rim); rm.position.y = gh(1, 15); g.add(rm);
-  place(bridge(5.0), 1, 15, 1.5708, 0, 0.0); obstacles.push({ x: -2.4, z: 15, r: 0.5, h: 0 });
-  // ---- 大門：旗幟與雕像 ----
-  place(banner(0xd9543a), -3.2, -15.5, 0, 0.3); place(banner(0xd9543a), 3.2 + 1.0, -15.5, Math.PI, 0.3);
-  // ---- 街燈、長椅、花盆、樹 ----
-  for (let i = 0; i < 8; i++) { if (i === 5 || i === 6) continue; const aa = (22.5 + 45 * i) * Math.PI / 180; place(lampPost(), Math.cos(aa) * 8.6, Math.sin(aa) * 8.6, 0, 0.25); }
+
+  // ---- 北：冒險者台地 ----
+  place(buildGuildHall(), L.guild[0], L.guild[1], PX, 0); boxObs(L.guild[0], L.guild[1], 4.8, 6.0);
+  place(banner(0xe0553c), -3.0, -17.2, 0, 0.3); place(banner(0xe0553c), 4.0, -17.2, Math.PI, 0.3);
+  // ---- 東北：祭壇石台 ----
+  place(altarStage(), L.altar[0], L.altar[1], 0, 0);
+  for (const [x, z] of [[-1.8, -1.8], [1.8, -1.8], [-1.8, 1.8], [1.8, 1.8]]) obstacles.push({ x: L.altar[0] + x, z: L.altar[1] + z, r: 0.35, h: 0 });
+  // ---- 西：生活區 ----
+  place(buildTavern(), L.tavern[0], L.tavern[1], PX, 0); boxObs(L.tavern[0], L.tavern[1], 4.6, 6.4);
+  place(buildTable(0xe0553c), -10.2, -8.6, 0, 1.0); place(buildTable(0x58a0e0), -10.2, -2.6, 0, 1.0);
+  place(well(), L.well[0], L.well[1], 0, 1.1);
+  const bed = (x, z, w, d) => { const p = [B(w, 0.22, d, 0xb0a89a, x, 0.11, z), B(w - 0.3, 0.26, d - 0.3, 0x6a8f3a, x, 0.13, z)]; for (let k = 0; k < 30; k++) p.push(part(new THREE.IcosahedronGeometry(0.08 + r() * 0.05, 0), [0xfff1f4, 0xffffff, 0xffe27a, 0xffb3c9][(r() * 4) | 0], x + (r() - .5) * (w - 0.6), 0.34, z + (r() - .5) * (d - 0.6))); const m = M(p); m.position.y = gh(x, z); g.add(m); boxObs(x, z, w, d); };
+  bed(-14.6, 10.6, 3.2, 1.4); bed(-4.2, 10, 1.6, 3.2); bed(4.2, 10, 1.6, 3.2);
+  place(picketFence(4.4), -14.2, 3.4, 0, 0); boxObs(-14.2, 3.4, 4.4, 0.3);
+  // ---- 東：工匠街 ----
+  place(buildCottage(0xe0553c, 0xf6ebd0, 4.2, 3.4, 1), 16.8, -5.5, -PX, 0); boxObs(16.8, -5.5, 3.6, 4.4);
+  [[11.6, 4.6, 0xe0553c], [14.8, 4.6, 0x58a0e0]].forEach(([x, z, c]) => place(stall(c), x, z, Math.PI, 1.4));
+  place(crates(), 16.6, 3.2, 0.4, 0.9);
+  // ---- 民宅：街道兩端與邊緣，門一律朝街 ----
+  const homes = [[-19, 0, PX, 0xffb840, 3.6, 3.2, 2], [19, 0, -PX, 0x58a0e0, 3.6, 3.2, 2], [15.5, -12, -PX, 0xe0553c, 3.6, 3.0, 2], [13, 10.5, -PX, 0x5aae60, 3.4, 3.0, 1], [-15.5, -12.5, PX, 0x5aae60, 3.2, 2.8, 1]];
+  homes.forEach(([x, z, ry, roof, w, d, fl]) => { place(buildCottage(roof, 0xf6ebd0, w, d, fl), x, z, ry, 0); boxObs(x, z, d + 0.4, w + 0.4); });
+  // ---- 南：碼頭區 ----
+  place(fishStall(), 5.2, 15.4, Math.PI, 1.3);
+  place(crates(), -3.6, 17.2, 0.2, 0.9); place(fishingNet(), -5.6, 15.2, 0.3, 0.6);
+  place(lighthouse(), L.lighthouse[0], L.lighthouse[1], 0, 2.2);
+  // ---- 西南：牧場 ----
+  place(fenceRing(3.4), L.pasture[0], L.pasture[1], 0, 0);
+  for (let i = 0; i < 22; i++) { if (i === 5 || i === 6) continue; const a = i / 22 * 6.283; obstacles.push({ x: L.pasture[0] + Math.cos(a) * 3.4, z: L.pasture[1] + Math.sin(a) * 3.4, r: 0.3, h: 0 }); }
+  // ---- 街燈：沿主街與橫街，兩側對稱 ----
+  [[-2.7, -11], [2.7, -11], [-2.7, -16], [2.7, -16], [-2.7, 11], [2.7, 11], [-2.7, 16.5], [2.7, 16.5], [-11.5, -2.2], [-11.5, 2.2], [11.5, -2.2], [11.5, 2.2]].forEach(([x, z]) => place(lampPost(), x, z, 0, 0.25));
+  // ---- 廣場：長椅、布告欄、倉庫、花盆 ----
   const spots = [];
-  [[-5.5, 3.5, 0.6], [5.5, 3.5, -0.6], [0, -5.2, 0], [-4.2, -3.8, 0.4]].forEach(([x, z]) => {
-    const ry = faceCenter(x, z);
-    place(bench(), x, z, ry, 0.65);
-    spots.push({ x, z, kind: 'sit', label: '坐下休憩（回復生命與法力）', top: 1.5, facing: ry });
-  });
-  spots.push({ x: -9.5, z: 7.5, kind: 'well_drink', label: '汲取甘泉（補滿蜜藥瓶）', top: 2.3 });
+  [[-5.6, 3.4], [5.6, 3.4], [-3.4, 5.6], [3.4, 5.6]].forEach(([x, z]) => { const ry = faceCenter(x, z); place(bench(), x, z, ry, 0.65); spots.push({ x, z, kind: 'sit', label: '坐下休憩（回復生命與法力）', top: 1.5, facing: ry }); });
+  [[-6.6, -2.4], [6.6, -2.4]].forEach(([x, z], i) => place(planter(0, 0, i ? [0xffd45a, 0xff8fb0] : [0xff8fb0, 0xffffff]), x, z, 0, 0.5));
+  spots.push({ x: L.well[0], z: L.well[1], kind: 'well_drink', label: '汲取甘泉（補滿蜜藥瓶）', top: 2.3 });
   spots.push({ x: 0, z: -1, kind: 'fountain_wish', label: '許願噴泉（投 1 金幣獲得祝福）', top: 2.3 });
-  [[-1.8, -16.5, [0xff8fb0, 0xffffff]], [1.8, -16.5, [0xffd45a, 0xff8fb0]]].forEach(([x, z, c]) => place(planter(0, 0, c), x, z, 0, 0.5));
-  // 統一的圓潤低多邊形樹（淺萊姆綠），後方高聳柏樹當背景
-  [[-19, -12], [19, 9], [-18, 12], [21, -3], [-20, 5], [-4, -21], [4, -21], [16, 15], [-15, 17], [-21, -4], [22, 5]].forEach(([x, z], i) => place(roundTree(1.05 + (i % 3) * 0.15), x, z, i, 0.6));
-  [[-7.5, -19], [7.5, -19], [-11, -17], [11, -17], [-23, 0], [-22, 10], [23, 12], [24, -8], [-8, 20], [9, 21]].forEach(([x, z], i) => place(cypress(1.3 + (i % 3) * 0.25), x, z, 0, 0.45));
-  place(blossom(), -17, -15, 0, 0.6); place(blossom(0xf7b0cf), 14, 16, 0, 0.6);
+  // ---- 植被：只在外圍與岩壁上（圓潤闊葉樹為主，柏樹當背景，2 棵櫻花點綴） ----
+  [[-20.5, -6], [-21, 6], [20.5, -7], [21, 6.5], [-17.5, 10.5], [17.5, 12.5], [-8, -17.5], [8.5, -18], [-12.5, -16.5], [13, -16.5], [-19, 13]].forEach(([x, z], i) => place(roundTree(1.0 + (i % 3) * 0.15), x, z, i, 0.6));
+  [[-5.5, -20.5], [5.5, -20.5], [-10, -20], [10.5, -20], [-15, -18.5], [16, -18.5], [-22, -1], [22.5, 0.5]].forEach(([x, z], i) => place(cypress(1.3 + (i % 3) * 0.25), x, z, 0, 0.45));
+  place(blossom(), -17.5, -8.5, 0, 0.6); place(blossom(0xf7b0cf), 9.5, 13.5, 0, 0.6);
   const spot = (o, x, z, ry, kind, label, rr = 1.1) => { place(o, x, z, ry, rr); spots.push({ x, z, kind, label, top: o.userData.top, o }); };
-  spot(buildBoard(), -4.5, 6.8, faceCenter(-4.5, 6.8), 'quest', '任務布告欄', 1.2);
-  spot(buildForge(), 12.5, -3.5, faceCenter(12.5, -3.5), 'forge', '鐵匠鋪', 1.5);
-  spot(buildMapTable(), 2.8, -10.5, 0, 'map', '出發地圖桌', 1.2);
+  spot(buildBoard(), L.board[0], L.board[1], faceCenter(L.board[0], L.board[1]), 'quest', '任務布告欄', 1.2);
+  spot(buildForge(), L.forge[0], L.forge[1], -PX, 'forge', '鐵匠鋪', 1.5);
+  spot(buildMapTable(), L.mapTable[0], L.mapTable[1], 0, 'map', '出發地圖桌', 1.2);
   return { group: g, obstacles, chimneys, spots };
 }

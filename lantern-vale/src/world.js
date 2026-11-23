@@ -311,6 +311,13 @@ export class World {
         if (v > 0.6) t = 2;
         if (v > 0.72) t = 3;
       }
+      // 燈谷鎮：北半部環抱的橫紋岩壁（山谷港鎮），北門留缺口
+      if (t === 1 && opts.town && z < 5) {
+        const gap = Math.abs(x) < 3.8 && z < -9;
+        const rim = rr + (N.fbm(x * 0.18 + 21, z * 0.18) - 0.5) * 0.06 + Math.max(0, z) * 0.012;
+        if (!gap && rim > 0.79) t = 2;
+        if (!gap && rim > 0.88 && z < -2) t = 3;
+      }
       T[k] = t;
     }
     const walk = this.walk;
@@ -575,11 +582,11 @@ export class World {
         else bushes.push({ x, y, z, s: 0.85 + r() * 0.65, ry: r() * 6 });
       } else if (t === 1 && rr < 1.0) {
         const isW = walk[k];
-        if (opts.town && Math.hypot(x, z) < 16) continue;
+        if (opts.town && Math.hypot(x, z) < 20) continue;
         if (opts.raid && Math.hypot(x, z) < 8) continue;
         if (isW && (nearExitOrSpawn(x, z, 3.8) || nearPath(x, z, 1.8))) continue;
         const roll = r();
-        if (!isW && rr > 0.95) { if (roll < 0.22) rocks.push({ x, y: y - 0.1, z, s: 0.6 + r() * 0.85, ry: r() * 6 }); continue; }
+        if (!isW && rr > 0.95) { if (opts.town && Math.abs(x) < 4.5 && z > 12) continue; if (roll < 0.22) rocks.push({ x, y: y - 0.1, z, s: 0.6 + r() * 0.85, ry: r() * 6 }); continue; }
         if (roll < treeRate && !occupied(x, z, 1.3)) {
           const s = 0.8 + r() * 0.7;
           const isPine = r() < pineBias;
@@ -630,7 +637,7 @@ export class World {
       const cnt = 3 + Math.floor(r() * 6);
       for (let m = 0; m < cnt; m++) {
         const x = cx + (r() - 0.5) * 2, z = cz + (r() - 0.5) * 2;
-        if (opts.town && (Math.hypot(x, z) < 14.5 || Math.hypot(x + 4.5, z - 12.5) < 6.0)) continue;
+        if (opts.town && Math.hypot(x, z) < 19) continue;
         const kk = this.idx(x, z); if (kk < 0 || T[kk] === 0 || RR[kk] > 0.97) continue;
         // skip cliff faces
         if (Math.abs(H[kk] - H[kk + 1]) > 0.5 || Math.abs(H[kk] - H[kk + GW]) > 0.5) continue;
@@ -640,7 +647,7 @@ export class World {
       }
     }
     // lantern posts along paths (cozy landmark + light source fiction)
-    for (const [p0, p1] of paths) {
+    if (!opts.town) for (const [p0, p1] of paths) {
       const L = Math.hypot(p1.x - p0.x, p1.z - p0.z);
       for (let d = 3; d < L - 2; d += 5.5) {
         const t2 = d / L, side = (Math.floor(d) % 2 ? 1 : -1) * 1.5;
