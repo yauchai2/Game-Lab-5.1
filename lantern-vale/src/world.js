@@ -652,14 +652,14 @@ export class World {
       }
     }
     instAsset('pine', pineT[0], pines[0], { k: 0.7, wind: [0.20, 0.7, 2.4], tint: P.pine[0], tintMix: P.key === 'snow' ? 0.65 : 0.45 });
-    instAsset('pine', pineT[1], pines[1], { k: 0.7, wind: [0.20, 0.7, 2.4], tint: P.pine[1] ?? P.pine[0], tintMix: P.key === 'snow' ? 0.65 : 0.45 });
-    rounds.forEach((l, i) => instAsset('tree', roundT[i], l, { k: 0.7, wind: [0.24, 0.8, 2.2], tint: P.leaf[i], tintMix: P.key === 'meadow' ? 0.32 : 0.58 }));
+    instAsset('pine2', pineT[1], pines[1], { k: 0.7, wind: [0.20, 0.7, 2.4], tint: P.pine[1] ?? P.pine[0], tintMix: P.key === 'snow' ? 0.65 : 0.45 });
+    rounds.forEach((l, i) => instAsset(['tree', 'tree2', 'tree3'][i], roundT[i], l, { k: 0.7, wind: [0.24, 0.8, 2.2], tint: P.leaf[i], tintMix: P.key === 'meadow' ? 0.32 : 0.58 }));
     inst(birchT, birches, { k: 0.72, wind: [0.26, 0.8, 2.2] });
     const rocksA = rocks.filter((_, i) => i % 2 === 0), rocksB = rocks.filter((_, i) => i % 2 === 1);
     instAsset('rock1', rockGeo(P, r), rocksA, { rockTint: P.rock });
-    instAsset('rock2', rockGeo(P, r), rocksB, { rockTint: P.rockDark });
+    instAsset('rock3', rockGeo(P, r), rocksB, { rockTint: P.rock });
     instAsset('bush', bushGeo(P, r), bushes, { k: 0.8, wind: [0.18, 0.08, 0.75], tint: P.leaf[0], tintMix: 0.35 });
-    inst(grassGeo(P.grassDark), grass, { cast: false, wind: [0.32, 0.0, 0.42] });
+    instAsset('tuft', grassGeo(P.grassDark), grass, { cast: false, wind: [0.32, 0.0, 0.42], tint: P.grassDark, tintMix: 0.5 });
     instAsset('fern', grassGeo(P.leaf[0]), grass2, { cast: false, wind: [0.30, 0.0, 0.48], tint: P.leaf[0], tintMix: 0.38 });
     instAsset('flower', flowerGeo(), flowers, { cast: false, wind: [0.24, 0.0, 0.35] });
     instAsset('shroom', mushroomGeo(), shrooms);
