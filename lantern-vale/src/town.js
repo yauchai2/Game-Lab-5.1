@@ -1,7 +1,7 @@
 // 燈谷鎮場景：石板廣場、酒館、山牆小屋、市集、花園、水池與小橋、雕像與旗幟
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { part, toonMat, windMat } from './world.js';
+import { part, toonMat, windMat, pondMat } from './world.js';
 
 const M = (parts, opts = {}) => { const m = new THREE.Mesh(mergeGeometries(parts), opts.wind ? windMat({ vertexColors: true }, opts.wind) : toonMat({ vertexColors: true, ...opts })); m.castShadow = true; m.receiveShadow = true; return m; };
 const B = (w, h, d, c, x, y, z, rx = 0, ry = 0, rz = 0) => part(new THREE.BoxGeometry(w, h, d), c, x, y, z, rx, ry, rz);
@@ -205,7 +205,7 @@ export function buildTownScenery({ gh, rng }) {
   bed(-6.5, 9, 3.4, 1.6); bed(-2.5, 11.5, 2.8, 1.5); bed(4, 10.5, 3.0, 1.6);
   place(well(), -9.5, 7.5, 0, 1.1);
   // ---- 水池與小橋 ----
-  const pond = new THREE.Mesh(new THREE.CylinderGeometry(3.0, 3.0, 0.1, 18), new THREE.MeshBasicMaterial({ color: 0x59b8e6 })); pond.scale.set(1.3, 1, 0.8); pond.position.set(1, gh(1, 15) + 0.08, 15); g.add(pond);
+  const pond = new THREE.Mesh(new THREE.CylinderGeometry(3.0, 3.0, 0.1, 18), pondMat()); pond.scale.set(1.3, 1, 0.8); pond.position.set(1, gh(1, 15) + 0.08, 15); g.add(pond);
   const rim = []; for (let a = 0; a < 6.283; a += 0.3) rim.push(part(new THREE.DodecahedronGeometry(0.35, 0), [0x9a948a, 0xb0a89a][(a * 3 | 0) % 2], 1 + Math.cos(a) * 3.9, 0.15, 15 + Math.sin(a) * 2.5)); const rm = M(rim); rm.position.y = gh(1, 15); g.add(rm);
   place(bridge(5.0), 1, 15, 1.5708, 0, 0.0); obstacles.push({ x: -2.4, z: 15, r: 0.5, h: 0 });
   // ---- 大門：旗幟與雕像 ----

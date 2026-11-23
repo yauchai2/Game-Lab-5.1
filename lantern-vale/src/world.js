@@ -202,6 +202,32 @@ function logGeo(P) {
 }
 
 // ---------- World ----------
+
+// 小池塘（城鎮用）：A Short Hike 式水面——淺色中心、白色泡沫邊、等高線與 voronoi 網
+export function pondMat() {
+  return new THREE.ShaderMaterial({
+    uniforms: { uTime: windU.uTime },
+    vertexShader: 'varying vec3 vL; varying vec3 vW; void main(){ vL = position; vec4 w = modelMatrix*vec4(position,1.0); vW = w.xyz; gl_Position = projectionMatrix*viewMatrix*w; }',
+    fragmentShader: `uniform float uTime; varying vec3 vL; varying vec3 vW;
+      float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+      float noise(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix(hash(i),hash(i+vec2(1,0)),f.x), mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x), f.y); }
+      vec2 h22(vec2 p){ return fract(sin(vec2(dot(p,vec2(127.1,311.7)),dot(p,vec2(269.5,183.3))))*43758.5453); }
+      float vor(vec2 p, float t){ vec2 g=floor(p), f=fract(p); float d1=8.0,d2=8.0; for(int j=-1;j<=1;j++) for(int i=-1;i<=1;i++){ vec2 o=vec2(float(i),float(j)); vec2 r=h22(g+o); r=0.5+0.45*sin(t+6.2831*r); float d=length(o+r-f); if(d<d1){d2=d1;d1=d;} else if(d<d2){d2=d;} } return d2-d1; }
+      void main(){
+        float r = length(vL.xz) / 3.0;
+        float wob = (noise(vW.xz*1.6 + uTime*0.3) - 0.5) * 0.10;
+        vec3 shallow = vec3(0.36,0.80,0.88), deep = vec3(0.16,0.52,0.80);
+        vec3 col = mix(shallow, deep, step(0.55 + wob, 1.0 - r) * 0.8 + step(0.30 + wob, 1.0 - r) * 0.2);
+        float n = noise(vW.xz*0.9 + uTime*0.05); float l = abs(fract(n*4.0)-0.5);
+        col = mix(col, vec3(0.62,0.90,0.97), (1.0-smoothstep(0.04,0.08,l))*0.5);
+        float v = 1.0 - smoothstep(0.03, 0.10, vor(vW.xz*1.1 + vec2(uTime*0.03,0.0), uTime*0.5));
+        col = mix(col, vec3(0.92,0.99,1.0), v * step(0.22, 1.0 - r) * 0.45);
+        col = mix(col, vec3(1.0,0.99,0.95), step(0.91 + wob, r));
+        gl_FragColor = vec4(col, 1.0);
+      }`,
+  });
+}
+
 export class World {
   constructor(scene) {
     this.scene = scene; this.half = HALF; this.res = RES;
@@ -457,18 +483,22 @@ export class World {
           float isDirt = smoothstep(0.05, 0.16, diffuseColor.r - diffuseColor.b) * (1.0 - isG);
           // 像素手繪質感：草葉細點與泥土碎石點綴（告別大三角平滑單調感）
           vec2 pixCell = floor(vGW.xz * 3.4);
-          float tuft = step(0.84, gh2(pixCell)) * 0.085 - step(gh2(pixCell + 19.3), 0.14) * 0.055;
+          float tuft = step(0.92, gh2(pixCell)) * 0.06 - step(gh2(pixCell + 19.3), 0.07) * 0.04;
           float peb = (step(0.86, gh2(pixCell * 1.3 + 5.1)) * 0.09 - step(gh2(pixCell * 1.3 + 13.7), 0.14) * 0.07) * isDirt;
           // 隨風草浪
           vec2 gp = vGW.xz * 0.09 - vec2(0.82, 0.48) * uTime * 0.22;
           float gn = gn2(gp) * 0.65 + gn2(gp * 2.3 + 7.0) * 0.35;
           float band = step(0.60, gn) * 0.10 - step(gn, 0.30) * 0.06;
-          // 陽光與冷青藍雲影對比（致敬 Pin on Vibe 與手繪像素風格）
-          vec2 cp = vGW.xz * 0.028 - vec2(0.7, 0.45) * uTime * 0.055;
-          float cn = gn2(cp) * 0.65 + gn2(cp * 2.1 + 3.4) * 0.35;
-          float cloudShade = smoothstep(0.53, 0.72, cn);
+          // 硬邊草地色塊（致敬 8bit 參考：亮綠底＋深綠大斑塊＋小花點）
+          vec2 bp = floor(vGW.xz * 2.0) / 2.0;
+          float blob = step(0.54, gn2(bp * 0.16 + 11.0) * 0.6 + gn2(bp * 0.42 + 3.0) * 0.4);
+          float blobL = step(0.70, gn2(bp * 0.23 + 40.0) * 0.6 + gn2(bp * 0.7) * 0.4);
+          float fl = step(0.985, gh2(floor(vGW.xz * 2.6) + 7.7));
           vec3 baseCol = diffuseColor.rgb * (1.0 + (band * uWindStr + tuft) * isG + peb);
-          diffuseColor.rgb = mix(baseCol * vec3(1.03, 1.02, 0.98), baseCol * vec3(0.78, 0.88, 0.97), cloudShade * 0.46);`);
+          baseCol = mix(baseCol, baseCol * vec3(0.62, 0.86, 0.80), blob * isG * 1.0);
+          baseCol = mix(baseCol, baseCol * vec3(1.10, 1.08, 0.86), blobL * isG * (1.0 - blob));
+          baseCol = mix(baseCol, vec3(0.97, 0.86, 0.95), fl * isG * 0.9);
+          diffuseColor.rgb = baseCol;`);
     };
     const terrain = new THREE.Mesh(tg, tmat);
     terrain.receiveShadow = true; terrain.castShadow = true;
@@ -485,7 +515,7 @@ export class World {
       const mtx = new THREE.Matrix4(), q4 = new THREE.Quaternion(), e = new THREE.Euler(), s = new THREE.Vector3(), p = new THREE.Vector3();
       list.forEach((it, idx) => {
         e.set(it.rx || 0, it.ry || 0, it.rz || 0); q4.setFromEuler(e);
-        s.set(it.s, it.sy ?? it.s, it.s); p.set(it.x, it.y, it.z);
+        { const kk2 = opts2.k ?? 1; s.set(it.s * kk2, (it.sy ?? it.s) * kk2, it.s * kk2); } p.set(it.x, it.y, it.z);
         mtx.compose(p, q4, s); m.setMatrixAt(idx, mtx);
         if (it.c !== undefined) m.setColorAt(idx, new THREE.Color(it.c));
       });
@@ -504,7 +534,7 @@ export class World {
         m.userData.sharedGeo = true;
         list.forEach((it, idx) => {
           e.set(it.rx || 0, it.ry || 0, it.rz || 0); q4.setFromEuler(e);
-          s.set(it.s, it.sy ?? it.s, it.s); p.set(it.x, it.y, it.z);
+          { const kk2 = opts2.k ?? 1; s.set(it.s * kk2, (it.sy ?? it.s) * kk2, it.s * kk2); } p.set(it.x, it.y, it.z);
           mtx.compose(p, q4, s); m.setMatrixAt(idx, mtx);
         });
         m.castShadow = opts2.cast !== false; m.receiveShadow = true;
@@ -525,7 +555,7 @@ export class World {
 
     const areaScale = Math.max(1, (this.half / 30) * 1.4);
     const propTries = Math.min(6800, Math.round(2600 * areaScale));
-    const treeRate = opts.size >= 200 ? 0.11 : 0.045;
+    const treeRate = opts.size >= 200 ? 0.055 : 0.03;
     for (let tries = 0; tries < propTries; tries++) {
       const x = rand(r, -this.half + 1, this.half - 1), z = rand(r, -this.half + 1, this.half - 1);
       const k = this.idx(x, z); if (k < 0) continue;
@@ -534,7 +564,7 @@ export class World {
         // dense canopy on plateaus — only on flat tops
         const kk = [k + 1, k - 1, k + GW, k - GW, k + 2, k - 2, k + 2 * GW, k - 2 * GW];
         if (kk.some(q2 => T[q2] !== t)) continue;
-        if (r() < 0.78) {
+        if (r() < 0.5) {
           const s = 0.75 + r() * 0.65;
           const isPine = r() < pineBias;
           if (isPine) pines[Math.floor(r() * 2)].push({ x, y, z, s, ry: r() * 6 });
@@ -570,7 +600,7 @@ export class World {
     }
     // 聚落式森林群組（Art-directed Forest Groves：每群 4~7 棵樹＋白樺楓紅點綴＋林下灌木與野花，消除空曠感）
     if (!opts.town && !opts.raid) {
-      const groveCount = Math.min(54, Math.round(18 * areaScale));
+      const groveCount = Math.min(54, Math.round(9 * areaScale));
       for (let g = 0; g < groveCount; g++) {
         const gx = rand(r, -this.half + 5, this.half - 5), gz = rand(r, -this.half + 5, this.half - 5);
         const gk = this.idx(gx, gz); if (gk < 0 || !walk[gk]) continue;
@@ -621,14 +651,14 @@ export class World {
         this.obstacles.push({ x, z, r: 0.25, h: 0 });
       }
     }
-    instAsset('pine', pineT[0], pines[0], { wind: [0.20, 0.7, 2.4], tint: P.pine[0], tintMix: P.key === 'snow' ? 0.65 : 0.45 });
-    instAsset('pine', pineT[1], pines[1], { wind: [0.20, 0.7, 2.4], tint: P.pine[1] ?? P.pine[0], tintMix: P.key === 'snow' ? 0.65 : 0.45 });
-    rounds.forEach((l, i) => instAsset('tree', roundT[i], l, { wind: [0.24, 0.8, 2.2], tint: P.leaf[i], tintMix: P.key === 'meadow' ? 0.32 : 0.58 }));
-    inst(birchT, birches, { wind: [0.26, 0.8, 2.2] });
+    instAsset('pine', pineT[0], pines[0], { k: 0.7, wind: [0.20, 0.7, 2.4], tint: P.pine[0], tintMix: P.key === 'snow' ? 0.65 : 0.45 });
+    instAsset('pine', pineT[1], pines[1], { k: 0.7, wind: [0.20, 0.7, 2.4], tint: P.pine[1] ?? P.pine[0], tintMix: P.key === 'snow' ? 0.65 : 0.45 });
+    rounds.forEach((l, i) => instAsset('tree', roundT[i], l, { k: 0.7, wind: [0.24, 0.8, 2.2], tint: P.leaf[i], tintMix: P.key === 'meadow' ? 0.32 : 0.58 }));
+    inst(birchT, birches, { k: 0.72, wind: [0.26, 0.8, 2.2] });
     const rocksA = rocks.filter((_, i) => i % 2 === 0), rocksB = rocks.filter((_, i) => i % 2 === 1);
     instAsset('rock1', rockGeo(P, r), rocksA, { rockTint: P.rock });
     instAsset('rock2', rockGeo(P, r), rocksB, { rockTint: P.rockDark });
-    instAsset('bush', bushGeo(P, r), bushes, { wind: [0.18, 0.08, 0.75], tint: P.leaf[0], tintMix: 0.35 });
+    instAsset('bush', bushGeo(P, r), bushes, { k: 0.8, wind: [0.18, 0.08, 0.75], tint: P.leaf[0], tintMix: 0.35 });
     inst(grassGeo(P.grassDark), grass, { cast: false, wind: [0.32, 0.0, 0.42] });
     instAsset('fern', grassGeo(P.leaf[0]), grass2, { cast: false, wind: [0.30, 0.0, 0.48], tint: P.leaf[0], tintMix: 0.38 });
     instAsset('flower', flowerGeo(), flowers, { cast: false, wind: [0.24, 0.0, 0.35] });
@@ -919,7 +949,9 @@ export class World {
           float inside = step(0.0,uv.x)*step(uv.x,1.0)*step(0.0,uv.y)*step(uv.y,1.0);
           float d = mix(1.0, texture2D(uShore, uv).r, inside) * 8.0; // world units from shore
           float depthT = smoothstep(0.0, 6.0, d);
-          vec3 col = mix(uShallow, uDeep, depthT);
+          float wb0 = (noise(vW.xz*0.9+uTime*0.1)-0.5)*0.9;
+          float bandT = step(1.3+wb0, d) * 0.5 + step(3.6+wb0*1.4, d) * 0.5;
+          vec3 col = mix(uShallow, uDeep, bandT);
           // swirly contour lines (A Short Hike-like caustic doodles)
           vec2 p = vW.xz*0.16 + vec2(uTime*0.03, uTime*0.02);
           float n = fbm(p + fbm(p*1.3 - uTime*0.02)*1.2);
@@ -927,11 +959,11 @@ export class World {
           col = mix(col, uLine, (1.0-smoothstep(0.035,0.06,l))*0.55*(0.4+0.6*depthT));
           // shore foam: solid rim + travelling wave line
           float wob = (noise(vW.xz*1.7+uTime*0.4)-0.5)*0.25;
-          float rim = 1.0 - smoothstep(0.3, 0.48, d + wob);
+          float rim = 1.0 - smoothstep(0.62, 0.72, d + wob);
           float wave = fract(uTime*0.22);
           float wl = abs(d + wob - (0.45 + wave*1.3));
           float waveLine = (1.0 - smoothstep(0.05, 0.13, wl)) * (1.0-wave) * (1.0 - step(2.2, d));
-          float band2 = (1.0 - smoothstep(0.32, 0.5, d+wob)) * 0.35;
+          float band2 = (1.0 - smoothstep(0.9, 1.05, d+wob)) * 0.35;
           col = mix(col, uShallow*1.15, band2);
           col = mix(col, vec3(1.0,0.99,0.95), clamp(rim + waveLine*0.85, 0.0, 1.0));
           // shallow-water voronoi network + open-water ripple rings

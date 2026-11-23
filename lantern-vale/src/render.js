@@ -21,11 +21,11 @@ export class Pipeline {
         uNear: { value: 1 }, uFar: { value: 100 }, uInvVP: { value: new THREE.Matrix4() },
         uGrade: { value: new THREE.Vector3(1, 1, 1) }, uShaft: { value: new THREE.Vector3(1, 0.9, 0.6) }, uShaftK: { value: 1 },
         uCam: { value: new THREE.Vector3() }, uHurt: { value: 0 }, uFade: { value: 0 }, uSat: { value: 1.13 },
-        uOutline: { value: new THREE.Vector3(0.13, 0.14, 0.25) },
+        uOutline: { value: new THREE.Vector3(0.13, 0.14, 0.25) }, uCloud: { value: 1 },
       },
       vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.0,1.0); }`,
       fragmentShader: `
-        uniform sampler2D tColor, tDepth, tNormal; uniform vec2 uRes; uniform float uTime, uNear, uFar, uHurt, uFade, uSat, uShaftK;
+        uniform sampler2D tColor, tDepth, tNormal; uniform vec2 uRes; uniform float uTime, uNear, uFar, uHurt, uFade, uSat, uShaftK, uCloud;
         uniform mat4 uInvVP; uniform vec3 uGrade, uShaft, uCam, uOutline; varying vec2 vUv;
         float lin(float d){ float z=d*2.0-1.0; return 2.0*uNear*uFar/(uFar+uNear-z*(uFar-uNear)); }
         float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
@@ -50,11 +50,16 @@ export class Pipeline {
           // --- world position for cloud shadows
           vec4 ndc = vec4(vUv*2.0-1.0, d0*2.0-1.0, 1.0);
           vec4 wp = uInvVP*ndc; wp/=wp.w;
-          float cloud = fbm(wp.xz*0.045 + vec2(uTime*0.012, uTime*0.006));
-          float cs = smoothstep(0.52, 0.6, cloud);
-          col *= mix(1.0, 0.8, cs*step(d0,0.9999));
-          col = mix(col, col*1.12+0.02, crease*0.6*(1.0-edge));
-          col = mix(col, col*0.42 + uOutline*0.35, edge);
+          // 硬邊雲影：像素手繪風的大片冷色斑塊（二值化，不做柔邊），全場景一致
+          vec2 cwp = floor(wp.xz*3.0)/3.0;
+          float cloud = fbm(cwp*0.035 + vec2(uTime*0.010, uTime*0.005)) * 0.75 + noise(cwp*0.21 + 4.0 - uTime*0.01) * 0.25;
+          float cs = step(0.47, cloud) * step(d0, 0.9999) * uCloud;
+          vec3 shaded = col * vec3(0.52, 0.72, 0.98);
+          shaded = mix(vec3(dot(shaded, vec3(0.299,0.587,0.114))), shaded, 1.3);
+          col = mix(col, shaded, cs);
+          col = mix(col, col*1.10+0.015, crease*0.5*(1.0-edge));
+          // 輪廓：只暗化同色相，不用黑線（A Short Hike 幾乎無黑邊）
+          col = mix(col, col*vec3(0.58,0.60,0.74), edge*0.85);
           // --- light shafts (diagonal, parallax with camera)
           vec2 sp = vUv + uCam.xz*vec2(0.006,-0.004);
           float s = sp.x*0.9 + sp.y*0.55;
@@ -70,14 +75,15 @@ export class Pipeline {
           col *= uGrade;
           float lum = dot(col, vec3(0.299,0.587,0.114));
           col = mix(vec3(lum), col, uSat);
+          // 亮度分階（平塗感）：把明度量化成 9 階，保留色相
+          float Lq = floor(lum*9.0+0.5)/9.0; col *= clamp((Lq+0.02)/(lum+0.02), 0.78, 1.28);
           col = col*0.96 + vec3(0.02,0.012,0.03);
-          vec2 vc = vUv-0.5; float vig = 1.0 - dot(vc,vc)*0.55;
+          vec2 vc = vUv-0.5; float vig = 1.0 - dot(vc,vc)*0.22;
           col *= vig;
           col = mix(col, vec3(0.75,0.08,0.12), uHurt*smoothstep(0.15,0.6,length(vc)));
           col = mix(col, vec3(0.08,0.06,0.12), uFade);
           // gentle ordered dither to keep low-res gradients pixel-y
           float bayer = mod(floor(gl_FragCoord.x)+floor(gl_FragCoord.y)*2.0, 4.0)/4.0 - 0.375;
-          col += bayer/96.0;
           gl_FragColor = vec4(col, 1.0);
         }`,
       depthTest: false, depthWrite: false,

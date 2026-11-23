@@ -70,12 +70,12 @@ export const BIOMES = [
   {
     key: 'snow', name: '雪松高嶺',
     grass: 0xdfe9f8, grassLight: 0xf0f6ff, grassDark: 0xbccce6, plateau: 0xd4e0f4,
-    sand: 0xd0cfe2, sandWet: 0xaeafc8, dirt: 0xc0865a,
-    rock: 0x9896b2, rockDark: 0x72708c,
+    sand: 0xe6e2ee, sandWet: 0xc4c4dc, dirt: 0xc0865a,
+    rock: 0xc4c2de, rockDark: 0x9a98ba,
     pine: [0x386e60, 0x487e64, 0x2c5a52], leaf: [0x6e9a7c, 0xa0bcb0, 0x588870, 0xdce6f4],
     trunk: 0x784a3a, flower: [0xffffff, 0xc8e0ff, 0xffccde, 0xdcd4ff],
-    waterDeep: [0.11, 0.34, 0.64], waterShallow: [0.28, 0.66, 0.84], waterLine: [0.60, 0.84, 0.98],
-    sun: 0xfff8f0, sky: 0xb2c2f6, ground: 0xbcbade, ambient: 0.66, sunI: 0.98,
+    waterDeep: [0.20, 0.46, 0.74], waterShallow: [0.42, 0.76, 0.90], waterLine: [0.78, 0.92, 1.0],
+    sun: 0xfff8f0, sky: 0xdce4ff, ground: 0xe4dcf4, ambient: 0.92, sunI: 1.18,
     grade: [0.98, 0.99, 1.04], shaft: [0.92, 0.94, 1.0], fog: [0.90, 0.93, 0.99],
   },
   {

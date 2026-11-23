@@ -433,6 +433,7 @@ export class Game {
     this.sun.color.set(B.sun); this.sun.intensity = B.sunI * 1.45;
     this.hemi.color.set(B.sky); this.hemi.groundColor.set(B.ground); this.hemi.intensity = B.ambient * 1.15;
     this.pipe.postMat.uniforms.uGrade.value.set(...B.grade);
+    this.pipe.postMat.uniforms.uCloud.value = B.key === 'snow' ? 0.4 : 1;
     this.pipe.postMat.uniforms.uShaft.value.set(...B.shaft);
     const p = this.player; p.sitting = null;
     if (town && extra.fromDir === 'north') { p.pos.set(0, 0, -13.0); p.facing = 0; }
@@ -2517,7 +2518,7 @@ export class Game {
       this.camera.updateProjectionMatrix();
     }
     this.camPunch = Math.max(0, (this.camPunch || 0) - dt * 0.45);
-    const baseDist = this.camDistOverride || (this.interior ? 17 : this.photoMode ? 18 : this.state === 'title' ? 34 : 29);
+    const baseDist = this.camDistOverride || (this.interior ? 17 : this.photoMode ? 18 : this.state === 'title' ? 40 : 37);
     const dist = baseDist * (this.interior ? 1 : (this.camZoom || 1)) * (1 - (this.camPunch || 0));
     const yaw = this.state === 'title' ? 0.45 : 0.62;
     const horiz = dist * preset.zK;
