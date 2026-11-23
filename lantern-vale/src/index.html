@@ -265,6 +265,41 @@ html,body{image-rendering:pixelated;-webkit-font-smoothing:none;font-smooth:neve
 #autoHud .ap-btn.stop{background:#c84a38;color:#fff;border-color:#2b1812;width:100%}
 #sk-auto.on{outline:2px solid #ffd85a;background:#684828!important;box-shadow:0 0 8px rgba(255,216,90,.6)}
 .st-spark{background:linear-gradient(90deg,#e87a24,#d94258);animation:pulseSt .55s infinite alternate}
+/* Godot 風格底部除錯工具列 (F3 / `) */
+#dbgDock{position:fixed;left:0;right:0;bottom:0;height:248px;background:#202229f5;color:#dfe4ee;border-top:2px solid #4c5264;z-index:999;display:flex;flex-direction:column;font-family:ui-monospace,"SFMono-Regular","PingFang TC",monospace;font-size:12px;box-shadow:0 -6px 24px rgba(0,0,0,.65);pointer-events:auto}
+#dbgDock.hide{display:none}
+.dbg-tabs{display:flex;align-items:center;justify-content:space-between;background:#181a20;border-bottom:1px solid #353947;padding:0 8px;height:32px;flex-shrink:0}
+.dbg-tab-group{display:flex;gap:2px;height:100%;align-items:flex-end}
+.dbg-tab{background:transparent;color:#9ea6ba;border:none;border-top:2px solid transparent;padding:5px 11px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700}
+.dbg-tab:hover{color:#fff;background:#252834}
+.dbg-tab.on{background:#2a2e3a;color:#fff;border-top-color:#58b8ff}
+#dbgErrBadge{display:inline-block;padding:0 5px;border-radius:8px;background:#3a3e4d;color:#cfd6e6;font-size:11px;margin-left:3px}
+#dbgErrBadge.has-warn{background:#b8861e;color:#fff}
+#dbgErrBadge.has-err{background:#d93a49;color:#fff}
+.dbg-right{display:flex;align-items:center;gap:10px;font-size:11.5px;color:#8ee89c;font-weight:700}
+.dbg-x{background:#343846;color:#dfe4ee;border:1px solid #4c5264;width:24px;height:22px;cursor:pointer;border-radius:3px}
+.dbg-x:hover{background:#d93a49;color:#fff}
+.dbg-body{flex:1;overflow:hidden;padding:8px 10px;display:flex;flex-direction:column}
+.dbg-pane{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+.dbg-pane.hide{display:none}
+.dbg-bar{display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap}
+.dbg-bar button,.dbg-bar select,.dbg-bar input,.dbg-tools-row button,.dbg-tools-row select{background:#2d313e;color:#e6ebf5;border:1px solid #4c5264;padding:3px 8px;border-radius:4px;font-family:inherit;font-size:11.5px;cursor:pointer}
+.dbg-bar input{cursor:text;min-width:170px}
+.dbg-bar button:hover,.dbg-tools-row button:hover{background:#3e4456;border-color:#58b8ff}
+.dbg-hint{color:#8c95aa;font-size:11px}
+.dbg-list{flex:1;overflow:auto;background:#16181e;border:1px solid #303442;border-radius:4px;padding:4px 6px}
+.dbg-row{display:flex;gap:8px;padding:2px 4px;border-bottom:1px solid #222530;white-space:pre-wrap;word-break:break-word;line-height:1.4}
+.dbg-row.warn{color:#ffd678;background:rgba(218,160,40,.08)}
+.dbg-row.error{color:#ff848c;background:rgba(217,58,73,.12)}
+.dbg-t{color:#788196;flex-shrink:0}.dbg-lv{font-weight:900;width:44px;flex-shrink:0}.dbg-m{flex:1}
+.dbg-empty{color:#7fe08a;padding:18px;text-align:center;font-weight:700}
+.dbg-mon-grid{display:grid;grid-template-columns:430px 1fr;gap:12px;align-items:start;overflow:auto}
+@media(max-width:780px){.dbg-mon-grid{grid-template-columns:1fr}}
+.dbg-chart-wrap canvas{width:100%;max-width:420px;height:120px;border:1px solid #3a3f50;border-radius:4px;display:block}
+.dbg-kv{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:6px}
+.dbg-kv div{background:#181a22;border:1px solid #323646;padding:6px 9px;border-radius:4px;display:flex;justify-content:space-between;align-items:center;gap:6px}
+.dbg-kv span{color:#9ca4b8;font-size:11.5px}.dbg-kv b{color:#7ef0ff;font-size:12px}
+.dbg-tools-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 #comboBadge{position:absolute;right:12px;top:216px;padding:6px 14px;background:linear-gradient(135deg,#d93a49,#e8734a);color:#fff8e4;border:3px solid #2b1812;box-shadow:0 4px 0 #2b1812;font-size:18px;font-weight:900;text-align:right;pointer-events:none;transition:transform .12s}
 #comboBadge small{display:block;font-size:11px;color:#ffe9a0;font-weight:400}
 .cx-box{width:min(820px,94vw);max-height:86vh;display:flex;flex-direction:column;gap:10px;background:#f4e8ce;border:4px solid #3c261c;box-shadow:0 8px 0 rgba(38,22,16,.75);padding:14px;border-radius:10px;color:#2e1d16}
@@ -463,6 +498,7 @@ body.photo-mode #hud > *:not(#photoBadge){opacity:0!important;pointer-events:non
     <button type="button" id="btnChangelog">📜 更新日誌</button>
     <button type="button" id="btnSet">⚙ 遊戲設定</button>
     <button type="button" id="btnMute">🔊 音效：開</button>
+    <button type="button" id="btnDebug">🛠️ 除錯工具 (F3)</button>
     <button type="button" id="btnDonate">❤️ 贊助支持</button>
   </div>
   <div id="tideHud" class="panel hide">

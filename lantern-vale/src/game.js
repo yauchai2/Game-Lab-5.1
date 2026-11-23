@@ -29,6 +29,20 @@ import { initParts, resolveHitPart, damagePart, partStatusText } from './parts.j
 import { SURFACE_DEFS, resolveSurfaceReaction, inferElement } from './elements.js';
 import { createTideState, resetTide, cycleUltimate, onTideKill, rekindleTide, castUltimate, tickTide, triggerTideDemo } from './tide.js';
 import { createAutopilotState, isAutopilotActive, manualSparkMult, toggleAutopilot, onAutopilotKill, tickAutopilot, AUTO_RATES } from './autopilot.js';
+import { installDebugger } from './debugger.js';
+
+function disposeObj3D(root) {
+  if (!root || !root.traverse) return;
+  root.traverse(o => {
+    if (o.geometry && !o.userData?.sharedGeo && o.geometry.dispose) o.geometry.dispose();
+    if (o.material) {
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      for (const m of mats) {
+        if (m && m.dispose && !o.userData?.sharedMat) m.dispose();
+      }
+    }
+  });
+}
 
 export const ELITE_MODS = [
   { id: 'molten', name: '🔥 熔岩步', color: 0xff6a30, status: 'burn' },
@@ -38,7 +52,7 @@ export const ELITE_MODS = [
 ];
 
 const V2 = THREE.Vector2, V3 = THREE.Vector3;
-const tmp2 = new V2(), tmp3 = new V3();
+const tmp2 = new V2(), tmp3 = new V3(), _dirP = new V2(), _flowV = new V2();
 
 // ---------------- particles ----------------
 class Particles {
@@ -134,6 +148,7 @@ export class Game {
     this.zoneStates = new Map(); this.camZoom = 1.0; this.camYaw = 0.62; this.camPunch = 0; this.exitCooldown = 0; this.groundZones = []; this.physProps = []; this.mount = null; this.beams = []; this._fadedMats = new Map(); this.combo = { count: 0, timer: 0 }; this.glideTrails = []; this.sheep = []; this.shrineBuffs = { fury: 0, frost: 0, gold: 0, sheep: 0 }; this.tide = createTideState(); this.autopilot = createAutopilotState();
     this.onAutoKill = (d) => onAutopilotKill(this, d);
     this.toggleAutopilot = (m) => toggleAutopilot(this, m);
+    this.dbg = installDebugger(this);
     this.bindInput();
     this.setupNet(); bindGuild(this);
     // title scene: a pretty room in the background
@@ -427,29 +442,35 @@ export class Game {
   loadRoom(depth, reward, title = false, extra = {}) {
     this.depth = depth; this.reward = reward; this.exitCooldown = 1.6;
     resetTide(this);
-    if (this.interior) { this.scene.remove(this.interior.group); this.interior = null; }
-    if (this.sailing?.boat) { this.scene.remove(this.sailing.boat); } this.sailing = null; this.recallT = 0;
+    if (isAutopilotActive(this)) toggleAutopilot(this, 'off', 'zone');
+    if (this.autopilot?.wispMesh) { this.scene.remove(this.autopilot.wispMesh); this.autopilot.wispMesh = null; }
+    this.camYaw = 0.62;
+    const dropObj = (obj) => { if (obj) { this.scene.remove(obj); disposeObj3D(obj); } };
+    if (this.interior) { dropObj(this.interior.group); this.interior = null; }
+    if (this.sailing?.boat) { dropObj(this.sailing.boat); } this.sailing = null; this.recallT = 0;
     if (this.world?.group) this.world.group.visible = true;
-    for (const cf of this.campfires || []) { this.scene.remove(cf.grp); } this.campfires = [];
-    for (const pr of this.prisms || []) { this.scene.remove(pr.mesh); } this.prisms = [];
-    for (const gz of this.groundZones || []) { this.scene.remove(gz.mesh); } this.groundZones = [];
-    for (const pp of this.physProps || []) { this.scene.remove(pp.mesh); } this.physProps = [];
-    for (const sh of this.sheep || []) { this.scene.remove(sh.mesh); } this.sheep = [];
-    for (const bm of this.beams || []) { this.scene.remove(bm.mesh); } this.beams = [];
+    for (const cf of this.campfires || []) { dropObj(cf.grp); } this.campfires = [];
+    for (const pr of this.prisms || []) { dropObj(pr.mesh); } this.prisms = [];
+    for (const gz of this.groundZones || []) { dropObj(gz.mesh); } this.groundZones = [];
+    for (const pp of this.physProps || []) { dropObj(pp.mesh); } this.physProps = [];
+    for (const sh of this.sheep || []) { dropObj(sh.mesh); } this.sheep = [];
+    for (const bm of this.beams || []) { dropObj(bm.mesh); } this.beams = [];
     this._fadedMats?.clear();
-    for (const e of this.enemies) this.scene.remove(e.m.root);
-    for (const a of [...this.projs, ...this.eprojs, ...this.decals, ...this.slashes, ...this.rings]) this.scene.remove(a.mesh);
-    for (const d of this.drops) this.scene.remove(d.g);
-    for (const k of this.pickups) this.scene.remove(k.g); this.pickups = [];
+    this._lastHitMats = null;
+    for (const e of this.enemies) dropObj(e.m.root);
+    for (const a of [...this.projs, ...this.eprojs, ...this.decals, ...this.slashes, ...this.rings]) dropObj(a.mesh);
+    for (const d of this.drops) dropObj(d.g);
+    for (const k of this.pickups) dropObj(k.g); this.pickups = [];
     this.spots = []; this.worldBoxes = [];
-    for (const x of this.exits) this.scene.remove(x.g);
-    for (const w of this.player.wisps) this.scene.remove(w.mesh);
+    for (const x of this.exits) dropObj(x.g);
+    for (const w of this.player.wisps) dropObj(w.mesh);
     this.player.wisps = [];
     this.enemies = []; this.projs = []; this.eprojs = []; this.decals = []; this.drops = []; this.exits = []; this.slashes = []; this.rings = [];
     this.fx.clear(); this.puffs.clear();
     const town = depth === -1, harbor = depth === -2, anyTown = town || harbor;
-    if (this.townGroup) { this.scene.remove(this.townGroup); this.townGroup = null; this.chimneys = null; }
+    if (this.townGroup) { dropObj(this.townGroup); this.townGroup = null; this.chimneys = null; }
     for (const b of this.bots) this.removeRemote(b); this.bots = [];
+    this.dbg?.log?.(`[ZONE] 載入 ${this.zone}`);
     const bi = (title || anyTown) ? 0 : this.biomeFor(depth);
     const B = this.field ? fieldBiome(this.field) : harbor ? { ...BIOMES[0], name: '海風港鎮', ground: 0xe6d29a, sky: 0x9ed8ff, sun: 0xfff5d6 } : BIOMES[bi]; this.biome = B;
     this.boss = null; this.ui.bossBar(false);
@@ -2382,8 +2403,17 @@ export class Game {
   updateEnemies(dt) {
     const p = this.player, W = this.world;
     const playing = this.state === 'play';
+    const cullSq = this.field ? 48 * 48 : 99999;
     for (const e of this.enemies) {
       if (e.dead) continue;
+      // 遠距魔物距離剔除（Distance Culling）：超大野外地圖上 >48m 外的魔物暫停 AI 與渲染，大幅提升 FPS
+      const rdx = p.pos.x - e.pos.x, rdz = p.pos.z - e.pos.z;
+      const distSq = rdx * rdx + rdz * rdz;
+      if (distSq > cullSq && !e.legendary && e.type !== 'stag') {
+        if (e.m?.root) e.m.root.visible = false;
+        continue;
+      }
+      if (e.m?.root && !e.m.root.visible) e.m.root.visible = true;
       e.t += dt; e.flash = Math.max(0, e.flash - dt); e.stun = Math.max(0, e.stun - dt); e.hitCd = Math.max(0, e.hitCd - dt);
       e.slow = Math.max(0, e.slow - dt); e.vuln = Math.max(0, (e.vuln || 0) - dt);
       e.blinded = Math.max(0, (e.blinded || 0) - dt); e._slipCd = Math.max(0, (e._slipCd || 0) - dt);
@@ -2401,15 +2431,15 @@ export class Game {
           if (e.dead) continue;
         }
       }
-      const toP = tmp2.set(p.pos.x - e.pos.x, p.pos.z - e.pos.z); const dist = toP.length();
-      const dirP = toP.clone().normalize();
+      const dist = Math.sqrt(distSq);
+      const invD = dist > 1e-4 ? 1 / dist : 0;
+      const dirP = _dirP.set(rdx * invD, rdz * invD);
       let mvx = 0, mvz = 0;
       const spd = est.freeze > 0 ? 0 : e.spd * (e.slow > 0 ? 0.45 : 1);
       // knockback
       if (e.knock.lengthSq() > 0.01) { this.moveEntity(e.pos, e.knock.x * dt, e.knock.z * dt, e.r); e.knock.multiplyScalar(Math.exp(-dt * 9)); }
       const follow = (s = 1) => {
-        const fd = new V2();
-        if (dist > 1.5 && W.flowDir(e.pos.x, e.pos.z, fd)) { mvx = fd.x * spd * s; mvz = fd.y * spd * s; }
+        if (dist > 1.5 && W.flowDir(e.pos.x, e.pos.z, _flowV)) { mvx = _flowV.x * spd * s; mvz = _flowV.y * spd * s; }
         else { mvx = dirP.x * spd * s; mvz = dirP.y * spd * s; }
       };
       if (playing && e.eliteMod && e.stun <= 0 && dist < 13) {
@@ -2952,7 +2982,7 @@ export class Game {
     const punch = this.settings.shake ? (this.camPunch || 0) * 0.4 : 0;
     const baseDist = this.camDistOverride || (this.interior ? 17 : this.photoMode ? 18 : this.state === 'title' ? 40 : 37);
     const dist = baseDist * (this.interior ? 1 : (this.camZoom || 1)) * (1 + (this.tide?.zoomBonus || 0)) * (1 - punch);
-    const yaw = this.state === 'title' ? 0.45 : 0.62;
+    const yaw = this.state === 'title' ? 0.45 : (this.camYaw ?? 0.62);
     const horiz = dist * preset.zK;
     this.camera.position.set(
       this.camPos.x + Math.sin(yaw) * horiz + (Math.random() - 0.5) * s,
@@ -2964,33 +2994,37 @@ export class Game {
     this.sun.target.position.set(this.camPos.x, 0, this.camPos.z);
   }
 
-  // 大型建築／巨樹／拱門遮擋人物視野時，透過鏡頭→玩家射線自動半透明透視
+  // 大型建築／巨樹／拱門遮擋人物視野時，透過鏡頭→玩家射線自動半透明透視（節流每 3 幀射線，降低 67% CPU 負荷）
   updateOcclusion(dt) {
     if (this.state !== 'play' || this.interior) return;
-    const targets = [...(this.world?.occludables || []), ...(this.exits || []).map(x => x.g)];
-    if (this.townGroup) targets.push(this.townGroup);
-    const hitMats = new Set();
-    if (targets.length) {
-      const p = this.player;
-      const camP = this.camera.position;
-      const offsets = [[0, 1.0, 0], [-0.45, 0.9, 0], [0.45, 0.9, 0]];
-      for (const [ox, oy, oz] of offsets) {
-        const tgt = new V3(p.pos.x + ox, p.y + oy, p.pos.z + oz);
-        const dir = tgt.clone().sub(camP);
-        const maxDist = dir.length() - 0.5;
-        if (maxDist <= 0.5) continue;
-        dir.normalize();
-        this.ray.set(camP, dir);
-        this.ray.far = maxDist;
-        const hits = this.ray.intersectObjects(targets, true);
-        for (const h of hits) {
-          const m = h.object;
-          if (!m.isMesh || m.userData?.noNormal) continue;
-          const mats = Array.isArray(m.material) ? m.material : [m.material];
-          for (const mat of mats) if (mat && 'opacity' in mat) hitMats.add(mat);
+    this._occFrame = (this._occFrame || 0) + 1;
+    let hitMats = this._lastHitMats || new Set();
+    if (this._occFrame % 3 === 1) {
+      hitMats = new Set();
+      const targets = [...(this.world?.occludables || []), ...(this.exits || []).map(x => x.g)];
+      if (this.townGroup) targets.push(this.townGroup);
+      if (targets.length) {
+        const p = this.player;
+        const camP = this.camera.position;
+        const offsets = [[0, 1.0, 0], [-0.45, 0.9, 0], [0.45, 0.9, 0]];
+        for (const [ox, oy, oz] of offsets) {
+          tmp3.set(p.pos.x + ox - camP.x, p.y + oy - camP.y, p.pos.z + oz - camP.z);
+          const maxDist = tmp3.length() - 0.5;
+          if (maxDist <= 0.5) continue;
+          tmp3.normalize();
+          this.ray.set(camP, tmp3);
+          this.ray.far = maxDist;
+          const hits = this.ray.intersectObjects(targets, true);
+          for (const h of hits) {
+            const m = h.object;
+            if (!m.isMesh || m.userData?.noNormal) continue;
+            const mats = Array.isArray(m.material) ? m.material : [m.material];
+            for (const mat of mats) if (mat && 'opacity' in mat) hitMats.add(mat);
+          }
         }
+        this.ray.far = Infinity;
       }
-      this.ray.far = Infinity;
+      this._lastHitMats = hitMats;
     }
     for (const mat of hitMats) {
       if (!this._fadedMats.has(mat)) this._fadedMats.set(mat, { origTrans: mat.transparent, origDepth: mat.depthWrite });

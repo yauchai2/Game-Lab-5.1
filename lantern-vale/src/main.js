@@ -13,8 +13,12 @@ window.__game = game; // debug / screenshot hook
 let last = performance.now();
 function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  const t0 = performance.now();
   game.update(dt);
+  const t1 = performance.now();
   pipe.render(game.scene, game.camera, game.time);
+  const t2 = performance.now();
+  game.dbg?.recordFrame(dt, t1 - t0, t2 - t1);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

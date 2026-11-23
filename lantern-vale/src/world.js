@@ -393,7 +393,11 @@ export class World {
   }
 
   clear() {
-    this.waterMat?.uniforms.uShore.value.dispose();
+    if (this.waterMat) {
+      this.waterMat.uniforms?.uShore?.value?.dispose?.();
+      this.waterMat.dispose?.();
+      this.waterMat = null;
+    }
     this.scene.remove(this.group);
     this.group.traverse(o => { if (o.isInstancedMesh) o.dispose(); if (o.geometry && !o.userData?.sharedGeo) o.geometry.dispose(); if (o.material && o.material.dispose && !o.userData?.sharedMat) o.material.dispose(); });
     this.group = new THREE.Group();

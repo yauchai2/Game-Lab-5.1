@@ -41,6 +41,7 @@ export class UI {
       addEventListener('click', e => { if (!menuPop.contains(e.target) && e.target !== menuBtn) menuPop.classList.add('hide'); });
     }
     $('btnMute').onclick = () => { game.audio.init(); const m = game.audio.toggleMute(); $('btnMute').textContent = m ? '🔇 音效：關' : '🔊 音效：開'; };
+    const dbgBtn = $('btnDebug'); if (dbgBtn) dbgBtn.onclick = () => { $('menuPop')?.classList.add('hide'); game.dbg?.toggle?.(); };
     $('btnMute').textContent = game.audio.muted ? '🔇 音效：關' : '🔊 音效：開';
     bindWorldMap(game); bindTouch(game); bindPuzzleUI(game); bindCodexUI(game);
     const pzBtn = $('sk-puzzle'); if (pzBtn) pzBtn.onclick = () => { if (this.puzzleOpen) this.closePuzzle(); else this.openPuzzle(); };
@@ -610,16 +611,21 @@ export class UI {
     if (ah) {
       ah.classList.toggle('hide', !autoOn);
       if (autoOn) {
-        const mins = Math.floor(ap.stats.sec / 60), secs = Math.floor(ap.stats.sec % 60);
-        const am = $('apMode'); if (am) am.textContent = ap.mode === 'full' ? (ap.cozyActive ? '🎥 桌寵巡遊 (30%)' : '🏮 全自動巡遊 (30%)') : '🏮 半自動輔助 (30%)';
-        const at = $('apTime'); if (at) at.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-        const as = $('apStats');
-        if (as) as.innerHTML = `<span>⚔️ 擊殺 ${ap.stats.kills}</span><span>✨ 經驗 +${ap.stats.xp}</span><span>🪙 金幣 +${ap.stats.coins}</span><span>💎 星砂 +${ap.stats.shards}</span>`;
-        const asp = $('apSpark');
-        if (asp) asp.textContent = `🔥 手動星火：${'🔥'.repeat(ap.sparkStacks)}${'▫️'.repeat(5 - ap.sparkStacks)} (${ap.sparkStacks}/5)`;
-        const mBtn = $('apToggleMode'); if (mBtn) mBtn.textContent = ap.mode === 'full' ? '🔄 切半自動' : '🔄 切全自動';
-        const sBtn = $('apToggleSalv'); if (sBtn) sBtn.classList.toggle('on', !!ap.autoSalvage);
-        const cBtn = $('apToggleCozy'); if (cBtn) cBtn.classList.toggle('on', !!ap.cozyCam);
+        const secFloor = Math.floor(ap.stats.sec);
+        const key = `${ap.mode}|${ap.cozyActive}|${secFloor}|${ap.stats.kills}|${ap.stats.xp}|${ap.stats.coins}|${ap.stats.shards}|${ap.sparkStacks}|${ap.autoSalvage}|${ap.cozyCam}`;
+        if (ah._lastKey !== key) {
+          ah._lastKey = key;
+          const mins = Math.floor(secFloor / 60), secs = secFloor % 60;
+          const am = $('apMode'); if (am) am.textContent = ap.mode === 'full' ? (ap.cozyActive ? '🎥 桌寵巡遊 (30%)' : '🏮 全自動巡遊 (30%)') : '🏮 半自動輔助 (30%)';
+          const at = $('apTime'); if (at) at.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+          const as = $('apStats');
+          if (as) as.innerHTML = `<span>⚔️ 擊殺 ${ap.stats.kills}</span><span>✨ 經驗 +${ap.stats.xp}</span><span>🪙 金幣 +${ap.stats.coins}</span><span>💎 星砂 +${ap.stats.shards}</span>`;
+          const asp = $('apSpark');
+          if (asp) asp.textContent = `🔥 手動星火：${'🔥'.repeat(ap.sparkStacks)}${'▫️'.repeat(5 - ap.sparkStacks)} (${ap.sparkStacks}/5)`;
+          const mBtn = $('apToggleMode'); if (mBtn) mBtn.textContent = ap.mode === 'full' ? '🔄 切半自動' : '🔄 切全自動';
+          const sBtn = $('apToggleSalv'); if (sBtn) sBtn.classList.toggle('on', !!ap.autoSalvage);
+          const cBtn = $('apToggleCozy'); if (cBtn) cBtn.classList.toggle('on', !!ap.cozyCam);
+        }
       }
     }
     const cbEl = $('comboBadge');

@@ -201,6 +201,8 @@ const _glbCache = new Map();
 const _glbPending = new Map();
 let _sharedLoader = null;
 
+export function getGlbCacheCount() { return _glbCache.size; }
+
 function getSharedLoader() {
   if (!_sharedLoader) _sharedLoader = new GLTFLoader();
   return _sharedLoader;
@@ -224,6 +226,8 @@ function bakePixelToonScene(srcScene, opts = {}) {
       emissiveIntensity: opts.emissiveIntensity ?? 0.28,
     });
     o.material = mat;
+    o.userData = o.userData || {};
+    o.userData.sharedGeo = true; // 保留快取 GLB 幾何緩衝區，切圖 dispose 時不誤刪
     o.castShadow = true;
     o.receiveShadow = true;
     if (!primaryMat) primaryMat = mat;
@@ -244,8 +248,9 @@ export function loadGlbAsset(url) {
         resolve(gltf.scene);
       },
       undefined,
-      () => {
+      err => {
         _glbPending.delete(url);
+        console.warn('[GLB] 資產載入失敗:', url, err?.message || err || 'unknown');
         resolve(null);
       },
     );

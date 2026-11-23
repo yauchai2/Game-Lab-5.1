@@ -1,0 +1,323 @@
+// Phase 5B：Godot 風格底部除錯工具列（F3 / ` 鍵開關）
+// 提供：錯誤與警告攔截、輸出日誌過濾、即時 FPS/FrameTime 折線監視器、WebGL 顯存與 ObjectDB 統計、快捷除錯工具
+
+import { FIELDS } from './frontier.js';
+import { getGlbCacheCount } from './assets.js';
+
+const MAX_LOGS = 250;
+const HIST_LEN = 64;
+
+export function installDebugger(game) {
+  const logs = [];
+  let errCount = 0, warnCount = 0;
+  let open = false;
+  let activeTab = 'errors';
+  let filterText = '';
+  let filterLevel = 'all';
+  let lastRefresh = 0;
+
+  const fpsHist = new Float32Array(HIST_LEN);
+  const msHist = new Float32Array(HIST_LEN);
+  let histPtr = 0;
+  let lastUpdateMs = 0, lastRenderMs = 0, smoothFps = 60, smoothMs = 16.6;
+
+  function fmtTime() {
+    const d = new Date();
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
+  }
+
+  function pushLog(level, args) {
+    const msg = args.map(a => {
+      if (a instanceof Error) return `${a.message}\n${a.stack || ''}`;
+      if (typeof a === 'object' && a !== null) {
+        try { return JSON.stringify(a); } catch (_) { return String(a); }
+      }
+      return String(a);
+    }).join(' ');
+    const entry = { t: fmtTime(), level, msg };
+    logs.push(entry);
+    if (logs.length > MAX_LOGS) logs.shift();
+    if (level === 'error') errCount++;
+    else if (level === 'warn') warnCount++;
+    if (open && (activeTab === 'errors' || activeTab === 'output')) renderList();
+    updateBadge();
+  }
+
+  // 攔截 console.log / warn / error 與全域未捕捉異常（保留原 console 輸出）
+  const origLog = console.log.bind(console);
+  const origWarn = console.warn.bind(console);
+  const origErr = console.error.bind(console);
+  console.log = (...a) => { pushLog('log', a); origLog(...a); };
+  console.warn = (...a) => { pushLog('warn', a); origWarn(...a); };
+  console.error = (...a) => { pushLog('error', a); origErr(...a); };
+  window.addEventListener('error', ev => {
+    pushLog('error', [`[Uncaught] ${ev.message} (${ev.filename || ''}:${ev.lineno || 0})`]);
+  });
+  window.addEventListener('unhandledrejection', ev => {
+    pushLog('error', [`[Promise] ${ev.reason?.message || ev.reason}`]);
+  });
+
+  // 建立 Godot 風格底部面板 DOM
+  const dock = document.createElement('div');
+  dock.id = 'dbgDock';
+  dock.className = 'hide';
+  dock.innerHTML = `
+    <div class="dbg-tabs">
+      <div class="dbg-tab-group">
+        <button type="button" class="dbg-tab on" data-tab="errors">🚨 錯誤 <span id="dbgErrBadge">0</span></button>
+        <button type="button" class="dbg-tab" data-tab="output">📜 輸出</button>
+        <button type="button" class="dbg-tab" data-tab="monitors">📈 效能分析</button>
+        <button type="button" class="dbg-tab" data-tab="vram">🧠 顯存 / ObjectDB</button>
+        <button type="button" class="dbg-tab" data-tab="tools">🧰 雜項工具</button>
+      </div>
+      <div class="dbg-right">
+        <span id="dbgMiniFps">60 FPS · 16.6ms</span>
+        <button type="button" class="dbg-x" id="dbgClose" title="關閉除錯面板 (F3)">✕</button>
+      </div>
+    </div>
+    <div class="dbg-body">
+      <div class="dbg-pane" data-pane="errors">
+        <div class="dbg-bar">
+          <button type="button" id="dbgClearErr">🧹 清空</button>
+          <button type="button" id="dbgCopyRep">📋 複製診斷報告</button>
+          <span class="dbg-hint">自動攔截 console.error / console.warn / 未捕捉異常與 GLB 載入錯誤</span>
+        </div>
+        <div class="dbg-list" id="dbgErrList"></div>
+      </div>
+      <div class="dbg-pane hide" data-pane="output">
+        <div class="dbg-bar">
+          <input type="search" id="dbgFilter" placeholder="🔍 篩選日誌關鍵字…"/>
+          <select id="dbgLvl"><option value="all">全部等級</option><option value="log">LOG</option><option value="warn">WARN</option><option value="error">ERROR</option></select>
+          <button type="button" id="dbgClearLog">🧹 清空</button>
+        </div>
+        <div class="dbg-list" id="dbgOutList"></div>
+      </div>
+      <div class="dbg-pane hide" data-pane="monitors">
+        <div class="dbg-mon-grid">
+          <div class="dbg-chart-wrap"><canvas id="dbgChart" width="420" height="120"></canvas></div>
+          <div class="dbg-kv" id="dbgPerfKv"></div>
+        </div>
+      </div>
+      <div class="dbg-pane hide" data-pane="vram">
+        <div class="dbg-kv" id="dbgVramKv"></div>
+      </div>
+      <div class="dbg-pane hide" data-pane="tools">
+        <div class="dbg-tools-row">
+          <label>跳轉區域：<select id="dbgZoneSel"></select></label>
+          <button type="button" id="dbgGoZone">⚡ 立即傳送</button>
+          <button type="button" id="dbgHealFull">❤️ 補滿血魔＆藥水</button>
+          <button type="button" id="dbgGiveRes">💰 +500 金幣＆星砂</button>
+          <button type="button" id="dbgChargeUlt">⚡ 滿怒大絕</button>
+          <button type="button" id="dbgTogAuto">🏮 切換巡遊</button>
+        </div>
+        <div class="dbg-hint" style="margin-top:8px">快捷鍵：<b>F3</b> 或 <b>\`</b>（反引號）隨時開關此面板 · 所有統計僅在面板展開時更新，關閉時零效能損耗。</div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(dock);
+
+  const $d = id => dock.querySelector('#' + id);
+
+  // 填充區域傳送下拉選單（2 主城 + 20 野外地圖）
+  const zSel = $d('dbgZoneSel');
+  if (zSel) {
+    const opts = [['town', '🏠 燈谷鎮'], ['harbor', '⛵ 海風港鎮']];
+    for (let i = 1; i < FIELDS.length; i++) opts.push(['f:' + i, `#${String(i).padStart(2, '0')} ${FIELDS[i].name} (Lv.${FIELDS[i].level})`]);
+    zSel.innerHTML = opts.map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
+  }
+
+  function updateBadge() {
+    const b = $d('dbgErrBadge');
+    if (b) {
+      b.textContent = errCount + warnCount;
+      b.classList.toggle('has-err', errCount > 0);
+      b.classList.toggle('has-warn', errCount === 0 && warnCount > 0);
+    }
+  }
+
+  function renderList() {
+    const errEl = $d('dbgErrList');
+    const outEl = $d('dbgOutList');
+    if (activeTab === 'errors' && errEl) {
+      const items = logs.filter(l => l.level === 'error' || l.level === 'warn');
+      errEl.innerHTML = items.length
+        ? items.slice(-80).reverse().map(l => `<div class="dbg-row ${l.level}"><span class="dbg-t">${l.t}</span><span class="dbg-lv">${l.level.toUpperCase()}</span><span class="dbg-m"></span></div>`).join('')
+        : '<div class="dbg-empty">✅ 目前 0 錯誤、0 警告（乾淨運行中）</div>';
+      const rows = errEl.querySelectorAll('.dbg-m');
+      items.slice(-80).reverse().forEach((l, idx) => { if (rows[idx]) rows[idx].textContent = l.msg; });
+    }
+    if (activeTab === 'output' && outEl) {
+      const q = filterText.trim().toLowerCase();
+      const items = logs.filter(l => (filterLevel === 'all' || l.level === filterLevel) && (!q || l.msg.toLowerCase().includes(q)));
+      outEl.innerHTML = items.length
+        ? items.slice(-100).reverse().map(l => `<div class="dbg-row ${l.level}"><span class="dbg-t">${l.t}</span><span class="dbg-lv">${l.level.toUpperCase()}</span><span class="dbg-m"></span></div>`).join('')
+        : '<div class="dbg-empty">（尚無符合條件的輸出日誌）</div>';
+      const rows = outEl.querySelectorAll('.dbg-m');
+      items.slice(-100).reverse().forEach((l, idx) => { if (rows[idx]) rows[idx].textContent = l.msg; });
+    }
+  }
+
+  function renderMonitors() {
+    const cv = $d('dbgChart');
+    if (cv) {
+      const ctx = cv.getContext('2d');
+      const W = cv.width, H = cv.height;
+      ctx.fillStyle = '#15171e';
+      ctx.fillRect(0, 0, W, H);
+      // 30 / 60 FPS 基準線
+      ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+      ctx.beginPath();
+      ctx.moveTo(0, H * 0.25); ctx.lineTo(W, H * 0.25);
+      ctx.moveTo(0, H * 0.62); ctx.lineTo(W, H * 0.62);
+      ctx.stroke();
+      // FPS 折線
+      ctx.strokeStyle = smoothFps >= 52 ? '#5ae082' : smoothFps >= 35 ? '#ffd25a' : '#ff6060';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let i = 0; i < HIST_LEN; i++) {
+        const idx = (histPtr + i) % HIST_LEN;
+        const fps = Math.min(75, fpsHist[idx] || 0);
+        const x = (i / (HIST_LEN - 1)) * W;
+        const y = H - (fps / 75) * (H - 12) - 6;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      ctx.fillStyle = '#d8deea';
+      ctx.font = 'bold 11px monospace';
+      ctx.fillText(`FPS: ${smoothFps.toFixed(1)}  |  Frame: ${smoothMs.toFixed(1)}ms`, 8, 15);
+    }
+    const kv = $d('dbgPerfKv');
+    if (kv) {
+      const info = game.pipe?.renderer?.info;
+      const totalE = game.enemies?.length || 0;
+      const visE = (game.enemies || []).filter(e => !e.dead && e.m?.root?.visible !== false).length;
+      kv.innerHTML = [
+        ['即時 FPS', `${smoothFps.toFixed(1)} fps`],
+        ['總幀耗時', `${smoothMs.toFixed(2)} ms`],
+        ['邏輯 Update', `${lastUpdateMs.toFixed(2)} ms`],
+        ['渲染 Render', `${lastRenderMs.toFixed(2)} ms`],
+        ['Draw Calls', `${info?.render?.calls ?? '—'}`],
+        ['三角形數', `${(info?.render?.triangles ?? 0).toLocaleString()}`],
+        ['活體敵人 (可見/總計)', `${visE} / ${totalE}`],
+        ['目前區域', `${game.zone || '—'}`],
+      ].map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('');
+    }
+  }
+
+  function renderVram() {
+    const kv = $d('dbgVramKv');
+    if (!kv) return;
+    const info = game.pipe?.renderer?.info;
+    let meshes = 0, insts = 0, lights = 0;
+    game.scene?.traverse?.(o => {
+      if (o.isInstancedMesh) insts++;
+      else if (o.isMesh) meshes++;
+      else if (o.isLight) lights++;
+    });
+    const mem = performance?.memory;
+    const heapStr = mem ? `${(mem.usedJSHeapSize / 1048576).toFixed(1)} / ${(mem.jsHeapSizeLimit / 1048576).toFixed(0)} MB` : '瀏覽器未公開';
+    kv.innerHTML = [
+      ['GPU Geometries', `${info?.memory?.geometries ?? '—'}`],
+      ['GPU Textures', `${info?.memory?.textures ?? '—'}`],
+      ['Shader Programs', `${info?.programs?.length ?? '—'}`],
+      ['GLB 資產快取數', `${getGlbCacheCount()}`],
+      ['Scene Meshes', `${meshes} (+${insts} Instanced)`],
+      ['Scene Lights', `${lights}`],
+      ['投射物 / 掉落物', `${(game.projs?.length || 0) + (game.eprojs?.length || 0)} / ${game.drops?.length || 0}`],
+      ['地表元素區 / 光束', `${game.groundZones?.length || 0} / ${game.beams?.length || 0}`],
+      ['JS Heap 記憶體', heapStr],
+      ['玩家座標', `${game.player?.pos?.x?.toFixed(1) ?? 0}, ${game.player?.y?.toFixed(1) ?? 0}, ${game.player?.pos?.z?.toFixed(1) ?? 0}`],
+    ].map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('');
+  }
+
+  function setTab(tab) {
+    activeTab = tab;
+    dock.querySelectorAll('.dbg-tab').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
+    dock.querySelectorAll('.dbg-pane').forEach(p => p.classList.toggle('hide', p.dataset.pane !== tab));
+    if (tab === 'errors' || tab === 'output') renderList();
+    else if (tab === 'monitors') renderMonitors();
+    else if (tab === 'vram') renderVram();
+  }
+
+  function toggle(force) {
+    open = typeof force === 'boolean' ? force : !open;
+    dock.classList.toggle('hide', !open);
+    if (open) setTab(activeTab);
+    return open;
+  }
+
+  dock.querySelectorAll('.dbg-tab').forEach(b => { b.onclick = () => setTab(b.dataset.tab); });
+  $d('dbgClose').onclick = () => toggle(false);
+  $d('dbgClearErr').onclick = () => { errCount = 0; warnCount = 0; for (let i = logs.length - 1; i >= 0; i--) if (logs[i].level !== 'log') logs.splice(i, 1); updateBadge(); renderList(); };
+  $d('dbgClearLog').onclick = () => { logs.length = 0; errCount = 0; warnCount = 0; updateBadge(); renderList(); };
+  $d('dbgFilter').oninput = e => { filterText = e.target.value || ''; renderList(); };
+  $d('dbgLvl').onchange = e => { filterLevel = e.target.value; renderList(); };
+  $d('dbgCopyRep').onclick = () => {
+    const info = game.pipe?.renderer?.info;
+    const rep = {
+      zone: game.zone, fps: Number(smoothFps.toFixed(1)), frameMs: Number(smoothMs.toFixed(2)),
+      drawCalls: info?.render?.calls, triangles: info?.render?.triangles,
+      geometries: info?.memory?.geometries, textures: info?.memory?.textures,
+      errors: logs.filter(l => l.level === 'error' || l.level === 'warn').slice(-30),
+    };
+    navigator.clipboard?.writeText(JSON.stringify(rep, null, 2)).catch(() => {});
+    game.ui?.toast?.('📋 已複製除錯診斷報告至剪貼簿', '#7ae8ff');
+  };
+  $d('dbgGoZone').onclick = () => {
+    const v = zSel?.value || 'town';
+    if (v === 'town') game.enterTown();
+    else if (v === 'harbor') game.enterHarbor();
+    else if (v.startsWith('f:')) game.enterField(Number(v.slice(2)));
+  };
+  $d('dbgHealFull').onclick = () => {
+    game.player.hp = game.player.stats.maxHp;
+    game.player.mana = game.player.stats.mana;
+    game.player.flask.charges = game.player.flask.max;
+    game.ui?.toast?.('🛠️ 已補滿生命、魔力與蜜藥瓶', '#7fe08a');
+  };
+  $d('dbgGiveRes').onclick = () => {
+    game.meta.p.coins += 500; game.meta.p.shards += 500; game.meta.save();
+    game.ui?.toast?.('🛠️ 已增加 500 金幣與 500 星砂', '#ffd85a');
+  };
+  $d('dbgChargeUlt').onclick = () => {
+    if (game.tide) game.tide.ultCharge = 100;
+    game.ui?.toast?.('🛠️ 餘燼大絕 [V] 已充能至 100%', '#ff984a');
+  };
+  $d('dbgTogAuto').onclick = () => game.toggleAutopilot?.();
+
+  // 快捷鍵 F3 或 `（反引號）開關除錯面板
+  window.addEventListener('keydown', e => {
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT')) return;
+    if (e.key === 'F3' || e.code === 'Backquote') {
+      e.preventDefault();
+      toggle();
+    }
+  });
+
+  return {
+    toggle,
+    isOpen: () => open,
+    getCounts: () => ({ errors: errCount, warnings: warnCount, total: logs.length }),
+    log: (msg) => pushLog('log', [msg]),
+    recordFrame(dtSec, updateMs, renderMs) {
+      const ms = Math.max(0.1, dtSec * 1000);
+      const fps = 1000 / ms;
+      smoothMs = smoothMs * 0.9 + ms * 0.1;
+      smoothFps = smoothFps * 0.9 + fps * 0.1;
+      lastUpdateMs = lastUpdateMs * 0.85 + updateMs * 0.15;
+      lastRenderMs = lastRenderMs * 0.85 + renderMs * 0.15;
+      fpsHist[histPtr] = fps;
+      msHist[histPtr] = ms;
+      histPtr = (histPtr + 1) % HIST_LEN;
+
+      if (!open) return;
+      const now = performance.now();
+      if (now - lastRefresh < 220) return; // 面板展開時節流至 ~4.5Hz 更新，零卡頓
+      lastRefresh = now;
+      const mini = $d('dbgMiniFps');
+      if (mini) mini.textContent = `${smoothFps.toFixed(0)} FPS · ${smoothMs.toFixed(1)}ms`;
+      if (activeTab === 'monitors') renderMonitors();
+      else if (activeTab === 'vram') renderVram();
+    },
+  };
+}

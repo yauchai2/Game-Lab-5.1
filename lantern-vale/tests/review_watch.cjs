@@ -298,6 +298,20 @@ async function runCapture(req) {
           await page.evaluate(() => window.__game.toggleAutopilot('off'));
           await page.waitForTimeout(400);
 
+          // Phase 5B：Godot 風格底部除錯工具列實機截圖（效能監視器折線圖 ＋ 顯存/ObjectDB）
+          await page.evaluate(() => {
+            window.__game.dbg?.toggle?.(true);
+            document.querySelector('#dbgDock .dbg-tab[data-tab="monitors"]')?.click();
+          });
+          await page.waitForTimeout(750);
+          await page.screenshot({ path: path.join(runDir, 'p5b_debugger_perf.png') });
+          await page.evaluate(() => {
+            document.querySelector('#dbgDock .dbg-tab[data-tab="vram"]')?.click();
+          });
+          await page.waitForTimeout(450);
+          await page.screenshot({ path: path.join(runDir, 'p5b_debugger_vram.png') });
+          await page.evaluate(() => window.__game.dbg?.toggle?.(false));
+
           // 切回 field:1 正常狀態，確保 09_field_1.png 與後續鏡頭一致
           await page.evaluate(() => window.__game.enterField(1));
           await page.waitForTimeout(1000);
