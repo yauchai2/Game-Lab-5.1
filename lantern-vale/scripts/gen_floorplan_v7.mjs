@@ -57,6 +57,18 @@ const PHASE4B_LANDMARKS = {
   ],
 };
 
+// 未來擴充預留席位（#21–#28）：善用現有 scenes02 尚未啟用的主題包，預留星圖槽位與原創物理微規則 Idea
+const FUTURE_SLOTS = [
+  { id: 21, name: '⚙️ 蒸氣齒輪工業城', layer: 'surface', family: 'linear', asset: '4384 Polyworks (Industrial)', rule: '彈射履帶＆蒸氣氣閥跳台：踩履帶高速衝鋒，氣閥定時把敵我噴上高空。', visual: '黃銅管線、巨型齒輪、蒸氣煙囪與鋼鐵棧道。' },
+  { id: 22, name: '🎄 永冬聖誕糖果村', layer: 'surface', family: 'open', asset: '4384 Polyworks (Christmas) ＋ 4291 Food 1', rule: '禮盒驚喜爆破：擊碎巨型禮物盒隨機噴出增益蛋糕或迷你雪人助戰！', visual: '彩燈松樹、巨型禮物堆、拐杖糖與溫暖雪屋。' },
+  { id: 23, name: '🏜️ 廢土部落峽谷', layer: 'surface', family: 'ring', asset: '4384 Polyworks (Wasteland / Tribal)', rule: '圖騰狂怒共鳴：點燃部落鼓陣圖騰，全圖攻速與暴擊層層疊加！', visual: '風化赤岩峽谷、部落帳篷、骨刺柵欄與火焰圖騰。' },
+  { id: 24, name: '🛹 霓虹滑板奇境', layer: 'sky', family: 'open', asset: '4384 Polyworks (Skatepark)', rule: '半管坡道空中特技：沿 U 型坡起跳疊加連招倍率，落地釋放音浪震波！', visual: '彩色低面滑板U池、欄杆滑軌與塗鴉風格平台。' },
+  { id: 25, name: '♟️ 巨型桌遊棋盤國', layer: 'sky', family: 'hybrid', asset: '4384 Polyworks (Boardgame)', rule: '黑白格屬性翻轉：白格傷害 +35%、黑格減傷 +35%，每 10 秒全盤翻轉！', visual: '巨型西洋棋子、骰子高塔、卡牌拱門與棋盤浮島。' },
+  { id: 26, name: '🍰 巨食甜點王國', layer: 'sky', family: 'open', asset: '4291 Food 1 (放大 10x 場景化)', rule: '彈力布丁＆巨大化盛宴：踩巨型布丁超高彈跳，吃場上烤雞蛋糕變大撞飛怪群！', visual: '巨大烤雞山、草莓蛋糕塔、甜甜圈拱門與汽水瀑布。' },
+  { id: 27, name: '🏮 東方雲頂百鬼城', layer: 'sky', family: 'maze', asset: '4384 Polyworks (Asian Additional)', rule: '朱紅鳥居瞬移陣：穿過成對鳥居瞬間空間摺疊傳送，並留下幻影斬擊！', visual: '多層飛簷寶塔、連綿千本鳥居、竹林與赤紅紙燈籠。' },
+  { id: 28, name: '🌀 幾何抽象虛空（第 4 層入口）', layer: 'dream', family: 'ring', asset: '4384 Polyworks (Abstract)', rule: '第四層「🌌 夢境虛空」入口：預留重力翻轉、季節活動島與 30+ 張無限擴張！', visual: '純粹低面幾何漂浮體、霓虹光線與超現實階梯。' },
+];
+
 function hexStr(n) {
   return '#' + (n >>> 0).toString(16).padStart(6, '0');
 }
@@ -182,6 +194,7 @@ header.hero p{margin:0;color:#ebd8b8;font-size:13px;max-width:1320px}
     <button data-layer="surface">☀️ 中層 · 燈谷表界 (10)</button>
     <button data-layer="abyss">🌊 下層 · 沉淵暗域 (5)</button>
     <button data-layer="sky">✨ 上層 · 星穹外境 (5)</button>
+    <button data-layer="future" style="border-color:#c88cff;color:#f0d8ff">🔮 未來擴充預留 #21–#28 (8)</button>
   </div>
   <div class="filters" id="famFilters">
     <button class="on" data-fam="all">全部拓撲</button>
@@ -203,7 +216,14 @@ header.hero p{margin:0;color:#ebd8b8;font-size:13px;max-width:1320px}
   <span class="leg">💡 點擊任一張平面圖可全螢幕放大審閱</span>
 </div>
 
-<div class="wrap"><div class="grid" id="grid"></div></div>
+<div class="wrap">
+  <div class="grid" id="grid"></div>
+  <section id="futureSec" style="margin-top:34px">
+    <h2 style="color:#f0d8ff;margin:0 0 8px;font-size:19px">🔮 未來擴充預留席位（#21–#28 ＋ 第 4 層「夢境虛空」擴充槽）</h2>
+    <p style="color:#c8bed8;font-size:13px;margin:0 0 14px">星燈航海星圖採<b>資料驅動＋海空分層設計</b>，日後擴充至 30–40+ 張地圖完全不需改動引擎核心。以下 8 個雲霧預留席位皆已對應您現有 <code>scenes02/</code> 內尚未啟用的低面素材包與原創物理微規則點子：</p>
+    <div class="grid" id="futureGrid" style="grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:14px"></div>
+  </section>
+</div>
 
 <div id="modal"><div class="m-inner">
   <div class="m-top"><h3 id="mTitle"></h3><button id="mClose">✕ 關閉</button></div>
@@ -212,8 +232,9 @@ header.hero p{margin:0;color:#ebd8b8;font-size:13px;max-width:1320px}
 
 <script>
 const BP_W = ${BP_W}, BP_H = ${BP_H};
-const LAYER_LABEL = { surface: '☀️ 中層・燈谷表界', abyss: '🌊 下層・沉淵暗域', sky: '✨ 上層・星穹外境' };
+const LAYER_LABEL = { surface: '☀️ 中層・燈谷表界', abyss: '🌊 下層・沉淵暗域', sky: '✨ 上層・星穹外境', dream: '🌌 第四層・夢境虛空（預留）' };
 const MAPS = ${JSON.stringify(mapsData)};
+const FUTURE_SLOTS = ${JSON.stringify(FUTURE_SLOTS)};
 
 function decodeRle(rle) {
   const out = new Uint8Array(BP_W * BP_H);
@@ -407,9 +428,31 @@ for (const m of MAPS) {
 document.getElementById('mClose').onclick = () => modal.classList.remove('open');
 modal.onclick = e => { if (e.target === modal) modal.classList.remove('open'); };
 
+const futureGrid = document.getElementById('futureGrid');
+const futureSec = document.getElementById('futureSec');
+for (const fs of FUTURE_SLOTS) {
+  const c = document.createElement('article');
+  c.className = 'map-card';
+  c.style.cssText = 'border-style:dashed;border-color:#a878e8;background:#f8f2ff';
+  c.innerHTML = \`
+    <div class="mc-head" style="background:linear-gradient(90deg,#2c1e44,#3c2856)">
+      <h2><span>#\${fs.id} \${fs.name}</span><span class="badge soft">\${LAYER_LABEL[fs.layer]}</span></h2>
+    </div>
+    <div class="mc-info" style="padding:12px 14px">
+      <div class="mc-tag rule"><b>✨ 預留物理微規則 Idea</b><br>\${fs.rule}</div>
+      <div class="mc-tag glb"><b>📦 對應現有資產包</b><br><code>\${fs.asset}</code></div>
+      <div class="mc-tag"><b>🎨 視覺特色</b><br>\${fs.visual}</div>
+    </div>
+  \`;
+  futureGrid.appendChild(c);
+}
+
 let curLayer = 'all', curFam = 'all';
 function applyFilter() {
+  const onlyFuture = curLayer === 'future';
+  futureSec.style.display = (curLayer === 'all' || onlyFuture) ? 'block' : 'none';
   for (const card of gridEl.children) {
+    if (onlyFuture) { card.classList.add('hide'); continue; }
     const okL = curLayer === 'all' || (curLayer === 'new' ? card.dataset.new === '1' : card.dataset.layer === curLayer);
     const okF = curFam === 'all' || card.dataset.fam === curFam;
     card.classList.toggle('hide', !(okL && okF));
