@@ -517,7 +517,7 @@ const createGuild = require('../server/guild.cjs');
   const p2bAssets = await import(src('assets.js'));
   const fsMod = require('node:fs');
   const gameDir = path.resolve(__dirname, '../game');
-  assert.equal(Object.keys(p2bAssets.LANDMARK_FILES).length, 21, '21 landmark GLBs registered');
+  assert.equal(Object.keys(p2bAssets.LANDMARK_FILES).length, 27, '27 landmark GLBs registered (fields + towns)');
   assert.equal(Object.keys(p2bAssets.MONSTER_FILES).length, 13, '13 monster GLBs registered');
   for (const rel of [...Object.values(p2bAssets.LANDMARK_FILES), ...Object.values(p2bAssets.MONSTER_FILES)]) {
     const full = path.join(gameDir, rel);

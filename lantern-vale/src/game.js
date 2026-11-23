@@ -9,7 +9,7 @@ import { addGearToBag } from './physbag.js';
 import { t } from './i18n.js';
 import * as THREE from 'three';
 import { World, toonMat, HALF, windU } from './world.js';
-import { preloadNatureAssets, attachMonsterGlb } from './assets.js';
+import { preloadNatureAssets, attachMonsterGlb, attachLandmarkGlb } from './assets.js';
 import { BIOMES, mulberry32, clamp, lerp, angleLerp, rand, pick } from './util.js';
 import { buildTownScenery, buildGuildKiosk, buildAwakenAltar, buildWardrobe, buildSheep, TOWN_LAYOUT, buildCottage } from './town.js';
 import { loadSettings, applySettings, buildSettingsUI } from './settings.js';
@@ -1848,8 +1848,14 @@ export class Game {
     if (!this.townGroup) return;
     if (this.homeModel) this.townGroup.remove(this.homeModel);
     const rank = this.meta.p.home;
-    this.homeModel = buildCottage([0xc08850,0xe0553c,0x5aae60,0xffb840][rank] ?? 0xe0553c, 0xf6ebd0, 3.0 + rank * 0.3, 2.8 + rank * 0.2, rank >= 2 ? 2 : 1);
-    this.homeModel.position.set(TOWN_LAYOUT.home[0], this.world.gh(TOWN_LAYOUT.home[0], TOWN_LAYOUT.home[1]), TOWN_LAYOUT.home[1]); this.homeModel.rotation.y = Math.PI / 2; this.townGroup.add(this.homeModel);
+    const fb = buildCottage([0xc08850,0xe0553c,0x5aae60,0xffb840][rank] ?? 0xe0553c, 0xf6ebd0, 3.0 + rank * 0.3, 2.8 + rank * 0.2, rank >= 2 ? 2 : 1);
+    const holder = new THREE.Group();
+    holder.position.set(TOWN_LAYOUT.home[0], this.world.gh(TOWN_LAYOUT.home[0], TOWN_LAYOUT.home[1]), TOWN_LAYOUT.home[1]);
+    holder.rotation.y = Math.PI / 2;
+    this.townGroup.add(holder);
+    const key = ['cottage', 'cottage_b', 'cottage_c', 'cottage_c'][rank] || 'cottage_c';
+    attachLandmarkGlb(holder, key, fb, { scale: 0.92 + rank * 0.08, yOffset: -0.1, emissive: 0x3c342a, emissiveIntensity: 0.34 });
+    this.homeModel = holder;
   }
   spawnBots() {
     const defs = [

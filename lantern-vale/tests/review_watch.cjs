@@ -117,7 +117,32 @@ async function runCapture(req) {
           if (btn && !document.getElementById('title')?.classList.contains('hide')) btn.click();
           else window.__game.enterTown();
         });
-        await page.waitForTimeout(1600);
+        await page.waitForTimeout(1800);
+        // 額外拍攝 Phase 3A 雙城鎮實模特寫（燈谷鎮西區酒館鐘樓、東區鐵匠街與燈塔、海風港鎮全景）
+        await page.evaluate(() => {
+          const g = window.__game;
+          g.player.pos.set(-7.5, g.world.gh(-7.5, -2.5), -2.5);
+          g.camPos.set(-9.5, 0, -6.5);
+        });
+        await page.waitForTimeout(900);
+        await page.screenshot({ path: path.join(runDir, 'p3a_town_west.png') });
+        await page.evaluate(() => {
+          const g = window.__game;
+          g.player.pos.set(10.0, g.world.gh(10.0, 2.0), 2.0);
+          g.camPos.set(11.5, 0, -1.5);
+        });
+        await page.waitForTimeout(900);
+        await page.screenshot({ path: path.join(runDir, 'p3a_town_east.png') });
+        await page.evaluate(() => {
+          const g = window.__game;
+          g.enterHarbor();
+          g.player.pos.set(0, g.world.gh(0, 6.0), 6.0);
+          g.camPos.set(0, 0, 1.5);
+        });
+        await page.waitForTimeout(1400);
+        await page.screenshot({ path: path.join(runDir, 'p3a_harbor.png') });
+        await page.evaluate(() => window.__game.enterTown());
+        await page.waitForTimeout(1200);
       } else if (shot === 'harbor') {
         await ensureStarted();
         await page.evaluate(() => window.__game.enterHarbor());

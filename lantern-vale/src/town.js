@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { part, toonMat, windMat, pondMat } from './world.js';
+import { attachLandmarkGlb } from './assets.js';
 
 const M = (parts, opts = {}) => { const m = new THREE.Mesh(mergeGeometries(parts), opts.wind ? windMat({ vertexColors: true }, opts.wind) : toonMat({ vertexColors: true, ...opts })); m.castShadow = true; m.receiveShadow = true; return m; };
 const B = (w, h, d, c, x, y, z, rx = 0, ry = 0, rz = 0) => part(new THREE.BoxGeometry(w, h, d), c, x, y, z, rx, ry, rz);
@@ -272,30 +273,48 @@ export function buildTownScenery({ gh, rng }) {
   lane(-10.5, 0, -10.5, 6.5); lane(10.5, 0, 10.5, -5.5); lane(0, 14, 5, 14);
   g.add(M(stones));
 
-  // ---- 北：冒險者台地 ----
-  place(buildGuildHall(), L.guild[0], L.guild[1], PX, 0); boxObs(L.guild[0], L.guild[1], 4.8, 6.0);
+  const placeGlb = (key, fb, x, z, ry = 0, obs = 0, opts = {}) => {
+    const holder = new THREE.Group();
+    if (fb?.userData?.chimney) holder.userData.chimney = fb.userData.chimney;
+    place(holder, x, z, ry, obs);
+    attachLandmarkGlb(holder, key, fb, { emissive: 0x3c342a, emissiveIntensity: 0.34, yOffset: -0.1, ...opts });
+    return holder;
+  };
+  // ---- 北：冒險者台地（4137 公會鐘樓大廳） ----
+  placeGlb('bell_tower', buildGuildHall(), L.guild[0], L.guild[1], PX, 0, { scale: 1.05 }); boxObs(L.guild[0], L.guild[1], 4.8, 6.0);
   place(banner(0xe0553c), -3.0, -17.2, 0, 0.3); place(banner(0xe0553c), 4.0, -17.2, Math.PI, 0.3);
   // ---- 東北：祭壇石台 ----
   place(altarStage(), L.altar[0], L.altar[1], 0, 0);
   for (const [x, z] of [[-1.8, -1.8], [1.8, -1.8], [-1.8, 1.8], [1.8, 1.8]]) obstacles.push({ x: L.altar[0] + x, z: L.altar[1] + z, r: 0.35, h: 0 });
-  // ---- 西：生活區 ----
-  place(buildTavern(), L.tavern[0], L.tavern[1], PX, 0); boxObs(L.tavern[0], L.tavern[1], 4.6, 6.4);
+  // ---- 西：生活區（4137 奇幻酒館主屋＋古石水井） ----
+  placeGlb('cottage_b', buildTavern(), L.tavern[0], L.tavern[1], PX, 0, { scale: 1.25 }); boxObs(L.tavern[0], L.tavern[1], 4.6, 6.4);
   place(buildTable(0xe0553c), -10.2, -8.6, 0, 1.0); place(buildTable(0x58a0e0), -10.2, -2.6, 0, 1.0);
-  place(well(), L.well[0], L.well[1], 0, 1.1);
+  placeGlb('town_well', well(), L.well[0], L.well[1], 0, 1.1, { scale: 1.0 });
   const bed = (x, z, w, d) => { const p = [B(w, 0.22, d, 0xb0a89a, x, 0.11, z), B(w - 0.3, 0.26, d - 0.3, 0x6a8f3a, x, 0.13, z)]; for (let k = 0; k < 30; k++) p.push(part(new THREE.IcosahedronGeometry(0.08 + r() * 0.05, 0), [0xfff1f4, 0xffffff, 0xffe27a, 0xffb3c9][(r() * 4) | 0], x + (r() - .5) * (w - 0.6), 0.34, z + (r() - .5) * (d - 0.6))); const m = M(p); m.position.y = gh(x, z); g.add(m); boxObs(x, z, w, d); };
   bed(-14.6, 10.6, 3.2, 1.4); bed(-4.2, 10, 1.6, 3.2); bed(4.2, 10, 1.6, 3.2);
   place(picketFence(4.4), -14.2, 3.4, 0, 0); boxObs(-14.2, 3.4, 4.4, 0.3);
-  // ---- 東：工匠街 ----
-  place(buildCottage(0xe0553c, 0xf6ebd0, 4.2, 3.4, 1), 16.8, -5.5, -PX, 0); boxObs(16.8, -5.5, 3.6, 4.4);
+  // ---- 東：工匠街（4137 正牌鐵匠工坊主屋） ----
+  placeGlb('town_blacksmith', buildCottage(0xe0553c, 0xf6ebd0, 4.2, 3.4, 1), 16.8, -5.5, -PX, 0, { scale: 1.05 }); boxObs(16.8, -5.5, 3.6, 4.4);
   [[11.6, 4.6, 0xe0553c], [14.8, 4.6, 0x58a0e0]].forEach(([x, z, c]) => place(stall(c), x, z, Math.PI, 1.4));
   place(crates(), 16.6, 3.2, 0.4, 0.9);
-  // ---- 民宅：街道兩端與邊緣，門一律朝街 ----
-  const homes = [[-19, 0, PX, 0xffb840, 3.6, 3.2, 2], [19, 0, -PX, 0x58a0e0, 3.6, 3.2, 2], [15.5, -12, -PX, 0xe0553c, 3.6, 3.0, 2], [13, 10.5, -PX, 0x5aae60, 3.4, 3.0, 1], [-15.5, -12.5, PX, 0x5aae60, 3.2, 2.8, 1]];
-  homes.forEach(([x, z, ry, roof, w, d, fl]) => { place(buildCottage(roof, 0xf6ebd0, w, d, fl), x, z, ry, 0); boxObs(x, z, d + 0.4, w + 0.4); });
-  // ---- 南：碼頭區 ----
+  // ---- 民宅：街道兩端與邊緣，多元 4137 低面木屋群 ----
+  const homes = [
+    [-19, 0, PX, 0xffb840, 3.6, 3.2, 2, 'cottage_c'],
+    [19, 0, -PX, 0x58a0e0, 3.6, 3.2, 2, 'cottage_b'],
+    [15.5, -12, -PX, 0xe0553c, 3.6, 3.0, 2, 'cottage'],
+    [13, 10.5, -PX, 0x5aae60, 3.4, 3.0, 1, 'forest_cabin'],
+    [-15.5, -12.5, PX, 0x5aae60, 3.2, 2.8, 1, 'cottage'],
+  ];
+  homes.forEach(([x, z, ry, roof, w, d, fl, glbKey]) => {
+    placeGlb(glbKey, buildCottage(roof, 0xf6ebd0, w, d, fl), x, z, ry, 0, { scale: fl > 1 ? 1.05 : 0.95 });
+    boxObs(x, z, d + 0.4, w + 0.4);
+  });
+  // ---- 南：碼頭區（4137 漁夫小屋＋4379 海岸燈塔與停泊帆船） ----
   place(fishStall(), 5.2, 15.4, Math.PI, 1.3);
+  placeGlb('fishing_hut', null, 8.8, 16.5, -0.5, 2.4, { scale: 0.95 });
+  placeGlb('pirate_boat', null, -8.5, 22.8, 0.4, 0, { scale: 0.9, yOffset: -0.25, emissive: 0x48382c, emissiveIntensity: 0.38 });
   place(crates(), -3.6, 17.2, 0.2, 0.9); place(fishingNet(), -5.6, 15.2, 0.3, 0.6);
-  place(lighthouse(), L.lighthouse[0], L.lighthouse[1], 0, 2.2);
+  placeGlb('lighthouse', lighthouse(), L.lighthouse[0], L.lighthouse[1], -0.4, 2.2, { scale: 0.85, emissive: 0x5c5246, emissiveIntensity: 0.48 });
   // ---- 西南：牧場 ----
   place(fenceRing(3.4), L.pasture[0], L.pasture[1], 0, 0);
   for (let i = 0; i < 22; i++) { if (i === 5 || i === 6) continue; const a = i / 22 * 6.283; obstacles.push({ x: L.pasture[0] + Math.cos(a) * 3.4, z: L.pasture[1] + Math.sin(a) * 3.4, r: 0.3, h: 0 }); }

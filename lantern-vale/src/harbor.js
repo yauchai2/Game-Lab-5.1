@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { part, toonMat } from './world.js';
+import { attachLandmarkGlb } from './assets.js';
 import { buildHouse, buildStall } from './models.js';
 import { mulberry32 } from './util.js';
 
@@ -108,31 +109,48 @@ export function buildHarborTown(g) {
   boat.position.set(0, -0.02, 29.8);
   grp.add(boat);
 
-  // 紅白條紋燈塔（海風港鎮地標）
+  const placeGlb = (key, fb, x, z, ry = 0, opts = {}) => {
+    const holder = new THREE.Group();
+    holder.position.set(x, 0, z);
+    holder.rotation.y = ry;
+    grp.add(holder);
+    attachLandmarkGlb(holder, key, fb, { emissive: 0x4c4438, emissiveIntensity: 0.42, yOffset: -0.1, ...opts });
+    return holder;
+  };
+
+  // 海港燈塔（4379 實模海港燈塔）
   const lh = new THREE.Mesh(mergeGeometries([
     part(new THREE.CylinderGeometry(1.1, 1.5, 2.2, 10), 0xfff5e0, 0, 1.1, 0),
     part(new THREE.CylinderGeometry(0.95, 1.1, 1.8, 10), 0xd94f42, 0, 3.1, 0),
     part(new THREE.CylinderGeometry(0.85, 0.95, 1.8, 10), 0xfff5e0, 0, 4.9, 0),
-    part(new THREE.CylinderGeometry(1.1, 1.0, 0.35, 10), 0x3b2a2a, 0, 5.95, 0),
-    part(new THREE.CylinderGeometry(0.65, 0.65, 0.9, 8), 0xffe47a, 0, 6.55, 0),
-    part(new THREE.ConeGeometry(1.05, 1.1, 8), 0xd94f42, 0, 7.5, 0),
+    part(new THREE.ConeGeometry(1.05, 1.1, 8), 0xd94f42, 0, 6.4, 0),
   ]), toonMat({ vertexColors: true }));
-  lh.position.set(-9.5, 0, -5.5); lh.castShadow = true;
-  grp.add(lh);
+  lh.castShadow = true;
+  placeGlb('lighthouse', lh, -9.5, -5.5, -0.35, { scale: 0.88, emissive: 0x5c5246, emissiveIntensity: 0.48 });
   obs.push({ x: -9.5, z: -5.5, r: 1.8, h: 0 });
 
-  // 海濱倉庫、外觀裁縫坊與漁夫酒館（附精準 AABB 矩形碰撞）
+  // 海濱倉庫（4379 高腳度假木屋）、海鷗造型工坊（4379 海島屋）與漁港小屋（4137）
   const warehouse = buildHouse(0x4b7ea8, 0xf4e8ce, 3.8, 3.0);
-  warehouse.position.set(8.5, 0, -4.5); grp.add(warehouse);
+  placeGlb('beach_house', warehouse, 8.5, -4.5, -0.4, { scale: 0.95 });
   addBox(8.5, -4.5, 2.0, 1.6);
 
   const tailor = buildHouse(0xe0785a, 0xfff2dc, 3.2, 2.8);
-  tailor.position.set(-8.5, 0, 4.0); grp.add(tailor);
+  placeGlb('island_house', tailor, -8.5, 4.0, 0.45, { scale: 0.95 });
   addBox(-8.5, 4.0, 1.7, 1.5);
 
   const fishStall = buildStall(0x3ca6b8);
   fishStall.position.set(7.5, 0, 4.5); fishStall.rotation.y = -0.4; grp.add(fishStall);
   addBox(7.5, 4.5, 1.3, 0.8);
+  placeGlb('fishing_hut', null, 11.8, 5.8, -0.65, { scale: 0.95 });
+  addBox(11.8, 5.8, 2.0, 1.8);
+
+  // 熱帶椰子樹與停泊近海的港灣帆船
+  [[-13.5, 8.5, 0.3], [-4.5, 12.2, 1.4], [12.5, 11.8, -0.8], [14.0, -2.5, 2.1]].forEach(([cx, cz, ry]) => {
+    placeGlb('coconut_tree', null, cx, cz, ry, { scale: 1.05, emissive: 0x38482c, emissiveIntensity: 0.38 });
+    obs.push({ x: cx, z: cz, r: 0.7, h: 0 });
+  });
+  placeGlb('pirate_boat', null, -8.2, 22.0, 0.5, { scale: 1.05, yOffset: -0.25 });
+  placeGlb('pirate_boat', null, 9.5, 21.0, -0.7, { scale: 0.95, yOffset: -0.25 });
 
   // A Short Hike 風格彩色沙灘遮陽傘與野餐桌
   const umbrellaCols = [0xf26457, 0x3fa7d6, 0xf6c244];

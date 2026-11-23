@@ -150,6 +150,12 @@ export const LANDMARK_FILES = {
   red_crystal:     'assets/landmarks/red_crystal.glb',
   giant_shroom:    'assets/landmarks/giant_shroom.glb',
   blacksmith:      'assets/landmarks/blacksmith.glb',
+  bell_tower:      'assets/landmarks/bell_tower.glb',
+  town_well:       'assets/landmarks/town_well.glb',
+  fishing_hut:     'assets/landmarks/fishing_hut.glb',
+  town_blacksmith: 'assets/landmarks/town_blacksmith.glb',
+  cottage_b:       'assets/landmarks/cottage_b.glb',
+  cottage_c:       'assets/landmarks/cottage_c.glb',
 };
 
 export const MONSTER_FILES = {
@@ -267,7 +273,8 @@ export function preloadNatureAssets(onReady) {
   // Node.js 測試環境或本機 file:// 開啟時自動採用內建程序化幾何體，避免 CORS 報錯
   if (typeof window === 'undefined' || window.location?.protocol === 'file:') return;
 
-  // 預載最常用的起手怪物實模，其餘生態專屬怪進入對應地圖時按需瞬載快取
+  // 預載主城低面實模（總計 < 250KB）與最常用怪物實模，進入主城即刻無縫呈現
+  for (const k of ['bell_tower', 'town_well', 'fishing_hut', 'town_blacksmith', 'cottage', 'cottage_b', 'cottage_c']) loadGlbAsset(LANDMARK_FILES[k]);
   for (const k of ['plant_chewer', 'golem_ice', 'golem_fire', 'beholder']) loadGlbAsset(MONSTER_FILES[k]);
 
   const loader = new GLTFLoader();

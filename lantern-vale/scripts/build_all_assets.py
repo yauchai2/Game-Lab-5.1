@@ -25,6 +25,8 @@ PKGS = {
 }
 
 T_VILLAGE = "Assets/Tarbo-FantasyVillage/Textures/Village_Base.png"
+T_VILLAGE_A = "Assets/Tarbo-FantasyVillage/Textures/Village_ColorA.png"
+T_VILLAGE_B = "Assets/Tarbo-FantasyVillage/Textures/Village_ColorB.png"
 T_VILLAGE_SNOW = "Assets/Tarbo-FantasyVillage/Textures/Village_Base_Snow.png"
 T_VILLAGE_AUTUMN = "Assets/Tarbo-FantasyVillage/Textures/Village_Autumn.png"
 T_ISLAND = "Assets/Low Poly Floating Islands/Textures/Lowpoly_Flaoting_Islands_PortTexture.png"
@@ -56,6 +58,14 @@ JOBS = [
     dict(out="landmarks/red_crystal.glb",     pkg="4130", mesh="Assets/PurePoly/Mining_Pack/Meshes/PP_Crystal_01_Red.fbx",                  tex=T_MINING, keep_res=True, target_h=6.4),
     dict(out="landmarks/giant_shroom.glb",    pkg="4130", mesh="Assets/PurePoly/Mining_Pack/Meshes/PP_Mushrooms_Brown_01.fbx",              tex=T_MINING, keep_res=True, target_h=4.4),
     dict(out="landmarks/blacksmith.glb",      pkg="4137", mesh="Assets/Tarbo-FantasyVillage/Meshes/Buildings/TB_Bd_Blacksmith.FBX",         tex=T_VILLAGE_AUTUMN, keep_res=True, target_h=6.4),
+
+    # ---- Phase 3A Town & Harbor Landmarks (4137 Fantasy Village) ----
+    dict(out="landmarks/bell_tower.glb",      pkg="4137", mesh="Assets/Tarbo-FantasyVillage/Meshes/Buildings/TB_Bd_BellTower.FBX",          tex=T_VILLAGE,   keep_res=True, target_h=8.6),
+    dict(out="landmarks/town_well.glb",       pkg="4137", mesh="Assets/Tarbo-FantasyVillage/Meshes/Buildings/TB_Bd_Well.FBX",               tex=T_VILLAGE,   keep_res=True, target_h=3.0),
+    dict(out="landmarks/fishing_hut.glb",     pkg="4137", mesh="Assets/Tarbo-FantasyVillage/Meshes/Buildings/TB_Bd_Fishing.FBX",            tex=T_VILLAGE,   keep_res=True, target_h=4.8),
+    dict(out="landmarks/town_blacksmith.glb", pkg="4137", mesh="Assets/Tarbo-FantasyVillage/Meshes/Buildings/TB_Bd_Blacksmith.FBX",         tex=T_VILLAGE,   keep_res=True, target_h=5.8),
+    dict(out="landmarks/cottage_b.glb",       pkg="4137", mesh="Assets/Tarbo-FantasyVillage/Meshes/Buildings/TB_Bd_House.FBX",              tex=T_VILLAGE_A, keep_res=True, target_h=5.2),
+    dict(out="landmarks/cottage_c.glb",       pkg="4137", mesh="Assets/Tarbo-FantasyVillage/Meshes/Buildings/TB_Bd_SWHouse.FBX",            tex=T_VILLAGE_B, keep_res=True, target_h=5.4),
 
     # ---- Monsters (13 species covering all 12 maps) ----
     dict(out="monsters/plant_chewer.glb",  pkg="4356", mesh="Assets/Monsters Ultimate Pack 04 Cute Series/Plant Chewer Cute Series/FBX/Plant Chewer.FBX",   tex="Assets/Monsters Ultimate Pack 04 Cute Series/Plant Chewer Cute Series/Textures/Plant Chewer.psd",   target_h=1.45, is_monster=True),
