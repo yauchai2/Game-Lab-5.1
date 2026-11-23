@@ -9,10 +9,10 @@ const createGuild = require('../server/guild.cjs');
   const frontier = await import(src('frontier.js'));
   const lodge = await import(src('lodge.js'));
 
-  // 1. Twelve ultra-grand persistent regions (240–400) & status affinities
-  assert.equal(frontier.FIELDS.length, 13);
+  // 1. Twenty ultra-grand persistent regions (12 classic + 8 Phase 4A drifting isles) & status affinities
+  assert.equal(frontier.FIELDS.length, 21);
   assert.deepEqual(
-    frontier.FIELDS.slice(1).map(f => [f.name, f.level, f.size]),
+    frontier.FIELDS.slice(1, 13).map(f => [f.name, f.level, f.size]),
     [
       ['晨光草原', 1, 240],
       ['低語森林', 5, 360],
@@ -26,6 +26,19 @@ const createGuild = require('../server/guild.cjs');
       ['櫻花水都', 14, 320],
       ['蒼穹巨環谷', 22, 360],
       ['紅楓工坊谷', 28, 360],
+    ],
+  );
+  assert.deepEqual(
+    frontier.FIELDS.slice(13).map(f => [f.name, f.layer, f.realmRule]),
+    [
+      ['黃金風沙原', 'surface', 'sand_surf'],
+      ['太陽金字塔聖殿', 'surface', 'sand_surf'],
+      ['失落藤蔓神廟', 'surface', 'vine_leap'],
+      ['幽霧哥德墓園', 'abyss', 'lantern_glow'],
+      ['深淵哥德古堡', 'abyss', 'lantern_glow'],
+      ['深海螢光沉淵', 'abyss', 'low_gravity'],
+      ['星際白銀前哨站', 'sky', 'overcharge'],
+      ['異星蜂巢裂谷', 'sky', 'crystal_burst'],
     ],
   );
   assert.equal(frontier.FIELDS[3].status, 'poison');
@@ -483,7 +496,7 @@ const createGuild = require('../server/guild.cjs');
   assert.equal(bpMod.BP_W, 260);
   assert.equal(bpMod.BP_H, 180);
   const families = new Set();
-  for (let fid = 1; fid <= 12; fid++) {
+  for (let fid = 1; fid <= 20; fid++) {
     const bp = bpMod.FIELD_BLUEPRINTS[fid];
     assert.ok(bp, `Blueprint #${fid} exists`);
     families.add(bp.family);
@@ -497,7 +510,7 @@ const createGuild = require('../server/guild.cjs');
     assert.ok(bp.bridges.length >= 1, `Blueprint #${fid} defines bridge spans`);
     assert.ok(bp.glides.length >= 2, `Blueprint #${fid} defines one-way glide shortcuts`);
   }
-  assert.equal(families.size, 5, 'All 5 PoE 2 spatial topologies covered across 12 field maps');
+  assert.equal(families.size, 5, 'All 5 PoE 2 spatial topologies covered across 20 field maps');
   const wCenter = bpMod.uvToWorld(0.5, 0.5, 120);
   assert.equal(wCenter.x, 0); assert.equal(wCenter.z, 0);
   // Verify checkpoint teleport cycles between unlocked checkpoints
@@ -526,15 +539,28 @@ const createGuild = require('../server/guild.cjs');
     assert.ok(fsMod.existsSync(full) && fsMod.statSync(full).size > 2000, `GLB asset exists and non-empty: ${rel}`);
   }
 
-  // 22. Phase 3C: Blueprint Special Terrain Gameplay Engine + PoE 2 Topology Metadata
+  // 22. Phase 3C + 4A: Blueprint Special Terrain Gameplay Engine + 6 Mario-Odyssey Realm Rules + 3-Layer Star Chart
   const tfxMod = await import(src('terrain_fx.js'));
   assert.equal(Object.keys(tfxMod.FAMILY_META).length, 5, 'All 5 PoE 2 topology families defined in FAMILY_META');
-  for (let fid = 1; fid <= 12; fid++) {
+  assert.equal(Object.keys(tfxMod.REALM_RULES).length, 6, 'All 6 Mario-Odyssey realm micro-rules defined');
+  for (let fid = 1; fid <= 20; fid++) {
     const bp = bpMod.FIELD_BLUEPRINTS[fid];
     assert.ok(tfxMod.FAMILY_META[bp.family], `Field #${fid} family (${bp.family}) present in FAMILY_META`);
     const eff = tfxMod.getTerrainEffect(bp.shallowKind);
     assert.ok(eff && eff.name && eff.icon, `Field #${fid} shallowKind (${bp.shallowKind}) mapped in TERRAIN_EFFECTS`);
+    const f = frontier.FIELDS[fid];
+    if (f.realmRule) assert.ok(tfxMod.getRealmRule(f.realmRule), `Field #${fid} realmRule (${f.realmRule}) defined`);
   }
+  // Verify low_gravity & overcharge realm rule ticks
+  const ocMock = {
+    player: { air: false, pos: { x: 0, z: 0 }, y: 0, vel: { x: 0, z: 0 }, mana: 10, stats: { mana: 100 }, skillCds: [3.0, 2.0] },
+    ui: { toast() {} }, fx: { burst() {} }, puffs: { emit() {} },
+  };
+  tfxMod.updateRealmRule(ocMock, 1.0, 'overcharge');
+  assert.equal(ocMock.player.realmRule.id, 'overcharge');
+  assert.ok(ocMock.player.mana >= 28, 'Overcharge rapidly restores mana');
+  assert.ok(ocMock.player.skillCds[0] <= 2.55, 'Overcharge accelerates skill cooldown recovery');
+  assert.equal(tfxMod.getRealmRule('low_gravity').gravityMult, 0.46, 'Deep Sea uses low-gravity floaty physics');
   // Ice lake skating + Hot spring healing + Lava moat enemy burn + Elemental terrain reaction
   const mockTerrainGame = (shallowKind) => ({
     field: 4,

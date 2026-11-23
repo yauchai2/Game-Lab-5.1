@@ -508,6 +508,7 @@ export class UI {
       if (sb.gold > 0) pills.push(`<span class="st-pill st-buff-gold">💰 雙倍掉寶 ${Math.ceil(sb.gold)}s</span>`);
       if (sb.sheep > 0) pills.push(`<span class="st-pill st-buff-sheep">🐑 軟綿祝福 ${Math.ceil(sb.sheep)}s</span>`);
       if (p.galeBuff) pills.push(`<span class="st-pill st-buff-gold">💨 疾風強化 +60%</span>`);
+      if (p.realmRule) pills.push(`<span class="st-pill ${p.realmRule.pillClass || 'st-realm-sea'}">${p.realmRule.icon} ${p.realmRule.short}</span>`);
       if (p.terrainFx) pills.push(`<span class="st-pill ${p.terrainFx.pillClass || 'st-terrain-water'}">${p.terrainFx.icon} ${p.terrainFx.short}</span>`);
       const html = pills.join('');
       if (sbEl._last !== html) { sbEl.innerHTML = html; sbEl._last = html; }

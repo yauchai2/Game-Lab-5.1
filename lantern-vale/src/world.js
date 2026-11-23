@@ -202,6 +202,104 @@ function logGeo(P) {
   ]);
 }
 
+// Phase 4A：生態專屬程序化散佈物幾何（沙漠棕櫚仙人掌、哥德枯木墓碑、深海螢光巨菇、星際能量柱、異星紫紅巨晶）
+function biomeScatterGeos(P, r) {
+  const st = P.foliageStyle;
+  if (st === 'desert') {
+    // 棕櫚樹＋仙人掌＋砂岩尖碑
+    const palm = () => {
+      const parts = [
+        part(new THREE.CylinderGeometry(0.16, 0.28, 1.8, 6), 0xa87648, 0, 0.9, 0, 0.08, 0, 0.05),
+        part(new THREE.CylinderGeometry(0.12, 0.18, 1.7, 6), 0x946238, 0.14, 2.4, 0.08, 0.12, 0, -0.06),
+      ];
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2;
+        parts.push(part(new THREE.ConeGeometry(0.42, 1.8, 4), i % 2 ? 0x52a84a : 0x6ec056, 0.2 + Math.cos(a) * 0.75, 3.15, 0.1 + Math.sin(a) * 0.75, Math.sin(a) * 0.95, 0, -Math.cos(a) * 0.95));
+      }
+      return mergeGeometries(parts);
+    };
+    const cactus = () => mergeGeometries([
+      part(new THREE.CylinderGeometry(0.22, 0.26, 2.1, 6), 0x4ca252, 0, 1.05, 0),
+      part(new THREE.CylinderGeometry(0.14, 0.16, 0.85, 5), 0x5cb85e, 0.42, 1.35, 0, 0, 0, -0.35),
+      part(new THREE.CylinderGeometry(0.14, 0.16, 0.75, 5), 0x3e8c44, -0.38, 1.05, 0.1, 0, 0, 0.42),
+    ]);
+    return { primary: palm(), secondary: cactus(), accent: palm() };
+  }
+  if (st === 'jungle') {
+    const canopy = () => {
+      const parts = [part(new THREE.CylinderGeometry(0.22, 0.42, 2.8, 6), 0x6e4a32, 0, 1.4, 0)];
+      for (let i = 0; i < 5; i++) {
+        const a = (i / 5) * Math.PI * 2;
+        parts.push(part(new THREE.DodecahedronGeometry(0.95, 0), i % 2 ? 0x3ea44a : 0x68c44e, Math.cos(a) * 0.8, 2.9 + (i % 2) * 0.35, Math.sin(a) * 0.8));
+      }
+      parts.push(part(new THREE.DodecahedronGeometry(1.1, 0), 0x52b64e, 0, 3.4, 0));
+      return mergeGeometries(parts);
+    };
+    const totem = () => mergeGeometries([
+      part(new THREE.BoxGeometry(0.9, 2.4, 0.9), 0x9c927c, 0, 1.2, 0),
+      part(new THREE.BoxGeometry(1.1, 0.45, 1.1), 0x7a7260, 0, 2.5, 0),
+      part(new THREE.BoxGeometry(0.96, 0.35, 0.96), 0x4aa854, 0, 1.6, 0),
+    ]);
+    return { primary: canopy(), secondary: totem(), accent: canopy() };
+  }
+  if (st === 'gothic') {
+    const deadTree = () => mergeGeometries([
+      part(new THREE.CylinderGeometry(0.14, 0.34, 2.6, 6), 0x382e44, 0, 1.3, 0, 0.06, 0, -0.05),
+      part(new THREE.CylinderGeometry(0.06, 0.14, 1.5, 5), 0x463a56, 0.45, 2.35, 0.1, 0.2, 0, -0.7),
+      part(new THREE.CylinderGeometry(0.06, 0.13, 1.4, 5), 0x30283c, -0.42, 2.1, -0.15, -0.25, 0, 0.72),
+      part(new THREE.OctahedronGeometry(0.32, 0), 0x9c7eff, 0, 2.75, 0),
+    ]);
+    const tombstone = () => mergeGeometries([
+      part(new THREE.BoxGeometry(0.95, 0.25, 0.65), 0x525068, 0, 0.12, 0),
+      part(new THREE.BoxGeometry(0.72, 1.45, 0.26), 0x767492, 0, 0.95, 0),
+      part(new THREE.CylinderGeometry(0.36, 0.36, 0.26, 6), 0x767492, 0, 1.66, 0, Math.PI / 2, 0, 0),
+      part(new THREE.OctahedronGeometry(0.16, 0), 0x6ae8ff, 0, 1.95, 0),
+    ]);
+    return { primary: deadTree(), secondary: tombstone(), accent: deadTree() };
+  }
+  if (st === 'deep_sea') {
+    const seaShroom = (capCol) => mergeGeometries([
+      part(new THREE.CylinderGeometry(0.18, 0.32, 2.2, 6), 0x7a5ea8, 0, 1.1, 0, 0.08, 0, 0),
+      part(new THREE.SphereGeometry(1.25, 7, 4, 0, Math.PI * 2, 0, Math.PI * 0.55), capCol, 0, 2.1, 0),
+      part(new THREE.CylinderGeometry(0.95, 0.55, 0.22, 7), 0x5cf8ff, 0, 2.02, 0),
+    ]);
+    const coral = () => mergeGeometries([
+      part(new THREE.CylinderGeometry(0.14, 0.24, 1.6, 5), 0xff6a88, 0, 0.8, 0, 0.1, 0, 0.1),
+      part(new THREE.CylinderGeometry(0.12, 0.18, 1.4, 5), 0xffa84c, 0.45, 1.1, 0.2, -0.2, 0, -0.5),
+      part(new THREE.CylinderGeometry(0.12, 0.18, 1.3, 5), 0xc868ff, -0.4, 1.0, -0.15, 0.25, 0, 0.45),
+    ]);
+    return { primary: seaShroom(0xff723c), secondary: coral(), accent: seaShroom(0xffd242) };
+  }
+  if (st === 'scifi') {
+    const pylon = () => mergeGeometries([
+      part(new THREE.BoxGeometry(0.9, 0.4, 0.9), 0x8a9ab4, 0, 0.2, 0),
+      part(new THREE.BoxGeometry(0.55, 2.8, 0.55), 0xeaf2ff, 0, 1.6, 0),
+      part(new THREE.BoxGeometry(0.68, 0.45, 0.68), 0x4ae8ff, 0, 2.4, 0),
+      part(new THREE.OctahedronGeometry(0.32, 0), 0x72f4ff, 0, 3.25, 0),
+    ]);
+    const crate = () => mergeGeometries([
+      part(new THREE.BoxGeometry(1.1, 1.1, 1.1), 0xdce6f4, 0, 0.55, 0),
+      part(new THREE.BoxGeometry(1.16, 0.18, 1.16), 0x4ad8ff, 0, 0.82, 0),
+      part(new THREE.BoxGeometry(0.5, 0.5, 0.5), 0x8ea4c0, 0.15, 1.35, -0.1, 0, 0.4, 0),
+    ]);
+    return { primary: pylon(), secondary: crate(), accent: pylon() };
+  }
+  if (st === 'alien') {
+    const crystal = (c1, c2) => mergeGeometries([
+      part(new THREE.ConeGeometry(0.45, 3.1, 5), c1, 0, 1.55, 0, 0.12, 0, -0.08),
+      part(new THREE.ConeGeometry(0.34, 2.2, 5), c2, 0.48, 1.05, 0.25, -0.25, 0, -0.35),
+      part(new THREE.ConeGeometry(0.30, 1.8, 5), 0x6ef8ff, -0.42, 0.85, -0.2, 0.22, 0, 0.32),
+    ]);
+    const hivePod = () => mergeGeometries([
+      part(new THREE.DodecahedronGeometry(0.85, 0), 0x7a388c, 0, 0.75, 0),
+      part(new THREE.SphereGeometry(0.45, 6, 5), 0xff62b8, 0.35, 1.25, 0.2),
+      part(new THREE.SphereGeometry(0.35, 6, 5), 0xffc85c, -0.32, 1.05, -0.2),
+    ]);
+    return { primary: crystal(0xd858ff, 0xff64a8), secondary: hivePod(), accent: crystal(0x68e8ff, 0xc864ff) };
+  }
+  return null;
+}
+
 // ---------- World ----------
 
 // 小池塘（城鎮用）：A Short Hike 式水面——淺色中心、白色泡沫邊、等高線與 voronoi 網
@@ -812,10 +910,17 @@ export class World {
         this.obstacles.push({ x, z, r: 0.25, h: 0 });
       }
     }
-    instAsset('pine', pineT[0], pines[0], { k: 0.7, wind: [0.20, 0.7, 2.4], tint: P.pine[0], tintMix: P.key === 'snow' ? 0.65 : 0.45 });
-    instAsset('pine2', pineT[1], pines[1], { k: 0.7, wind: [0.20, 0.7, 2.4], tint: P.pine[1] ?? P.pine[0], tintMix: P.key === 'snow' ? 0.65 : 0.45 });
-    rounds.forEach((l, i) => instAsset(['tree', 'tree2', 'tree3'][i], roundT[i], l, { k: 0.7, wind: [0.24, 0.8, 2.2], tint: P.leaf[i], tintMix: P.key === 'meadow' ? 0.32 : 0.58 }));
-    inst(birchT, birches, { k: 0.72, wind: [0.26, 0.8, 2.2] });
+    const customScatter = P.foliageStyle ? biomeScatterGeos(P, r) : null;
+    if (customScatter) {
+      inst(customScatter.primary, [...pines[0], ...pines[1]], { k: 0.78 });
+      inst(customScatter.secondary, [...rounds[0], ...rounds[1]], { k: 0.82 });
+      inst(customScatter.accent, [...rounds[2], ...birches], { k: 0.78 });
+    } else {
+      instAsset('pine', pineT[0], pines[0], { k: 0.7, wind: [0.20, 0.7, 2.4], tint: P.pine[0], tintMix: P.key === 'snow' ? 0.65 : 0.45 });
+      instAsset('pine2', pineT[1], pines[1], { k: 0.7, wind: [0.20, 0.7, 2.4], tint: P.pine[1] ?? P.pine[0], tintMix: P.key === 'snow' ? 0.65 : 0.45 });
+      rounds.forEach((l, i) => instAsset(['tree', 'tree2', 'tree3'][i], roundT[i], l, { k: 0.7, wind: [0.24, 0.8, 2.2], tint: P.leaf[i], tintMix: P.key === 'meadow' ? 0.32 : 0.58 }));
+      inst(birchT, birches, { k: 0.72, wind: [0.26, 0.8, 2.2] });
+    }
     const rocksA = rocks.filter((_, i) => i % 2 === 0), rocksB = rocks.filter((_, i) => i % 2 === 1);
     instAsset('rock1', rockGeo(P, r), rocksA, { rockTint: P.rock });
     instAsset('rock3', rockGeo(P, r), rocksB, { rockTint: P.rock });

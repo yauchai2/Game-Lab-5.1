@@ -94,7 +94,131 @@ export const TERRAIN_EFFECTS = {
     desc: '上升雲氣托舉身軀，提升移動速度與跳躍高度，便於銜接滑翔。',
     tip: '☁️ 踏入浮空雲氣：身輕如燕，移動速度與跳躍高度提升！',
   },
+  oasis: {
+    id: 'oasis', icon: '🌴', name: '翡翠綠洲', short: '綠洲沁涼回復',
+    pillClass: 'st-terrain-heal', surfaceBase: 'water',
+    speedMult: 1.04, accelRate: 14, healHpPct: 0.04, manaRegen: 10, wet: true, color: 0x3ec8c4,
+    desc: '沙漠中的清涼綠洲，回復生命與魔力、撲滅灼燒並附帶潮濕。',
+    tip: '🌴 踏入翡翠綠洲：清涼泉水回復生命與魔力！',
+  },
+  quicksand: {
+    id: 'quicksand', icon: '🏜️', name: '金色流沙', short: '流沙旋渦',
+    pillClass: 'st-terrain-lava', surfaceBase: null,
+    speedMult: 0.78, accelRate: 9, color: 0xe6b864,
+    desc: '流沙會減緩徒步與敵人移動，翻滾或滑翔可高速脫離。',
+    tip: '🏜️ 踏入金色流沙：移動變緩，使用翻滾或滑翔可快速越過！',
+  },
+  jungle_river: {
+    id: 'jungle_river', icon: '🌿', name: '叢林秘溪', short: '秘溪涉水',
+    pillClass: 'st-terrain-water', surfaceBase: 'water',
+    speedMult: 0.96, accelRate: 14, wet: true, color: 0x38b492,
+    desc: '熱帶淺溪撲滅火焰並附帶潮濕，讓冰／雷法術觸發大範圍連鎖。',
+    tip: '🌿 踏入叢林秘溪：潮濕狀態可強化冰凍與雷電連鎖！',
+  },
+  cursed_mist: {
+    id: 'cursed_mist', icon: '👻', name: '幽霧靈潭', short: '幽霧寒意',
+    pillClass: 'st-terrain-elec', surfaceBase: 'poison',
+    speedMult: 0.92, accelRate: 13, color: 0x7a68c8,
+    desc: '哥德幽霧會侵蝕敵人並附帶毒霧態，火技能可將幽霧引爆成烈焰！',
+    tip: '👻 踏入幽霧靈潭：施放火屬性技能可將幽霧引爆成劇毒爆燃！',
+  },
+  abyss_trench: {
+    id: 'abyss_trench', icon: '🫧', name: '螢光海床', short: '海流托舉 +18%',
+    pillClass: 'st-terrain-water', surfaceBase: 'water',
+    speedMult: 1.18, accelRate: 10, wet: true, color: 0x36e0e8,
+    desc: '深海螢光暖流加速游動並持續附帶潮濕，雷／冰技能威力暴增！',
+    tip: '🫧 踏入螢光海床：暖流加速移動，且全場水域皆可觸發感電與結冰！',
+  },
+  energy_grid: {
+    id: 'energy_grid', icon: '⚡', name: '光能導軌', short: '量子加速 +28%',
+    pillClass: 'st-terrain-elec', surfaceBase: 'water',
+    speedMult: 1.28, accelRate: 18, manaRegen: 14, color: 0x52e4ff,
+    desc: '科幻基地的藍光加速導軌，提供 +28% 移速與極速回魔。',
+    tip: '⚡ 踏上光能導軌：移動速度 +28% 且魔力高速充能！',
+  },
+  alien_acid: {
+    id: 'alien_acid', icon: '🌌', name: '異星等離子池', short: '紫晶等離子',
+    pillClass: 'st-terrain-elec', surfaceBase: 'poison',
+    speedMult: 1.06, accelRate: 13, hazard: 'poison', color: 0xd85cff,
+    desc: '異星等離子液體會使敵人中毒感電，火技能可瞬間引爆劇烈爆燃！',
+    tip: '🌌 踏入異星等離子池：敵人將持續中毒，火技能可觸發劇毒爆燃！',
+  },
 };
+
+// Phase 4A（點子 2）：瑪利歐奧德賽式「異界專屬物理微規則」
+export const REALM_RULES = {
+  sand_surf: {
+    id: 'sand_surf', icon: '🏜️', name: '順風滑沙', short: '順風滑沙 +24%',
+    color: '#e8a842', pillClass: 'st-realm-sand',
+    speedMult: 1.24,
+    desc: '沙漠順風助力：移動速度 +24%，沙丘衝刺揚起金色沙浪！',
+  },
+  vine_leap: {
+    id: 'vine_leap', icon: '🌿', name: '藤蔓輕身', short: '藤蔓輕身 · 跳躍強化',
+    color: '#48b86a', pillClass: 'st-realm-vine',
+    speedMult: 1.10, jumpMult: 1.18,
+    desc: '叢林藤蔓加護：跳躍高度 +18%、移動速度 +10%，便於穿梭神廟高台！',
+  },
+  lantern_glow: {
+    id: 'lantern_glow', icon: '🕯️', name: '提燈驅暗', short: '提燈驅暗 · 光圈增傷 +25%',
+    color: '#a884ff', pillClass: 'st-realm-gothic',
+    lightRadius: 12.5, dmgBonus: 1.25,
+    desc: '幽霧暗域規則：提燈撐開溫暖光圈照亮黑暗，光圈內敵人受到傷害 +25%！',
+  },
+  low_gravity: {
+    id: 'low_gravity', icon: '🫧', name: '低重力漂浮', short: '低重力漂浮 · 1.6x 跳躍',
+    color: '#3ce0f0', pillClass: 'st-realm-sea',
+    gravityMult: 0.46, jumpMult: 1.28,
+    desc: '深海浮力規則：重力降至 46%、跳躍高度大幅提升並如水中緩降漂浮！',
+  },
+  overcharge: {
+    id: 'overcharge', icon: '🚀', name: '光能過載場', short: '光能過載 · 回魔＆冷卻 1.5x',
+    color: '#48c8ff', pillClass: 'st-realm-scifi',
+    manaRegen: 18, cdSpeed: 1.5, speedMult: 1.12,
+    desc: '星際反應爐輻射：魔力極速回復 (+18/s)、技能冷卻速度 1.5 倍！',
+  },
+  crystal_burst: {
+    id: 'crystal_burst', icon: '💎', name: '異星結晶共鳴', short: '結晶共鳴 · 暴擊連鎖爆破',
+    color: '#d86aff', pillClass: 'st-realm-alien',
+    speedMult: 1.08, burstOnCrit: true,
+    desc: '異星母巢磁場：每次暴擊或擊殺將引爆紫紅結晶震波，連鎖掃蕩周圍魔物！',
+  },
+};
+
+export function getRealmRule(ruleId) {
+  return ruleId ? (REALM_RULES[ruleId] || null) : null;
+}
+
+export function updateRealmRule(g, dt, ruleId) {
+  const p = g.player;
+  const rule = getRealmRule(ruleId);
+  p.realmRule = rule;
+  if (!rule) return;
+
+  g._realmTipsShown = g._realmTipsShown || new Set();
+  if (!g._realmTipsShown.has(rule.id)) {
+    g._realmTipsShown.add(rule.id);
+    g.ui?.toast?.(`${rule.icon} 異界規則【${rule.name}】：${rule.desc}`, rule.color);
+  }
+
+  const moving = Math.hypot(p.vel.x, p.vel.z) > 1.2;
+  if (rule.manaRegen) {
+    p.mana = Math.min(p.stats.mana, p.mana + rule.manaRegen * dt);
+  }
+  if (rule.cdSpeed && rule.cdSpeed > 1 && p.skillCds) {
+    const extra = dt * (rule.cdSpeed - 1);
+    for (let i = 0; i < p.skillCds.length; i++) p.skillCds[i] = Math.max(0, (p.skillCds[i] || 0) - extra);
+  }
+  if (rule.id === 'low_gravity' && Math.random() < dt * 7) {
+    g.puffs?.emit?.(p.pos.x + (Math.random() - 0.5) * 1.4, p.y + 0.3, p.pos.z + (Math.random() - 0.5) * 1.4, { c: 0x7ef8ff, s: 0.14, up: 2.2, g: -0.5, life: 0.85, grow: 0.4 });
+  } else if (rule.id === 'sand_surf' && moving && !p.air && Math.random() < dt * 11) {
+    g.puffs?.emit?.(p.pos.x, p.y + 0.08, p.pos.z, { c: 0xf4d27c, s: 0.18, up: 0.5, g: 1.0, life: 0.4, grow: 1.2 });
+  } else if (rule.id === 'overcharge' && Math.random() < dt * 6) {
+    g.fx?.burst?.(p.pos.x, p.y + 0.6, p.pos.z, 1, { c: [0x52e4ff, 0xffffff], s: 0.08, speed: 2.2, up: 1.2, life: 0.28 });
+  } else if (rule.id === 'lantern_glow' && Math.random() < dt * 5) {
+    g.fx?.burst?.(p.pos.x, p.y + 1.0, p.pos.z, 1, { c: [0xffd86b, 0xfff0b0], s: 0.09, speed: 1.2, up: 1.0, life: 0.42 });
+  }
+}
 
 export function getTerrainEffect(shallowKind) {
   return shallowKind ? (TERRAIN_EFFECTS[shallowKind] || null) : null;

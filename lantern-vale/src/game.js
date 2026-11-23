@@ -2,7 +2,7 @@ import { Weather } from './weather.js';
 import { bindGuild, updateRaid } from './guild.js';
 import { FIELDS, fieldBiome, awardKill, setupField, tickField, useFieldSpot, leaveGrave, rememberGear, restoreGear } from './frontier.js';
 import { FIELD_BLUEPRINTS } from './field_blueprints.js';
-import { getTerrainEffect, updateFieldTerrainFx } from './terrain_fx.js';
+import { getTerrainEffect, updateFieldTerrainFx, updateRealmRule } from './terrain_fx.js';
 import { buildDungeonScenery } from './dungeon_scene.js';
 import { CLASSES, ensurePuzzle, computeBoard } from './puzzle.js';
 import { dayInfo, findSecondClass, buildDungeonLandmark, tickSkyFeatures, buildInterior } from './world_alive.js';
@@ -594,6 +594,14 @@ export class Game {
         10: () => [isBossOrElite ? 'specter' : (Math.random() < 0.55 ? 'plant_chewer' : 'spore'), { scale: type === 'stag' ? 1.35 : 1.12, emissive: 0x5c364c, emissiveIntensity: 0.46 }],
         11: () => [isBossOrElite ? 'flying_demon' : 'beholder', { scale: type === 'stag' ? 1.4 : 1.22, emissive: 0x385276, emissiveIntensity: 0.48 }],
         12: () => [isBossOrElite ? 'black_knight' : 'golem_earth', { scale: type === 'stag' ? 1.4 : 1.15, tint: 0xe6e0d6, emissive: isBossOrElite ? 0x6c4232 : 0x4a6c4e, emissiveIntensity: 0.56 }],
+        13: () => [isBossOrElite ? 'scorpion_king' : 'golem_fire', { scale: type === 'stag' ? 1.42 : 1.12, tint: 0xffd89c, emissive: 0x6a4420, emissiveIntensity: 0.44 }],
+        14: () => [isBossOrElite ? 'scorpion_king' : 'black_knight', { scale: type === 'stag' ? 1.45 : 1.14, tint: 0xffe0a4, emissive: 0x725024, emissiveIntensity: 0.48 }],
+        15: () => [isBossOrElite ? 'werewolf' : (Math.random() < 0.5 ? 'plant_chewer' : 'spore'), { scale: type === 'stag' ? 1.42 : 1.14, tint: 0xd4f6c8, emissive: 0x36643a, emissiveIntensity: 0.48 }],
+        16: () => [isBossOrElite ? 'flying_demon' : 'specter', { scale: type === 'stag' ? 1.42 : 1.18, tint: 0xd8c8ff, emissive: 0x563c88, emissiveIntensity: 0.54 }],
+        17: () => [isBossOrElite ? 'black_knight' : 'specter', { scale: type === 'stag' ? 1.46 : 1.18, tint: 0xe2d4ff, emissive: 0x624496, emissiveIntensity: 0.58 }],
+        18: () => [isBossOrElite ? 'beholder' : 'crab_monster', { scale: type === 'stag' ? 1.42 : 1.18, tint: 0xb8f8ff, emissive: 0x267488, emissiveIntensity: 0.52 }],
+        19: () => [isBossOrElite ? 'golem_ice' : 'chest_monster', { scale: type === 'stag' ? 1.42 : 1.15, tint: 0xe8f6ff, emissive: 0x3684b8, emissiveIntensity: 0.52 }],
+        20: () => [isBossOrElite ? 'flying_demon' : 'beholder', { scale: type === 'stag' ? 1.46 : 1.24, tint: 0xf4c4ff, emissive: 0x7c3298, emissiveIntensity: 0.56 }],
       };
       const pickMon = MAP_MON[this.field]?.();
       if (pickMon) attachMonsterGlb(m, pickMon[0], pickMon[1]);
@@ -655,6 +663,9 @@ export class Game {
     if (e.statuses.shock > 0) mult *= 1.25;
     if (e.wet > 0 && opts.shock) mult *= 1.2;
     if (p.statuses?.overload > 0) mult *= 1.25;
+    if (p.realmRule?.id === 'lantern_glow' && Math.hypot(e.pos.x - p.pos.x, e.pos.z - p.pos.z) <= (p.realmRule.lightRadius || 12.5)) {
+      mult *= (p.realmRule.dmgBonus || 1.25);
+    }
     let dmg = Math.round(hit.dmg * mult);
     if (!opts.isDoT && (this.tide?.microBuffs?.dice20 || 0) > 0 && Math.random() < 0.22) {
       dmg = Math.round(dmg * 2.2);
@@ -707,6 +718,10 @@ export class Game {
       if (hit.crit) {
         this.hitstop = Math.max(this.hitstop, 0.055);
         this.shake = Math.max(this.shake, 0.24);
+        if (p.realmRule?.burstOnCrit && !opts.isTrigger) {
+          this.shockRing(e.pos.x, e.pos.z, 3.8, { dmg: Math.round(dmg * 0.55), crit: false, fire: false }, 0xd85cff, 0.45, { isTrigger: true });
+          this.fx.burst(e.pos.x, e.pos.y + 0.9, e.pos.z, 12, { c: [0xd85cff, 0x6ef8ff, 0xffffff], s: 0.12, speed: 5.5, up: 3.5, life: 0.45 });
+        }
         const rg = new THREE.RingGeometry(0.4, 0.72, 18); rg.rotateX(-Math.PI / 2);
         const rm = new THREE.Mesh(rg, new THREE.MeshBasicMaterial({ color: 0xffe480, transparent: true, opacity: 0.9, depthWrite: false }));
         rm.position.set(e.pos.x, e.pos.y + 0.35, e.pos.z); rm.userData.noNormal = true; this.scene.add(rm);
@@ -1471,10 +1486,11 @@ export class Game {
     }
     if (p.air && !p.climbing) {
       const glide = (this.keys[' '] && p.vy < 0 && p.stamina > 0 && p.roll <= 0);
-      p.vy -= 24 * dt;
+      const gravMul = p.realmRule?.gravityMult || 1;
+      p.vy -= 24 * gravMul * dt;
       if (glide) {
         if (!p.gliding0) this.audio.sfx('glide');
-        p.vy = Math.max(p.vy, -1.6); p.stamina -= 10 * dt * this.meta.staminaK; p.gliding = true;
+        p.vy = Math.max(p.vy, -1.6 * gravMul); p.stamina -= 10 * dt * this.meta.staminaK; p.gliding = true;
       }
       p.gliding0 = glide;
       // 雲翼飛鰩之魂（移動槽）：滯空時每 0.45 秒自動發射追蹤雷光羽翼
@@ -1535,9 +1551,9 @@ export class Game {
     const p = this.player;
     if (p.climbing) { p.climbing = false; p.air = true; p.vy = 6.5; this.audio.sfx('jump'); return; }
     if (p.air || p.roll > 0) return;
-    const skyMul = p.souls?.mobility?.id === 'skyray' ? 1.3 : 1;
+    const skyMul = (p.souls?.mobility?.id === 'skyray' ? 1.3 : 1) * (p.realmRule?.jumpMult || 1) * (p.terrainFx?.jumpBonus || 1);
     p.air = true; p.vy = (8.2 + (this.mount?.def?.jumpBonus || 0)) * skyMul; this.audio.sfx('jump');
-    this.puffs.burst(p.pos.x, p.y + 0.1, p.pos.z, 4, { c: 0xf4ecd8, s: 0.2, speed: 1.5, up: 0.3, g: -0.3, life: 0.35, grow: 1, drag: 3 });
+    this.puffs.burst(p.pos.x, p.y + 0.1, p.pos.z, 4, { c: p.realmRule?.id === 'low_gravity' ? 0x7ef8ff : 0xf4ecd8, s: 0.2, speed: 1.5, up: 0.3, g: -0.3, life: 0.35, grow: 1, drag: 3 });
   }
 
 
@@ -2082,6 +2098,7 @@ export class Game {
         }
       }
       updateFieldTerrainFx(this, dt);
+      updateRealmRule(this, dt, this.field ? FIELDS[this.field]?.realmRule : null);
       p.sprinting = false;
       const frozen = (p.statuses?.freeze || 0) > 0;
       const mountDef = this.mount?.def || null;
@@ -2109,7 +2126,7 @@ export class Game {
         const mountSpd = mountDef ? mountDef.speedMult : 1;
         const buffSpd = ((this.shrineBuffs?.fury || 0) > 0 ? 1.2 : 1) * ((this.shrineBuffs?.sheep || 0) > 0 ? 1.1 : 1);
         const glideSpd = p.gliding ? (p.souls?.mobility?.id === 'skyray' ? 1.95 : 1.35) : 1;
-        const terrainSpd = p.terrainFx ? (p.terrainFx.speedMult || 1) : 1;
+        const terrainSpd = (p.terrainFx ? (p.terrainFx.speedMult || 1) : 1) * (p.realmRule?.speedMult || 1);
         const f = chillMul * mountSpd * buffSpd * terrainSpd * (attacking ? 0.55 : 1) * (p.climbing ? 0.22 : 1) * glideSpd * (canSprint ? 1.25 : 1);
         if (mountDef?.ramKnockback && mv.lengthSq() > 0.2) {
           for (const e of this.enemies) if (!e.dead && e.type !== 'stag' && e.pos.distanceTo(p.pos) < e.r + 1.0) {

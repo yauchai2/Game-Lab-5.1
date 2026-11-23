@@ -44,6 +44,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#1a1426;color:var(--in
 .st-pill{padding:3px 9px;border-radius:12px;border:2px solid var(--ink);font-size:12px;font-weight:900;color:#fff;text-shadow:0 1px 0 var(--ink);box-shadow:0 2px 0 var(--ink)}
 .st-poison{background:#3a9e52}.st-freeze{background:#46a8e0}.st-chill{background:#5c9cc8}.st-burn{background:#e05a30}.st-shock{background:#a66ae0}.st-overload{background:#d93a54;animation:pulseSt .45s infinite alternate}.st-buff-fury{background:#d95a2a}.st-buff-frost{background:#2d8ac8}.st-buff-gold{background:#b8861e}.st-buff-sheep{background:#4e9a62}
 .st-terrain-ice{background:#2d9ad4}.st-terrain-lava{background:#d64424;animation:pulseSt .55s infinite alternate}.st-terrain-water{background:#2a88b8}.st-terrain-elec{background:#6b52d6}.st-terrain-poison{background:#3a8a4c}.st-terrain-heal{background:#2e9a78}.st-terrain-cloud{background:#648eb8}
+.st-realm-sand{background:#c88224}.st-realm-vine{background:#2e8c4c}.st-realm-gothic{background:#6248a8}.st-realm-sea{background:#189cb0}.st-realm-scifi{background:#2a7ec8}.st-realm-alien{background:#9c38c4}
 @keyframes pulseSt{from{transform:scale(1)}to{transform:scale(1.08)}}
 #skills{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);display:flex;gap:8px;padding:8px 10px}
 .sk{position:relative;width:56px;height:56px;border:3px solid var(--ink);border-radius:8px;background:var(--paper2);display:flex;align-items:center;justify-content:center;font-size:24px;overflow:hidden}
@@ -278,11 +279,21 @@ html,body{image-rendering:pixelated;-webkit-font-smoothing:none;font-smooth:neve
 .cx-donate p{max-width:520px;margin:10px auto 16px;line-height:1.6;font-size:14px}
 .cx-donate-btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
 .cx-empty{text-align:center;padding:30px;opacity:.7}
-#worldMap{width:min(740px,95vw);box-sizing:border-box;max-height:94dvh;overflow:auto;background:#fff4d9;color:#49372d;border:3px solid #513e34;padding:9px 12px;box-shadow:4px 5px 0 #463b32;font-family:inherit}
-#worldMap::backdrop{background:#282a26b8}#worldMap header{display:flex;align-items:center;justify-content:space-between;margin:0 0 6px}
-#worldMap h2{font-size:20px;margin:0}.map-close{border:2px solid #513e34;background:#f2dfb8;color:#49372d;width:30px;height:30px;cursor:pointer;font-family:inherit}
+#worldMap{width:min(780px,95vw);box-sizing:border-box;max-height:94dvh;overflow:auto;background:#fff4d9;color:#49372d;border:3px solid #513e34;padding:9px 12px;box-shadow:4px 5px 0 #463b32;font-family:inherit}
+#worldMap::backdrop{background:#282a26b8}#worldMap header{display:flex;align-items:center;gap:8px;justify-content:space-between;margin:0 0 6px}
+#worldMap h2{font-size:19px;margin:0;white-space:nowrap}.map-close{border:2px solid #513e34;background:#f2dfb8;color:#49372d;width:30px;height:30px;cursor:pointer;font-family:inherit;flex-shrink:0}
+.map-search{flex:1;max-width:290px;padding:4px 9px;border:2px solid #7a5c44;background:#fffbf0;color:#3d2c22;font-family:inherit;font-size:12.5px;border-radius:6px}
+.map-layers{display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap}
+.map-layer-btn{flex:1;min-width:140px;padding:5px 8px;border:2px solid #6e523e;background:#f2dfb8;color:#43362c;font-family:inherit;font-size:12.5px;font-weight:800;cursor:pointer;border-radius:6px;transition:all .15s}
+.map-layer-btn.on{background:#4a3326;color:#ffe9a8;border-color:#ffd85a;box-shadow:0 2px 0 #2b1a12}
 #worldMap button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}#worldMap .map-close:focus{outline:none}#worldMap .map-close:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
-.atlas{position:relative;aspect-ratio:2.15/1;max-height:330px;border:2px solid #826e51;overflow:hidden}.atlas svg{display:block;width:100%;height:100%}.atlas button{position:absolute;transform:translate(-50%,-50%);line-height:1.2;font-family:inherit;font-weight:bold;font-size:clamp(11px,1.8vw,15px);background:#fff2d4;border:1px solid #947959;color:#43362c;padding:2px 6px;white-space:nowrap;cursor:pointer}.atlas button[aria-pressed=true]{background:#543e30;color:#fff5d9}.atlas button.here{outline:3px solid #ff5a3c;background:#ffe9a0;color:#3b2218;z-index:2}.atlas button.here:before{content:'📍';margin-right:3px}
+.atlas{position:relative;aspect-ratio:2.4/1;max-height:295px;border:2px solid #826e51;overflow:hidden;border-radius:6px;background:#b9dcd8}.atlas svg{display:block;width:100%;height:100%}.atlas button{position:absolute;transform:translate(-50%,-50%);line-height:1.15;font-family:inherit;font-weight:800;font-size:clamp(10.5px,1.5vw,13px);background:#fff5dc;border:2px solid #8c6e4e;color:#3e2e24;padding:3px 7px;white-space:nowrap;cursor:pointer;border-radius:6px;box-shadow:0 2px 0 rgba(56,38,24,.35);transition:transform .12s}
+.atlas button:hover{transform:translate(-50%,-54%) scale(1.04);z-index:4}
+.atlas button[aria-pressed=true]{background:#4a3326;color:#fff6db;border-color:#ffd85a;z-index:4}
+.atlas button.here{outline:3px solid #ff5a3c;background:#ffe9a0;color:#3b2218;z-index:3}
+.atlas button.fogged{background:#e6eef4d9;color:#5a6878;border-style:dashed;border-color:#8da2b8}
+.atlas button.match{outline:3px solid #3ce8ff;box-shadow:0 0 10px #3ce8ff;z-index:5}
+.atlas button .lv-sub{display:block;font-size:9.5px;font-weight:700;opacity:.78;margin-top:1px}
 .player-pin{position:absolute;transform:translate(-50%,-135%);background:#d93a49;color:#fff8e4;border:2px solid #2b1812;padding:2px 8px;font-size:12px;font-weight:900;white-space:nowrap;pointer-events:none;z-index:5;box-shadow:0 3px 0 rgba(43,24,18,.65);animation:pinBounce .85s infinite alternate}
 .player-pin:after{content:'';position:absolute;left:50%;bottom:-7px;margin-left:-5px;border:5px solid transparent;border-top-color:#2b1812}
 @keyframes pinBounce{from{transform:translate(-50%,-130%)}to{transform:translate(-50%,-155%)}}
@@ -526,8 +537,8 @@ body.photo-mode #hud > *:not(#photoBadge){opacity:0!important;pointer-events:non
   <div class="title-actions"><button class="btn" id="btnStart">進入燈谷鎮</button><button id="btnSetTitle" class="btn small" style="background:var(--teal)">⚙ 設定</button></div>
 </div>
 
-<dialog id="worldMap" aria-labelledby="atlasTitle"><header><h2 id="atlasTitle">燈谷世界地圖</h2><button class="map-close" autofocus aria-label="關閉地圖">✕</button></header>
-<div class="atlas"></div><div class="map-info"><span class="map-location"></span><strong class="region-name"></strong><span class="region-detail"></span></div></dialog>
+<dialog id="worldMap" aria-labelledby="atlasTitle"><header><h2 id="atlasTitle">🏮 星燈雲海航海星圖</h2><input type="search" class="map-search" placeholder="🔍 搜尋島嶼、Boss、規則（如：金字塔、低重力、科幻）" aria-label="搜尋地圖"/><button class="map-close" autofocus aria-label="關閉地圖">✕</button></header>
+<div class="map-layers"></div><div class="atlas"></div><div class="map-info"><span class="map-location"></span><strong class="region-name"></strong><span class="region-detail"></span></div></dialog>
 <div id="settings" class="modal hide"><div class="panel setp">
   <h3>設定</h3>
   <div class="stabs"><button data-tab="video">畫面</button><button data-tab="audio">音訊</button><button data-tab="keys">操作</button><button data-tab="about">關於</button></div>
