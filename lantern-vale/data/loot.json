@@ -1,0 +1,482 @@
+{
+  "_note": "Engine-neutral. Affix values are rolled as roll(tier) * uniform(0.75,1.15), rounded. rollByTier lists the pre-variance base for tier 1..6.",
+  "rarity": [
+    {
+      "key": "normal",
+      "name": "普通",
+      "color": "#e8e2d4"
+    },
+    {
+      "key": "magic",
+      "name": "魔法",
+      "color": "#7fb2ff"
+    },
+    {
+      "key": "rare",
+      "name": "稀有",
+      "color": "#ffd85a"
+    },
+    {
+      "key": "unique",
+      "name": "傳奇",
+      "color": "#ff9a4a"
+    }
+  ],
+  "tiers": [
+    {
+      "tier": 1,
+      "tag": "T1",
+      "name": "旅人階",
+      "color": "#d8d2c5",
+      "mult": 1
+    },
+    {
+      "tier": 2,
+      "tag": "T2",
+      "name": "精鋼階",
+      "color": "#8ad896",
+      "mult": 1.25
+    },
+    {
+      "tier": 3,
+      "tag": "T3",
+      "name": "星銀階",
+      "color": "#7fc4ff",
+      "mult": 1.55
+    },
+    {
+      "tier": 4,
+      "tag": "T4",
+      "name": "秘光階",
+      "color": "#c88cff",
+      "mult": 1.9
+    },
+    {
+      "tier": 5,
+      "tag": "T5",
+      "name": "傳世階",
+      "color": "#ffd85a",
+      "mult": 2.3
+    },
+    {
+      "tier": 6,
+      "tag": "T6",
+      "name": "穹頂階",
+      "color": "#ff8a50",
+      "mult": 2.75
+    }
+  ],
+  "slots": {
+    "staff": {
+      "name": "法杖",
+      "icon": "杖",
+      "bases": [
+        "樺木短杖",
+        "苔紋手杖",
+        "燈芯長杖",
+        "古橡法杖"
+      ]
+    },
+    "cloak": {
+      "name": "斗篷",
+      "icon": "袍",
+      "bases": [
+        "亞麻斗篷",
+        "羊毛披風",
+        "雨林蓑衣",
+        "星紋大氅"
+      ]
+    },
+    "charm": {
+      "name": "護符",
+      "icon": "符",
+      "bases": [
+        "松果護符",
+        "貝殼墜飾",
+        "琥珀吊墜",
+        "螢石護符"
+      ]
+    }
+  },
+  "affixes": [
+    {
+      "key": "dmgPct",
+      "text": "+{v}% 傷害",
+      "slots": [
+        "staff",
+        "charm"
+      ],
+      "rare": false,
+      "rollByTier": [
+        15,
+        22,
+        29,
+        36,
+        43,
+        50
+      ]
+    },
+    {
+      "key": "addFire",
+      "text": "攻擊附加 {v} 火焰傷害",
+      "slots": [
+        "staff"
+      ],
+      "rare": false,
+      "rollByTier": [
+        4,
+        6,
+        8,
+        10,
+        12,
+        14
+      ]
+    },
+    {
+      "key": "atkSpd",
+      "text": "+{v}% 攻擊速度",
+      "slots": [
+        "staff",
+        "charm"
+      ],
+      "rare": false,
+      "rollByTier": [
+        10,
+        14,
+        18,
+        22,
+        26,
+        30
+      ]
+    },
+    {
+      "key": "crit",
+      "text": "+{v}% 暴擊率",
+      "slots": [
+        "staff",
+        "charm"
+      ],
+      "rare": false,
+      "rollByTier": [
+        4,
+        6,
+        8,
+        10,
+        12,
+        14
+      ]
+    },
+    {
+      "key": "critMult",
+      "text": "+{v}% 暴擊傷害",
+      "slots": [
+        "staff",
+        "charm"
+      ],
+      "rare": false,
+      "rollByTier": [
+        22,
+        32,
+        42,
+        52,
+        62,
+        72
+      ]
+    },
+    {
+      "key": "maxHp",
+      "text": "+{v} 最大生命",
+      "slots": [
+        "cloak",
+        "charm"
+      ],
+      "rare": false,
+      "rollByTier": [
+        22,
+        32,
+        42,
+        52,
+        62,
+        72
+      ]
+    },
+    {
+      "key": "lifeOnHit",
+      "text": "每次擊中回復 {v} 生命",
+      "slots": [
+        "staff",
+        "charm"
+      ],
+      "rare": false,
+      "rollByTier": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        5
+      ]
+    },
+    {
+      "key": "moveSpd",
+      "text": "+{v}% 移動速度",
+      "slots": [
+        "cloak"
+      ],
+      "rare": false,
+      "rollByTier": [
+        7,
+        10,
+        13,
+        16,
+        19,
+        22
+      ]
+    },
+    {
+      "key": "cdr",
+      "text": "+{v}% 冷卻縮減",
+      "slots": [
+        "cloak",
+        "charm"
+      ],
+      "rare": false,
+      "rollByTier": [
+        8,
+        11,
+        14,
+        17,
+        20,
+        23
+      ]
+    },
+    {
+      "key": "mana",
+      "text": "+{v} 最大法力",
+      "slots": [
+        "cloak",
+        "staff"
+      ],
+      "rare": false,
+      "rollByTier": [
+        18,
+        26,
+        34,
+        42,
+        50,
+        58
+      ]
+    },
+    {
+      "key": "area",
+      "text": "+{v}% 範圍",
+      "slots": [
+        "staff",
+        "cloak"
+      ],
+      "rare": false,
+      "rollByTier": [
+        14,
+        20,
+        26,
+        32,
+        38,
+        44
+      ]
+    },
+    {
+      "key": "armor",
+      "text": "受到傷害 -{v}%",
+      "slots": [
+        "cloak"
+      ],
+      "rare": false,
+      "rollByTier": [
+        5,
+        7,
+        9,
+        11,
+        13,
+        15
+      ]
+    },
+    {
+      "key": "regen",
+      "text": "每秒回復 {v} 生命",
+      "slots": [
+        "cloak"
+      ],
+      "rare": false,
+      "rollByTier": [
+        1,
+        2,
+        3,
+        3,
+        4,
+        5
+      ]
+    },
+    {
+      "key": "proj",
+      "text": "餘燼彈 +{v} 發",
+      "slots": [
+        "staff",
+        "charm"
+      ],
+      "rare": true,
+      "rollByTier": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    }
+  ],
+  "implicitByTier": {
+    "staff": "4+3t baseDmg",
+    "cloak": "10+6t maxHp",
+    "charm": "2+t crit"
+  },
+  "itemScoreWeights": {
+    "baseDmg": 3,
+    "dmgPct": 1,
+    "addFire": 2.5,
+    "atkSpd": 1.2,
+    "crit": 1.5,
+    "critMult": 0.5,
+    "maxHp": 0.6,
+    "lifeOnHit": 3,
+    "moveSpd": 1.2,
+    "cdr": 1,
+    "mana": 0.3,
+    "area": 0.7,
+    "armor": 2,
+    "regen": 3,
+    "proj": 20,
+    "uniqueBonus": 40
+  },
+  "uniques": [
+    {
+      "slot": "staff",
+      "name": "野火之杖",
+      "base": "燒焦的長杖",
+      "special": "splitBolt",
+      "desc": "餘燼彈擊中後分裂成 3 枚小火花",
+      "mods": [
+        {
+          "k": "baseDmg",
+          "v": 10
+        },
+        {
+          "k": "addFire",
+          "v": 6
+        }
+      ]
+    },
+    {
+      "slot": "staff",
+      "name": "鹿骨權杖",
+      "base": "古鹿骨杖",
+      "special": "sweepWave",
+      "desc": "揮擊時放出一道衝擊波",
+      "mods": [
+        {
+          "k": "baseDmg",
+          "v": 8
+        },
+        {
+          "k": "atkSpd",
+          "v": 15
+        }
+      ]
+    },
+    {
+      "slot": "cloak",
+      "name": "苔心大氅",
+      "base": "活苔斗篷",
+      "special": "mossRegen",
+      "desc": "每秒回復 2% 最大生命",
+      "mods": [
+        {
+          "k": "maxHp",
+          "v": 40
+        },
+        {
+          "k": "armor",
+          "v": 8
+        }
+      ]
+    },
+    {
+      "slot": "charm",
+      "name": "月蛾護符",
+      "base": "銀粉吊墜",
+      "special": "frostRoll",
+      "desc": "翻滾時留下凍結光環，減速敵人",
+      "mods": [
+        {
+          "k": "cdr",
+          "v": 15
+        },
+        {
+          "k": "moveSpd",
+          "v": 10
+        }
+      ]
+    },
+    {
+      "slot": "charm",
+      "name": "螢火之心",
+      "base": "發光琥珀",
+      "special": "moreWisps",
+      "desc": "螢火伴數量 +3",
+      "mods": [
+        {
+          "k": "dmgPct",
+          "v": 25
+        },
+        {
+          "k": "crit",
+          "v": 6
+        }
+      ]
+    }
+  ],
+  "forge": {
+    "reroll": {
+      "name": "重鑄詞綴",
+      "desc": "重新隨機所有詞綴（傳奇裝備不可）",
+      "cost": {
+        "base": 25,
+        "perTier": 10
+      }
+    },
+    "add": {
+      "name": "增幅詞綴",
+      "desc": "新增一條詞綴（上限 4 條）",
+      "cost": {
+        "base": 50,
+        "perTier": 12
+      }
+    },
+    "tier": {
+      "name": "提升階級",
+      "desc": "階級 +1，數值依新階級重新計算",
+      "cost": {
+        "base": 70,
+        "perTier": 20
+      }
+    },
+    "upgrade": {
+      "name": "晉升稀有度",
+      "desc": "普通→魔法→稀有，並補足詞綴",
+      "cost": {
+        "base": 60,
+        "perTier": 15
+      }
+    }
+  },
+  "forgeCostFormula": "cost = base + perTier * item.tier"
+}

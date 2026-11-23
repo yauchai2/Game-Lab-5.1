@@ -1,0 +1,74 @@
+{
+  "mods": [
+    {
+      "id": "swift",
+      "name": "狂暴",
+      "desc": "敵人移動速度 +25%",
+      "reward": 0.25
+    },
+    {
+      "id": "swarm",
+      "name": "蜂擁",
+      "desc": "每波敵人數量 +40%",
+      "reward": 0.3
+    },
+    {
+      "id": "tough",
+      "name": "厚皮",
+      "desc": "敵人生命 +50%",
+      "reward": 0.2
+    },
+    {
+      "id": "fragile",
+      "name": "脆弱",
+      "desc": "你受到的傷害 +35%",
+      "reward": 0.35
+    },
+    {
+      "id": "elite",
+      "name": "精英潮",
+      "desc": "精英出現機率大增",
+      "reward": 0.3
+    },
+    {
+      "id": "fortune",
+      "name": "惡運",
+      "desc": "藥瓶補充減半，但裝備掉落階級 +2",
+      "reward": 0.15,
+      "drop": 2
+    }
+  ],
+  "modMax": 2,
+  "profileDefaults": {
+    "level": 1,
+    "xp": 0,
+    "coins": 15,
+    "keys": 1,
+    "goods": {
+      "wood": 0,
+      "ore": 0,
+      "fish": 0
+    },
+    "graves": {},
+    "timers": {},
+    "gear": {},
+    "species": {},
+    "home": 0,
+    "mealUntil": 0,
+    "weapon": "staff",
+    "gem": false,
+    "sales": [],
+    "shards": 0,
+    "feathers": 0,
+    "shells": 0,
+    "heirloom": null,
+    "mods": [],
+    "quests": null,
+    "best": {
+      "depth": 0,
+      "wins": 0
+    },
+    "kills": 0,
+    "runs": 0
+  }
+}
