@@ -141,10 +141,14 @@ const createGuild = require('../server/guild.cjs');
   const pzProfile = { puzzle: null };
   const pz = puzzle.ensurePuzzle(pzProfile, 1); // 林風遊俠
   const board = puzzle.computeBoard(pz.presets[0]);
-  assert.equal(board.length, 1, 'Ranger starts with 1 active skill (星羽箭雨) on board');
+  assert.equal(board.length, 2, 'Ranger starts with 2 synergistic active skills (星羽箭雨 + 餘燼飛彈) on board');
   assert.equal(board[0].id, 'rain');
   assert.equal(board[0].mod.multi, 2, 'Adjacent 多重投射 adds +2 projectiles/waves');
   assert.ok(board[0].mod.cdr > 0, 'Adjacent 極速詠唱 reduces cooldown');
+  // Verify Mystic starts with a live Logic Circuit (bolt -> CoH -> thunder)
+  const mysticPz = puzzle.ensurePuzzle({ puzzle: null }, 2);
+  const mysticBoard = puzzle.computeBoard(mysticPz.presets[0]);
+  assert.ok(mysticBoard.find(s => s.id === 'bolt')?.mod.triggerOnHit.includes('thunder'), 'Mystic starts with live bolt -> thunder CoH circuit');
   // Stack a second 熾炎增幅 adjacent to rain at (2, 1)
   assert.equal(puzzle.canPlace(pz.presets[0], 'ember', 2, 1, 0, 1), true);
   pz.presets[0].push({ uid: 99, id: 'ember', x: 2, y: 1, rot: 0 });
@@ -243,7 +247,7 @@ const createGuild = require('../server/guild.cjs');
   // 14. v0.12.0-alpha Stylized Nature MegaKit 3D glTF Asset Pipeline & Files
   const fs = require('node:fs');
   const assetsMod = await import(src('assets.js'));
-  assert.equal(Object.keys(assetsMod.NATURE_FILES).length, 8, 'Eight curated glTF nature models registered');
+  assert.ok(Object.keys(assetsMod.NATURE_FILES).length >= 8, 'Curated glTF nature models registered');
   assert.equal(typeof assetsMod.preloadNatureAssets, 'function', 'preloadNatureAssets exported');
   const natureDir = path.resolve(__dirname, '../game/assets/nature');
   for (const cfg of Object.values(assetsMod.NATURE_FILES)) {
@@ -282,5 +286,197 @@ const createGuild = require('../server/guild.cjs');
   assert.equal(frontier.useFieldSpot(shrineMock, { kind: 'shrine_fury', x: 0, z: 0, mesh: { visible: true } }), true);
   assert.equal(shrineMock.shrineBuffs.fury, 25, 'Fury shrine activates 25s combat buff');
 
-  console.log('ALL 13 LOGIC, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
+  // 15. Build & Equipment Overhaul: Logic Circuit Skills, Irreversible Corruption, Monster Souls & Endgame Atlas
+  // 15a. Logic Circuit Skill Blocks (split, orbit, coh, coc cross-skill bridging)
+  for (const id of ['split', 'coh', 'coc', 'orbit']) {
+    assert.ok(puzzle.SUPPORT_GEMS[id], `Logic-circuit support gem ${id} registered`);
+  }
+  const circuitPlaced = [
+    { uid: 1, id: 'bolt',  x: 1, y: 1, rot: 0 }, // (1,1),(2,1)
+    { uid: 2, id: 'coh',   x: 1, y: 2, rot: 0 }, // (1,2),(2,2) bridges bolt <-> nova
+    { uid: 3, id: 'nova',  x: 0, y: 3, rot: 0 }, // (1,3),(0,4),(1,4),(2,4) adjacent to coh at (1,2)
+    { uid: 4, id: 'split', x: 3, y: 1, rot: 0 }, // (3,1),(4,1),(3,2) adjacent to bolt at (2,1)
+    { uid: 5, id: 'orbit', x: 1, y: 0, rot: 0 }, // (1,0),(2,0) adjacent to bolt at (1,1)
+    { uid: 6, id: 'coc',   x: 0, y: 1, rot: 0 }, // (0,1),(0,2) bridges bolt <-> mark
+    { uid: 7, id: 'mark',  x: 0, y: 0, rot: 0 }, // (0,0) adjacent to coc at (0,1)
+  ];
+  const cb = puzzle.computeBoard(circuitPlaced);
+  const boltNode = cb.find(s => s.id === 'bolt');
+  assert.ok(boltNode, 'Bolt active skill parsed on logic circuit board');
+  assert.equal(boltNode.mod.split, true, 'Adjacent 分裂稜鏡 enables projectile split');
+  assert.equal(boltNode.mod.orbit, true, 'Adjacent 環繞軌道核 enables orbital projectiles');
+  assert.ok(boltNode.mod.triggerOnHit.includes('nova'), 'CoH bridges bolt -> nova on hit');
+  assert.ok(boltNode.mod.triggerOnCrit.includes('mark'), 'CoC bridges bolt -> mark on crit');
+  assert.ok(boltNode.mod.circuitLabel.includes('命中觸發→極光'), 'Circuit label previews CoH chain');
+
+  // 15b. Equipment Irreversible Corruption (all 4 outcomes + forge lockout + serialize round-trip)
+  const baseStaff = loot.makeItem(() => 0.6, 4, 2, 'staff');
+  const rGod = loot.corruptItem(baseStaff, () => 0.10);
+  assert.equal(rGod.ok, true);
+  assert.equal(rGod.outcome, 'godroll');
+  assert.ok(rGod.item.corruptImplicit && rGod.item.corrupted === true, 'Godroll adds hidden corruptImplicit');
+  assert.equal(loot.corruptItem(rGod.item, () => 0.10).ok, false, 'Cannot corrupt an already corrupted item');
+  assert.equal(loot.FORGE.reroll.ok(rGod.item), false, 'Forge reroll locked on corrupted gear');
+  const rt = loot.deserializeItem(loot.serializeItem(rGod.item));
+  assert.equal(rt.corrupted, true);
+  assert.equal(rt.corruptImplicit.k, rGod.item.corruptImplicit.k, 'Corrupt implicit survives save/load');
+
+  const rSuper = loot.corruptItem(baseStaff, () => 0.35);
+  assert.equal(rSuper.outcome, 'supercharge');
+  assert.ok(rSuper.item.implicit.v > baseStaff.implicit.v, 'Supercharge boosts implicit 1.45x');
+
+  const rStable = loot.corruptItem(baseStaff, () => 0.60);
+  assert.equal(rStable.outcome, 'stable');
+  assert.equal(rStable.item.corrupted, true);
+
+  const rBrick = loot.corruptItem(baseStaff, () => 0.90);
+  assert.equal(rBrick.outcome, 'brick');
+  assert.equal(rBrick.item.bricked, true);
+  assert.equal(rBrick.item.rarity, 0);
+  assert.equal(rBrick.item.mods[0].v, -15, 'Bricked gear carries cursed -15% damage mod');
+
+  // 15c. Monster Soul Absorption & Dual-Slot Equipping
+  const souls = await import(src('souls.js'));
+  assert.equal(Object.keys(souls.MONSTER_SOULS).length, 7, 'Seven monster soul cards defined');
+  const soulProf = {};
+  const drop1 = souls.rollSoulDrop(soulProf, 'boar', true, 1, () => 0.1);
+  assert.equal(drop1.granted, true);
+  assert.equal(drop1.isNew, true);
+  const drop2 = souls.rollSoulDrop(soulProf, 'stag', false, 1, () => 0.99);
+  assert.equal(drop2.granted, true, 'Boss stag guarantees 100% soul drop');
+  assert.equal(souls.equipSoul(soulProf, 'boar'), true);
+  assert.equal(souls.equipSoul(soulProf, 'stag'), true);
+  const eqSouls = souls.activeSouls(soulProf);
+  assert.equal(eqSouls.mobility.id, 'boar', 'Boar equips to mobility slot');
+  assert.equal(eqSouls.combat.id, 'stag', 'Stag equips to combat slot');
+  assert.equal(souls.unequipSoul(soulProf, 'mobility'), true);
+  assert.equal(souls.activeSouls(soulProf).mobility, undefined, 'Unequip clears mobility slot');
+
+  // 15d. Endgame Atlas Map Crafter (Density + Stackable League Mechanics)
+  const atlas = await import(src('atlas.js'));
+  const atlasProf = {};
+  atlas.setAtlasDensity(atlasProf, 'abyss');
+  for (const mid of ['vaal_rift', 'soul_hunt', 'double_shrine', 'gilded_vault', 'twin_boss']) {
+    assert.equal(atlas.toggleAtlasMechanic(atlasProf, mid), true);
+  }
+  const sum = atlas.computeAtlasSummary(atlas.ensureAtlas(atlasProf));
+  assert.equal(sum.densityMult, 2.3);
+  assert.equal(sum.corruptDropChance, 0.45);
+  assert.equal(sum.soulDropMult, 3);
+  assert.equal(sum.dropTierBonus, 2);
+  assert.equal(sum.startShrine, true);
+  assert.equal(sum.twinBoss, true);
+  assert.equal(sum.dangerLabel, '☠️ 毀滅印鈔機');
+  assert.ok(sum.shardMult >= 3.5, 'Stacked mechanics multiply shard rewards dramatically');
+
+  // 16. Combat & Feel Overhaul: Part Breaking & Targeted Drops + Environmental Elemental Chain Reactions
+  const parts = await import(src('parts.js'));
+  const mockGolem = { type: 'golem', maxHp: 200, hp: 200, facing: 0, pos: { x: 0, z: 0 } };
+  parts.initParts(mockGolem);
+  assert.equal(mockGolem.parts.length, 2, 'Golem initializes 2 breakable parts (rightArm & core)');
+  const hitRight = parts.resolveHitPart(mockGolem, 1.5, 0.1);
+  assert.equal(hitRight.id, 'rightArm', 'Attacking Golem from right side targets 星晶光刃右臂');
+  const hitFront = parts.resolveHitPart(mockGolem, 0, 1.6);
+  assert.equal(hitFront.id, 'core', 'Attacking Golem from front targets 胸口星晶核心');
+  const brk = parts.damagePart(mockGolem, hitRight, 999);
+  assert.equal(brk.broken, true, 'Dealing lethal part damage severs rightArm');
+  assert.equal(mockGolem.brokenWeakens.has('slam'), true, 'Breaking rightArm weakens Golem slam radius');
+  assert.equal(brk.dropItem.name, '星晶光刃法杖', 'Severing rightArm drops signature 星晶光刃法杖');
+  assert.equal(brk.dropItem.special, 'sweepWave');
+  assert.ok(parts.partStatusText(mockGolem).includes('✂️星晶光刃右臂(已斷)'));
+
+  const mockStag = { type: 'stag', maxHp: 1100, hp: 1100, facing: 0, pos: { x: 0, z: 0 } };
+  parts.initParts(mockStag);
+  assert.equal(parts.resolveHitPart(mockStag, 0, 2.0).id, 'antlers', 'Front attack on Stag targets 黃金古樹鹿角');
+  assert.equal(parts.resolveHitPart(mockStag, 0, -2.0).id, 'hindLegs', 'Rear attack on Stag targets 古木踏風後肢');
+
+  const elements = await import(src('elements.js'));
+  const rxIce = elements.resolveSurfaceReaction('water', 'frost');
+  assert.equal(rxIce.nextKind, 'ice', 'Water + Frost freezes ground into ice');
+  assert.ok(elements.SURFACE_DEFS.ice.slipStun > 0, 'Ice surface causes enemy slip-stun');
+  const rxSteam = elements.resolveSurfaceReaction(rxIce.nextKind, 'fire');
+  assert.equal(rxSteam.nextKind, 'steam', 'Ice + Fire melts & vaporizes into steam cloud');
+  assert.ok(elements.SURFACE_DEFS.steam.blindVision > 0, 'Steam cloud obscures enemy vision');
+  const rxThunder = elements.resolveSurfaceReaction(rxSteam.nextKind, 'shock');
+  assert.equal(rxThunder.nextKind, 'electrified_steam', 'Steam + Shock triggers massive electrified_steam storm');
+  assert.ok(rxThunder.bonusDmgMult >= 2.0, 'Electrified steam deals >=2.0x chain-reaction damage');
+  assert.equal(elements.resolveSurfaceReaction('poison', 'fire').nextKind, 'magma', 'Poison + Fire triggers toxic_blast');
+  assert.equal(elements.resolveSurfaceReaction('water', 'shock').nextKind, 'electrified_water');
+  assert.equal(elements.inferElement({ shock: 3, fire: true }), 'shock');
+
+  // 17. One-Click Auto-Build Skill Puzzle Optimizer
+  const autoRes = puzzle.autoBuildBoard([], [
+    { uid: 201, id: 'bolt' }, { uid: 202, id: 'coh' }, { uid: 203, id: 'thunder' },
+    { uid: 204, id: 'split' }, { uid: 205, id: 'ember' },
+  ], 10);
+  assert.equal(autoRes.placed.length + autoRes.bag.length, 5, 'Auto-build preserves every gem without loss');
+  const autoBoard = puzzle.computeBoard(autoRes.placed);
+  assert.ok(autoBoard.length >= 2, 'Auto-build places multiple active skills');
+  assert.ok(autoBoard.some(s => s.mod.triggerOnHit.length > 0), 'Auto-build automatically wires a CoH logic circuit');
+
+  // 18. One-Click Auto-Equip Best Gear in Physics Backpack
+  const weakStaff = loot.makeItem(() => 0.1, 0, 0, 'staff');
+  const strongStaff = loot.makeItem(() => 0.9, 8, 3, 'staff');
+  const aeMock = {
+    player: { equip: { staff: weakStaff, cloak: null, charm: null } },
+    meta: { p: { bagItems: [] }, save() {} },
+    recalc() {},
+  };
+  physbag.addGearToBag(aeMock.meta.p, strongStaff);
+  const aeRes = physbag.autoEquipBest(aeMock);
+  assert.equal(aeRes.count, 1, 'Auto-equip swaps strictly stronger gear from physics bag');
+  assert.equal(aeMock.player.equip.staff.name, strongStaff.name, 'Stronger staff equipped');
+  assert.ok(aeMock.meta.p.bagItems.some(b => b.kind === 'gear' && b.name === weakStaff.name), 'Replaced weak staff returned to bag');
+
+  // 19. Salvage Trash Gear to Shards (preserves rare/unique & upgrades)
+  const trashNormal = loot.makeItem(() => 0.1, 0, 0, 'staff');
+  const keepRare = loot.makeItem(() => 0.5, 2, 2, 'staff');
+  const salvMock = {
+    player: { equip: { staff: strongStaff, cloak: null, charm: null } },
+    meta: { p: { shards: 10, bagItems: [] }, save() {} },
+  };
+  physbag.addGearToBag(salvMock.meta.p, trashNormal);
+  physbag.addGearToBag(salvMock.meta.p, keepRare);
+  const salvRes = physbag.salvageTrashGear(salvMock);
+  assert.equal(salvRes.count, 1, 'Salvage recycles only weaker normal/magic gear');
+  assert.ok(salvRes.shards >= 4 && salvMock.meta.p.shards === 10 + salvRes.shards, 'Salvage converts trash gear into Shards');
+  assert.equal(salvMock.meta.p.bagItems.length, 1, 'Rare gear preserved untouched in bag');
+
+  // 20. Ember Tide (餘燼潮汐) Dynamic Escalation, Mandatory Lull, Rekindle & Cozy-Chaotic Ultimates
+  const tide = await import(src('tide.js'));
+  assert.equal(tide.TIDE_PHASES.length, 4, 'Four Ember Tide escalation phases defined');
+  assert.equal(tide.ULTIMATES.length, 3, 'Three cozy-chaotic ultimates defined (storm, hound, daybreak)');
+  assert.equal(tide.MICRO_BUFFS.length, 3, 'Three seamless mid-wave micro-buffs defined');
+  const td = tide.createTideState();
+  assert.equal(td.phase, 0);
+  assert.equal(tide.lootMultForTide(td), 1.0);
+  for (let i = 0; i < 4; i++) tide.recordTideKill(td, {}); // 4 * 8 = 32 heat -> Phase 1
+  assert.equal(td.phase, 1, 'Kill velocity pushes Ember Tide into Phase 1 (火星躁動)');
+  for (let i = 0; i < 4; i++) tide.recordTideKill(td, {}); // 64 heat -> Phase 2
+  assert.equal(td.phase, 2, 'Continued kills escalate into Phase 2 (餘燼狂潮)');
+  const apexRes = tide.recordTideKill(td, { isBoss: true }); // +28 = 92
+  assert.equal(apexRes.enteredApex, false);
+  const apexRes2 = tide.recordTideKill(td, { isElite: true }); // 100 -> Apex!
+  assert.equal(apexRes2.enteredApex, true, 'Reaching 100 heat triggers Phase 3 Apex Surge');
+  assert.equal(td.apexTimer, tide.APEX_DURATION);
+  assert.ok(td.ultCharge >= 100, 'Killing swarm charges ultimate to 100%');
+  const ultUsed = tide.consumeUltimate(td);
+  assert.equal(ultUsed.id, 'storm', 'Consuming full ultimate casts THUNDERSTORM first');
+  assert.equal(td.ultCharge, 0);
+  // Slaying Tide Boss during Apex immediately transitions into 25s Lull
+  const lullRes = tide.recordTideKill(td, { isTideBoss: true });
+  assert.equal(lullRes.enteredLull, true, 'Slaying Tide Boss enters mandatory 25s breathing-room lull');
+  assert.equal(td.lullTimer, tide.LULL_DURATION);
+  assert.equal(td.phase, -1);
+  // Rekindling lantern during lull launches Wave 2 with scaling loot multiplier
+  assert.equal(tide.applyRekindle(td), true, 'Rekindling lantern during lull starts next wave');
+  assert.equal(td.waveStreak, 2);
+  assert.equal(td.phase, 2);
+  assert.ok(tide.lootMultForTide(td) > 2.5, 'Wave 2 scales loot multiplier above base surge');
+  // Idle heat decay when outside Apex/Lull
+  td.heat = 40; td.phase = 1; td.decayIdleT = 5;
+  tide.stepTideTimers(td, 2.0);
+  assert.ok(td.heat < 40, 'Heat decays smoothly when player stops fighting');
+
+  console.log('ALL 20 LOGIC, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
 })();

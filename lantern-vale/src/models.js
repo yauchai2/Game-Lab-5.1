@@ -119,8 +119,6 @@ export function buildBoar() {
     part(new THREE.BoxGeometry(0.75, 0.55, 1.05), 0x9a6a4a, 0, 0.5, 0),
     part(new THREE.BoxGeometry(0.55, 0.45, 0.4), 0x8a5a3e, 0, 0.55, 0.65),
     part(new THREE.BoxGeometry(0.3, 0.2, 0.12), 0xe7a58e, 0, 0.48, 0.88),
-    part(new THREE.ConeGeometry(0.05, 0.25, 4), 0xfff4dc, -0.2, 0.45, 0.85, -1.2, 0, 0),
-    part(new THREE.ConeGeometry(0.05, 0.25, 4), 0xfff4dc, 0.2, 0.45, 0.85, -1.2, 0, 0),
     part(new THREE.BoxGeometry(0.12, 0.25, 0.08), 0x6e4a33, -0.22, 0.85, 0.55, -0.3, 0, 0),
     part(new THREE.BoxGeometry(0.12, 0.25, 0.08), 0x6e4a33, 0.22, 0.85, 0.55, -0.3, 0, 0),
     part(new THREE.BoxGeometry(0.2, 0.15, 0.7), 0x5a3b2c, 0, 0.82, -0.05), // bristle ridge
@@ -128,7 +126,12 @@ export function buildBoar() {
   ];
   for (const [x, z] of [[-0.25, 0.35], [0.25, 0.35], [-0.25, -0.35], [0.25, -0.35]]) parts.push(part(new THREE.BoxGeometry(0.16, 0.3, 0.16), 0x6e4a33, x, 0.15, z));
   const m = mesh(mergeGeometries(parts)); body.add(m);
-  return { root, body, mat: m.material };
+  const tusks = mesh(mergeGeometries([
+    part(new THREE.ConeGeometry(0.06, 0.32, 4), 0xfff4dc, -0.22, 0.46, 0.9, -1.2, 0, 0),
+    part(new THREE.ConeGeometry(0.06, 0.32, 4), 0xfff4dc, 0.22, 0.46, 0.9, -1.2, 0, 0),
+  ]));
+  body.add(tusks);
+  return { root, body, mat: m.material, parts: { tusks } };
 }
 
 export function buildMoth() {
@@ -187,16 +190,20 @@ export function buildGolem() {
     part(new THREE.BoxGeometry(1.05, 1.1, 0.85), 0x7b7874, 0, 1.05, 0),
     part(new THREE.BoxGeometry(0.95, 0.22, 0.78), 0x5f9a4a, 0, 1.65, 0), // 苔蘚肩背
     part(new THREE.BoxGeometry(0.55, 0.45, 0.55), 0x8e8a84, 0, 1.85, 0.12),
-    part(new THREE.OctahedronGeometry(0.28, 0), 0x6ae8ff, 0, 1.15, 0.46), // 發光胸核
     part(new THREE.BoxGeometry(0.12, 0.1, 0.05), 0x7ae8ff, -0.14, 1.88, 0.41),
     part(new THREE.BoxGeometry(0.12, 0.1, 0.05), 0x7ae8ff, 0.14, 1.88, 0.41),
     part(new THREE.BoxGeometry(0.36, 0.9, 0.36), 0x6a6764, -0.78, 0.9, 0.12), // 重拳左
-    part(new THREE.BoxGeometry(0.36, 0.9, 0.36), 0x6a6764, 0.78, 0.9, 0.12),  // 重拳右
     part(new THREE.BoxGeometry(0.32, 0.55, 0.36), 0x5c5956, -0.28, 0.28, 0),
     part(new THREE.BoxGeometry(0.32, 0.55, 0.36), 0x5c5956, 0.28, 0.28, 0),
   ];
   const m = mesh(mergeGeometries(parts)); body.add(m);
-  return { root, body, mat: m.material };
+  const core = mesh(mergeGeometries([part(new THREE.OctahedronGeometry(0.3, 0), 0x6ae8ff, 0, 1.15, 0.48)]));
+  const rightArm = mesh(mergeGeometries([
+    part(new THREE.BoxGeometry(0.36, 0.9, 0.36), 0x6a6764, 0.78, 0.9, 0.12),
+    part(new THREE.ConeGeometry(0.14, 0.85, 4), 0x7ae8ff, 0.84, 0.75, 0.55, Math.PI / 2, 0, 0), // 星晶光刃
+  ]));
+  body.add(core, rightArm);
+  return { root, body, mat: m.material, parts: { core, rightArm } };
 }
 
 export function buildStag() {
@@ -208,17 +215,25 @@ export function buildStag() {
     part(new THREE.BoxGeometry(0.6, 0.55, 0.85), 0xe8dcc8, 0, 2.75, 1.45),     // skull face
     part(new THREE.BoxGeometry(0.12, 0.16, 0.05), 0xffa040, -0.18, 2.82, 1.88),
     part(new THREE.BoxGeometry(0.12, 0.16, 0.05), 0xffa040, 0.18, 2.82, 1.88),
+    part(new THREE.BoxGeometry(0.28, 1.2, 0.28), 0x5e3a30, -0.45, 0.6, 0.8),
+    part(new THREE.BoxGeometry(0.28, 1.2, 0.28), 0x5e3a30, 0.45, 0.6, 0.8),
   ];
+  const antlerParts = [];
   for (const s of [-1, 1]) {
-    parts.push(part(new THREE.CylinderGeometry(0.06, 0.08, 1.0, 4), 0x5e3a30, s * 0.35, 3.4, 1.3, 0, 0, s * -0.5));
-    parts.push(part(new THREE.CylinderGeometry(0.05, 0.06, 0.6, 4), 0x5e3a30, s * 0.8, 3.75, 1.3, 0, 0, s * -1.2));
-    parts.push(part(new THREE.CylinderGeometry(0.04, 0.05, 0.5, 4), 0x5e3a30, s * 0.55, 3.95, 1.2, 0.3, 0, s * -0.1));
-    parts.push(part(new THREE.IcosahedronGeometry(0.16, 0), 0xffb050, s * 1.05, 3.95, 1.3));
-    parts.push(part(new THREE.IcosahedronGeometry(0.12, 0), 0xe0703a, s * 0.6, 4.2, 1.25));
+    antlerParts.push(part(new THREE.CylinderGeometry(0.06, 0.08, 1.0, 4), 0x5e3a30, s * 0.35, 3.4, 1.3, 0, 0, s * -0.5));
+    antlerParts.push(part(new THREE.CylinderGeometry(0.05, 0.06, 0.6, 4), 0x5e3a30, s * 0.8, 3.75, 1.3, 0, 0, s * -1.2));
+    antlerParts.push(part(new THREE.CylinderGeometry(0.04, 0.05, 0.5, 4), 0x5e3a30, s * 0.55, 3.95, 1.2, 0.3, 0, s * -0.1));
+    antlerParts.push(part(new THREE.IcosahedronGeometry(0.16, 0), 0xffb050, s * 1.05, 3.95, 1.3));
+    antlerParts.push(part(new THREE.IcosahedronGeometry(0.12, 0), 0xe0703a, s * 0.6, 4.2, 1.25));
   }
-  for (const [x, z] of [[-0.45, 0.8], [0.45, 0.8], [-0.45, -0.8], [0.45, -0.8]]) parts.push(part(new THREE.BoxGeometry(0.28, 1.2, 0.28), 0x5e3a30, x, 0.6, z));
   const m = mesh(mergeGeometries(parts)); body.add(m);
-  return { root, body, mat: m.material };
+  const antlers = mesh(mergeGeometries(antlerParts));
+  const hindLegs = mesh(mergeGeometries([
+    part(new THREE.BoxGeometry(0.32, 1.22, 0.32), 0x4e7a3c, -0.45, 0.6, -0.8),
+    part(new THREE.BoxGeometry(0.32, 1.22, 0.32), 0x4e7a3c, 0.45, 0.6, -0.8),
+  ]));
+  body.add(antlers, hindLegs);
+  return { root, body, mat: m.material, parts: { antlers, hindLegs } };
 }
 
 // exit arch

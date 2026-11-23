@@ -9,7 +9,7 @@ export const KEY_PRESETS = {
 };
 
 export const DEFAULTS = {
-  master: 9, music: 6, sfx: 8, pixel: 3, camAngle: 0, wind: 1, water: 1, shafts: 1, shake: 1, dmg: 1, chat: 1,
+  master: 9, music: 6, sfx: 8, pixel: 3, camAngle: 0, wind: 1, water: 1, shafts: 1, shake: 0, dmg: 1, chat: 1,
   lang: 'zh-TW',
   keybinds: { ...KEY_PRESETS.arpg },
 };

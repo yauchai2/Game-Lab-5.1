@@ -5,7 +5,7 @@ import { CLASSES, ensurePuzzle } from './puzzle.js';
 
 export const HOODS = [[0x2f8a7e,0x23695f],[0xd9543a,0xa83f2c],[0x6a6ad0,0x4a4aa0],[0xe0a030,0xb07f20],[0xc060b0,0x904488],[0x58a858,0x3f823f],[0x4aa0d8,0x3478a8],[0x8a6a50,0x65503c]];
 const fields = {
-  job: CLASSES.map(c => `${c.icon} ${c.name} · ${c.summary}`),
+  job: CLASSES.map(c => `${c.icon} ${c.name}`),
   skin: ['暖米', '蜂蜜', '赤陶', '深棕'],
   hair: ['栗棕', '炭黑', '秋金', '銀灰'],
   style: ['短瀏海', '側分', '雙髻'],
@@ -53,6 +53,9 @@ export function bindCharacters(game) {
     scene.add(portrait);
     renderer.render(scene, camera);
     [...$('swatches').children].forEach((b, i) => b.setAttribute('aria-pressed', i === game.hoodIdx));
+    const cls = CLASSES[game.character?.job ?? 0] || CLASSES[0];
+    const perk = $('jobPerk');
+    if (perk) perk.innerHTML = `<b>${cls.icon} ${cls.name}</b>：${cls.summary}<br><small style="color:#6a4a30">${cls.desc}</small>`;
   }
   for (const [field, labels] of Object.entries(fields)) {
     const select = $(field);

@@ -179,6 +179,55 @@ export class Audio {
       case 'prism': [784, 1047, 1319].forEach((f, i) => this.tone('sine', f, f * 1.15, 0.35, 0.1, i * 0.06)); break;
       case 'campfire': this.noise(t, 0.32, 0.24, 0, this.sfxBus, 900); this.tone('triangle', 220, 340, 0.22, 0.08); break;
       case 'photo': this.noise(t, 0.05, 0.3, 2500); this.tone('square', 1100, 720, 0.06, 0.07); break;
+      case 'partBreak':
+        this.noise(t, 0.22, 0.55, 0, this.sfxBus, 1400);
+        this.tone('sawtooth', 260, 58, 0.28, 0.22);
+        [587, 880, 1175].forEach((f, i) => this.tone('triangle', f, f * 1.04, 0.26, 0.12, 0.06 + i * 0.055));
+        break;
+      case 'shatter':
+        this.noise(t, 0.16, 0.48, 3200);
+        [1480, 1975, 2349].forEach((f, i) => this.tone('sine', f, f * 0.72, 0.14, 0.1, i * 0.025));
+        break;
+      case 'reaction':
+        this.noise(t, 0.26, 0.42, 1600);
+        this.tone('triangle', 340, 860, 0.22, 0.14);
+        this.tone('sine', 680, 1320, 0.24, 0.1, 0.05);
+        break;
+      case 'corruptGod':
+        [392, 523, 659, 988, 1319].forEach((f, i) => this.tone('triangle', f, f * 1.02, 0.45, 0.13, i * 0.07));
+        this.noise(t + 0.1, 0.35, 0.22, 2400);
+        break;
+      case 'corruptBrick':
+        this.noise(t, 0.3, 0.5, 0, this.sfxBus, 900);
+        [240, 185, 130].forEach((f, i) => this.tone('sawtooth', f, f * 0.7, 0.25, 0.15, i * 0.07));
+        break;
+      case 'tideHorn':
+        this.tone('sawtooth', 165, 220, 0.45, 0.16);
+        this.tone('triangle', 220, 330, 0.55, 0.14, 0.12);
+        this.noise(t + 0.05, 0.35, 0.22, 0, this.sfxBus, 900);
+        break;
+      case 'ultReady':
+        [523, 659, 784, 1047].forEach((f, i) => this.tone('triangle', f, f * 1.04, 0.28, 0.13, i * 0.055));
+        break;
+      case 'ultFort':
+        this.noise(t, 0.28, 0.45, 0, this.sfxBus, 700);
+        [180, 240, 320].forEach((f, i) => this.tone('square', f, f * 0.65, 0.18, 0.14, i * 0.05));
+        break;
+      case 'ultHound':
+        this.tone('sawtooth', 260, 420, 0.14, 0.16);
+        this.tone('sawtooth', 320, 180, 0.22, 0.16, 0.14);
+        this.noise(t + 0.05, 0.28, 0.28, 1200);
+        break;
+      case 'ultDaybreak':
+        [392, 523, 659, 784, 1047, 1319].forEach((f, i) => this.tone('sine', f, f * 1.02, 0.55, 0.13, i * 0.05));
+        this.noise(t + 0.1, 0.45, 0.25, 2200);
+        break;
+      case 'xpGem':
+        this.tone('sine', 780 + Math.random() * 260, 1180 + Math.random() * 200, 0.08, 0.07);
+        break;
+      case 'lullCalm':
+        [523, 659, 784, 659].forEach((f, i) => this.tone('sine', f, f, 0.48, 0.1, i * 0.11));
+        break;
       default: break;
     }
   }

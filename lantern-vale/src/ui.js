@@ -1,4 +1,4 @@
-import { FIELDS } from './frontier.js';
+import { FIELDS, rememberGear } from './frontier.js';
 import { bindTouch } from './touch.js';
 import { bindWorldMap } from './worldmap.js';
 import { bindCharacters } from './characters.js';
@@ -8,13 +8,16 @@ import { CLASSES, bindPuzzleUI } from './puzzle.js';
 import { dayInfo, findSecondClass, drawRegionMap } from './world_alive.js';
 import { COSMETICS } from './harbor.js';
 import { applyCosmetics } from './models.js';
-import { PhysicsContainer, ensurePhysicsStorage, useBagItem, transferBagItem, synthesizeBagItems } from './physbag.js';
+import { PhysicsContainer, ensurePhysicsStorage, useBagItem, transferBagItem, synthesizeBagItems, autoEquipBest, salvageTrashGear } from './physbag.js';
 import { bindCodexUI } from './codex.js';
 import { StatusCard } from './statuscard.js';
 import { t } from './i18n.js';
 import * as THREE from 'three';
-import { RARITY, SLOTS, itemLines, itemScore, BOONS, deserializeItem, tierInfo } from './loot.js';
+import { RARITY, SLOTS, itemLines, itemScore, BOONS, deserializeItem, tierInfo, CORRUPT_COST, corruptItem } from './loot.js';
 import { mountStatuses } from './mounts.js';
+import { MONSTER_SOULS, SOUL_SLOTS, ensureSouls, equipSoul, unequipSoul } from './souls.js';
+import { DENSITY_TIERS, LEAGUE_MECHANICS, ensureAtlas, setAtlasDensity, toggleAtlasMechanic, computeAtlasSummary } from './atlas.js';
+import { TIDE_PHASES, ULTIMATES, MICRO_BUFFS, lootMultForTide, castUltimate, cycleUltimate } from './tide.js';
 
 const $ = id => document.getElementById(id);
 const v3 = new THREE.Vector3();
@@ -44,8 +47,14 @@ export class UI {
     const bagBtn = $('sk-bag'); if (bagBtn) bagBtn.onclick = () => this.toggleInv(game, 'bag');
     const recBtn = $('sk-recall'); if (recBtn) recBtn.onclick = () => game.startRecall?.();
     const mntBtn = $('sk-mount'); if (mntBtn) mntBtn.onclick = () => game.toggleMount?.();
+    const tuBtn = $('btnTideUlt'); if (tuBtn) tuBtn.onclick = () => castUltimate(game);
+    const tcBtn = $('btnTideCycle'); if (tcBtn) tcBtn.onclick = () => cycleUltimate(game);
     const dayBtn = $('dayInfo'); if (dayBtn) dayBtn.onclick = () => { game.dayTime = ((game.dayTime || 0) + 0.25) % 1; const d = dayInfo(game.dayTime); game.ui.toast(`時間推進至 ${d.icon} ${d.label}`, '#ffe9a0'); };
-    for (let i = 0; i < 4; i++) { const el = $('sk-s' + i); if (el) el.onclick = () => game.castHotbar(i); }
+    for (let i = 0; i < 4; i++) { const el = $('sk-s' + i); if (el) el.onclick = () => { if (!game.player.hotbar?.[i]) { game.audio.sfx('ui'); this.openPuzzle?.(); } else game.castHotbar(i); }; }
+    // 點擊彈窗外部深色遮罩即可快速關閉
+    [['inv', () => this.invOpen && this.toggleInv(game)], ['puzzleM', () => this.puzzleOpen && this.closePuzzle?.()], ['panelM', () => this.panelOpen && this.closePanel?.()], ['settings', () => this.setOpen && this.closeSettings?.()], ['codexModal', () => this.codexOpen && this.closeCodex?.()]].forEach(([mid, fn]) => {
+      const m = $(mid); if (m) m.addEventListener('click', e => { if (e.target === m) fn(); });
+    });
     this._bindInvTabs(game);
     const enterCharacter = bindCharacters(game);
     $('btnTown2').onclick = () => { $('dead').classList.add('hide'); game.party = ''; game.enterTown(); };
@@ -108,6 +117,26 @@ export class UI {
         onSynthesize: (a, b, mx, my) => { synthesizeBagItems(game, a, b, 'stashItems', mx, my); this.syncPhysBags(game); showSel('stashSelInfo', 'stashBtns', null, 'stashItems'); },
       });
     }
+    const ae = $('btnAutoEquip'); if (ae) ae.onclick = () => {
+      const res = autoEquipBest(game);
+      if (res.count > 0) {
+        rememberGear(game); game.audio.sfx('perfect');
+        this.syncPhysBags(game); this.renderBagEquipStrip(game); this.renderInv(game, true);
+        this.toast(`⚡ 已自動換上 ${res.count} 件更強裝備！`, '#7fe08a');
+      } else {
+        game.audio.sfx('ui'); this.toast('目前身上已是背包中戰力最高的裝備', '#ffe08a');
+      }
+    };
+    const sv = $('btnSalvageBag'); if (sv) sv.onclick = () => {
+      const res = salvageTrashGear(game);
+      if (res.count > 0) {
+        game.audio.sfx('synth');
+        this.syncPhysBags(game); this.renderInv(game, true);
+        this.toast(`♻️ 已分解 ${res.count} 件低階裝備，獲得 ✦ 星砂 +${res.shards}！`, '#ffd85a');
+      } else {
+        game.audio.sfx('ui'); this.toast('背包中沒有可分解的多餘白／藍裝備', '#ffe08a');
+      }
+    };
     const sb = $('btnShakeBag'); if (sb) sb.onclick = () => { this.bagPhys?.shake(); game.audio.sfx('roll'); };
     const ss = $('btnShakeStash'); if (ss) ss.onclick = () => { this.stashPhys?.shake(); game.audio.sfx('roll'); };
     const bc = $('btnInvClose'); if (bc) bc.onclick = () => this.toggleInv(game);
@@ -124,19 +153,38 @@ export class UI {
   }
   renderBagEquipStrip(game) {
     const el = $('bagEquipStrip'); if (!el) return;
-    const eq = game.player.equip;
+    const eq = game.player.equip, shards = game.meta.p.shards || 0;
     el.innerHTML = Object.keys(SLOTS).map(k => {
       const it = eq[k];
-      if (!it) return `<button type="button" class="eq-mini" data-eqslot="${k}"><b>${SLOTS[k].icon} ${SLOTS[k].name}</b><br><span style="opacity:.6">（空欄位）</span></button>`;
+      if (!it) return `<div class="eq-mini" data-eqslot="${k}"><div><b>${SLOTS[k].icon} ${SLOTS[k].name}</b></div><span style="opacity:.6">（空欄位）</span></div>`;
       const ti = tierInfo(it.tier || 1), R = RARITY[it.rarity];
-      return `<button type="button" class="eq-mini" data-eqslot="${k}"><span class="tier-tag" style="color:${ti.color}">${ti.tag}</span><b style="color:${R.color};text-shadow:0 1px 0 #2b1d22">${it.name}</b><br><small>${SLOTS[k].name} · 戰力 ${itemScore(it)}</small></button>`;
+      const cBtn = !it.corrupted
+        ? `<button type="button" class="btn small corrupt-btn eq-corrupt" data-corrupt-slot="${k}" ${shards >= CORRUPT_COST ? '' : 'disabled'}>☠️ 腐化 ✦${CORRUPT_COST}</button>`
+        : `<span style="font-size:11px;color:#c82868;font-weight:700">☠️ 已腐化</span>`;
+      return `<div class="eq-mini" data-eqslot="${k}"><div><span class="tier-tag" style="color:${ti.color}">${ti.tag}</span><b style="color:${R.color}">${it.name}</b></div><small>${SLOTS[k].name} · 戰力 ${itemScore(it)}</small>${cBtn}</div>`;
     }).join('');
     el.querySelectorAll('.eq-mini').forEach(b => {
-      b.onclick = () => {
+      b.onclick = e => {
+        if (e.target.closest('[data-corrupt-slot]')) return;
         const it = eq[b.dataset.eqslot], info = $('bagSelInfo'), btns = $('bagBtns');
         if (!info) return;
         if (btns) btns.innerHTML = '';
-        info.innerHTML = it ? `<div style="font-size:11px;color:#7a5a46;margin-bottom:3px">🛡️ 目前已穿戴裝備詳情</div>` + this.itemHTML(it) : '此裝備欄位目前為空。';
+        info.innerHTML = it ? `<div style="font-size:12px;color:#7a5a46;margin-bottom:3px">🛡️ 目前已穿戴裝備詳情</div>` + this.itemHTML(it) : '此裝備欄位目前為空。';
+      };
+    });
+    el.querySelectorAll('[data-corrupt-slot]').forEach(b => {
+      b.onclick = e => {
+        e.stopPropagation();
+        const k = b.dataset.corruptSlot, cur = eq[k];
+        if (!cur || cur.corrupted || (game.meta.p.shards || 0) < CORRUPT_COST) return;
+        game.meta.p.shards -= CORRUPT_COST;
+        const res = corruptItem(cur);
+        if (!res.ok) return;
+        game.player.equip[k] = res.item;
+        rememberGear(game); game.meta.save(); game.recalc();
+        game.audio.sfx(res.outcome === 'brick' ? 'corruptBrick' : res.outcome === 'godroll' ? 'corruptGod' : 'classup');
+        this.toast(res.label, res.outcome === 'brick' ? '#ff6a6a' : '#ff8ad8');
+        this.renderBagEquipStrip(game); this.renderInv(game, true);
       };
     });
   }
@@ -164,32 +212,102 @@ export class UI {
     });
   }
   openInvTab(game, tab) {
-    const mapped = tab === 'cosmetics' ? 'cos' : tab;
+    const mapped = (tab === 'cosmetics' || tab === 'cos' || tab === 'mounts') ? 'style' : tab === 'gear' ? 'bag' : tab;
     this.atStash = (mapped === 'stash');
     this.invOpen = true;
     $('inv').classList.remove('hide');
     this.setInvTab(game, mapped);
   }
+  renderSouls(game) {
+    const root = $('soulsRoot'); if (!root) return;
+    const s = ensureSouls(game.meta.p);
+    const slotBar = Object.entries(SOUL_SLOTS).map(([slotKey, meta]) => {
+      const eqId = s.equipped[slotKey], eqDef = eqId ? MONSTER_SOULS[eqId] : null;
+      return `<div class="soul-card ${eqDef ? 'on' : ''}">
+        <div><b>${meta.icon} ${meta.name}</b> <small style="color:#7a5a46">（${meta.desc}）</small></div>
+        ${eqDef ? `<div><b style="color:${eqDef.color};text-shadow:0 1px 0 #2b1d22">${eqDef.icon} ${eqDef.name} — ${eqDef.title}</b><div style="font-size:12px;margin-top:3px">${eqDef.desc}</div></div>
+          <button type="button" class="btn small" data-unequip-soul="${slotKey}">卸下靈魂</button>`
+          : '<div style="opacity:.65;font-size:12px">尚未鑲嵌靈魂（擊敗魔物吸收後點擊下方卡片即可鑲嵌）</div>'}
+      </div>`;
+    }).join('');
+    const cards = Object.values(MONSTER_SOULS).map(def => {
+      const owned = s.owned.includes(def.id);
+      const isEq = s.equipped[def.slot] === def.id;
+      return `<div class="soul-card ${isEq ? 'on' : ''} ${owned ? '' : 'locked'}">
+        <div style="display:flex;align-items:center;gap:8px"><span style="font-size:26px">${def.icon}</span><div><b>${def.name}</b><div style="font-size:11px;color:#7a5a46">${SOUL_SLOTS[def.slot].icon} ${SOUL_SLOTS[def.slot].name}</div></div></div>
+        <div style="font-size:12px;color:#5a3826"><b>${def.title}</b>：${def.desc}</div>
+        <div>${isEq ? '<span style="color:#7a4ac0;font-weight:900">✔ 鑲嵌生效中</span>' : owned ? `<button type="button" class="btn small" data-equip-soul="${def.id}">鑲嵌至${SOUL_SLOTS[def.slot].name}</button>` : '<span style="font-size:12px;opacity:.7">🔒 擊敗對應魔物吸收取得</span>'}</div>
+      </div>`;
+    }).join('');
+    root.innerHTML = `<div style="margin-bottom:8px;font-size:13px;color:#5a3826">「怪物即技能」青魔道士系統：擊敗魔物機率吸收靈魂，鑲嵌後直接改造你的移動或攻擊模組！（已收集 <b>${s.owned.length}/${Object.keys(MONSTER_SOULS).length}</b>）</div>
+      <div class="soul-grid" style="margin-bottom:12px">${slotBar}</div>
+      <div class="soul-grid">${cards}</div>`;
+    root.querySelectorAll('[data-equip-soul]').forEach(b => b.onclick = () => {
+      if (equipSoul(game.meta.p, b.dataset.equipSoul)) {
+        game.meta.save(); game.recalc(); game.audio.sfx('classup');
+        const def = MONSTER_SOULS[b.dataset.equipSoul];
+        this.toast(`👻 已鑲嵌 ${def.icon} ${def.name}（${def.title}）`, '#d8a8ff');
+        this.renderSouls(game);
+      }
+    });
+    root.querySelectorAll('[data-unequip-soul]').forEach(b => b.onclick = () => {
+      if (unequipSoul(game.meta.p, b.dataset.unequipSoul)) { game.meta.save(); game.recalc(); game.audio.sfx('ui'); this.renderSouls(game); }
+    });
+  }
+  renderAtlas(game) {
+    const root = $('atlasRoot'); if (!root) return;
+    const a = ensureAtlas(game.meta.p), sum = computeAtlasSummary(a);
+    const summaryBar = `<div class="atlas-bar">
+      <div><b>${sum.dangerLabel}</b> · 密度 <b>×${sum.densityMult}</b> · 星砂 <b>×${sum.shardMult}</b> · 掉寶 <b>+${Math.round(sum.lootBonus * 100)}%</b> · 靈魂掉率 <b>×${sum.soulDropMult}</b></div>
+      <button type="button" class="btn small" id="btnRunAtlas" style="background:#e8734a">⛩ 立即開啟客製副本</button>
+    </div>`;
+    const densCards = DENSITY_TIERS.map(d => `<div class="atlas-card ${a.density === d.id ? 'on' : ''}">
+      <div><b>${d.icon} ${d.name}</b> <small>（密度 ×${d.densityMult}）</small></div>
+      <div style="font-size:13.5px">${d.desc}</div>
+      <button type="button" class="btn small ${a.density === d.id ? 'on' : ''}" data-atlas-dens="${d.id}">${a.density === d.id ? '✔ 已選用' : '套用此密度'}</button>
+    </div>`).join('');
+    const mechCards = LEAGUE_MECHANICS.map(m => {
+      const on = a.mechanics.includes(m.id);
+      return `<div class="atlas-card ${on ? 'on' : ''}">
+        <div><b>${m.icon} ${m.name}</b> <small style="color:#b8452f">+${Math.round(m.shardBonus * 100)}% 星砂</small></div>
+        <div style="font-size:13.5px">${m.desc}</div>
+        <button type="button" class="btn small ${on ? 'on' : ''}" data-atlas-mech="${m.id}">${on ? '✔ 疊加中（點此關閉）' : '+ 疊加此賽季機制'}</button>
+      </div>`;
+    }).join('');
+    root.innerHTML = `<div style="margin-bottom:6px;font-size:13px;color:#5a3826">自由設計你的「刷寶印鈔機」副本！所有設定會即時套用於逐層副本的怪物密度、賽季事件、腐化掉落與雙王試煉。</div>
+      ${summaryBar}<h3>1. 選擇怪物密度</h3><div class="atlas-grid" style="margin-bottom:12px">${densCards}</div>
+      <h3>2. 自由疊加賽季機制（可複選）</h3><div class="atlas-grid">${mechCards}</div>`;
+    root.querySelectorAll('.atlas-card').forEach(card => {
+      const db = card.querySelector('[data-atlas-dens]');
+      const mb = card.querySelector('[data-atlas-mech]');
+      if (db) card.onclick = () => { setAtlasDensity(game.meta.p, db.dataset.atlasDens); game.meta.save(); game.audio.sfx('ui'); this.renderAtlas(game); };
+      if (mb) card.onclick = () => { toggleAtlasMechanic(game.meta.p, mb.dataset.atlasMech); game.meta.save(); game.audio.sfx('ui'); this.renderAtlas(game); };
+    });
+    const runBtn = $('btnRunAtlas');
+    if (runBtn) runBtn.onclick = () => { this.toggleInv(game); game.state = 'transition'; game.audio.sfx('warp'); this.wipe(() => game.startRun()); };
+  }
   setInvTab(game, tab) {
+    if (tab === 'gear') tab = 'bag';
+    if (tab === 'mounts' || tab === 'cos' || tab === 'cosmetics') tab = 'style';
     if (tab === 'stash' && !this.atStash) tab = 'bag';
     this.invTab = tab;
     const stBtn = document.querySelector('[data-invtab="stash"]');
     if (stBtn) stBtn.style.display = this.atStash ? '' : 'none';
     document.querySelectorAll('[data-invtab]').forEach(b => b.classList.toggle('on', b.dataset.invtab === tab));
-    ['bag', 'gear', 'mounts', 'stash', 'cos'].forEach(k => {
+    ['bag', 'souls', 'atlas', 'style', 'stash'].forEach(k => {
       const pane = $('pane-' + k);
       if (pane) pane.classList.toggle('hide', k !== tab);
     });
-    if (tab === 'bag') { this.syncPhysBags(game); this.renderBagEquipStrip(game); }
+    if (tab === 'bag') { this.syncPhysBags(game); this.renderBagEquipStrip(game); this.renderInv(game, true); }
     if (tab === 'stash') this.syncPhysBags(game);
-    if (tab === 'gear') this.renderInv(game, true);
-    if (tab === 'mounts') this.renderMounts(game);
-    if (tab === 'cos') this.renderCosmetics(game);
+    if (tab === 'souls') this.renderSouls(game);
+    if (tab === 'atlas') this.renderAtlas(game);
+    if (tab === 'style') { this.renderMounts(game); this.renderCosmetics(game); }
   }
   refreshLanguage(game) {
     const lang = game.settings?.lang || 'zh-TW';
     const bi = $('bagSelInfo'); if (bi && !this.bagPhys?.selectedUid) bi.textContent = t(lang, 'bagEmpty');
-    if (this.invOpen && this.invTab === 'gear') this.renderInv(game, true);
+    if (this.invOpen && this.invTab === 'bag') this.renderInv(game, true);
   }
   syncPhysBags(game) {
     const st = ensurePhysicsStorage(game.meta.p);
@@ -245,18 +363,29 @@ export class UI {
     this.nums.push({ el, x: x + (Math.random() - 0.5) * 0.6, y, z, t: 0 });
   }
   toast(text, color = '#fff') {
+    const box = $('toasts'); if (!box) return;
+    while (box.children.length >= 3) box.firstChild.remove();
     const el = document.createElement('div'); el.className = 'toast'; el.textContent = text; el.style.color = color;
-    $('toasts').appendChild(el);
+    box.appendChild(el);
     setTimeout(() => el.remove(), 2600);
   }
   banner(title, sub) {
     const b = $('banner'); b.querySelector('h2').textContent = title; b.querySelector('p').textContent = sub;
     b.classList.remove('show'); void b.offsetWidth; b.classList.add('show');
   }
-  bossBar(on, name, frac) {
+  bossBar(on, name, frac, parts) {
     const b = $('boss'); b.classList.toggle('hide', !on);
     if (name) b.querySelector('.name').textContent = name;
     if (frac !== undefined) b.querySelector('.fill').style.width = (Math.max(0, frac) * 100) + '%';
+    const bp = b.querySelector('.bparts');
+    if (bp && parts) {
+      const html = parts.map(pt => {
+        const pct = Math.ceil(pt.hp / pt.maxHp * 100);
+        const cls = pt.broken ? ' brk' : pct <= 35 ? ' crit' : '';
+        return `<span class="epart${cls}" style="font-size:11px;padding:1px 6px">${pt.icon} ${pt.name} ${pt.broken ? '✂️已斷' : pct + '%'}</span>`;
+      }).join('');
+      if (bp._last !== html) { bp.innerHTML = html; bp._last = html; }
+    }
   }
   wipe(mid) {
     const w = $('wipe'); w.classList.add('in');
@@ -264,6 +393,7 @@ export class UI {
   }
   exitHint(g) {
     const el = $('exitHint');
+    if ((g.exitCooldown || 0) > 0) { el.style.display = 'none'; return; }
     let near = null;
     for (const x of g.exits) if (x.on && Math.hypot(g.player.pos.x - x.x, g.player.pos.z - x.z) < 5) near = x;
     if (!near) { el.style.display = 'none'; return; }
@@ -307,6 +437,42 @@ export class UI {
       if (this.invTab === 'bag' && this.bagPhys) { this.bagPhys.step(1 / 60); this.bagPhys.draw(); }
       if (this.invTab === 'stash' && this.stashPhys) { this.stashPhys.step(1 / 60); this.stashPhys.draw(); }
     }
+    // 敵人頭頂動態血條與可破壞部位即時狀態（受損、精英、或具可破壞部位且在 16m 內的敵人）
+    const ebRoot = $('enemyBars');
+    if (ebRoot) {
+      this._ebPool = this._ebPool || [];
+      const showBars = g.state === 'play' && !g.interior && !this.invOpen && !this.puzzleOpen && !this.panelOpen && !this.setOpen;
+      const pPos = g.player?.pos;
+      const visibleEnemies = (showBars && pPos) ? g.enemies.filter(e => !e.dead && e.type !== 'stag' && (e.hp < e.maxHp || e.elite || (e.parts?.length && e.pos.distanceTo(pPos) < 9)) && e.pos.distanceTo(pPos) < 16).slice(0, 8) : [];
+      for (let i = 0; i < visibleEnemies.length; i++) {
+        const e = visibleEnemies[i];
+        let node = this._ebPool[i];
+        if (!node) {
+          node = document.createElement('div');
+          node.className = 'ebar';
+          node.innerHTML = '<div class="ebar-affix"></div><div class="ebar-parts"></div><div class="ebar-track"><div class="ebar-fill"></div></div>';
+          ebRoot.appendChild(node);
+          this._ebPool.push(node);
+        }
+        const [sx, sy] = this.screenPos(e.pos.x, (e.pos.y || 0) + (e.type === 'golem' ? 2.6 : 1.7) * (e.m?.root?.scale?.x || 1), e.pos.z);
+        node.style.display = (sx < -40 || sx > innerWidth + 40 || sy < -40 || sy > innerHeight + 40) ? 'none' : 'flex';
+        node.style.transform = `translate(${sx}px, ${sy}px) translate(-50%,-100%)`;
+        node.className = 'ebar' + (e.elite ? ' elite' : '');
+        node.querySelector('.ebar-fill').style.width = Math.max(0, Math.min(100, (e.hp / e.maxHp) * 100)) + '%';
+        const aEl = node.querySelector('.ebar-affix');
+        const aHtml = e.eliteMod ? `<span class="eaffix">${e.eliteMod.name}</span>` : '';
+        if (aEl._last !== aHtml) { aEl.innerHTML = aHtml; aEl._last = aHtml; }
+        const pEl = node.querySelector('.ebar-parts');
+        const showParts = e.parts?.length && (e.elite || e.hp < e.maxHp || e.pos.distanceTo(pPos) < 8);
+        const pHtml = showParts ? e.parts.map(pt => {
+          const pct = Math.ceil(pt.hp / pt.maxHp * 100);
+          const cls = pt.broken ? ' brk' : pct <= 35 ? ' crit' : '';
+          return `<span class="epart${cls}">${pt.icon}${pt.broken ? '已斷' : pct + '%'}</span>`;
+        }).join('') : '';
+        if (pEl._last !== pHtml) { pEl.innerHTML = pHtml; pEl._last = pHtml; }
+      }
+      for (let i = visibleEnemies.length; i < this._ebPool.length; i++) this._ebPool[i].style.display = 'none';
+    }
     // floating numbers
     for (const n of this.nums) {
       n.t += 1 / 60;
@@ -336,6 +502,12 @@ export class UI {
       if (st.burn > 0) pills.push(`<span class="st-pill st-burn">${t(lang, 'statusBurn')} ${Math.ceil(st.burn)}s</span>`);
       if (st.shock > 0) pills.push(`<span class="st-pill st-shock">${t(lang, 'statusShock')} ${Math.ceil(st.shock)}s</span>`);
       if (st.overload > 0) pills.push(`<span class="st-pill st-overload">${t(lang, 'statusOverload')} ${Math.ceil(st.overload)}s</span>`);
+      const sb = g.shrineBuffs || {};
+      if (sb.fury > 0) pills.push(`<span class="st-pill st-buff-fury">🔥 狂暴 ${Math.ceil(sb.fury)}s</span>`);
+      if (sb.frost > 0) pills.push(`<span class="st-pill st-buff-frost">❄️ 寒霜附魔 ${Math.ceil(sb.frost)}s</span>`);
+      if (sb.gold > 0) pills.push(`<span class="st-pill st-buff-gold">💰 雙倍掉寶 ${Math.ceil(sb.gold)}s</span>`);
+      if (sb.sheep > 0) pills.push(`<span class="st-pill st-buff-sheep">🐑 軟綿祝福 ${Math.ceil(sb.sheep)}s</span>`);
+      if (p.galeBuff) pills.push(`<span class="st-pill st-buff-gold">💨 疾風強化 +60%</span>`);
       const html = pills.join('');
       if (sbEl._last !== html) { sbEl.innerHTML = html; sbEl._last = html; }
     }
@@ -358,7 +530,7 @@ export class UI {
         const maxCd = sk.def.cd * (1 - S.cdr / 100) * (1 - sk.mod.cdr);
         cd('sk-s' + i, p.skillCds?.[i] || 0, Math.max(0.1, maxCd), false);
       } else {
-        ic.textContent = '—'; sn.textContent = t(lang, 'skEmpty'); sup.hidden = true; el.title = t(lang, 'puzzle');
+        ic.textContent = '+'; sn.textContent = t(lang, 'skEmpty'); sup.hidden = true; el.title = '點擊開啟技能拼圖 (K) 裝備技能';
         cd('sk-s' + i, 0, 1, true);
       }
     }
@@ -388,6 +560,39 @@ export class UI {
       }
     }
     $('killInfo').textContent = `${t(lang, 'kills')} ${p.kills}`;
+    const th = $('tideHud');
+    if (th) {
+      const td = g.tide;
+      const showTide = !!(g.field && g.state === 'play' && !g.interior && td);
+      th.classList.toggle('hide', !showTide);
+      if (showTide) {
+        const ph = td.lullTimer > 0 ? { name: `🌿 潮退休整 ${Math.ceil(td.lullTimer)}s`, color: '#7fe08a' }
+          : td.apexTimer > 0 ? { name: `🔥 熾炎巔峰 ${Math.ceil(td.apexTimer)}s`, color: '#ff5a68' }
+          : (TIDE_PHASES[td.phase] || TIDE_PHASES[0]);
+        const phEl = $('tdPhase');
+        if (phEl) { phEl.textContent = (td.waveStreak > 1 ? `W${td.waveStreak} · ` : '') + ph.name; phEl.style.color = ph.color; }
+        const mlEl = $('tdMult');
+        if (mlEl) mlEl.textContent = `掉寶 ×${lootMultForTide(td)}`;
+        const flEl = $('tdFill');
+        if (flEl) {
+          const pct = td.lullTimer > 0 ? (td.lullTimer / 25) * 100 : td.apexTimer > 0 ? (td.apexTimer / 35) * 100 : td.heat;
+          flEl.style.width = `${Math.max(0, Math.min(100, pct))}%`;
+        }
+        const u = ULTIMATES[td.ultIndex % ULTIMATES.length];
+        const ub = $('btnTideUlt');
+        if (ub) {
+          const ready = td.ultCharge >= 100;
+          ub.classList.toggle('ready', ready);
+          ub.textContent = `${u.icon} [V] ${u.name} ${ready ? 'READY!' : Math.floor(td.ultCharge) + '%'}`;
+        }
+        const bf = $('tdBuffs');
+        if (bf) {
+          const html = MICRO_BUFFS.filter(b => (td.microBuffs?.[b.id] || 0) > 0)
+            .map(b => `<span class="td-b">${b.icon} ${b.name} ${Math.ceil(td.microBuffs[b.id])}s</span>`).join('');
+          if (bf._last !== html) { bf.innerHTML = html; bf._last = html; }
+        }
+      }
+    }
     const cbEl = $('comboBadge');
     if (cbEl) {
       const cnt = g.combo?.count || 0;
@@ -440,11 +645,11 @@ export class UI {
     const tip = $('tip');
     if (d) { tip.classList.remove('hide'); if (tip.dataset.id != d.item.id) { tip.dataset.id = d.item.id; tip.innerHTML = this.itemHTML(d.item, p.equip[d.item.slot]); } }
     else { tip.classList.add('hide'); tip.dataset.id = ''; }
-    if (this.invOpen && this.invTab === 'gear') this.renderInv(g);
+    if (this.invOpen && this.invTab === 'bag') this.renderInv(g);
   }
   itemHTML(it, cur) {
     const R = RARITY[it.rarity], ti = tierInfo(it.tier || 1);
-    const lines = itemLines(it).map(l => `<div class="${l.imp ? 'imp' : l.special ? 'spc' : 'mod'}">${l.t}</div>`).join('');
+    const lines = itemLines(it).map(l => `<div class="${l.corrupt ? 'corrupt' : l.imp ? 'imp' : l.special ? 'spc' : 'mod'}">${l.t}</div>`).join('');
     let cmp = '';
     if (cur !== undefined) {
       const diff = itemScore(it) - itemScore(cur);
@@ -466,11 +671,9 @@ export class UI {
   }
   renderInv(g, force) {
     if (!force && (this._invT = (this._invT || 0) + 1) % 15) return;
-    const p = g.player, S = p.stats;
-    $('invEquip').innerHTML = Object.keys(SLOTS).map(k => {
-      const it = p.equip[k];
-      return `<div class="slot"><div class="slotname">${SLOTS[k].icon}</div><div>${it ? this.itemHTML(it) : '<div class="empty">（空）</div>'}</div></div>`;
-    }).join('');
+    const p = g.player, S = p.stats, shards = g.meta.p.shards || 0;
+    const eqEl = $('invEquip');
+    if (eqEl) eqEl.innerHTML = '';
     const progress = g.meta.p, cls = CLASSES[g.character?.job ?? 0] || CLASSES[0], sc2 = findSecondClass(progress.secondClass);
     const rows = [
       ['職業', sc2 ? `${cls.icon} ${cls.name} → ${sc2.icon} ${sc2.name}` : `${cls.icon} ${cls.name}`],
@@ -483,7 +686,7 @@ export class UI {
       ['攻擊速度', `+${S.atkSpd}%`], ['暴擊', `${S.crit}% × ${S.critMult}%`], ['範圍', `+${S.area}%`], ['移動速度', `+${S.moveSpd}%`],
       ['冷卻縮減', `${S.cdr}%`], ['減傷', `${S.armor}%`], ['擊中回復', `${S.lifeOnHit}`], ['餘燼彈數', `${S.proj}`],
     ];
-    $('invStats').innerHTML = rows.map(r => `<div><span>${r[0]}</span><b>${r[1]}</b></div>`).join('');
+    $('invStats').innerHTML = rows.map((r, i) => `<div${i < 3 ? ' class="wide"' : ''}><span>${r[0]}</span><b>${r[1]}</b></div>`).join('');
     const counts = {}; p.boons.forEach(b => counts[b] = (counts[b] || 0) + 1);
     $('invBoons').innerHTML = Object.entries(counts).map(([id, n]) => { const b = BOONS.find(x => x.id === id); return `<span class="chip" title="${b.desc}">${b.icon} ${b.name}${n > 1 ? ' ×' + n : ''}</span>`; }).join('') || '<span class="empty">尚無天賦</span>';
   }

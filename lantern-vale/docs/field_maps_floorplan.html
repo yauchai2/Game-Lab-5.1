@@ -1,0 +1,931 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>《燈谷行 Lantern Vale》12 張 PoE 2 五大拓撲分類野外地圖 · 戰術平面圖集 (v5)</title>
+<style>
+:root{
+  --ink:#2c1e1a; --paper:#fff8e8; --paper2:#f2e4c6;
+  --accent:#d9543a; --gold:#e5a928; --muted:#6e5445;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#111216;color:var(--ink);font-family:"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;line-height:1.55}
+header.hero{background:linear-gradient(135deg,#1b1a22,#3a2420);color:#fff6e2;padding:20px 26px;border-bottom:4px solid #e5a928}
+header.hero h1{margin:0 0 6px;font-size:23px;letter-spacing:.03em}
+header.hero p{margin:0;color:#ebd8b8;font-size:13.5px;max-width:1280px}
+.toolbar{position:sticky;top:0;z-index:20;background:#1c1b22;color:#fff6e2;padding:9px 22px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;border-bottom:2px solid #4d3830}
+.filters,.modes{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.toolbar button{background:#342624;color:#fff2d6;border:2px solid #6b4f42;padding:4px 11px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px}
+.toolbar button.on{background:#e5a928;color:#231612;border-color:#fff2d6}
+.toolbar button.poe.on{background:#46c8ff;color:#0d1a24;border-color:#dff6ff}
+.legend{display:flex;gap:10px;flex-wrap:wrap;font-size:11.8px;align-items:center;padding:7px 22px;background:#17161c;color:#dcd4c4;border-bottom:1px solid #322c30}
+.leg{display:inline-flex;align-items:center;gap:4px}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;border:1.5px solid #111}
+.sq{display:inline-block;width:12px;height:7px;border:1.5px solid #111}
+.wrap{max-width:1640px;margin:0 auto;padding:18px 20px 56px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(740px,1fr));gap:20px}
+@media(max-width:800px){.grid{grid-template-columns:1fr}}
+.map-card{background:var(--paper);border:3px solid #47322a;border-radius:12px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.52);display:flex;flex-direction:column}
+.map-card.hide{display:none}
+.mc-head{background:#2d2122;color:#fff6e2;padding:10px 15px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.mc-head h2{margin:0;font-size:17.5px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.badge{font-size:11px;padding:2px 8px;border-radius:99px;font-weight:700;background:#e5a928;color:#231612}
+.badge.open{background:#66d47a;color:#102a16}
+.badge.linear{background:#4cc8f0;color:#0c2432}
+.badge.ring{background:#f5a642;color:#2c1808}
+.badge.hybrid{background:#b888ff;color:#1e0e32}
+.badge.maze{background:#f06a78;color:#2c0c12}
+.badge.sz{background:#523c34;color:#fff6e2}
+.mc-sub{font-size:12px;color:#e4cfa8;margin-top:2px}
+.mc-body{display:grid;grid-template-columns:1.45fr 1fr;gap:13px;padding:13px 15px;align-items:start}
+@media(max-width:740px){.mc-body{grid-template-columns:1fr}}
+.cv-box{background:#0b0d12;border:2px solid #523b32;border-radius:8px;overflow:hidden;position:relative;cursor:zoom-in}
+.cv-box canvas{display:block;width:100%;height:auto}
+.cv-hint{position:absolute;right:8px;bottom:6px;background:rgba(10,12,18,.84);color:#ffe9a0;font-size:11px;padding:2px 7px;border-radius:4px;pointer-events:none}
+.mc-info{font-size:12.5px;display:flex;flex-direction:column;gap:7px}
+.mc-tag{background:var(--paper2);border-left:4px solid var(--accent);padding:6px 9px;border-radius:4px;font-size:12px}
+.mc-list{margin:0;padding-left:17px;display:flex;flex-direction:column;gap:4px}
+.mc-list li b{color:#5a2e1e}
+.mc-foot{padding:7px 15px 10px;border-top:1px dashed #c8b28c;font-size:11.8px;color:var(--muted);display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px}
+#modal{position:fixed;inset:0;background:rgba(8,10,15,.92);backdrop-filter:blur(4px);z-index:100;display:none;align-items:center;justify-content:center;padding:16px}
+#modal.open{display:flex}
+.m-inner{background:var(--paper);border:3px solid #e5a928;border-radius:12px;max-width:1240px;width:97vw;max-height:95vh;overflow:auto;padding:14px}
+.m-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:10px}
+.m-top h3{margin:0;font-size:19px}
+.m-top button{background:#d9543a;color:#fff;border:0;padding:6px 14px;border-radius:6px;cursor:pointer;font-weight:700}
+#bigCv{width:100%;height:auto;border-radius:8px;border:2px solid #4a332b;display:block;background:#0b0d12}
+</style>
+</head>
+<body>
+<header class="hero">
+  <h1>🗺️ 《燈谷行 Lantern Vale》12 張 PoE 2 五大拓撲分類野外地圖 · 戰術平面圖集 (v5 定案版)</h1>
+  <p>依據 Path of Exile 2 終局地圖口碑研究，將 12 張常駐野外地圖精準配比為 <b>五大截然不同的空間類型</b>：<b>3 張大空曠原野型（Savannah/Steppe 級）</b>、<b>3 張狹長流暢線性型（Sandspit/Ravine 級）</b>、<b>2 張寬敞大環形競技場（Burial Bog 級）</b>、<b>2 張開闊跳島混合型（Cenotes 級）</b>、<b>2 張高密度立體迷宮型（Azak Bog/Crypt 級）</b>，實機 3D 統一以 <b>A Short Hike 溫馨像素 3D 美術風格</b> 呈現。</p>
+</header>
+
+<div class="toolbar">
+  <div class="filters">
+    <button class="on" data-f="all">全部 12 張</button>
+    <button data-f="open">🌾 ① 大空曠原野 (3)</button>
+    <button data-f="linear">〰️ ② 狹長流暢線性 (3)</button>
+    <button data-f="ring">⭕ ③ 寬敞大環形 (2)</button>
+    <button data-f="hybrid">🏝 ④ 跳島混合 (2)</button>
+    <button data-f="maze">🌀 ⑤ 高密迷宮 (2)</button>
+  </div>
+  <div class="modes">
+    <button class="poe on" data-mode="poe">🧭 PoE 2 戰術線框</button>
+    <button data-mode="biome">🎨 A Short Hike 生態色</button>
+  </div>
+</div>
+
+<div class="legend">
+  <span class="leg"><i class="dot" style="background:#38c8ff;box-shadow:0 0 6px #38c8ff"></i>🔵 傳送檢查點</span>
+  <span class="leg"><i class="dot" style="background:#52d878"></i>區域出入口</span>
+  <span class="leg"><i class="dot" style="background:#b46cff"></i>⛩ 副本地城入口</span>
+  <span class="leg"><i class="sq" style="background:#f5c842"></i>🟨 跨谷橋梁 / 棧道</span>
+  <span class="leg"><i class="dot" style="background:#e8485a"></i>⚔ 魔物聚落</span>
+  <span class="leg"><i class="dot" style="background:#ff9428"></i>👑 傳奇守護獸</span>
+  <span class="leg"><i class="dot" style="background:#ffd85a"></i>💎 秘寶 / 奇觀地標</span>
+  <span class="leg"><i class="dot" style="background:#46e0ff"></i>💨 單向滑翔捷徑</span>
+</div>
+
+<div class="wrap"><div class="grid" id="grid"></div></div>
+
+<div id="modal">
+  <div class="m-inner">
+    <div class="m-top"><h3 id="mTitle"></h3><button id="mClose">✕ 關閉</button></div>
+    <canvas id="bigCv" width="1180" height="810"></canvas>
+    <div id="mDesc" style="margin-top:9px;font-size:13.5px"></div>
+  </div>
+</div>
+
+<script>
+function rng(seed){let s=seed>>>0;return()=>{s=(s*1664525+1013904223)>>>0;return s/4294967296;};}
+function hash2(x,y,seed){
+  let h = (x*374761393 + y*668265263 + seed*1442695041) | 0;
+  h = ((h ^ (h >>> 13)) * 1274126177) | 0;
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+function vnoise(x,y,seed){
+  const xi=Math.floor(x), yi=Math.floor(y), xf=x-xi, yf=y-yi;
+  const u=xf*xf*(3-2*xf), v=yf*yf*(3-2*yf);
+  const a=hash2(xi,yi,seed), b=hash2(xi+1,yi,seed), c=hash2(xi,yi+1,seed), d=hash2(xi+1,yi+1,seed);
+  return a+(b-a)*u+(c-a)*v+(a-b-c+d)*u*v;
+}
+function fbm(x,y,seed){
+  return vnoise(x,y,seed)*0.55 + vnoise(x*2.1,y*2.1,seed+17)*0.30 + vnoise(x*4.3,y*4.3,seed+53)*0.15;
+}
+
+const GW = 260, GH = 180;
+
+function buildComplexGrid(def) {
+  const g = new Uint8Array(GW * GH);
+  const r = rng(def.seed);
+  const idx = (x,y) => y * GW + x;
+  const set = (x,y,v) => { if(x>=3&&x<GW-3&&y>=3&&y<GH-3) g[idx(x,y)] = Math.max(g[idx(x,y)], v); };
+  const carve = (x,y,v=0) => { if(x>=2&&x<GW-2&&y>=2&&y<GH-2) g[idx(x,y)] = v; };
+
+  const chamber = (nx, ny, rx, ry, val=2, rot=0, jag=0.42) => {
+    const cx=nx*GW, cy=ny*GH, c=Math.cos(rot), s=Math.sin(rot);
+    const R = Math.max(rx, ry) * 1.65;
+    for(let y=Math.max(3,Math.floor(cy-R)); y<Math.min(GH-3,Math.ceil(cy+R)); y++){
+      for(let x=Math.max(3,Math.floor(cx-R)); x<Math.min(GW-3,Math.ceil(cx+R)); x++){
+        const dx=x-cx, dy=y-cy;
+        const lx=(dx*c+dy*s)/rx, ly=(-dx*s+dy*c)/ry;
+        const n = 1 + (fbm(x*0.095, y*0.095, def.seed)-0.48)*jag*2.2;
+        if(lx*lx + ly*ly <= n*n) set(x,y,val);
+      }
+    }
+  };
+
+  const corridor = (x0,y0, x1,y1, w=6.5, val=2, bend=0.06) => {
+    const ax=x0*GW, ay=y0*GH, bx=x1*GW, by=y1*GH;
+    const dx=bx-ax, dy=by-ay, len=Math.hypot(dx,dy)||1;
+    const nx=-dy/len, ny=dx/len;
+    const mx=(ax+bx)/2 + nx*len*bend, my=(ay+by)/2 + ny*len*bend;
+    const steps = Math.ceil(len * 1.15);
+    for(let i=0;i<=steps;i++){
+      const t=i/steps, it=1-t;
+      const px=it*it*ax+2*it*t*mx+t*t*bx, py=it*it*ay+2*it*t*my+t*t*by;
+      const ww = w * (0.74 + 0.48*fbm(px*0.08, py*0.08, def.seed+91));
+      const r2 = ww*ww;
+      for(let y=Math.floor(py-ww-1); y<=Math.ceil(py+ww+1); y++){
+        for(let x=Math.floor(px-ww-1); x<=Math.ceil(px+ww+1); x++){
+          if((x-px)*(x-px)+(y-py)*(y-py) <= r2) set(x,y,val);
+        }
+      }
+    }
+  };
+
+  const chasm = (x0,y0, x1,y1, w=4.2, toVal=0, bend=0.04) => {
+    const ax=x0*GW, ay=y0*GH, bx=x1*GW, by=y1*GH;
+    const dx=bx-ax, dy=by-ay, len=Math.hypot(dx,dy)||1;
+    const nx=-dy/len, ny=dx/len;
+    const mx=(ax+bx)/2 + nx*len*bend, my=(ay+by)/2 + ny*len*bend;
+    const steps = Math.ceil(len * 1.4);
+    for(let i=0;i<=steps;i++){
+      const t=i/steps, it=1-t;
+      const px=it*it*ax+2*it*t*mx+t*t*bx, py=it*it*ay+2*it*t*my+t*t*by;
+      const ww = w * (0.8 + 0.42*fbm(px*0.14, py*0.14, def.seed+31));
+      for(let y=Math.floor(py-ww); y<=Math.ceil(py+ww); y++)
+        for(let x=Math.floor(px-ww); x<=Math.ceil(px+ww); x++)
+          if((x-px)*(x-px)+(y-py)*(y-py) <= ww*ww) carve(x,y,toVal);
+    }
+  };
+
+  const pillar = (nx, ny, rx, ry, rot=0) => {
+    const cx=nx*GW, cy=ny*GH, c=Math.cos(rot), s=Math.sin(rot);
+    const R = Math.max(rx,ry)*1.5;
+    for(let y=Math.max(2,Math.floor(cy-R)); y<Math.min(GH-2,Math.ceil(cy+R)); y++){
+      for(let x=Math.max(2,Math.floor(cx-R)); x<Math.min(GW-2,Math.ceil(cx+R)); x++){
+        const dx=x-cx, dy=y-cy;
+        const lx=(dx*c+dy*s)/rx, ly=(-dx*s+dy*c)/ry;
+        const n = 1 + (fbm(x*0.18, y*0.18, def.seed+77)-0.5)*0.65;
+        if(lx*lx+ly*ly <= n*n) carve(x,y,0);
+      }
+    }
+  };
+
+  const ruin = (nx, ny, len, rot=0, shape='L') => {
+    const cx=nx*GW, cy=ny*GH, c=Math.cos(rot), s=Math.sin(rot);
+    const drawSeg = (x0,y0,x1,y1) => {
+      const st=24;
+      for(let i=0;i<=st;i++){
+        const lx=x0+(x1-x0)*(i/st), ly=y0+(y1-y0)*(i/st);
+        const wx=Math.round(cx+lx*c-ly*s), wy=Math.round(cy+lx*s+ly*c);
+        for(let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++)
+          if(wx+dx>=2&&wx+dx<GW-2&&wy+dy>=2&&wy+dy<GH-2 && g[idx(wx+dx,wy+dy)]>0) g[idx(wx+dx,wy+dy)] = 5;
+      }
+    };
+    drawSeg(-len, 0, len, 0);
+    drawSeg(-len, 0, -len, len*0.85);
+    if(shape==='U') drawSeg(len, 0, len, len*0.85);
+  };
+
+  def.sculpt({ chamber, corridor, chasm, pillar, ruin, r });
+
+  // 依地圖類型精準控制內部阻礙密度：大空曠型僅放極少小型點綴，迷宮型拉滿阻礙與斷壁！
+  const safePts = [
+    ...(def.pois||[]).map(p=>[p.x*GW,p.y*GH,14]),
+    ...(def.checkpoints||[]).map(p=>[p[0]*GW,p[1]*GH,13]),
+    ...(def.camps||[]).map(p=>[p[0]*GW,p[1]*GH,10]),
+    ...(def.bridges||[]).flatMap(b=>[[b[0]*GW,b[1]*GH,10],[b[2]*GW,b[3]*GH,10],[(b[0]+b[2])*0.5*GW,(b[1]+b[3])*0.5*GH,10]]),
+  ];
+  let placed = 0, tries = 0;
+  const targetObs = def.obsCount ?? 16;
+  const minDist = def.family === 'open' ? 18 : def.family === 'maze' ? 8 : 11;
+  while(placed < targetObs && tries < 700){
+    tries++;
+    const x = 12 + Math.floor(r()*(GW-24)), y = 12 + Math.floor(r()*(GH-24));
+    const v = g[idx(x,y)];
+    if(v < 2 || v > 4) continue;
+    let openCnt = 0;
+    for(let dy=-6;dy<=6;dy+=3) for(let dx=-6;dx<=6;dx+=3) if(g[idx(x+dx,y+dy)]===v) openCnt++;
+    if(openCnt < (def.family==='maze' ? 15 : 21)) continue;
+    if(safePts.some(([sx,sy,sr])=>Math.hypot(x-sx,y-sy)<sr)) continue;
+    const sc = def.family === 'open' ? 0.65 : def.family === 'maze' ? 1.15 : 0.9;
+    const rx = (2.4 + r()*3.4)*sc, ry = (1.8 + r()*2.6)*sc, rot = r()*Math.PI;
+    if(r() < (def.family==='open' ? 0.15 : 0.30)) ruin(x/GW, y/GH, (3.2+r()*3.0)*sc, rot, r()<0.4?'U':'L');
+    else pillar(x/GW, y/GH, rx, ry, rot);
+    safePts.push([x,y,minDist]);
+    placed++;
+  }
+  return g;
+}
+
+const gridCache = new Map();
+function getGrid(def){
+  if(!gridCache.has(def.id)) gridCache.set(def.id, buildComplexGrid(def));
+  return gridCache.get(def.id);
+}
+
+let renderMode = 'poe';
+
+function renderTacticalCanvas(canvas, def) {
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const g = getGrid(def);
+  const cw = W / GW, ch = H / GH;
+  const isPoe = renderMode === 'poe';
+
+  ctx.fillStyle = isPoe ? '#0a0c11' : def.pal.void;
+  ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = isPoe ? 'rgba(130,165,205,0.045)' : 'rgba(255,255,255,0.04)';
+  ctx.lineWidth = 1;
+  for(let x=0;x<W;x+=28){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  for(let y=0;y<H;y+=28){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+
+  const idx = (x,y) => (x<0||y<0||x>=GW||y>=GH) ? 0 : g[y*GW+x];
+  const poeCols = [null, '#12283a', '#181c26', '#222836', '#2d3546', '#625a52'];
+  const bioCols = [null, def.pal.l0, def.pal.l1, def.pal.l2, def.pal.l3, '#6e6458'];
+  const cols = isPoe ? poeCols : bioCols;
+
+  for(let y=0;y<GH;y++){
+    for(let x=0;x<GW;x++){
+      const v = g[y*GW+x];
+      if(v === 0) continue;
+      const sx = Math.floor(x*cw), sy = Math.floor(y*ch), sw = Math.ceil(cw)+1, sh = Math.ceil(ch)+1;
+      ctx.fillStyle = cols[v];
+      ctx.fillRect(sx, sy, sw, sh);
+      if(v === 5){
+        ctx.fillStyle = isPoe ? '#b8b0a0' : '#f0e2c8';
+        ctx.fillRect(sx, sy, sw, sh);
+        continue;
+      }
+      const n=idx(x,y-1), s=idx(x,y+1), w=idx(x-1,y), e=idx(x+1,y);
+      const isOuter = (n===0||s===0||w===0||e===0);
+      const isStep = (n<v||s<v||w<v||e<v) && !isOuter;
+      if(isOuter){
+        ctx.fillStyle = isPoe ? '#c4d4e6' : def.pal.edge;
+        ctx.fillRect(sx, sy, sw, sh);
+        if(s===0 && y+1<GH){
+          ctx.fillStyle = isPoe ? '#434d5e' : def.pal.cliff;
+          ctx.fillRect(sx, Math.floor((y+1)*ch), sw, Math.ceil(ch*1.6));
+        }
+      } else if(isStep){
+        ctx.fillStyle = isPoe ? '#6d829e' : def.pal.cliff;
+        ctx.fillRect(sx, sy, sw, sh);
+      }
+    }
+  }
+
+  const px = u => u * W, py = v => v * H;
+
+  for(const tr of def.trails || []){
+    ctx.save();
+    ctx.strokeStyle = isPoe ? 'rgba(210,220,235,0.24)' : 'rgba(255,244,205,0.48)';
+    ctx.lineWidth = Math.max(1.5, W*0.0024);
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    tr.forEach(([u,v], i) => i===0 ? ctx.moveTo(px(u),py(v)) : ctx.lineTo(px(u),py(v)));
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  if(def.overlay) def.overlay(ctx, W, H, isPoe);
+
+  for(const b of def.bridges || []){
+    ctx.save();
+    ctx.strokeStyle = '#24150a'; ctx.lineWidth = Math.max(8, W*0.013);
+    ctx.beginPath(); ctx.moveTo(px(b[0]),py(b[1])); ctx.lineTo(px(b[2]),py(b[3])); ctx.stroke();
+    ctx.strokeStyle = '#f5c842'; ctx.lineWidth = Math.max(4.5, W*0.0075);
+    ctx.beginPath(); ctx.moveTo(px(b[0]),py(b[1])); ctx.lineTo(px(b[2]),py(b[3])); ctx.stroke();
+    ctx.restore();
+  }
+
+  for(const gl of def.glides || []){
+    ctx.save();
+    ctx.strokeStyle = '#46e0ff'; ctx.lineWidth = Math.max(2, W*0.0032);
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    ctx.moveTo(px(gl[0]),py(gl[1]));
+    ctx.quadraticCurveTo(px(gl[2]),py(gl[3]),px(gl[4]),py(gl[5]));
+    ctx.stroke();
+    ctx.setLineDash([]);
+    const ang = Math.atan2(py(gl[5])-py(gl[3]), px(gl[4])-px(gl[2]));
+    const ax=px(gl[4]), ay=py(gl[5]), al=8;
+    ctx.fillStyle='#46e0ff';
+    ctx.beginPath(); ctx.moveTo(ax,ay);
+    ctx.lineTo(ax-Math.cos(ang-0.5)*al, ay-Math.sin(ang-0.5)*al);
+    ctx.lineTo(ax-Math.cos(ang+0.5)*al, ay-Math.sin(ang+0.5)*al);
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+
+  for(const c of def.camps || []){
+    ctx.fillStyle = '#e8485a'; ctx.strokeStyle = '#14080a'; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.arc(px(c[0]), py(c[1]), W*0.0068, 0, 6.28); ctx.fill(); ctx.stroke();
+  }
+
+  for(const cp of def.checkpoints || []){
+    const x=px(cp[0]), y=py(cp[1]), rad=W*0.012;
+    const grd = ctx.createRadialGradient(x,y,1,x,y,rad*1.85);
+    grd.addColorStop(0,'rgba(110,230,255,0.98)'); grd.addColorStop(1,'rgba(30,140,255,0)');
+    ctx.fillStyle = grd; ctx.beginPath(); ctx.arc(x,y,rad*1.85,0,6.28); ctx.fill();
+    ctx.fillStyle = '#28b8ff'; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.8;
+    ctx.beginPath(); ctx.arc(x,y,rad*0.62,0,6.28); ctx.fill(); ctx.stroke();
+  }
+
+  const fs = Math.max(10, Math.round(W * 0.0155));
+  ctx.font = `700 ${fs}px "PingFang TC","Noto Sans TC",sans-serif`;
+  ctx.textAlign = 'center';
+  for(const p of def.pois || []){
+    const x=px(p.x), y=py(p.y);
+    const col = { exit:'#52d878', dungeon:'#b46cff', boss:'#ff9428', secret:'#ffd85a' }[p.k] || '#ffd85a';
+    const r = p.k==='dungeon'||p.k==='boss' ? W*0.0115 : W*0.0095;
+    ctx.fillStyle = col; ctx.strokeStyle = '#0d0b10'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(x,y,r,0,6.28); ctx.fill(); ctx.stroke();
+    const tw = ctx.measureText(p.t).width + 7;
+    const ty = y - r - 4;
+    ctx.fillStyle = 'rgba(12,14,20,0.86)';
+    ctx.fillRect(x - tw/2, ty - fs + 1, tw, fs + 3);
+    ctx.fillStyle = p.k==='boss' ? '#ffe082' : p.k==='secret' ? '#fff4b8' : '#ffffff';
+    ctx.fillText(p.t, x, ty);
+  }
+}
+
+const FAMILY_META = {
+  open:   { label: '① 大空曠原野型', cls: 'open' },
+  linear: { label: '② 狹長流暢線性', cls: 'linear' },
+  ring:   { label: '③ 寬敞大環形',   cls: 'ring' },
+  hybrid: { label: '④ 跳島混合型',   cls: 'hybrid' },
+  maze:   { label: '⑤ 高密度迷宮',   cls: 'maze' },
+};
+
+const MAPS = [
+  // ========= ① 大空曠原野型 (3張：Savannah / Steppe 級超大呼吸感與割草爽圖) =========
+  {
+    id:1, seed:1105, family:'open', name:'晨光草原', lv:'Lv.1–5', size:'540×540', dungeon:'草原洞窟', obsCount:9,
+    archetype:'PoE 2 Savannah / Steppe 級超大空曠不規則原野（無隔牆割草起手圖）',
+    idea:'大面積自然起伏的遼闊原野！內部幾乎沒有阻礙隔牆，僅點綴少量小型圓石與一彎淺溪，右上隆起巨型茶壺蘑菇高坡、西南設風車南瓜牧場，讓新手開局體驗最暢快的騎馬與 AOE 刷怪！',
+    elem:'💧 淺溪涉水帶＋西北瀑布潭（開闊地帶大範圍元素連鎖）',
+    pal:{ void:'#142834', l0:'#3694b4', l1:'#629c48', l2:'#82bc58', l3:'#a6d66e', edge:'#e4f2d8', cliff:'#385c28' },
+    sculpt({chamber,corridor,chasm}){
+      // 超大不規則開闊原野（像 Savannah/Steppe，絕非四方框，邊緣自然鋸齒外延）
+      chamber(0.46,0.56, 76,46, 2, -0.14, 0.36);
+      chamber(0.24,0.74, 38,26, 2, -0.30, 0.34); // 西南風車南瓜農莊外延
+      chamber(0.76,0.68, 36,24, 2, 0.22, 0.34);  // 東南草坡外延
+      chamber(0.84,0.28, 28,22, 3, 0.30, 0.35);  // 東北隆起：巨型茶壺蘑菇丘 (L2)
+      chamber(0.44,0.19, 32,18, 3, -0.15, 0.32); // 北側瀑布洞窟坡
+      corridor(0.18,0.34, 0.34,0.24, 7.5, 3, -0.12); // 西北瀑頂觀景小徑
+      chamber(0.16,0.32, 13,10, 4, -0.2, 0.32);
+      // 僅一條柔和淺溪點綴，不切割原野流暢度
+      chasm(0.26,0.32, 0.66,0.52, 3.6, 1, 0.10);
+    },
+    trails:[[[0.20,0.84],[0.46,0.56],[0.46,0.18]],[[0.46,0.56],[0.82,0.68]],[[0.46,0.56],[0.84,0.28]]],
+    bridges:[[0.46,0.40,0.50,0.44],[0.58,0.46,0.62,0.50]],
+    glides:[[0.84,0.28,0.66,0.16,0.48,0.18],[0.16,0.32,0.28,0.22,0.42,0.20]],
+    checkpoints:[[0.22,0.80],[0.52,0.56],[0.84,0.28]],
+    camps:[[0.34,0.68],[0.48,0.66],[0.64,0.62],[0.76,0.70],[0.36,0.44],[0.66,0.40],[0.56,0.28],[0.76,0.46]],
+    pois:[
+      {x:0.18,y:0.84,k:'exit',t:'南門←燈谷鎮'},{x:0.88,y:0.68,k:'exit',t:'東門→低語森林'},
+      {x:0.46,y:0.16,k:'dungeon',t:'⛩ 草原洞窟'},{x:0.84,y:0.27,k:'secret',t:'🫖 巨型茶壺丘'},
+      {x:0.16,y:0.31,k:'secret',t:'💎 瀑頂羽箱'},{x:0.54,y:0.58,k:'boss',t:'👑 草原守護獸'}
+    ],
+    subzones:[
+      ['真正大空曠原野（Savannah 級）','全圖 85% 為無遮擋遼闊草地，僅散布 9 處小型圓石／樹叢，視野開闊、AOE 割草極度流暢！'],
+      ['東北隆坡 · 巨型茶壺蘑菇丘','自然升高的奇幻高丘，無需繞迷宮即可輕鬆登頂並滑翔切往洞窟門。'],
+      ['西南緩坡 · 風車南瓜農場','開闊起步區，一眼就能望見遠處溪流與茶壺地標。'],
+      ['淺溪元素點綴','可自由涉水穿越的 L0 淺溪，不阻斷移動卻提供絕佳水雷反應點。'],
+    ]
+  },
+  {
+    id:8, seed:8815, family:'open', name:'珊瑚潮汐灣', lv:'Lv.18–22', size:'560×560', dungeon:'潮汐海蝕洞', obsCount:10,
+    archetype:'PoE 2 Steaming Springs / Coastal Open 級超廣闊淺海金沙大灣',
+    idea:'整片遼闊的碧藍淺海與金沙大瀉湖皆可無阻礙奔跑涉水！西側矗立「擱淺海盜帆船崖堡」作為唯一巨型立體地標，東北為雙瀑海蝕洞，打造海濱最爽快的大面積水元素割草場！',
+    elem:'💧❄️ 全域淺海金沙潮池（隨手觸發超大範圍冰凍與連鎖感電）',
+    pal:{ void:'#10547c', l0:'#3abed8', l1:'#e8d08e', l2:'#7cc660', l3:'#929aa4', edge:'#fff6d8', cliff:'#545e68' },
+    sculpt({chamber}){
+      // 超大開闊不規則月牙瀉湖（全淺水＋金沙大灣，視野一望無際！）
+      chamber(0.50,0.56, 80,50, 1, -0.10, 0.34);
+      chamber(0.46,0.78, 52,24, 2, 0.12, 0.30);  // 南岸寬闊椰林金沙灘
+      chamber(0.76,0.62, 34,26, 2, -0.25, 0.32); // 東側廣闊珊瑚沙洲
+      chamber(0.22,0.48, 28,22, 2, -0.30, 0.32); // 西側：擱淺海盜船崖堡主島
+      chamber(0.24,0.44, 13,11, 4, 0.20, 0.28);  // 崖頂紅頂木造瞭望塔 (L3)
+      chamber(0.74,0.20, 32,16, 3, -0.18, 0.32); // 東北雙瀑半月海蝕灣
+      chamber(0.16,0.20, 13,10, 2, 0.3, 0.30);   // 西北孤礁秘寶
+    },
+    overlay(ctx,W,H){
+      ctx.save(); ctx.strokeStyle='#a86434'; ctx.fillStyle='#8c5028'; ctx.lineWidth=2.5;
+      ctx.beginPath(); ctx.moveTo(0.14*W,0.54*H); ctx.lineTo(0.24*W,0.50*H); ctx.lineTo(0.25*W,0.58*H); ctx.lineTo(0.16*W,0.60*H); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle='#ffd85a'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(0.20*W,0.52*H); ctx.lineTo(0.24*W,0.44*H); ctx.stroke();
+      ctx.restore();
+    },
+    bridges:[[0.18,0.34,0.16,0.26]],
+    glides:[[0.25,0.43,0.48,0.24,0.70,0.20],[0.26,0.46,0.54,0.52,0.76,0.58]],
+    checkpoints:[[0.44,0.82],[0.24,0.46],[0.78,0.60]],
+    camps:[[0.36,0.66],[0.54,0.58],[0.68,0.70],[0.76,0.48],[0.52,0.36],[0.38,0.42],[0.66,0.32]],
+    pois:[
+      {x:0.42,y:0.86,k:'exit',t:'南沙灘←港鎮'},{x:0.75,y:0.18,k:'dungeon',t:'⛩ 雙瀑海蝕洞'},
+      {x:0.24,y:0.43,k:'secret',t:'🏴‍☠️ 帆船瞭望崖堡'},{x:0.60,y:0.52,k:'boss',t:'👑 瀉湖守護獸'},
+      {x:0.16,y:0.19,k:'secret',t:'💎 西北礁秘寶'},{x:0.78,y:0.68,k:'secret',t:'⛱ 椰林釣魚灘'}
+    ],
+    subzones:[
+      ['超廣闊淺海金沙大灣','整座瀉湖可自由奔馳涉水，完全無迷宮狹路，最適合遠程投射物與全屏雷暴割草！'],
+      ['西側焦點 · 擱淺海盜帆船崖堡','唯一的巨型垂直地標：從船身繩梯爬上紅頂瞭望塔，俯瞰全灣並長距離跨海滑翔。'],
+      ['南岸 · 椰林遮陽傘金沙灘','開闊海濱休憩與釣魚起點。'],
+      ['東北 · 雙瀑布半月海蝕洞','高聳灰岩絕壁雙瀑直瀉，構成終點震撼視覺。'],
+    ]
+  },
+  {
+    id:12, seed:1225, family:'open', name:'🍁 紅楓工坊谷', lv:'Lv.28–30', size:'640×640', dungeon:'紅楓鍛造爐', obsCount:11,
+    archetype:'PoE 2 Blooming Field 級終局超大開闊秋楓高原（滿級割草印鈔主場）',
+    idea:'640m 終局最暢快的超大開闊高原！讓滿級玩家盡情在金黃楓林牧場、三疊秋楓露天溫泉與開闊石磚鍛造廣場之間高速收割星晶巨像軍團，毫無卡牆煩躁感！',
+    elem:'🔥💧 寬闊溫泉溪＋鍛造熔岩溝（終局大型元素連爆舞台）',
+    pal:{ void:'#1e110d', l0:'#3cb0d2', l1:'#a6a444', l2:'#c49844', l3:'#d8ccb4', edge:'#ffe4b2', cliff:'#5a3c24' },
+    sculpt({chamber,chasm}){
+      // 超大開闊不規則秋谷高原（多處自然外凸分區，無內部封閉隔牆）
+      chamber(0.50,0.54, 84,52, 2, 0.10, 0.34);
+      chamber(0.22,0.78, 36,24, 2, -0.25, 0.30); // 西南風車紅穀倉綿羊牧場
+      chamber(0.24,0.26, 30,22, 1, 0.20, 0.30);  // 西北三疊秋楓露天溫泉池
+      chamber(0.66,0.48, 34,26, 3, -0.20, 0.22); // 東側開闊石磚鍛造大廣場
+      chamber(0.84,0.22, 26,18, 4, -0.20, 0.30); // 東北紅楓鍛造爐高台
+      chasm(0.84,0.44, 0.88,0.78, 4.0, 0, 0.12); // 東緣火山熔渠景觀
+    },
+    trails:[[[0.24,0.84],[0.50,0.54],[0.84,0.22]],[[0.24,0.84],[0.24,0.26],[0.66,0.48]]],
+    bridges:[[0.36,0.34,0.42,0.38]],
+    glides:[[0.84,0.22,0.54,0.16,0.26,0.26],[0.66,0.46,0.44,0.66,0.22,0.78]],
+    checkpoints:[[0.22,0.80],[0.24,0.26],[0.66,0.48]],
+    camps:[[0.38,0.76],[0.54,0.72],[0.72,0.68],[0.46,0.52],[0.64,0.48],[0.48,0.32],[0.72,0.32],[0.32,0.54]],
+    pois:[
+      {x:0.22,y:0.86,k:'exit',t:'南道←海風港鎮'},{x:0.84,y:0.20,k:'dungeon',t:'⛩ 紅楓鍛造爐'},
+      {x:0.24,y:0.25,k:'secret',t:'♨ 三疊秋楓溫泉'},{x:0.16,y:0.74,k:'secret',t:'🐑 風車穀倉牧場'},
+      {x:0.66,y:0.48,k:'boss',t:'👑 巨像鍛造廣場'},{x:0.76,y:0.74,k:'secret',t:'🔥 熔渠遺產碑'}
+    ],
+    subzones:[
+      ['終局超大開闊割草主場','640m 無隔牆大高原，僅 11 處點綴岩樹，最適合開滿副本密度與連擊系統爽刷星晶巨像！'],
+      ['西南 · 風車紅穀倉綿羊牧場','摸蓬鬆小羊領取 60 秒軟綿祝福後直接衝入戰場。'],
+      ['西北 · 三疊秋楓露天岩石溫泉','三層溫熱泉池自然融入高原邊緣，回血與拍照兼得。'],
+      ['東側 · 開闊棋盤石磚鍛造廣場','寬敞無死角的高台王場，滑翔可直返牧場與溫泉。'],
+    ]
+  },
+
+  // ========= ② 狹長流暢線性型 (3張：Sandspit / Ravine 級零回頭路高速飆圖) =========
+  {
+    id:4, seed:4415, family:'linear', name:'霜冬雪原', lv:'Lv.15–20', size:'620×620', dungeon:'寒霜冰窟', obsCount:14,
+    archetype:'PoE 2 Sandspit 級雙向長條雪道（去程盤山雪脊、回程 450m 纜車滑雪大俯衝！）',
+    idea:'徹底消除走回頭路！細長斜向雪山採「雙線去回設計」：沿南坡裂谷雪屋一路盤升至西北 L3 纜車雪峰，再順著寬闊滑雪道極速俯衝直貫東南溜冰湖與東北藍冰尖塔！',
+    elem:'❄️ 鏡面溜冰湖＋高山雪道（高速推進＋碎冰 1.45× 連爆）',
+    pal:{ void:'#17283a', l0:'#52b4e4', l1:'#b8d2e8', l2:'#d4e6f4', l3:'#f6fbff', edge:'#ffffff', cliff:'#587ca0' },
+    sculpt({chamber,corridor,chasm}){
+      // 狹長斜向雙線（去程上山、回程滑雪俯衝，大片冰海負空間！）
+      chamber(0.14,0.82, 18,13, 2, -0.3);
+      corridor(0.14,0.82, 0.22,0.26, 9.5, 3, -0.14); // 西側盤山纜車雪脊
+      chamber(0.22,0.24, 20,15, 4, 0.3);             // 西北 L3 纜車雪峰站
+      corridor(0.22,0.24, 0.56,0.44, 11.0, 3, 0.08); // 寬闊滑雪俯衝主道
+      corridor(0.56,0.44, 0.84,0.22, 9.5, 3, -0.08); // 通往東北藍冰尖塔冰窟
+      corridor(0.56,0.44, 0.80,0.76, 10.5, 2, 0.10); // 通往東南結冰圓湖
+      chamber(0.84,0.22, 22,15, 3, -0.25);           // 藍冰晶尖塔群
+      chamber(0.78,0.76, 22,15, 1, 0.15);            // 東南結冰圓形溜冰湖
+      chasm(0.10,0.58, 0.30,0.62, 3.6, 0);           // 裂谷雪屋獨木冰橋
+    },
+    overlay(ctx,W,H){
+      ctx.save(); ctx.strokeStyle='#ff6a42'; ctx.lineWidth=2.6; ctx.setLineDash([8,5]);
+      ctx.beginPath(); ctx.moveTo(0.22*W,0.24*H); ctx.lineTo(0.56*W,0.44*H); ctx.lineTo(0.78*W,0.74*H); ctx.stroke();
+      ctx.restore();
+    },
+    bridges:[[0.17,0.58,0.21,0.61]],
+    glides:[[0.23,0.24,0.54,0.34,0.76,0.72],[0.24,0.22,0.56,0.14,0.82,0.20]],
+    checkpoints:[[0.15,0.80],[0.22,0.25],[0.56,0.44],[0.78,0.75]],
+    camps:[[0.18,0.68],[0.18,0.42],[0.40,0.34],[0.68,0.34],[0.68,0.58],[0.78,0.74]],
+    pois:[
+      {x:0.14,y:0.86,k:'exit',t:'南雪營←沼澤'},{x:0.86,y:0.76,k:'exit',t:'東口→火岩區'},
+      {x:0.85,y:0.20,k:'dungeon',t:'⛩ 藍冰尖塔·冰窟'},{x:0.21,y:0.22,k:'secret',t:'🚡 纜車滑雪山頂'},
+      {x:0.76,y:0.74,k:'boss',t:'👑 溜冰湖守護獸'},{x:0.14,y:0.52,k:'secret',t:'🏔 裂谷雪屋橋'}
+    ],
+    subzones:[
+      ['Sandspit 級零回頭路雙線設計','西坡一路登山、東側兩條寬闊滑雪道極速俯衝，跑圖節奏極度流暢。'],
+      ['西北 · 高山纜車山頂站 (L3)','兩條 450m 單向滑翔雪道直達冰窟與溜冰湖。'],
+      ['東北 · 鋸齒藍冰尖塔群','晶瑩冰柱包圍寒霜冰窟副本入口。'],
+      ['東南 · 結冰圓形溜冰湖','終點開闊冰面王場，敵人踏上立即滑倒。'],
+    ]
+  },
+  {
+    id:10, seed:1020, family:'linear', name:'🌸 櫻花水都', lv:'Lv.14–18', size:'580×580', dungeon:'櫻花水宮', obsCount:14,
+    archetype:'PoE 2 Creek / Riverside 級蜿蜒 S 型落櫻溪谷長廊（零對稱流線畫卷）',
+    idea:'細長流暢的 S 型溪谷長廊！從東南水岸竹林一路順溪而上，跨越中央大弧朱紅木橋、穿過九曲竹林茶屋，最後盤旋鳥居石階直登西北巨櫻山頂水宮，幾乎零回頭路！',
+    elem:'❄️💧 落櫻錦鯉溪流（順溪推進＋冰緩療癒領域）',
+    pal:{ void:'#16445c', l0:'#48c0e4', l1:'#6eb258', l2:'#90c872', l3:'#ffa8cc', edge:'#ffe2ee', cliff:'#3e6e32' },
+    sculpt({chamber,corridor,chasm}){
+      // 優雅細長 S 型曲線主幹道（大片水域負空間襯托流線美感）
+      chamber(0.82,0.82, 18,13, 2, -0.2);  // 東南南堤起點
+      corridor(0.82,0.82, 0.50,0.62, 11, 2, 0.16);
+      chamber(0.50,0.58, 22,16, 1, 0.15);  // 中央寬闊錦鯉蓮池＋朱紅拱橋
+      corridor(0.50,0.58, 0.72,0.32, 10, 2, -0.14);
+      chamber(0.74,0.28, 19,13, 2, -0.2);  // 東北九曲竹林茶屋
+      corridor(0.74,0.28, 0.22,0.24, 10.5, 3, -0.10);
+      chamber(0.20,0.24, 22,15, 4, 0.25);  // 西北盤旋鳥居巨櫻山頂水宮
+      // 西南獨立海上五重塔秘寶孤島
+      chamber(0.18,0.74, 15,12, 3, -0.3);
+      chasm(0.36,0.48, 0.64,0.68, 4.4, 1);
+    },
+    overlay(ctx,W,H){
+      ctx.save(); ctx.strokeStyle='#e03c30'; ctx.lineWidth=Math.max(5,W*0.0085); ctx.lineCap='round';
+      ctx.beginPath(); ctx.moveTo(0.41*W,0.60*H); ctx.quadraticCurveTo(0.50*W,0.50*H,0.59*W,0.60*H); ctx.stroke();
+      ctx.restore();
+    },
+    bridges:[[0.48,0.56,0.54,0.58]],
+    glides:[[0.20,0.25,0.16,0.50,0.18,0.70],[0.20,0.74,0.48,0.82,0.78,0.82]],
+    checkpoints:[[0.82,0.80],[0.50,0.58],[0.74,0.28],[0.20,0.25]],
+    camps:[[0.66,0.74],[0.62,0.44],[0.50,0.28],[0.34,0.24],[0.42,0.62],[0.74,0.34]],
+    pois:[
+      {x:0.84,y:0.84,k:'exit',t:'南堤←海風港鎮'},{x:0.19,y:0.22,k:'dungeon',t:'⛩ 巨櫻山頂·水宮'},
+      {x:0.50,y:0.53,k:'boss',t:'🌉 大弧朱紅橋戰場'},{x:0.18,y:0.74,k:'secret',t:'🏯 海上五重塔孤島'},
+      {x:0.75,y:0.26,k:'secret',t:'🎋 九曲竹林茶屋'}
+    ],
+    subzones:[
+      ['細長 S 型流線櫻溪（Creek 級）','一條順暢的 S 型大河谷貫穿全圖，順溪推進零迷路、零冗長繞路！'],
+      ['中央 · 大弧度朱紅木橋','橫跨錦鯉蓮池的絕美橋頭堡戰場。'],
+      ['西北 · 盤旋鳥居巨櫻山頂','終點櫻花水宮，登頂後可直接滑翔飛向西南海上五重塔秘寶島再回起點！'],
+      ['東北 · 九曲竹林茶屋','沿溪轉折處的寧靜檢查點與採集區。'],
+    ]
+  },
+  {
+    id:11, seed:1121, family:'linear', name:'🌀 蒼穹巨環谷', lv:'Lv.22–26', size:'620×620', dungeon:'天環聖殿', obsCount:13,
+    archetype:'PoE 2 Ravine 級大弧形風洞峽谷（三座斜嵌加速巨環＋峽谷蒸汽火車橋）',
+    idea:'單向高速狂飆的新月長條風洞峽谷！從左下南谷口出發，沿弧形峽谷一路穿過蒸汽火車高架橋與三座斜嵌加速碧藍巨環，一氣呵成直衝右上白雪尖峰天環聖殿！',
+    elem:'⚡💨 巨環感電加速風洞（全遊戲最快清圖節奏）',
+    pal:{ void:'#12324c', l0:'#3eb0d8', l1:'#5aa454', l2:'#78c464', l3:'#eef6fc', edge:'#d6f0ff', cliff:'#386432' },
+    sculpt({chamber,corridor}){
+      // 極具動感的單條新月大長弧峽谷（大幅深淵負空間！）
+      chamber(0.14,0.82, 18,13, 2, -0.2);
+      corridor(0.14,0.82, 0.28,0.44, 11, 2, -0.12);
+      chamber(0.28,0.44, 18,13, 3, 0.25);  // 峽谷蒸汽火車木造高架橋站
+      corridor(0.28,0.44, 0.56,0.34, 12, 2, -0.08);
+      chamber(0.56,0.34, 21,15, 2, -0.2);  // 中段斜嵌巨環守護獸盆地
+      corridor(0.56,0.34, 0.84,0.22, 11, 3, -0.08);
+      chamber(0.84,0.22, 22,16, 4, 0.2);   // 東北白雪尖峰·天環聖殿
+      corridor(0.56,0.34, 0.80,0.68, 9.5, 2, 0.14); // 南翼湖畔露營與觀測台支線
+      chamber(0.82,0.70, 20,14, 1, -0.2);  // 雪峰山腳露營清湖
+    },
+    overlay(ctx,W,H){
+      ctx.save(); ctx.strokeStyle='#4ae0ff'; ctx.lineWidth=3.5;
+      [[0.22,0.62,-0.45],[0.44,0.38,0.18],[0.70,0.28,-0.25]].forEach(([u,v,a])=>{
+        ctx.save(); ctx.translate(u*W,v*H); ctx.rotate(a);
+        ctx.beginPath(); ctx.ellipse(0,0,W*0.062,H*0.017,0,0,6.28); ctx.stroke();
+        ctx.restore();
+      });
+      ctx.restore();
+    },
+    bridges:[[0.25,0.46,0.33,0.42]],
+    glides:[[0.16,0.78,0.24,0.58,0.29,0.44],[0.30,0.42,0.46,0.36,0.56,0.34],[0.84,0.24,0.86,0.46,0.82,0.66]],
+    checkpoints:[[0.15,0.80],[0.28,0.44],[0.56,0.34],[0.82,0.70]],
+    camps:[[0.22,0.64],[0.42,0.38],[0.70,0.28],[0.70,0.50],[0.82,0.62],[0.36,0.42]],
+    pois:[
+      {x:0.14,y:0.84,k:'exit',t:'南谷←海風港鎮'},{x:0.85,y:0.19,k:'dungeon',t:'⛩ 雪峰·天環聖殿'},
+      {x:0.28,y:0.42,k:'secret',t:'🚂 峽谷蒸汽火車橋'},{x:0.56,y:0.34,k:'boss',t:'🌀 斜嵌巨環·守護獸'},
+      {x:0.82,y:0.72,k:'secret',t:'⛺ 雪峰湖畔露營'}
+    ],
+    subzones:[
+      ['Ravine 級高速長弧風洞','線性新月峽谷毫無多餘岔路，順著三座斜嵌碧藍巨環高速滑翔飆圖！'],
+      ['西段 · 峽谷蒸汽火車木造棧橋','橫跨深淵的復古火車高架橋，視覺張力十足。'],
+      ['東北終點 · 白雪尖峰聖殿','青翠峽谷盡頭拔地而起的雪山主峰，登頂後可一鍵滑翔直降東南露營清湖。'],
+      ['零停頓穿環加速','每次滑翔穿環自動補體加速，專為極速刷寶玩家打造。'],
+    ]
+  },
+
+  // ========= ③ 寬敞大環形競技場 (2張：Burial Bog 級無阻礙大圓環刷圖) =========
+  {
+    id:5, seed:5515, family:'ring', name:'燼煙火岩區', lv:'Lv.20–25', size:'580×580', dungeon:'燼岩熔爐', obsCount:14,
+    archetype:'PoE 2 Burial Bog 級大火山口環形道（寬敞外環＋中央熔岩演武孤島）',
+    idea:'像 Burial Bog 一樣爽快的巨型不規則環形火山道！繞外環一週即可順路掃完高空礦車棧橋、天然石拱與紅岩綠洲，隨時由 3 座石橋或熱氣流切入中央黑曜演武孤島！',
+    elem:'🔥💧 環形熔岩護城河＋東南紅岩綠洲（冷熱交錯蒸汽戰場）',
+    pal:{ void:'#200e0b', l0:'#ff6a28', l1:'#8c4932', l2:'#b26644', l3:'#d48a60', edge:'#f5cca6', cliff:'#4e2214' },
+    sculpt({chamber,corridor,chasm}){
+      // 寬敞不規則大環形外圈（零卡腳、一圈清完！）
+      corridor(0.24,0.82, 0.78,0.80, 14, 2, 0.14);
+      corridor(0.78,0.80, 0.84,0.24, 14, 2, 0.14);
+      corridor(0.84,0.24, 0.24,0.26, 13, 3, 0.14);
+      corridor(0.24,0.26, 0.24,0.82, 13, 3, 0.14);
+      // 挖空環心形成熔岩護城河，中央立起獨立黑曜演武大圓島！
+      chasm(0.38,0.40, 0.64,0.66, 22, 1);
+      chamber(0.51,0.53, 22,16, 3, -0.2, 0.24); // 中央獨立黑曜演武浮島
+      chamber(0.84,0.78, 18,13, 2, 0.2);       // 東南紅岩瀑布綠洲
+      chamber(0.82,0.20, 20,14, 3, -0.2);      // 東北燼岩熔爐高台
+    },
+    bridges:[[0.51,0.34,0.51,0.43],[0.51,0.63,0.51,0.72],[0.30,0.53,0.40,0.53]],
+    glides:[[0.22,0.28,0.36,0.38,0.48,0.50],[0.82,0.22,0.68,0.36,0.56,0.48]],
+    checkpoints:[[0.24,0.82],[0.84,0.78],[0.82,0.22],[0.22,0.28]],
+    camps:[[0.50,0.82],[0.84,0.52],[0.52,0.20],[0.18,0.54],[0.74,0.76],[0.32,0.26]],
+    pois:[
+      {x:0.24,y:0.86,k:'exit',t:'南峽←霜冬雪原'},{x:0.88,y:0.50,k:'exit',t:'東關→古樹林'},
+      {x:0.82,y:0.18,k:'dungeon',t:'⛩ 燼岩熔爐'},{x:0.51,y:0.53,k:'boss',t:'⚔ 中央熔岩演武島'},
+      {x:0.18,y:0.32,k:'secret',t:'⛏ 西崖礦車棧橋'},{x:0.84,y:0.78,k:'secret',t:'🌴 紅岩瀑布綠洲'}
+    ],
+    subzones:[
+      ['Burial Bog 級無阻礙大圓環','寬敞火山外環讓玩家繞一圈就能掃空全部聚落，沒有 Augury 的煩人開門機關！'],
+      ['中央孤島 · 熔岩黑曜演武場','被火熱岩漿環抱的獨立圓台，3 座橋與熱氣流隨時切入決戰。'],
+      ['西環 · 懸崖高空礦車棧橋','沿西側高環奔馳並可俯衝切入演武島。'],
+      ['東南環 · 紅岩瀑布綠洲','提供水源與檢查點的絕佳中繼站。'],
+    ]
+  },
+  {
+    id:6, seed:6616, family:'ring', name:'古樹林', lv:'Lv.25–30', size:'660×660', dungeon:'鹿王樹心', obsCount:18,
+    archetype:'PoE 2 史詩雙環世界樹聖域（寬敞大外環＋橫倒世界樹幹貫穿樹心）',
+    idea:'660m 大陸終章大環形聖地！寬闊流暢的外環串聯五重古塔與三疊靈泉，中央深淵架著巨型橫倒世界樹幹直接貫穿至北側鹿王樹心，兼具史詩規模與極高刷怪效率！',
+    elem:'🧪💧 三疊螢光靈泉＋古根毒沼（13 聚落終局主戰場）',
+    pal:{ void:'#0b1811', l0:'#328e9e', l1:'#2c5638', l2:'#42744c', l3:'#5e9864', edge:'#bce4c6', cliff:'#16301e' },
+    sculpt({chamber,corridor,chasm}){
+      // 壯闊不規則大環形＋中央樹幹橫貫
+      corridor(0.24,0.86, 0.78,0.84, 15, 2, 0.14);
+      corridor(0.78,0.84, 0.84,0.34, 15, 2, 0.12);
+      corridor(0.84,0.34, 0.52,0.16, 13, 3, 0.10);
+      corridor(0.52,0.16, 0.18,0.34, 13, 3, 0.10);
+      corridor(0.18,0.34, 0.24,0.86, 14, 2, 0.14);
+      chasm(0.38,0.40, 0.64,0.64, 20, 0);
+      chamber(0.52,0.52, 20,15, 2, -0.2);  // 中央盤根神樹核
+      chamber(0.18,0.30, 20,15, 4, 0.25);  // 西北五重古塔展望峰
+      chamber(0.86,0.50, 22,18, 1, -0.2);  // 東坡三疊岩石靈泉梯田
+      chamber(0.52,0.16, 24,14, 3, 0.1);   // 北端鹿王樹心聖壇
+    },
+    bridges:[[0.52,0.38,0.52,0.25],[0.52,0.62,0.52,0.74],[0.32,0.52,0.42,0.52],[0.62,0.52,0.72,0.52]],
+    glides:[[0.19,0.29,0.36,0.16,0.50,0.17],[0.85,0.48,0.70,0.30,0.56,0.19]],
+    checkpoints:[[0.24,0.84],[0.18,0.30],[0.86,0.50],[0.52,0.52]],
+    camps:[[0.50,0.86],[0.78,0.82],[0.82,0.64],[0.16,0.58],[0.32,0.22],[0.72,0.24],[0.52,0.52],[0.78,0.36]],
+    pois:[
+      {x:0.24,y:0.88,k:'exit',t:'南門←火岩區'},{x:0.52,y:0.15,k:'dungeon',t:'⛩ 鹿王樹心（終局）'},
+      {x:0.18,y:0.28,k:'secret',t:'🏯 五重古塔峰'},{x:0.86,y:0.50,k:'secret',t:'♨ 三疊靈泉梯田'},
+      {x:0.52,y:0.52,k:'boss',t:'👑 世界樹核守護獸'},{x:0.78,y:0.84,k:'secret',t:'✦ 狂暴古根碑'}
+    ],
+    subzones:[
+      ['660m 終局大環形聖域','外圈寬闊流暢不卡位，繞行一週同時收集五重古塔、三疊靈泉與高階聚落。'],
+      ['中央十字 · 橫倒世界樹幹天橋','四條巨樹根橋直連中央盤根神核與北側鹿王樹心。'],
+      ['西北山巔 · 五重古塔 (L3)','全大陸制高點，俯瞰整片古林並滑翔空降樹心。'],
+      ['東坡 · 三疊巨岩螢光靈泉','高密度水雷元素反應舞台。'],
+    ]
+  },
+
+  // ========= ④ 開闊＋跳島／窄口混合型 (2張：Cenotes 級開闊平台×跳躍切換) =========
+  {
+    id:7, seed:7717, family:'hybrid', name:'浮空遺跡群', lv:'Lv.12–16', size:'560×560', dungeon:'星穹古塔', obsCount:15,
+    archetype:'PoE 2 Cenotes 級跳島混合型（13 座大小海蝕柱＋多層飛瀑燈塔巨崖）',
+    idea:'62% 雲海負空間！結合「中大型開闊柱頂戰場」與「狹窄繩橋／上升氣流跳島」，讓空戰擊落飛鰩與氣流滑翔成為核心樂趣！',
+    elem:'⚡💧 懸崖雙飛瀑＋雲海感電氣流網',
+    pal:{ void:'#144a78', l0:'#38a2d4', l1:'#6ab46a', l2:'#84ca78', l3:'#b0e28c', edge:'#eae2ca', cliff:'#564e42' },
+    sculpt({chamber,ruin}){
+      chamber(0.16,0.86, 17,12, 2, -0.2);
+      chamber(0.11,0.62, 12,10, 2, 0.4);
+      chamber(0.32,0.74, 15,11, 2, -0.3);
+      chamber(0.16,0.34, 14,11, 3, 0.3);
+      chamber(0.36,0.48, 19,14, 3, -0.2); // 中央開闊守護獸浮島
+      chamber(0.56,0.78, 15,11, 2, 0.25);
+      chamber(0.74,0.56, 23,17, 4, -0.3); // 多層飛瀑紅白燈塔巨崖
+      chamber(0.90,0.34, 12,9, 3, 0.4);
+      chamber(0.54,0.18, 21,13, 3, 0.1);  // 北端斷柱水道·星穹古塔
+      chamber(0.30,0.16, 11,8, 4, -0.3);
+      chamber(0.84,0.82, 13,9, 2, 0.2);
+      chamber(0.56,0.44, 11,9, 3, -0.4);
+      chamber(0.74,0.22, 10,8, 3, 0.3);
+      ruin(0.54,0.18, 8, 0.0, 'U');
+    },
+    bridges:[[0.22,0.80,0.28,0.76],[0.13,0.54,0.15,0.42],[0.34,0.64,0.35,0.56],[0.46,0.46,0.52,0.44],[0.62,0.48,0.68,0.52],[0.54,0.36,0.54,0.26]],
+    glides:[[0.75,0.50,0.84,0.42,0.89,0.35],[0.74,0.46,0.74,0.32,0.74,0.24],[0.72,0.20,0.64,0.16,0.58,0.18],[0.30,0.16,0.42,0.14,0.48,0.17],[0.56,0.76,0.44,0.74,0.36,0.74]],
+    checkpoints:[[0.16,0.85],[0.36,0.48],[0.74,0.56],[0.54,0.18]],
+    camps:[[0.11,0.62],[0.32,0.74],[0.16,0.34],[0.56,0.78],[0.84,0.82],[0.56,0.44],[0.74,0.22]],
+    pois:[
+      {x:0.16,y:0.87,k:'exit',t:'南島←海風港鎮'},{x:0.54,y:0.17,k:'dungeon',t:'⛩ 斷柱水道·星穹塔'},
+      {x:0.74,y:0.56,k:'secret',t:'🗼 飛瀑燈塔巨崖'},{x:0.36,y:0.48,k:'boss',t:'👑 雲海守護獸柱'},
+      {x:0.90,y:0.33,k:'secret',t:'💎 最東孤柱秘寶'},{x:0.30,y:0.15,k:'secret',t:'🪶 雲端金羽柱'}
+    ],
+    subzones:[
+      ['13 座星群海蝕柱跳島','大片雲海負空間與中大型開闊柱頂交錯，提供截然不同的空戰節奏。'],
+      ['中央偏東 · 多層飛瀑紅白燈塔巨崖','山頂燈塔＋入海雙瀑，3 條高空滑翔線的起飛樞紐。'],
+      ['三條高風險孤柱秘寶','西北金羽柱與最東秘寶孤柱專獎探索滑翔高手。'],
+      ['北端 · 斷柱空中水道','踏過巨石斷柱直抵星穹古塔。'],
+    ]
+  },
+  {
+    id:9, seed:9919, family:'hybrid', name:'沉沒電光都', lv:'Lv.24–30', size:'580×580', dungeon:'水沒變電塔', obsCount:22,
+    archetype:'PoE 2 斜 45° 多翼淹水廢都（開闊電車站廣場＋斜向屋頂跳台＋獨立電塔島）',
+    idea:'結合「南岸開闊海濱電車廣場」與「中段斜 45° 彩柱條紋棚天台跳台群」，上層屋頂走滑索、下層窄水巷玩全屏感電，西北則是深水隔絕的獨立變電巨塔！',
+    elem:'⚡💧 全域導電淹水街區（屋頂滑索 vs 水巷全屏感電鏈跳）',
+    pal:{ void:'#0c1c2a', l0:'#1e5472', l1:'#426c88', l2:'#be9270', l3:'#dcb28c', edge:'#9ae8ff', cliff:'#463226' },
+    sculpt({chamber,corridor,chasm,ruin}){
+      corridor(0.22,0.86, 0.84,0.38, 12, 1, 0.04);
+      corridor(0.36,0.82, 0.86,0.72, 10, 1, -0.06);
+      corridor(0.28,0.52, 0.68,0.22, 10, 1, 0.06);
+      chamber(0.26,0.84, 28,12, 2, -0.35, 0.14); // 開闊海濱電車站廣場
+      chamber(0.46,0.68, 17,13, 3, -0.45, 0.16);
+      chamber(0.66,0.54, 18,14, 3, -0.45, 0.16);
+      chamber(0.84,0.72, 16,12, 3, -0.45, 0.16);
+      chamber(0.82,0.36, 15,11, 3, -0.45, 0.16);
+      chamber(0.56,0.30, 15,11, 3, -0.45, 0.16);
+      chamber(0.32,0.48, 13,10, 2, -0.45, 0.18);
+      chamber(0.17,0.20, 20,15, 3, -0.3, 0.22);  // 西北獨立水沒變電巨塔島
+      chasm(0.28,0.32, 0.44,0.40, 4.4, 0);
+      chasm(0.56,0.62, 0.72,0.74, 4.0, 0);
+      ruin(0.46,0.68, 7, -0.45, 'U');
+      ruin(0.66,0.54, 7, -0.45, 'L');
+    },
+    overlay(ctx,W,H){
+      ctx.save(); ctx.strokeStyle='#7ee0ff'; ctx.lineWidth=3;
+      ctx.beginPath(); ctx.moveTo(0.12*W,0.90*H); ctx.lineTo(0.42*W,0.78*H); ctx.stroke();
+      ctx.restore();
+    },
+    bridges:[[0.34,0.76,0.41,0.72],[0.54,0.62,0.60,0.58],[0.74,0.60,0.80,0.66],[0.74,0.46,0.78,0.40],[0.24,0.30,0.30,0.40]],
+    glides:[[0.54,0.28,0.38,0.18,0.22,0.20],[0.80,0.34,0.68,0.28,0.60,0.28]],
+    checkpoints:[[0.24,0.84],[0.46,0.68],[0.66,0.54],[0.18,0.20]],
+    camps:[[0.38,0.78],[0.58,0.68],[0.84,0.72],[0.82,0.36],[0.44,0.44],[0.32,0.48],[0.68,0.38]],
+    pois:[
+      {x:0.24,y:0.88,k:'exit',t:'🚊 淹水車站←港鎮'},{x:0.17,y:0.18,k:'dungeon',t:'⛩ 水沒變電巨塔'},
+      {x:0.66,y:0.54,k:'boss',t:'👑 彩柱天台守護獸'},{x:0.56,y:0.28,k:'secret',t:'💎 鐘樓天台秘寶'},
+      {x:0.84,y:0.72,k:'secret',t:'⛺ 條紋棚市集碑'}
+    ],
+    subzones:[
+      ['斜 45° 多翼淹水廢都','開闊車站月台銜接斜向屋頂跳台群，節奏張弛有度。'],
+      ['中東 · 彩繪石柱條紋棚天台','高空滑索跑酷與下層水巷雷電連爆雙重玩法。'],
+      ['西北獨立 · 深水變電巨塔島','被深水運河隔絕的終點孤島，須滑索或斷橋突入。'],
+      ['4 座檢查點無縫推進','兼顧複雜建築層次與高效刷圖。'],
+    ]
+  },
+
+  // ========= ⑤ 高密度立體迷宮型 (2張：Azak Bog / Crypt 級深度探索迷宮) =========
+  {
+    id:2, seed:2212, family:'maze', name:'低語森林', lv:'Lv.5–10', size:'580×580', dungeon:'古木樹洞', obsCount:36,
+    archetype:'PoE 2 Crypt / Mire 級高密度樹根岩脊迷宮（36 處岩脊斷壁＋白樺廢屋孤枝）',
+    idea:'保留最具挑戰性的密集林間迷宮！36 處內部巨根與岩脊隔牆刻出多條狹窄林巷、包抄捷徑與死胡同秘庫，並以 4 座藍光檢查點與北端樹冠單向滑翔徹底消除走回頭路痛點。',
+    elem:'🧪 東南古墓毒霧凹地（迷宮窄口聚怪＋火系爆燃清場）',
+    pal:{ void:'#0e1c14', l0:'#367844', l1:'#426838', l2:'#5e8b46', l3:'#7eb256', edge:'#cce2be', cliff:'#20381c' },
+    sculpt({chamber,corridor,chasm,ruin}){
+      chamber(0.15,0.82, 16,12, 2, -0.3);  // 西南白樺廢屋孤枝
+      corridor(0.15,0.82, 0.34,0.86, 5.8, 2, 0.08);
+      chamber(0.36,0.86, 17,11, 2, 0.1);
+      corridor(0.36,0.86, 0.26,0.56, 6.4, 2, -0.10);
+      corridor(0.36,0.86, 0.62,0.78, 6.2, 2, 0.08);
+      chamber(0.26,0.56, 19,13, 2, -0.2);
+      corridor(0.26,0.56, 0.22,0.26, 5.8, 3, -0.09);
+      chamber(0.24,0.24, 17,12, 3, 0.2);
+      corridor(0.26,0.56, 0.56,0.50, 6.8, 2, 0.06);
+      chamber(0.56,0.50, 21,15, 2, -0.3);
+      corridor(0.56,0.50, 0.52,0.18, 6.2, 3, -0.08);
+      chamber(0.52,0.18, 19,12, 3, 0.15);
+      corridor(0.56,0.50, 0.80,0.68, 6.8, 2, -0.07);
+      chamber(0.80,0.70, 21,15, 1, 0.2);   // 東南迷霧古墓毒霧凹地
+      corridor(0.80,0.70, 0.88,0.44, 6.0, 2, 0.10);
+      chamber(0.86,0.24, 16,12, 4, -0.25); // 東北樹冠秘庫
+      chasm(0.38,0.66, 0.56,0.74, 4.0, 0);
+      chasm(0.36,0.36, 0.50,0.38, 4.0, 0);
+      chasm(0.66,0.34, 0.82,0.44, 4.4, 0);
+      ruin(0.80,0.70, 8, 0.2, 'U');
+      ruin(0.56,0.50, 7, -0.5, 'L');
+    },
+    bridges:[[0.33,0.22,0.43,0.20],[0.62,0.20,0.78,0.23],[0.74,0.42,0.82,0.36]],
+    glides:[[0.86,0.24,0.88,0.48,0.82,0.66],[0.24,0.24,0.20,0.54,0.16,0.78]],
+    checkpoints:[[0.36,0.84],[0.56,0.50],[0.24,0.24],[0.80,0.68]],
+    camps:[[0.26,0.58],[0.46,0.76],[0.68,0.62],[0.86,0.54],[0.42,0.44],[0.66,0.28],[0.24,0.40],[0.72,0.78]],
+    pois:[
+      {x:0.36,y:0.88,k:'exit',t:'南口←晨光草原'},{x:0.89,y:0.44,k:'exit',t:'東徑→霧潮沼澤'},
+      {x:0.52,y:0.16,k:'dungeon',t:'⛩ 古木樹洞'},{x:0.15,y:0.80,k:'secret',t:'🏚 白樺封板廢屋'},
+      {x:0.86,y:0.23,k:'secret',t:'💎 樹冠吊橋秘庫'},{x:0.80,y:0.70,k:'boss',t:'👑 古墓守護獸'}
+    ],
+    subzones:[
+      ['36 處巨根岩脊迷宮（Crypt 級）','高密度窄廊與多條包抄迴廊，提供截然不同於開闊草原的緊張林間伏擊手感。'],
+      ['西南孤枝 · 白樺封板廢屋','偏離主迷宮的隱藏木屋與日記彩蛋。'],
+      ['東南毒霧凹地 · 柵欄古墓','窄口聚怪＋火球劇毒爆燃的戰術高地。'],
+      ['4 檢查點＋雙單向滑翔','保留迷宮探索樂趣，同時杜絕 PoE 2 原版走回頭路疲勞。'],
+    ]
+  },
+  {
+    id:3, seed:3313, family:'maze', name:'霧潮沼澤', lv:'Lv.10–15', size:'540×540', dungeon:'沼澤遺跡', obsCount:26,
+    archetype:'PoE 2 Azak Bog 級高密度棧道群礁迷網（海怪觸手實體牆＋高腳吊橋漁村）',
+    idea:'直接致敬 Azak Bog 的高密度木棧道交錯迷網！由 14 座碎裂沼礁、多條交錯木棧道、中央巨型赤紅章魚觸手實體牆與西北孤立骷髏岩構成極具張力的立體沼澤迷宮！',
+    elem:'💧🧪 涉水淺沼與深水斷層交錯（走高架棧道 vs 躍下淺沼連鎖感電）',
+    pal:{ void:'#10232b', l0:'#2b6470', l1:'#547652', l2:'#729064', l3:'#8ea87a', edge:'#c4e4dc', cliff:'#26402c' },
+    sculpt({chamber,corridor,chasm}){
+      corridor(0.16,0.86, 0.50,0.54, 9.5, 1, -0.10);
+      corridor(0.50,0.54, 0.84,0.34, 9.0, 1, 0.08);
+      corridor(0.50,0.54, 0.82,0.74, 9.0, 1, -0.08);
+      corridor(0.20,0.22, 0.50,0.54, 8.5, 1, 0.12);
+      chamber(0.16,0.86, 16,11, 2, -0.3);
+      chamber(0.36,0.76, 12,9, 2, 0.4);
+      chamber(0.50,0.54, 21,15, 2, 0.25);  // 中央海怪觸手沉船礁
+      chamber(0.20,0.22, 19,14, 3, -0.35); // 西北骷髏海蝕岩孤島
+      chamber(0.46,0.22, 12,9, 2, 0.2);
+      chamber(0.70,0.20, 13,10, 3, -0.2);
+      chamber(0.84,0.36, 16,12, 2, 0.3);   // 東側高腳木屋村 A
+      chamber(0.86,0.68, 16,12, 2, -0.25); // 東側高腳木屋村 B
+      chamber(0.62,0.82, 14,10, 2, 0.15);
+      chamber(0.22,0.54, 12,9, 2, -0.4);
+      chamber(0.36,0.40, 10,8, 2, 0.3);
+      chamber(0.68,0.58, 10,8, 2, -0.3);
+      chasm(0.30,0.32, 0.42,0.38, 3.6, 0);
+      chasm(0.62,0.46, 0.70,0.54, 3.6, 0);
+    },
+    overlay(ctx,W,H){
+      ctx.save(); ctx.strokeStyle='#e84a38'; ctx.lineWidth=Math.max(4,W*0.0065); ctx.lineCap='round';
+      [[0.44,0.50,0.41,0.43,0.46,0.41],[0.54,0.48,0.58,0.41,0.61,0.45],[0.55,0.58,0.60,0.63,0.56,0.66],[0.43,0.58,0.39,0.61,0.41,0.55]].forEach(t=>{
+        ctx.beginPath(); ctx.moveTo(t[0]*W,t[1]*H); ctx.quadraticCurveTo(t[2]*W,t[3]*H,t[4]*W,t[5]*H); ctx.stroke();
+      });
+      ctx.restore();
+    },
+    bridges:[[0.24,0.82,0.32,0.78],[0.42,0.68,0.47,0.62],[0.60,0.48,0.76,0.39],[0.85,0.45,0.86,0.58],[0.27,0.30,0.39,0.44],[0.58,0.62,0.62,0.74],[0.26,0.54,0.34,0.46]],
+    glides:[[0.70,0.20,0.46,0.12,0.24,0.20],[0.84,0.34,0.78,0.24,0.72,0.20]],
+    checkpoints:[[0.16,0.85],[0.50,0.54],[0.84,0.36],[0.20,0.22]],
+    camps:[[0.36,0.76],[0.62,0.82],[0.86,0.68],[0.46,0.22],[0.22,0.54],[0.68,0.58],[0.36,0.40]],
+    pois:[
+      {x:0.15,y:0.87,k:'exit',t:'南礁←低語森林'},{x:0.88,y:0.70,k:'exit',t:'東棧→霜冬雪原'},
+      {x:0.19,y:0.20,k:'dungeon',t:'⛩ 骷髏岩遺跡'},{x:0.50,y:0.54,k:'boss',t:'🐙 海怪觸手沉船'},
+      {x:0.84,y:0.34,k:'secret',t:'🏘 高腳吊橋村'},{x:0.70,y:0.19,k:'secret',t:'💎 北礁沉船箱'}
+    ],
+    subzones:[
+      ['Azak Bog 級高密度棧道群礁','14 座碎裂沼礁與 7 座交錯木棧吊橋，構成高壓立體沼澤迷宮！'],
+      ['中央 · 赤紅海怪觸手斷船','4 條巨大章魚觸手充當戰場實體弧形牆，戰鬥需靈活繞柱。'],
+      ['東翼 · 高腳木屋吊橋漁村','雙礁間懸空木屋與檢視視野點。'],
+      ['西北獨立 · 骷髏海蝕巨岩','被深水環繞的終點遺跡島，可由北礁滑翔空降。'],
+    ]
+  }
+];
+
+// 依編號 #01 ~ #12 排序呈現
+MAPS.sort((a,b)=>a.id-b.id);
+
+const gridEl = document.getElementById('grid');
+const modal = document.getElementById('modal');
+const bigCv = document.getElementById('bigCv');
+const mTitle = document.getElementById('mTitle');
+const mDesc = document.getElementById('mDesc');
+let activeModalMap = null;
+
+function renderAllCards(){
+  gridEl.querySelectorAll('.map-card').forEach((card, i) => {
+    renderTacticalCanvas(card.querySelector('canvas'), MAPS[i]);
+  });
+  if(activeModalMap && modal.classList.contains('open')) renderTacticalCanvas(bigCv, activeModalMap);
+}
+
+MAPS.forEach(m => {
+  const fm = FAMILY_META[m.family];
+  const card = document.createElement('article');
+  card.className = 'map-card';
+  card.dataset.family = m.family;
+  card.innerHTML = `
+    <div class="mc-head">
+      <div>
+        <h2><span>#${String(m.id).padStart(2,'0')} ${m.name}</span><span class="badge ${fm.cls}">${fm.label}</span><span class="badge sz">${m.lv} · ${m.size}m</span></h2>
+        <div class="mc-sub">${m.archetype} · 副本：${m.dungeon}</div>
+      </div>
+    </div>
+    <div class="mc-body">
+      <div class="cv-box" title="點擊放大全螢幕檢視"><canvas width="680" height="470"></canvas><span class="cv-hint">🔍 點擊放大 (260×180)</span></div>
+      <div class="mc-info">
+        <div class="mc-tag"><b>拓撲特色：</b>${m.idea}<br><b>元素戰場：</b>${m.elem}</div>
+        <ul class="mc-list">${m.subzones.map(([k,v])=>`<li><b>${k}：</b>${v}</li>`).join('')}</ul>
+      </div>
+    </div>
+    <div class="mc-foot"><span>🎨 實機美術：A Short Hike 溫馨像素 3D 著色</span><span>檢查點：${m.checkpoints.length} 座 · 聚落：${m.camps.length} 處 · 阻礙點：~${m.obsCount} 處</span></div>
+  `;
+  gridEl.appendChild(card);
+  renderTacticalCanvas(card.querySelector('canvas'), m);
+  card.querySelector('.cv-box').onclick = () => {
+    activeModalMap = m;
+    mTitle.textContent = `#${String(m.id).padStart(2,'0')} ${m.name}【${fm.label} · ${m.size}m】— ${m.archetype}`;
+    mDesc.innerHTML = `<b>拓撲特色：</b>${m.idea}　｜　<b>元素戰場：</b>${m.elem}`;
+    renderTacticalCanvas(bigCv, m);
+    modal.classList.add('open');
+  };
+});
+
+document.getElementById('mClose').onclick = () => { modal.classList.remove('open'); activeModalMap = null; };
+modal.onclick = e => { if(e.target === modal) { modal.classList.remove('open'); activeModalMap = null; } };
+addEventListener('keydown', e => { if(e.key === 'Escape') { modal.classList.remove('open'); activeModalMap = null; } });
+
+document.querySelectorAll('.filters button').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.filters button').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    const f = btn.dataset.f;
+    document.querySelectorAll('.map-card').forEach(c => c.classList.toggle('hide', f !== 'all' && c.dataset.family !== f));
+  };
+});
+
+document.querySelectorAll('.modes button').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.modes button').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    renderMode = btn.dataset.mode;
+    renderAllCards();
+  };
+});
+</script>
+</body>
+</html>

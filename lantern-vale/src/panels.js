@@ -2,7 +2,7 @@ import { rememberGear } from './frontier.js';
 import { drawExchange } from './guild.js';
 import { buildLodge } from './lodge.js';
 // 城鎮互動面板：任務布告欄 / 鐵匠鋪 / 出發地圖桌 / 公會大廳 / 二轉覺醒 / 野外委託
-import { RARITY, SLOTS, itemLines, FORGE, forgeItem } from './loot.js';
+import { RARITY, SLOTS, itemLines, FORGE, forgeItem, CORRUPT_COST, corruptItem } from './loot.js';
 import { MODS, MOD_MAX } from './meta.js';
 import { CLASSES, ALL_GEMS, addGemToBag } from './puzzle.js';
 import { SECOND_CLASSES, findSecondClass } from './world_alive.js';
@@ -19,7 +19,8 @@ export function buildPanels(g) {
 
   function renderQuest() {
     title.textContent = '任務布告欄 · 今日委託';
-    let h = '';
+    const claimable = M.p.quests.list.filter(q => !q.claimed && q.have >= q.need).length;
+    let h = claimable >= 2 ? `<div style="text-align:right;margin-bottom:6px"><button class="btn small" data-claim-all>✦ 一鍵領取全部 (${claimable})</button></div>` : '';
     M.p.quests.list.forEach((q, i) => {
       const done = q.have >= q.need, r = M.questReward(q);
       h += row(`<div>${esc(M.questText(q))}</div><div class="pbar"><i style="width:${Math.min(100, q.have / q.need * 100)}%"></i></div><small>${q.have}/${q.need} · 獎勵 ✦${r}</small>`,
@@ -30,36 +31,56 @@ export function buildPanels(g) {
     h += `<div class="psmall">已累積：擊敗 ${M.p.kills} 隻 · 出發 ${M.p.runs} 次 · 最深 ${M.p.best.depth} 層 · 通關 ${M.p.best.wins} 次</div>`;
     body.innerHTML = h;
     body.querySelectorAll('[data-claim]').forEach(b => b.onclick = () => { const r = M.claim(+b.dataset.claim); if (r) { g.audio.sfx('exit'); g.ui.toast(`委託完成！星砂 +${r}`, '#ffe08a'); } render(); });
+    const ca = body.querySelector('[data-claim-all]'); if (ca) ca.onclick = () => { let tot = 0; M.p.quests.list.forEach((q, i) => { if (!q.claimed && q.have >= q.need) tot += M.claim(i) || 0; }); if (tot) { g.audio.sfx('perfect'); g.ui.toast(`全部委託領取完成！星砂 +${tot}`, '#ffe08a'); } render(); };
     const sw = body.querySelector('[data-swap]'); if (sw) sw.onclick = () => { if (M.p.shells >= 10) { M.p.shells -= 10; M.p.feathers++; M.save(); g.audio.sfx('exit'); g.ui.toast('換到一根金羽毛！', '#ffd23a'); } render(); };
   }
 
   function renderForge() {
-    title.textContent = '鐵匠鋪 · 傳家寶工坊';
-    const it = M.heirloom;
-    if (!it) { body.innerHTML = `<div class="psmall" style="font-size:17px;line-height:1.8;text-align:center">鐵匠：「你還沒有傳家寶呢。<br>闖關結束（陣亡或通關）時，從身上裝備挑一件留下來，<br>它會陪你出發下一趟，也能拿來這裡重鑄。」</div>`; return; }
+    title.textContent = '鐵匠鋪 · 裝備鍛造與腐化';
+    const eq = g.player?.equip || {};
+    const avail = Object.keys(SLOTS).filter(k => eq[k]);
+    if (!sel || !eq[sel]) sel = avail[0] || null;
+    const it = sel ? eq[sel] : M.heirloom;
+    if (!it) { body.innerHTML = `<div class="psmall" style="font-size:16px;line-height:1.8;text-align:center">身上尚無可鍛造的裝備，先點上方「素材鍛造與武器」打造一把吧！</div>`; return; }
     const R = RARITY[it.rarity];
-    let h = `<div class="pitem" style="border-color:${R.color}"><b style="color:${R.color};text-shadow:0 2px 0 #3b2a2a">${esc(it.name)}</b> <small>${SLOTS[it.slot].name} · T${it.tier}${it.reforged ? ` · 重鑄 ×${it.reforged}` : ''}</small><div>${itemLines(it).map(l => `<div style="color:${l.imp ? '#6a5a8a' : l.special ? '#b8561f' : '#3b2a2a'}">${esc(l.t)}</div>`).join('')}</div></div>`;
+    const tabs = avail.map(k => `<button type="button" class="btn small ${k === sel ? 'on' : ''}" data-fslot="${k}">${SLOTS[k].icon} ${SLOTS[k].name}</button>`).join('');
+    let h = `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${tabs}</div>`;
+    h += `<div class="pitem" style="border-color:${R.color}"><b style="color:${R.color};text-shadow:0 2px 0 #3b2a2a">${esc(it.name)}</b> <small>${SLOTS[it.slot].name} · T${it.tier}${it.reforged ? ` · 重鑄 ×${it.reforged}` : ''}</small><div>${itemLines(it).map(l => `<div style="color:${l.corrupt ? '#c82868' : l.imp ? '#6a5a8a' : l.special ? '#b8561f' : '#3b2a2a'}">${esc(l.t)}</div>`).join('')}</div></div>`;
     for (const [k, f] of Object.entries(FORGE)) {
       const ok = f.ok(it), c = f.cost(it), can = ok && M.p.shards >= c;
       h += row(`<div>${f.name}</div><small>${f.desc}</small>`, `<button class="btn small" data-forge="${k}" ${can ? '' : 'disabled'}>${ok ? `✦ ${c}` : '不可'}</button>`);
     }
+    const canCorrupt = !it.corrupted && M.p.shards >= CORRUPT_COST;
+    h += row(`<div><b style="color:#b8245c">☠️ 裝備腐化改造（不可逆賭博）</b></div><small>25% 誕生毀天滅地神諭詞綴 · 25% 全詞綴 ×1.45 超頻 · 25% 穩固 · 25% 碎裂報廢！</small>`,
+      `<button class="btn small" style="background:#9b2458" data-corrupt ${canCorrupt ? '' : 'disabled'}>${it.corrupted ? '已腐化' : `✦ ${CORRUPT_COST}`}</button>`);
     body.innerHTML = h;
+    body.querySelectorAll('[data-fslot]').forEach(b => b.onclick = () => { sel = b.dataset.fslot; g.audio.sfx('ui'); render(); });
+    const saveGear = nextIt => {
+      g.player.equip[nextIt.slot] = nextIt;
+      if (M.heirloom && M.heirloom.slot === nextIt.slot) M.setHeirloom(nextIt);
+      rememberGear(g); M.save(); g.recalc();
+    };
     body.querySelectorAll('[data-forge]').forEach(b => b.onclick = () => {
-      const k = b.dataset.forge, f = FORGE[k], cur = M.heirloom; if (!cur || !f.ok(cur) || M.p.shards < f.cost(cur)) return;
-      M.p.shards -= f.cost(cur); const n = forgeItem(k, cur); M.setHeirloom(n);
-      g.player.equip[n.slot] = M.heirloom; rememberGear(g); g.recalc(); g.audio.sfx('pickup'); g.ui.toast(`${f.name}完成`, RARITY[n.rarity].color); render();
+      const k = b.dataset.forge, f = FORGE[k], cur = sel ? eq[sel] : M.heirloom; if (!cur || !f.ok(cur) || M.p.shards < f.cost(cur)) return;
+      M.p.shards -= f.cost(cur); const n = forgeItem(k, cur); saveGear(n);
+      g.audio.sfx('pickup'); g.ui.toast(`${f.name}完成`, RARITY[n.rarity].color); render();
     });
+    const cb = body.querySelector('[data-corrupt]');
+    if (cb) cb.onclick = () => {
+      const cur = sel ? eq[sel] : M.heirloom; if (!cur || cur.corrupted || M.p.shards < CORRUPT_COST) return;
+      M.p.shards -= CORRUPT_COST;
+      const res = corruptItem(cur);
+      if (!res.ok) return;
+      saveGear(res.item);
+      g.audio.sfx(res.outcome === 'brick' ? 'corruptBrick' : res.outcome === 'godroll' ? 'corruptGod' : 'classup');
+      g.ui.toast(res.label, res.outcome === 'brick' ? '#ff6a6a' : '#ff8ad8');
+      render();
+    };
   }
 
   function renderMap() {
-    title.textContent = '出發地圖桌 · 挑戰詞綴';
-    let h = `<div class="psmall" style="text-align:left">最多選 ${MOD_MAX} 個詞綴：敵人更強，但星砂收益更高。（目前收益 ×${M.shardMult.toFixed(2)}）</div>`;
-    for (const m of MODS) {
-      const on = M.has(m.id);
-      h += row(`<div><b>${m.name}</b> <small>收益 +${Math.round(m.reward * 100)}%</small></div><small>${m.desc}</small>`, `<button class="btn small ${on ? 'on' : ''}" data-mod="${m.id}">${on ? '✔ 已啟用' : '啟用'}</button>`);
-    }
-    body.innerHTML = h;
-    body.querySelectorAll('[data-mod]').forEach(b => b.onclick = () => { if (!M.toggleMod(b.dataset.mod)) g.ui.toast(`最多同時啟用 ${MOD_MAX} 個詞綴`, '#ff9a8a'); else g.audio.sfx('ui'); render(); });
+    g.ui.closePanel();
+    g.ui.openInvTab?.(g, 'atlas');
   }
 
   function renderGuildHall() {

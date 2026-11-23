@@ -5,50 +5,54 @@ export const CLASSES = [
   {
     id: 0, key: 'warden', name: '守燈衛士', icon: '🛡', weapon: 'shield',
     summary: '減傷 +15% · 生命 +25',
-    desc: '持盾鎮守谷口，擅長範圍震擊與續戰回血。',
+    desc: '持盾鎮守谷口，開局即配備震擊與極光冰面控場。',
     bonuses: { armor: 15, maxHp: 25 },
     starter: [
       { id: 'slam', x: 1, y: 1, rot: 0 },
       { id: 'area', x: 3, y: 1, rot: 1 },
       { id: 'leech', x: 3, y: 3, rot: 0 },
+      { id: 'nova', x: 1, y: 3, rot: 0 },
     ],
-    bag: ['bolt', 'ember', 'frost'],
+    bag: ['bolt', 'coh', 'ember'],
   },
   {
     id: 1, key: 'ranger', name: '林風遊俠', icon: '🏹', weapon: 'bow',
     summary: '移速 +12% · 暴擊 +10%',
-    desc: '穿梭林冠的弓手，擅長星羽箭雨與多重齊射。',
+    desc: '穿梭林冠的弓手，開局即能以星羽箭雨配餘燼彈觸發蒸汽連鎖。',
     bonuses: { moveSpd: 12, crit: 10 },
     starter: [
       { id: 'rain', x: 1, y: 1, rot: 0 },
-      { id: 'multi', x: 2, y: 2, rot: 0 },
+      { id: 'multi', x: 2, y: 3, rot: 0 },
       { id: 'haste', x: 1, y: 3, rot: 0 },
+      { id: 'bolt', x: 3, y: 2, rot: 0 },
     ],
-    bag: ['bolt', 'chain', 'area'],
+    bag: ['nova', 'split', 'chain'],
   },
   {
     id: 2, key: 'mystic', name: '餘燼秘術師', icon: '🔥', weapon: 'staff',
     summary: '法力 +25 · 回魔 +40% · 火傷 +4',
-    desc: '駕馭燈火餘燼，擅長飛彈連鎖與召喚光螢。',
+    desc: '駕馭燈火邏輯電路，開局即內建「餘燼彈命中觸發落雷」自動連招。',
     bonuses: { mana: 25, manaRegen: 40, addFire: 4 },
     starter: [
       { id: 'bolt', x: 1, y: 1, rot: 0 },
-      { id: 'wisp', x: 2, y: 2, rot: 0 },
-      { id: 'ember', x: 2, y: 1, rot: 0 },
+      { id: 'coh', x: 1, y: 2, rot: 0 },
+      { id: 'thunder', x: 3, y: 2, rot: 0 },
+      { id: 'ember', x: 3, y: 1, rot: 0 },
     ],
-    bag: ['chain', 'multi', 'mark'],
+    bag: ['orbit', 'split', 'multi'],
   },
   {
     id: 3, key: 'strider', name: '影刃行者', icon: '⚔', weapon: 'blades',
     summary: '攻速 +25% · 暴傷 +35% · 翻滾更快',
-    desc: '雙刃疾行的獵手，擅長旋風燈舞與苔霧陷阱。',
+    desc: '雙刃疾行的獵手，開局即可布下毒霧再以餘燼彈引爆劇毒爆燃。',
     bonuses: { atkSpd: 25, critMult: 35, rollCdr: 25 },
     starter: [
       { id: 'whirl', x: 1, y: 1, rot: 0 },
       { id: 'trap', x: 3, y: 2, rot: 0 },
-      { id: 'frost', x: 1, y: 3, rot: 0 },
+      { id: 'bolt', x: 1, y: 3, rot: 0 },
+      { id: 'frost', x: 1, y: 4, rot: 0 },
     ],
-    bag: ['echo', 'leech', 'haste'],
+    bag: ['coc', 'echo', 'leech'],
   },
 ];
 
@@ -80,6 +84,10 @@ export const SUPPORT_GEMS = {
   leech: { id: 'leech', type: 'support', name: '生命汲取', short: '汲血', icon: '♥', color: '#c84862', price: 14, shape: [[0,0]], desc: '相鄰主動技能命中敵人時回復 4 點生命。' },
   vamp:  { id: 'vamp',  type: 'support', name: '血月汲取', short: '血月', icon: '🩸', color: '#a8324c', price: 20, shape: [[0,0],[0,1]], desc: '相鄰主動技能傷害 +15% 且每次命中回復 6 點生命。' },
   storm: { id: 'storm', type: 'support', name: '雷鳴連鎖', short: '雷鳴', icon: '🌩', color: '#4a6cd8', price: 20, shape: [[0,0],[1,0]], desc: '相鄰主動技能附加感電（+25% 易傷）且額外連鎖 +1 目標。' },
+  split: { id: 'split', type: 'support', name: '分裂稜鏡', short: '分裂', icon: '⑂',  color: '#e88c38', price: 22, shape: [[0,0],[1,0],[0,1]], desc: '相鄰投射物命中目標時向四周分裂出 3 枚次級火花！' },
+  coh:   { id: 'coh',   type: 'support', name: '命中觸發器', short: '命中觸發', icon: '🔗', color: '#b85cf0', price: 26, shape: [[0,0],[1,0]], desc: '【邏輯電路】橋接兩顆主動技能：前招命中時自動觸發相鄰另一招（0.65 秒保護冷卻）。' },
+  coc:   { id: 'coc',   type: 'support', name: '暴擊觸發器', short: '暴擊觸發', icon: '💥', color: '#f04878', price: 28, shape: [[0,0],[0,1]], desc: '【邏輯電路】橋接兩顆主動技能：暴擊時立即免費觸發相鄰另一招（0.45 秒保護冷卻）。' },
+  orbit: { id: 'orbit', type: 'support', name: '環繞軌道核', short: '軌道', icon: '🪐', color: '#3ec6d8', price: 24, shape: [[0,0],[1,0]], desc: '【魔杖改造】相鄰投射物改為環繞角色高速旋轉的軌道切割彈幕！' },
 };
 
 export const ALL_GEMS = { ...ACTIVE_GEMS, ...SUPPORT_GEMS };
@@ -165,15 +173,30 @@ export function canPlace(placed, gemId, x, y, rot, level = 1, ignoreUid = null) 
   return true;
 }
 
-// 計算棋盤上所有主動技能與相鄰（上下左右邊相連）的輔助寶石加成
+// 計算棋盤上所有主動技能與相鄰（上下左右邊相連）的輔助寶石加成與邏輯電路觸發鏈
 export function computeBoard(placed) {
   const occ = occupiedMap(placed);
+  const supportToActives = new Map();
+  for (const item of placed) {
+    if (!SUPPORT_GEMS[item.id]) continue;
+    const actSet = new Set();
+    for (const [dx, dy] of rotateCells(SUPPORT_GEMS[item.id].shape, item.rot)) {
+      const cx = item.x + dx, cy = item.y + dy;
+      for (const [nx, ny] of [[cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]]) {
+        const nb = occ.get(nx + ',' + ny);
+        if (nb && ACTIVE_GEMS[nb.id]) actSet.add(nb.id);
+      }
+    }
+    supportToActives.set(item.uid, [...actSet]);
+  }
   const skills = [];
   for (const item of placed) {
     const def = ACTIVE_GEMS[item.id];
     if (!def) continue;
     const linkedUids = new Set();
     const linkedDefs = [];
+    const triggerOnHit = new Set();
+    const triggerOnCrit = new Set();
     for (const [dx, dy] of rotateCells(def.shape, item.rot)) {
       const cx = item.x + dx, cy = item.y + dy;
       for (const [nx, ny] of [[cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]]) {
@@ -181,10 +204,23 @@ export function computeBoard(placed) {
         if (nb && nb.uid !== item.uid && SUPPORT_GEMS[nb.id] && !linkedUids.has(nb.uid)) {
           linkedUids.add(nb.uid);
           linkedDefs.push(SUPPORT_GEMS[nb.id]);
+          if (nb.id === 'coh' || nb.id === 'coc') {
+            for (const otherId of supportToActives.get(nb.uid) || []) {
+              if (otherId !== def.id) {
+                if (nb.id === 'coh') triggerOnHit.add(otherId);
+                if (nb.id === 'coc') triggerOnCrit.add(otherId);
+              }
+            }
+          }
         }
       }
     }
-    const mod = { multi: 0, echo: 0, area: 0, dmgMult: 1, fire: def.id === 'bolt', chain: 0, cdr: 0, frost: 0, leech: 0, shock: 0, supports: linkedDefs };
+    const mod = {
+      multi: 0, echo: 0, area: 0, dmgMult: 1, fire: def.id === 'bolt', chain: 0, cdr: 0, frost: 0, leech: 0, shock: 0,
+      split: false, orbit: false,
+      triggerOnHit: [...triggerOnHit], triggerOnCrit: [...triggerOnCrit],
+      supports: linkedDefs,
+    };
     for (const s of linkedDefs) {
       if (s.id === 'multi') mod.multi += 2;
       if (s.id === 'echo') mod.echo += 1;
@@ -196,10 +232,78 @@ export function computeBoard(placed) {
       if (s.id === 'leech') mod.leech += 4;
       if (s.id === 'vamp') { mod.dmgMult += 0.15; mod.leech += 6; }
       if (s.id === 'storm') { mod.shock += 4.5; mod.chain += 1; }
+      if (s.id === 'split') mod.split = true;
+      if (s.id === 'orbit') mod.orbit = true;
     }
+    const chainTags = [];
+    if (mod.split) chainTags.push('分裂');
+    if (mod.chain) chainTags.push(`連鎖+${mod.chain}`);
+    if (mod.orbit) chainTags.push('軌道');
+    for (const tid of mod.triggerOnHit) chainTags.push(`命中觸發→${ACTIVE_GEMS[tid]?.short || tid}`);
+    for (const tid of mod.triggerOnCrit) chainTags.push(`暴擊觸發→${ACTIVE_GEMS[tid]?.short || tid}`);
+    mod.circuitLabel = chainTags.length ? `${def.icon}${def.short} [${chainTags.join(' + ')}]` : `${def.icon}${def.short}`;
     skills.push({ uid: item.uid, id: def.id, def, mod });
   }
   return skills;
+}
+
+// 一鍵推薦構築：自動將現有棋盤＋背包寶石以最高邏輯電路與輔助相鄰度排入解鎖格
+export function autoBuildBoard(placed = [], bag = [], level = 1) {
+  const pool = [...placed, ...bag].map(g => ({ uid: g.uid, id: g.id, rot: 0 })).filter(g => ALL_GEMS[g.id]);
+  const BRIDGE_IDS = new Set(['coh', 'coc']);
+  const SUP_PRIO = ['split', 'orbit', 'multi', 'chain', 'storm', 'ember', 'echo', 'area', 'vamp', 'haste', 'frost', 'leech'];
+  const actives = pool.filter(g => ACTIVE_GEMS[g.id]);
+  const bridges = pool.filter(g => BRIDGE_IDS.has(g.id));
+  const supports = pool.filter(g => SUPPORT_GEMS[g.id] && !BRIDGE_IDS.has(g.id))
+    .sort((a, b) => (SUP_PRIO.indexOf(a.id) === -1 ? 99 : SUP_PRIO.indexOf(a.id)) - (SUP_PRIO.indexOf(b.id) === -1 ? 99 : SUP_PRIO.indexOf(b.id)));
+  const nextPlaced = [];
+  const used = new Set();
+
+  const placeBest = (gem, scoreFn) => {
+    let best = null, bestScore = -Infinity;
+    for (let rot = 0; rot < 4; rot++) {
+      for (let y = 0; y < GRID; y++) for (let x = 0; x < GRID; x++) {
+        if (!canPlace(nextPlaced, gem.id, x, y, rot, level)) continue;
+        const sc = scoreFn(x, y, rot);
+        if (sc > bestScore) { bestScore = sc; best = { uid: gem.uid, id: gem.id, x, y, rot }; }
+      }
+    }
+    if (best) { nextPlaced.push(best); used.add(gem.uid); return true; }
+    return false;
+  };
+
+  const adjCount = (gemId, x, y, rot, pred) => {
+    const occ = occupiedMap(nextPlaced);
+    const seen = new Set();
+    for (const [dx, dy] of rotateCells(ALL_GEMS[gemId].shape, rot)) {
+      for (const [nx, ny] of [[x + dx + 1, y + dy], [x + dx - 1, y + dy], [x + dx, y + dy + 1], [x + dx, y + dy - 1]]) {
+        const nb = occ.get(nx + ',' + ny);
+        if (nb && pred(nb)) seen.add(nb.uid);
+      }
+    }
+    return seen.size;
+  };
+
+  const distinctActives = [];
+  const seenActIds = new Set();
+  for (const a of actives) { if (!seenActIds.has(a.id)) { seenActIds.add(a.id); distinctActives.push(a); } }
+  if (distinctActives[0]) {
+    placeBest(distinctActives[0], (x, y) => -Math.hypot(x - 2, y - 2));
+  }
+  for (const br of bridges) {
+    placeBest(br, (x, y, rot) => adjCount(br.id, x, y, rot, nb => !!ACTIVE_GEMS[nb.id]) * 10 - Math.hypot(x - 2, y - 2));
+  }
+  for (const act of distinctActives.slice(1, 4)) {
+    placeBest(act, (x, y, rot) => adjCount(act.id, x, y, rot, nb => BRIDGE_IDS.has(nb.id)) * 15 - Math.hypot(x - 2, y - 2));
+  }
+  for (const sup of supports) {
+    placeBest(sup, (x, y, rot) => {
+      const a = adjCount(sup.id, x, y, rot, nb => !!ACTIVE_GEMS[nb.id]);
+      return a > 0 ? a * 12 - Math.hypot(x - 2.5, y - 2.5) : -100 - Math.hypot(x - 2.5, y - 2.5);
+    });
+  }
+  const leftover = pool.filter(g => !used.has(g.uid));
+  return { placed: nextPlaced, bag: leftover };
 }
 
 export function bindPuzzleUI(g) {
@@ -264,6 +368,20 @@ export function bindPuzzleUI(g) {
     const occ = occupiedMap(placed);
     const computed = computeBoard(placed);
     const linkCount = new Map(computed.map(s => [s.uid, s.mod.supports.length]));
+    const linkedUids = new Set();
+    for (const s of computed) {
+      if (s.mod.supports.length > 0) linkedUids.add(s.uid);
+    }
+    for (const item of placed) {
+      if (!SUPPORT_GEMS[item.id]) continue;
+      for (const [dx, dy] of rotateCells(SUPPORT_GEMS[item.id].shape, item.rot)) {
+        const cx = item.x + dx, cy = item.y + dy;
+        for (const [nx, ny] of [[cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]]) {
+          const nb = occ.get(nx + ',' + ny);
+          if (nb && ACTIVE_GEMS[nb.id]) linkedUids.add(item.uid);
+        }
+      }
+    }
 
     unlockEl.textContent = `已解鎖 ${unlockedCount(level)}/36 格（升級自動擴充）· 棋盤上主動技能會自動裝備至下方技能欄`;
     coinsEl.textContent = `🪙 金幣 ${g.meta.p.coins}`;
@@ -282,26 +400,44 @@ export function bindPuzzleUI(g) {
       presetsEl.append(b);
     }
 
-    // Info bar
+    // Info bar（即時顯示邏輯電路串聯預覽）
     if (holding) {
       const def = ALL_GEMS[holding.id];
       infoEl.innerHTML = `<b>手持：${def.icon} ${def.name}</b>（${def.type === 'active' ? '主動' : '輔助'}）— ${def.desc} <small>點棋盤放下 · 右鍵或按 R 旋轉</small>`;
     } else {
-      const activeNames = computed.slice(0, 4).map((s, idx) => `${['右鍵','Q','E','C'][idx]} ${s.def.icon}${s.def.short}${s.mod.supports.length ? '(+' + s.mod.supports.length + ')' : ''}`);
+      const activeNames = computed.slice(0, 4).map((s, idx) => `${['右鍵','Q','E','C'][idx]} ${s.mod.circuitLabel}`);
       infoEl.textContent = activeNames.length
-        ? '目前技能欄：' + activeNames.join('　')
-        : '點選下方寶石放入 6×6 棋盤；將「輔助寶石」放在「主動技能」上下左右相鄰格即可連動強化！';
+        ? '⚡ 邏輯電路：' + activeNames.join('　|　')
+        : '點選下方寶石放入 6×6 棋盤；用「命中觸發器／暴擊觸發器」橋接兩招主動技能即可打造自動連招電路！';
     }
 
-    // 6x6 Grid
+    // 6x6 Grid（含電路金色邊框高亮＋手持方塊懸停落點預覽）
     gridEl.replaceChildren();
     const anchorSeen = new Set();
+    const cellEls = new Map();
+    const clearPreview = () => {
+      for (const el of cellEls.values()) el.classList.remove('preview-ok', 'preview-bad');
+    };
+    const showPreview = (ax, ay) => {
+      clearPreview();
+      if (!holding) return;
+      const def = ALL_GEMS[holding.id];
+      if (!def) return;
+      const ok = canPlace(placed, holding.id, ax, ay, holding.rot, level);
+      for (const [dx, dy] of rotateCells(def.shape, holding.rot)) {
+        const el = cellEls.get((ax + dx) + ',' + (ay + dy));
+        if (el) el.classList.add(ok ? 'preview-ok' : 'preview-bad');
+      }
+    };
+    gridEl.onmouseleave = clearPreview;
+
     for (let y = 0; y < GRID; y++) {
       for (let x = 0; x < GRID; x++) {
         const cell = document.createElement('button');
         cell.type = 'button';
         cell.className = 'pz-cell';
         const key = x + ',' + y;
+        cellEls.set(key, cell);
         const isOpen = open.has(key);
         const item = occ.get(key);
         if (!isOpen) {
@@ -311,6 +447,7 @@ export function bindPuzzleUI(g) {
         } else if (item) {
           const def = ALL_GEMS[item.id];
           cell.classList.add('filled', def.type);
+          if (linkedUids.has(item.uid)) cell.classList.add('linked');
           cell.style.background = def.color;
           cell.title = `${def.name}（${def.type === 'active' ? '主動' : '輔助'}）：${def.desc}`;
           if (!anchorSeen.has(item.uid)) {
@@ -343,6 +480,7 @@ export function bindPuzzleUI(g) {
             g.audio.sfx('pickup'); g.meta.save(); g.recalc(); render();
           };
         }
+        cell.onmouseenter = () => showPreview(x, y);
         cell.oncontextmenu = e => {
           e.preventDefault();
           if (holding) { holding.rot = (holding.rot + 1) % 4; g.audio.sfx('ui'); render(); }
@@ -417,6 +555,18 @@ export function bindPuzzleUI(g) {
     }
   }
 
+  const autoBtn = modal.querySelector('#pzAuto');
+  if (autoBtn) autoBtn.onclick = () => {
+    returnHolding();
+    const pz = getPz(), placed = currentPlaced();
+    const res = autoBuildBoard(placed, pz.bag, g.meta.p.level || 1);
+    pz.presets[pz.activePreset] = res.placed;
+    pz.bag = res.bag;
+    g.meta.save(); g.recalc(); g.audio.sfx('classup');
+    const comp = computeBoard(res.placed);
+    g.ui.toast(`⚡ 已套用推薦構築（${comp.map(s => s.mod.circuitLabel).join(' | ') || '完成'}）`, '#ffd85a');
+    render();
+  };
   modal.querySelector('#pzRotate').onclick = () => { if (holding) { holding.rot = (holding.rot + 1) % 4; g.audio.sfx('ui'); render(); } };
   modal.querySelector('#pzTake').onclick = () => {
     if (!holding) return;

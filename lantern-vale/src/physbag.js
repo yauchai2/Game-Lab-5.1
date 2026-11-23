@@ -1,5 +1,5 @@
 // 孤山獨影（Cairn）風格 2D 重力物理掉落背包與倉庫系統（不同形狀大小＋物品物理碰撞合成）
-import { RARITY, SLOTS, serializeItem, deserializeItem, makeItem } from './loot.js';
+import { RARITY, SLOTS, serializeItem, deserializeItem, makeItem, itemScore } from './loot.js';
 import { t } from './i18n.js';
 
 // 物理碰撞合成配方（在背包中拖曳或拋撞兩個相容物件即可當場融合！）
@@ -458,6 +458,60 @@ export function useBagItem(game, itemData, fromListKey) {
     return true;
   }
   return false;
+}
+
+export function autoEquipBest(game) {
+  const p = game.meta.p;
+  ensurePhysicsStorage(p);
+  const list = p.bagItems;
+  let count = 0;
+  const upgrades = [];
+  for (const slot of Object.keys(SLOTS)) {
+    let bestIdx = -1, bestScore = game.player.equip[slot] ? itemScore(game.player.equip[slot]) : -1;
+    for (let i = 0; i < list.length; i++) {
+      const entry = list[i];
+      if (entry.kind !== 'gear' || !entry.item) continue;
+      const g = deserializeItem(entry.item);
+      if (g.slot !== slot) continue;
+      const sc = itemScore(g);
+      if (sc > bestScore) { bestScore = sc; bestIdx = i; }
+    }
+    if (bestIdx >= 0) {
+      const [picked] = list.splice(bestIdx, 1);
+      const newGear = deserializeItem(picked.item);
+      const old = game.player.equip[slot];
+      game.player.equip[slot] = newGear;
+      if (old) addGearToBag(p, old);
+      count++;
+      upgrades.push({ slot, name: newGear.name, score: bestScore });
+    }
+  }
+  if (count > 0) { game.recalc(); game.meta.save(); }
+  return { count, upgrades };
+}
+
+export function salvageTrashGear(game) {
+  const p = game.meta.p;
+  ensurePhysicsStorage(p);
+  const list = p.bagItems;
+  let count = 0, shards = 0;
+  for (let i = list.length - 1; i >= 0; i--) {
+    const entry = list[i];
+    if (entry.kind !== 'gear' || !entry.item) continue;
+    const g = deserializeItem(entry.item);
+    if (g.rarity > 1 || g.corrupted) continue;
+    const eq = game.player?.equip?.[g.slot];
+    if (!eq || itemScore(g) >= itemScore(eq)) continue;
+    const val = (g.rarity === 0 ? 4 : 8) + Math.max(0, (g.tier || 1) - 1) * 2;
+    list.splice(i, 1);
+    count++;
+    shards += val;
+  }
+  if (count > 0) {
+    p.shards = (p.shards || 0) + shards;
+    game.meta.save();
+  }
+  return { count, shards };
 }
 
 export function transferBagItem(game, itemData, fromKey, toKey) {

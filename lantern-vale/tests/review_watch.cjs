@@ -52,7 +52,10 @@ async function runCapture(req) {
   const id = req.id || String(Date.now());
   const width = req.width || 1280;
   const height = req.height || 720;
-  const shots = req.shots || ['title', 'town', 'field:1', 'field:10', 'field:12'];
+  const DEFAULT_SHOTS = ['title', 'town', 'ui:bag', 'ui:puzzle', 'ui:souls', 'ui:atlas', 'ui:forge', 'ui:map', 'field:1', 'combat:elements', 'combat:tide', 'field:12', 'boss'];
+  const rawShots = req.shots || DEFAULT_SHOTS;
+  const isLegacyAuto = Array.isArray(rawShots) && ((rawShots.length === 5 && rawShots[0] === 'title' && rawShots[3] === 'field:10') || (rawShots.length === 12 && !rawShots.includes('combat:tide')));
+  const shots = isLegacyAuto ? DEFAULT_SHOTS : rawShots;
   const recordVideo = req.recordVideo !== false;
   const runDir = path.join(outDir, id);
   fs.mkdirSync(runDir, { recursive: true });
@@ -61,6 +64,9 @@ async function runCapture(req) {
   const errors = [];
   const savedShots = [];
   let videoFile = null;
+  let tideClipStart = null;
+  let tideClipEnd = null;
+  const recStartMs = Date.now();
 
   console.log(`\n[${id}] Starting capture (${shots.join(', ')})...`);
   const browser = await playwright.chromium.launch({
@@ -80,50 +86,142 @@ async function runCapture(req) {
 
     await page.goto(url, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => Boolean(window.__game), { timeout: 15000 });
-    await page.waitForTimeout(2600);
+    await page.waitForTimeout(2200);
+
+    const ensureStarted = async () => {
+      await page.evaluate(() => {
+        const btn = document.getElementById('btnStart');
+        if (btn && !document.getElementById('title')?.classList.contains('hide')) btn.click();
+      });
+    };
+
+    const closeAllUI = async () => {
+      await page.evaluate(() => {
+        const g = window.__game;
+        g.ui.mapDialog?.close();
+        if (g.ui.panelOpen) g.ui.closePanel?.();
+        if (g.ui.invOpen) g.ui.toggleInv(g);
+        if (g.ui.puzzleOpen) g.ui.closePuzzle?.();
+      });
+    };
 
     for (let i = 0; i < shots.length; i++) {
       const shot = shots[i];
       const safeName = `${String(i + 1).padStart(2, '0')}_${shot.replace(/[^a-zA-Z0-9_-]/g, '_')}.png`;
       if (shot === 'title') {
-        await page.waitForTimeout(600);
+        await page.waitForTimeout(500);
       } else if (shot === 'town') {
         await page.evaluate(() => {
           const btn = document.getElementById('btnStart');
           if (btn && !document.getElementById('title')?.classList.contains('hide')) btn.click();
           else window.__game.enterTown();
         });
-        await page.waitForTimeout(2000);
+        await page.waitForTimeout(1600);
       } else if (shot === 'harbor') {
-        await page.evaluate(() => {
-          const btn = document.getElementById('btnStart');
-          if (btn && !document.getElementById('title')?.classList.contains('hide')) btn.click();
-          window.__game.enterHarbor();
-        });
-        await page.waitForTimeout(1800);
+        await ensureStarted();
+        await page.evaluate(() => window.__game.enterHarbor());
+        await page.waitForTimeout(1500);
       } else if (shot.startsWith('field:')) {
         const fid = Number(shot.split(':')[1]) || 1;
-        await page.evaluate((n) => {
-          const btn = document.getElementById('btnStart');
-          if (btn && !document.getElementById('title')?.classList.contains('hide')) btn.click();
-          window.__game.enterField(n);
-        }, fid);
-        await page.waitForTimeout(1800);
+        await ensureStarted();
+        await closeAllUI();
+        await page.evaluate((n) => window.__game.enterField(n), fid);
+        await page.waitForTimeout(1500);
         if (recordVideo) {
           await page.keyboard.down('KeyW');
-          await page.waitForTimeout(550);
+          await page.waitForTimeout(450);
           await page.keyboard.up('KeyW');
           await page.keyboard.press('KeyQ');
-          await page.waitForTimeout(650);
+          await page.waitForTimeout(550);
+          await page.keyboard.press('Space');
+          await page.waitForTimeout(350);
+        }
+      } else if (shot === 'combat:elements') {
+        await ensureStarted();
+        await closeAllUI();
+        await page.evaluate(() => {
+          const g = window.__game;
+          if (!g.field) g.enterField(1);
+          const p = g.player;
+          g.spawnGroundZone('water', p.pos.x, p.pos.z - 2.6, 3.0, 9, 0.2);
+          g.applyElementAt(p.pos.x, p.pos.z - 2.6, 'frost', 3.0);
+        });
+        await page.waitForTimeout(450);
+        await page.evaluate(() => {
+          const g = window.__game, p = g.player;
+          g.applyElementAt(p.pos.x, p.pos.z - 2.6, 'fire', 3.0);
+        });
+        await page.waitForTimeout(450);
+        await page.evaluate(() => {
+          const g = window.__game, p = g.player;
+          g.applyElementAt(p.pos.x, p.pos.z - 2.6, 'shock', 3.4);
+        });
+        await page.waitForTimeout(500);
+      } else if (shot === 'combat:tide') {
+        await ensureStarted();
+        await closeAllUI();
+        await page.evaluate(() => window.__game.enterField(1));
+        await page.waitForTimeout(600);
+        tideClipStart = Math.max(0, (Date.now() - recStartMs) / 1000 - 0.3);
+        await page.evaluate(() => window.__game.triggerTideDemo?.('storm'));
+        await page.waitForTimeout(1600);
+        await page.screenshot({ path: path.join(runDir, 'tide_01_lantern_storm.png') });
+        await page.keyboard.press('KeyQ');
+        await page.waitForTimeout(900);
+        await page.evaluate(() => window.__game.triggerTideDemo?.('hound'));
+        await page.waitForTimeout(700);
+        await page.screenshot({ path: path.join(runDir, 'tide_02_big_puppy.png') });
+        await page.waitForTimeout(1100);
+        await page.evaluate(() => window.__game.triggerTideDemo?.('daybreak'));
+        await page.waitForTimeout(650);
+        await page.screenshot({ path: path.join(runDir, 'tide_03_daybreak.png') });
+        await page.waitForTimeout(1100);
+        await page.evaluate(() => window.__game.triggerTideDemo?.('apex'));
+        await page.waitForTimeout(1800);
+        await page.screenshot({ path: path.join(runDir, 'tide_04_apex_boss.png') });
+        await page.evaluate(() => window.__game.triggerTideDemo?.('lull'));
+        await page.waitForTimeout(1800);
+        await page.screenshot({ path: path.join(runDir, 'tide_05_lull_camp.png') });
+        tideClipEnd = (Date.now() - recStartMs) / 1000 + 0.3;
+      } else if (shot === 'boss') {
+        await ensureStarted();
+        await closeAllUI();
+        await page.evaluate(() => {
+          const g = window.__game;
+          g.field = 0; g.state = 'play';
+          g.loadRoom(9, null, false);
+          g.waveIdx = 0; g.spawnWave();
+        });
+        await page.waitForTimeout(1400);
+        if (recordVideo) {
+          await page.keyboard.press('KeyQ');
+          await page.waitForTimeout(500);
+          await page.keyboard.press('Space');
+          await page.waitForTimeout(450);
         }
       } else if (shot === 'ui:map') {
+        await ensureStarted(); await closeAllUI();
         await page.evaluate(() => window.__game.ui.openMap?.());
-        await page.waitForTimeout(600);
+        await page.waitForTimeout(550);
       } else if (shot === 'ui:bag') {
-        await page.evaluate(() => { window.__game.ui.mapDialog?.close(); window.__game.ui.toggleInv(window.__game); });
-        await page.waitForTimeout(600);
+        await ensureStarted(); await closeAllUI();
+        await page.evaluate(() => window.__game.ui.openInvTab?.(window.__game, 'bag'));
+        await page.waitForTimeout(650);
+      } else if (shot === 'ui:souls') {
+        await ensureStarted(); await closeAllUI();
+        await page.evaluate(() => window.__game.ui.openInvTab?.(window.__game, 'souls'));
+        await page.waitForTimeout(550);
+      } else if (shot === 'ui:atlas') {
+        await ensureStarted(); await closeAllUI();
+        await page.evaluate(() => window.__game.ui.openInvTab?.(window.__game, 'atlas'));
+        await page.waitForTimeout(550);
       } else if (shot === 'ui:puzzle') {
-        await page.evaluate(() => { if (window.__game.ui.invOpen) window.__game.ui.toggleInv(window.__game); window.__game.ui.openPuzzle?.(); });
+        await ensureStarted(); await closeAllUI();
+        await page.evaluate(() => window.__game.ui.openPuzzle?.());
+        await page.waitForTimeout(650);
+      } else if (shot === 'ui:forge') {
+        await ensureStarted(); await closeAllUI();
+        await page.evaluate(() => window.__game.ui.openPanel?.('forge'));
         await page.waitForTimeout(600);
       }
 
@@ -132,14 +230,7 @@ async function runCapture(req) {
       savedShots.push(filePath);
       console.log(`  Captured: ${safeName}`);
 
-      if (shot.startsWith('ui:')) {
-        await page.evaluate(() => {
-          const g = window.__game;
-          g.ui.mapDialog?.close();
-          if (g.ui.invOpen) g.ui.toggleInv(g);
-          if (g.ui.puzzleOpen) g.ui.closePuzzle?.();
-        });
-      }
+      if (shot.startsWith('ui:')) await closeAllUI();
     }
 
     const vid = recordVideo ? page.video() : null;
@@ -152,6 +243,11 @@ async function runCapture(req) {
         fs.unlinkSync(webmPath);
         videoFile = mp4Path;
         console.log('  Video saved: gameplay.mp4');
+        if (tideClipStart !== null && tideClipEnd !== null && tideClipEnd > tideClipStart + 1) {
+          const tideMp4 = path.join(runDir, 'ember_tide_demo.mp4');
+          execFileSync('ffmpeg', ['-y', '-ss', tideClipStart.toFixed(2), '-to', tideClipEnd.toFixed(2), '-i', mp4Path, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', tideMp4], { stdio: 'ignore' });
+          console.log('  Video saved: ember_tide_demo.mp4');
+        }
       } catch (_) {
         videoFile = webmPath;
         console.log(`  Video saved: ${path.basename(webmPath)}`);

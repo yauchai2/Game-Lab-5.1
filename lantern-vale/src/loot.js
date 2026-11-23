@@ -92,9 +92,12 @@ export function makeItem(r, depth, forceRarity = null, forceSlot = null) {
 
 export function itemLines(it) {
   const out = [];
+  if (it.corruptImplicit) out.push({ t: `☠️ ${it.corruptImplicit.fmt(it.corruptImplicit.v)}`, corrupt: true });
   if (it.implicit) out.push({ t: it.implicit.fmt(it.implicit.v), imp: true });
   for (const m of it.mods) out.push({ t: m.fmt(m.v) });
   if (it.desc) out.push({ t: it.desc, special: true });
+  if (it.bricked) out.push({ t: '☠️ 已腐化 · 結構碎裂（無法再改造）', corrupt: true });
+  else if (it.corrupted) out.push({ t: '☠️ 已腐化（不可逆定型）', corrupt: true });
   return out;
 }
 
@@ -102,7 +105,7 @@ export function itemScore(it) {
   if (!it) return 0;
   const W = { baseDmg: 3, dmgPct: 1, addFire: 2.5, atkSpd: 1.2, crit: 1.5, critMult: 0.5, maxHp: 0.6, lifeOnHit: 3, moveSpd: 1.2, cdr: 1, mana: 0.3, area: 0.7, armor: 2, regen: 3, proj: 20 };
   let s = 0;
-  const all = [...(it.implicit ? [it.implicit] : []), ...it.mods];
+  const all = [...(it.corruptImplicit ? [it.corruptImplicit] : []), ...(it.implicit ? [it.implicit] : []), ...it.mods];
   for (const m of all) s += (W[m.k] || 1) * m.v;
   if (it.special) s += 40;
   return Math.round(s);
@@ -145,14 +148,70 @@ const IMP_FMT = { baseDmg: v => `基礎傷害 +${v}`, maxHp: v => `+${v} 最大�
 const fmtOf = k => AFFIXES.find(a => a.k === k)?.fmt || IMP_FMT[k] || (v => `${k} +${v}`);
 export function serializeItem(it) {
   if (!it) return null;
-  return { slot: it.slot, rarity: it.rarity, tier: it.tier, name: it.name, base: it.base, special: it.special, desc: it.desc,
-    implicit: it.implicit ? { k: it.implicit.k, v: it.implicit.v } : null, mods: it.mods.map(m => ({ k: m.k, v: m.v })), reforged: it.reforged || 0 };
+  return {
+    slot: it.slot, rarity: it.rarity, tier: it.tier, name: it.name, base: it.base, special: it.special, desc: it.desc,
+    corrupted: !!it.corrupted, bricked: !!it.bricked,
+    corruptImplicit: it.corruptImplicit ? { k: it.corruptImplicit.k, v: it.corruptImplicit.v } : null,
+    implicit: it.implicit ? { k: it.implicit.k, v: it.implicit.v } : null,
+    mods: it.mods.map(m => ({ k: m.k, v: m.v })), reforged: it.reforged || 0,
+  };
 }
 export function deserializeItem(o) {
   if (!o) return null;
-  return { id: _id++, slot: o.slot, rarity: o.rarity, tier: o.tier || 1, name: o.name, base: o.base, special: o.special, desc: o.desc, reforged: o.reforged || 0,
+  return {
+    id: _id++, slot: o.slot, rarity: o.rarity, tier: o.tier || 1, name: o.name, base: o.base, special: o.special, desc: o.desc, reforged: o.reforged || 0,
+    corrupted: !!o.corrupted, bricked: !!o.bricked,
+    corruptImplicit: o.corruptImplicit ? { ...o.corruptImplicit, fmt: fmtOf(o.corruptImplicit.k) } : null,
     implicit: o.implicit ? { ...o.implicit, fmt: IMP_FMT[o.implicit.k] || fmtOf(o.implicit.k) } : null,
-    mods: o.mods.map(m => ({ k: m.k, v: m.v, fmt: fmtOf(m.k) })) };
+    mods: o.mods.map(m => ({ k: m.k, v: m.v, fmt: fmtOf(m.k) })),
+  };
+}
+// ---------- 裝備「腐化」不可逆高風險改造（Vaal Orb 風格） ----------
+export const CORRUPT_COST = 15;
+export const CORRUPT_IMPLICITS = [
+  { k: 'proj',     v: 2,  fmt: v => `【神諭腐化】投射物額外 +${v} 發` },
+  { k: 'dmgPct',   v: 45, fmt: v => `【神諭腐化】全傷害 +${v}%` },
+  { k: 'crit',     v: 18, fmt: v => `【神諭腐化】暴擊率 +${v}%` },
+  { k: 'cdr',      v: 25, fmt: v => `【神諭腐化】所有冷卻縮減 +${v}%` },
+  { k: 'maxHp',    v: 95, fmt: v => `【神諭腐化】最大生命 +${v}` },
+  { k: 'atkSpd',   v: 32, fmt: v => `【神諭腐化】攻擊速度 +${v}%` },
+];
+export function corruptItem(it, r = Math.random) {
+  if (!it) return { ok: false, reason: 'missing' };
+  if (it.corrupted) return { ok: false, reason: 'already_corrupted' };
+  const n = {
+    ...it,
+    implicit: it.implicit ? { ...it.implicit } : null,
+    mods: it.mods.map(m => ({ ...m })),
+    corrupted: true,
+    bricked: false,
+  };
+  const roll = r();
+  if (roll < 0.25) {
+    const ci = pick(r, CORRUPT_IMPLICITS);
+    n.corruptImplicit = { ...ci };
+    n.rarity = Math.max(2, n.rarity);
+    if (!n.name.startsWith('【腐化】')) n.name = `【腐化】${n.name}`;
+    return { ok: true, outcome: 'godroll', label: '☠️ 神諭異變！誕生毀天滅地腐化詞綴！', item: n };
+  } else if (roll < 0.50) {
+    n.tier = Math.min(6, (n.tier || 1) + 1);
+    if (n.implicit) n.implicit.v = Math.max(1, Math.round(n.implicit.v * 1.45));
+    for (const m of n.mods) m.v = Math.max(1, Math.round(m.v * 1.45));
+    if (!n.name.startsWith('【超頻】')) n.name = `【超頻】${n.name}`;
+    return { ok: true, outcome: 'supercharge', label: '⚡ 極限超頻！全詞綴數值暴漲 1.45 倍！', item: n };
+  } else if (roll < 0.75) {
+    if (n.implicit) n.implicit.v = Math.max(1, Math.round(n.implicit.v * 1.15));
+    return { ok: true, outcome: 'stable', label: '✦ 虛空穩固：基底 +15% 並永久定型。', item: n };
+  } else {
+    n.bricked = true;
+    n.rarity = 0;
+    n.special = null;
+    n.desc = '這件神裝在腐化儀式中徹底崩解，只剩下微微發燙的虛空殘渣。';
+    n.name = `碎裂的${SLOTS[n.slot]?.name || '殘骸'}`;
+    n.implicit = { k: 'maxHp', v: 1, fmt: v => `+${v} 最大生命（碎裂）` };
+    n.mods = [{ k: 'dmgPct', v: -15, fmt: v => `${v}% 傷害（虛空反噬）` }];
+    return { ok: true, outcome: 'brick', label: '💀 腐化失控！裝備徹底碎裂報廢！', item: n };
+  }
 }
 // ---------- 鐵匠：重鑄／增幅／升階 ----------
 function rollMod(r, it, taken) {
@@ -162,10 +221,10 @@ function rollMod(r, it, taken) {
   return { k: a.k, v: Math.round(a.roll(it.tier) * rand(r, 0.75, 1.15)), fmt: a.fmt };
 }
 export const FORGE = {
-  reroll: { name: '重鑄詞綴', desc: '重新隨機所有詞綴（傳奇裝備不可）', cost: it => 25 + it.tier * 10, ok: it => it.rarity < 3 && it.mods.length > 0 },
-  add: { name: '增幅詞綴', desc: '新增一條詞綴（上限 4 條）', cost: it => 50 + it.tier * 12, ok: it => it.rarity < 3 && it.mods.length < 4 },
-  tier: { name: '提升階級', desc: '階級 +1，數值依新階級重新計算', cost: it => 70 + it.tier * 20, ok: it => it.tier < 6 },
-  upgrade: { name: '晉升稀有度', desc: '普通→魔法→稀有，並補足詞綴', cost: it => 60 + it.tier * 15, ok: it => it.rarity < 2 },
+  reroll: { name: '重鑄詞綴', desc: '重新隨機所有詞綴（傳奇／已腐化裝備不可）', cost: it => 10 + (it.tier || 1) * 6, ok: it => !it.corrupted && it.rarity < 3 && it.mods.length > 0 },
+  add: { name: '增幅詞綴', desc: '新增一條詞綴（上限 4 條，已腐化不可）', cost: it => 12 + (it.tier || 1) * 8, ok: it => !it.corrupted && it.rarity < 3 && it.mods.length < 4 },
+  tier: { name: '提升階級', desc: '階級 +1，數值依新階級重新計算（已腐化不可）', cost: it => 22 + (it.tier || 1) * 14, ok: it => !it.corrupted && it.tier < 6 },
+  upgrade: { name: '晉升稀有度', desc: '普通→魔法→稀有，並補足詞綴（已腐化不可）', cost: it => 15 + (it.tier || 1) * 10, ok: it => !it.corrupted && it.rarity < 2 },
 };
 export function forgeItem(kind, it, r = Math.random) {
   const n = { ...it, mods: it.mods.map(m => ({ ...m })), reforged: (it.reforged || 0) + 1 };
