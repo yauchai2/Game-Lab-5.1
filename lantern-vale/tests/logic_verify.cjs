@@ -237,8 +237,8 @@ const createGuild = require('../server/guild.cjs');
   assert.equal(upgraded.item.rarity, 1, 'Two same-rarity gears collide and fuse into higher rarity');
 
   const codex = await import(src('codex.js'));
-  assert.equal(codex.GAME_VERSION, 'v1.1.0', 'Codex exports current version v1.1.0');
-  assert.ok(codex.CHANGELOG.length >= 8, 'Changelog contains structured version history through v1.1.0');
+  assert.equal(codex.GAME_VERSION, 'v0.11.0-alpha', 'Codex exports current internal alpha version v0.11.0-alpha');
+  assert.ok(codex.CHANGELOG.length >= 8, 'Changelog contains structured version history through v0.11.0-alpha');
 
   // 12. Tier System (T1-T6) & 3D Mount Milestone System (4 mounts including Sakura Spirit Fox)
   const loot = await import(src('loot.js'));

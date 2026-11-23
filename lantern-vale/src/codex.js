@@ -6,12 +6,12 @@ import { BOONS, TIERS } from './loot.js';
 import { BAG_RECIPES } from './physbag.js';
 import { MOUNTS } from './mounts.js';
 
-export const GAME_VERSION = 'v1.1.0';
+export const GAME_VERSION = 'v0.11.0-alpha';
 export const DONATE_URL = 'https://ko-fi.com/'; // 可隨時改為個人贊助頁面或 ECPay 連結
 
 export const CHANGELOG = [
   {
-    ver: 'v1.1.0', date: '2026-11-23',
+    ver: 'v0.11.0-alpha', date: '2026-11-23',
     items: [
       { tag: '重要', text: '「萬象新域」大型地圖擴展！新增 3 張常駐超大地圖（總計 12 大野外區域）：🌸 櫻花水都（對稱運河、雙翼雕像與漫天櫻瓣）、🌀 蒼穹巨環谷（三重巨型碧藍天環與山坡圓頂屋）、🍁 紅楓工坊谷（棋盤石磚熔爐工坊、白樺秋楓林與放養小綿羊）！' },
       { tag: '新增', text: '新增全新 3D 魔物「星晶巨像（Crystal Golem）」與專屬震波 AI；補齊 7–12 號區域共 6 位全新野外 NPC 與支線任務（12 張地圖全覆蓋）！' },
@@ -20,7 +20,7 @@ export const CHANGELOG = [
     ],
   },
   {
-    ver: 'v1.0.0', date: '2026-11-23',
+    ver: 'v0.10.0-alpha', date: '2026-11-23',
     items: [
       { tag: '重要', text: '全面地形與手繪像素著色器翻新：地形網格解析度提升 2.25 倍（181×181）徹底告別大地圖鋸齒三角，新增像素草葉微點、泥土碎石柔邊道路、冷青藍雲影對比與水面水平白色水光短線！' },
       { tag: '新增', text: '3D 植被與地標大升級：新增「白樺秋楓樹」、多色層團簇像素樹冠、聚落式森林群組與「雙巨柱石階清泉遺跡」；燈谷鎮加入白樺楓樹、木柵欄、翻新試衣亭與可按 F 撫摸的「蓬鬆小綿羊（軟綿祝福）」及晴日蝴蝶！' },
@@ -29,7 +29,7 @@ export const CHANGELOG = [
     ],
   },
   {
-    ver: 'v0.9.0', date: '2026-11-23',
+    ver: 'v0.9.0-alpha', date: '2026-11-23',
     items: [
       { tag: '重要', text: '鎖定最佳立體斜角鏡頭（camYaw = 0.62，無需手動旋轉），並全面收合簡化 HUD：右上整合為「🗺️ 地圖＋☰ 選單」抽屜，隱藏離線雜訊文字，底部動作欄更輕巧俐落。' },
       { tag: '新增', text: '全面美術氛圍升級：提亮陽光手繪色盤、地形加入緩慢飄動的立體雲影光斑、海岸水域漂浮橘白航標與救生圈、飛瀑岩池木橋與林間石圈營火。' },
