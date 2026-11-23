@@ -10,6 +10,7 @@ import { spawnSkyFeatures, startGatherMini, openHighChest, FIELD_NPCS } from './
 import { buildZoneLandmarks } from './harbor.js';
 import { addGearToBag } from './physbag.js';
 import { milestoneText } from './progression.js';
+import { getFieldHotspot } from './mmo_protocol.js';
 
 export const GOODS = { wood: '香杉木', ore: '星紋礦', fish: '溪銀魚' };
 export const FIELDS = [
@@ -56,7 +57,8 @@ export function awardKill(g, enemy) {
   const level = enemy.level || Math.min(30, g.depth * 2 + 1);
   const lvDiff = level - (p.level || 1);
   const upwardMul = (!autoOn && lvDiff >= 3 && lvDiff <= 5) ? 1.25 : 1;
-  const mult = (g.isNight ? 1.25 : 1) * (p.guildName ? 1.1 : 1) * (autoOn ? 0.30 : sparkMul) * upwardMul;
+  const hotspotMul = (!autoOn && g.field && g.hotspots && getFieldHotspot(g.field, g.hotspots)?.kind === 'gold_tide') ? 1.4 : 1;
+  const mult = (g.isNight ? 1.25 : 1) * (p.guildName ? 1.1 : 1) * (autoOn ? 0.30 : sparkMul) * upwardMul * hotspotMul;
   const xpGain = Math.max(1, Math.round((10 + level * (enemy.elite ? 4 : 2)) * mult));
   const rawCoins = enemy.elite ? 5 : 2;
   const coinGain = autoOn ? (Math.random() < 0.30 ? Math.max(1, Math.round(rawCoins * 0.5)) : 0) : Math.round(rawCoins * sparkMul);

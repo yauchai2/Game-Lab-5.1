@@ -102,3 +102,28 @@ export function resolveCoopSynergy(casterId, surfaceOwnerId) {
     banner: '✨ 跨玩家協同連攜！傷害 +15%',
   };
 }
+
+/**
+ * 三層星圖巡迴聚焦熱點（前後端確定性同步演算法，每 30 分鐘輪換 2 座熱門島嶼）
+ */
+export function pickHotspots(nowMs = Date.now(), totalFields = 20) {
+  const slot = Math.floor(nowMs / (30 * 60 * 1000));
+  const fieldA = ((slot * 7 + 3) % totalFields) + 1;
+  let fieldB = ((slot * 13 + 9) % totalFields) + 1;
+  if (fieldB === fieldA) fieldB = (fieldB % totalFields) + 1;
+  const nextSwitchMs = (slot + 1) * 30 * 60 * 1000;
+  return {
+    slot,
+    nextSwitchMs,
+    hotspots: [
+      { fieldId: fieldA, kind: 'gold_tide',  name: '🔥 餘燼金潮',   bonus: '經驗＆掉寶 +40%' },
+      { fieldId: fieldB, kind: 'food_night', name: '🍗 旅人美食夜市', bonus: '營火料理 Buff +50%' },
+    ],
+  };
+}
+
+export function getFieldHotspot(fieldId, activePayload = null) {
+  if (!fieldId) return null;
+  const data = activePayload || pickHotspots();
+  return (data.hotspots || []).find(h => h.fieldId === fieldId) || null;
+}

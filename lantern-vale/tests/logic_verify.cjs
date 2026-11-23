@@ -727,5 +727,19 @@ const createGuild = require('../server/guild.cjs');
   assert.equal(hs.hotspots.length, 2, 'Two distinct hotspot islands selected per 30-min window');
   assert.notEqual(hs.hotspots[0].fieldId, hs.hotspots[1].fieldId, 'Hotspot islands are distinct');
 
-  console.log('ALL 26 LOGIC, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
+  // 27. Phase M2: Client/Server Hotspot Parity, Gold Tide +40% XP Bonus & Co-op VFX Setting
+  const clientHs = mmoProto.pickHotspots(1795450000000);
+  assert.deepEqual(clientHs.hotspots.map(h => h.fieldId), hs.hotspots.map(h => h.fieldId), 'Client and server pick identical 30-min hotspot islands');
+  const hsMock = {
+    field: 1, depth: 0, isNight: false,
+    hotspots: { hotspots: [{ fieldId: 1, kind: 'gold_tide', name: '🔥 餘燼金潮', bonus: '經驗＆掉寶 +40%' }] },
+    meta: { p: { ...structuredClone(frontier.progressDefaults), level: 1, xp: 0 }, save() {} },
+    ui: { toast() {} }, recalc() {},
+  };
+  frontier.awardKill(hsMock, { type: 'slime', level: 1, elite: false, spawnIndex: 0 });
+  // base = 10 + 1*2 = 12; * 1.4 = 16.8 -> 17
+  assert.equal(hsMock.meta.p.xp, 17, 'Gold Tide hotspot island grants +40% manual XP (12 -> 17)');
+  assert.equal(setMod.DEFAULTS.coopVfx, 1, 'Co-op VFX clutter culling defaults to ON (35% opacity for peers)');
+
+  console.log('ALL 27 LOGIC, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
 })();

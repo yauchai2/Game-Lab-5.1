@@ -16,6 +16,7 @@ import { BIOMES, mulberry32, clamp, lerp, angleLerp, rand, pick } from './util.j
 import { buildTownScenery, buildGuildKiosk, buildAwakenAltar, buildWardrobe, buildSheep, TOWN_LAYOUT, buildCottage } from './town.js';
 import { loadSettings, applySettings, buildSettingsUI, DIFFICULTY_MODES } from './settings.js';
 import { getFieldDanger } from './progression.js';
+import { pickHotspots, getFieldHotspot } from './mmo_protocol.js';
 import { showWeapon, applyCosmetics, buildPlayer, buildNPC, buildSlime, buildThorn, buildBoar, buildMoth, buildSkyRay, buildGolem, buildStag, buildArch, buildHouse, buildFountain, buildBoard, buildStall } from './models.js';
 import { Net } from './net.js';
 import { Meta } from './meta.js';
@@ -394,6 +395,11 @@ export class Game {
         this.player.facing = ang;
         this.camPos.set(sx, 0, sz);
       }
+    }
+    if (!this.hotspots || Date.now() >= (this.hotspots.nextSwitchMs || 0)) this.hotspots = pickHotspots();
+    const hs = getFieldHotspot(id, this.hotspots);
+    if (hs) {
+      this.ui.toast(`${hs.name} 進行中！本島享有「${hs.bonus}」`, '#ffd85a');
     }
     const dng = getFieldDanger(FIELDS[id].level, this.meta?.p?.level || 1);
     if (dng.redZone) {
@@ -882,7 +888,8 @@ export class Game {
     const goldDrop = (this.shrineBuffs?.gold || 0) > 0 ? 0.25 : 0;
     const atlasDrop = atlas ? atlas.lootBonus * 0.22 : 0;
     const diffDrop = (DIFFICULTY_MODES[this.settings?.difficulty || 'standard']?.lootBonus || 0) * 0.25;
-    const baseDropChance = e.elite ? 1 : e.type === 'stag' ? 1 : (0.08 + comboDrop + goldDrop + atlasDrop + diffDrop);
+    const hsDropMul = (!autoOn && this.field && this.hotspots && getFieldHotspot(this.field, this.hotspots)?.kind === 'gold_tide') ? 1.4 : 1;
+    const baseDropChance = e.elite ? 1 : e.type === 'stag' ? 1 : (0.08 + comboDrop + goldDrop + atlasDrop + diffDrop) * hsDropMul;
     const dropChance = autoOn ? baseDropChance * AUTO_RATES.dropChanceMult : Math.min(1, baseDropChance * sparkMul);
     if (r < dropChance && this.field) {
       const capR = autoOn ? Math.min(AUTO_RATES.maxDropRarity, e.elite ? 2 : 1) : (e.elite ? 2 : 1);

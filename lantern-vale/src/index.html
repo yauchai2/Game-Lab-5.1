@@ -446,6 +446,8 @@ body.holding-gem,body.holding-gem *{cursor:grabbing!important}
 .sk .ic .ico-svg{width:22px;height:22px;margin:0;vertical-align:middle}
 #btnMap,#btnMenu,#menuPop button{display:inline-flex;align-items:center;justify-content:center;gap:2px}
 #menuPop button{justify-content:flex-start}
+.map-atlas button.map-hotspot{box-shadow:0 0 0 2.5px #ff9a32,0 0 14px rgba(255,180,50,.85)!important;animation:hsPulse 1.8s ease-in-out infinite}
+@keyframes hsPulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.16)}}
 .pz-cell{position:relative;border:0;background:#f3e3c3;color:#fff;font-family:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0;line-height:1;font-size:11px}
 .pz-cell.locked{background:#58453c;color:#9d887b;font-size:13px;opacity:.75}
 .pz-cell.can{background:#ffe9a0;outline:2px solid #e8734a}

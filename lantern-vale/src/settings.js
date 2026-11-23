@@ -15,7 +15,7 @@ export const DIFFICULTY_MODES = {
 };
 
 export const DEFAULTS = {
-  master: 9, music: 6, sfx: 8, pixel: 3, camAngle: 0, wind: 1, water: 1, shafts: 1, shake: 0, dmg: 1, chat: 1,
+  master: 9, music: 6, sfx: 8, pixel: 3, camAngle: 0, wind: 1, water: 1, shafts: 1, shake: 0, dmg: 1, chat: 1, coopVfx: 1,
   difficulty: 'standard',
   lang: 'zh-TW',
   keybinds: { ...KEY_PRESETS.arpg },
@@ -77,6 +77,7 @@ function getRows(lang) {
       ['shake', t(lang, 'rowShake'), [off, on]],
       ['dmg', t(lang, 'rowDmg'), [off, on]],
       ['chat', t(lang, 'rowChat'), [off, on]],
+      ['coopVfx', '多人特效降噪', ['全亮', '降噪 35%']],
     ],
   };
 }

@@ -3,6 +3,7 @@ import { FIELDS, teleportToCheckpoint } from './frontier.js';
 import { FIELD_BLUEPRINTS } from './field_blueprints.js';
 import { FAMILY_META, getTerrainEffect, getRealmRule } from './terrain_fx.js';
 import { getFieldDanger } from './progression.js';
+import { pickHotspots, getFieldHotspot } from './mmo_protocol.js';
 import { t } from './i18n.js';
 
 // Phase 4A（點子 1）：三層「星燈雲海浮島」航海星圖（表界 / 沉淵 / 星穹）
@@ -263,8 +264,11 @@ export function bindWorldMap(game) {
       const prefix = reg.id === curReg.id ? '📍 ' : lit ? '🏮 ' : '☁️ ';
       const f = reg.kind === 'field' ? FIELDS[reg.id] : null;
       const dng = f ? getFieldDanger(f.level, game.meta?.p?.level || 1) : null;
+      const hs = f ? getFieldHotspot(reg.id, game.hotspots) : null;
       const dngTag = dng ? ` ${dng.icon}` : '';
-      btn.innerHTML = `${prefix}${reg.name}<span class="lv-sub">${reg.level}${dngTag}</span>`;
+      const hsTag = hs ? (hs.kind === 'gold_tide' ? ' 🔥金潮' : ' 🍗夜市') : '';
+      btn.innerHTML = `${prefix}${reg.name}<span class="lv-sub">${reg.level}${dngTag}${hsTag}</span>`;
+      btn.classList.toggle('map-hotspot', !!hs);
       btn.classList.toggle('here', reg.id === curReg.id);
       btn.classList.toggle('fogged', !lit);
       btn.classList.toggle('match', !!q && matchesQuery(reg, q));
@@ -310,7 +314,9 @@ export function bindWorldMap(game) {
       const totalCps = bp.checkpoints?.length || 0;
       const unlockedCount = Math.min(totalCps, getCpUnlockedList(reg.id).length);
       const dng = getFieldDanger(f.level, game.meta?.p?.level || 1);
+      const hs = getFieldHotspot(reg.id, game.hotspots);
       const badges = [
+        ...(hs ? [`<span class="map-badge" style="background:#d96a1c" title="${hs.bonus}">${hs.name} · ${hs.bonus}</span>`] : []),
         `<span class="map-badge" style="background:${dng.color}" title="${dng.desc}">${dng.icon} ${dng.label}</span>`,
         `<span class="map-badge" style="background:${fam.color}" title="${fam.desc}">${fam.icon} ${fam.name}</span>`,
       ];
@@ -380,8 +386,10 @@ export function bindWorldMap(game) {
     activeLayer = curReg.layer || 'surface';
     const litTotal = WORLD_REGIONS.filter(r => isRegionLit(game, r.id)).length;
     const inDungeon = game.depth >= 0 && !game.field;
+    const hsData = game.hotspots || pickHotspots();
+    const hsSummary = hsData.hotspots.map(h => `${h.kind === 'gold_tide' ? '🔥' : '🍗'}${FIELDS[h.fieldId]?.name || ''}`).join(' · ');
     dialog.querySelector('.map-location').textContent =
-      `📍 目前位置：${inDungeon ? `副本第 ${game.depth + 1} 層` : curReg.name} ｜ 🏮 已點亮星燈：${litTotal} / ${WORLD_REGIONS.length} 座島嶼`;
+      `📍 ${inDungeon ? `副本第 ${game.depth + 1} 層` : curReg.name} ｜ 🏮 星燈 ${litTotal}/${WORLD_REGIONS.length} ｜ 本期熱點：${hsSummary}`;
     renderAtlas();
     select(curReg);
     dialog.showModal();
