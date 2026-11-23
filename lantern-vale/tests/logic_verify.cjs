@@ -478,5 +478,50 @@ const createGuild = require('../server/guild.cjs');
   tide.stepTideTimers(td, 2.0);
   assert.ok(td.heat < 40, 'Heat decays smoothly when player stops fighting');
 
-  console.log('ALL 20 LOGIC, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
+  // 21. v5 Field Map Blueprints (#01 Open, #04 Linear, #07 Hybrid) & Checkpoint Teleport
+  const bpMod = await import(src('field_blueprints.js'));
+  assert.equal(bpMod.BP_W, 260);
+  assert.equal(bpMod.BP_H, 180);
+  for (const fid of [1, 4, 7]) {
+    const bp = bpMod.FIELD_BLUEPRINTS[fid];
+    assert.ok(bp, `Blueprint #${fid} exists`);
+    const grid = bpMod.getBlueprintGrid(fid);
+    assert.equal(grid.length, 260 * 180, `Blueprint #${fid} produces 260x180 grid`);
+    let landCnt = 0;
+    for (let i = 0; i < grid.length; i++) if (grid[i] >= 1 && grid[i] <= 4) landCnt++;
+    const ratio = landCnt / grid.length;
+    if (fid === 1) assert.ok(ratio > 0.35, `#01 Open meadow has wide walkable area (${(ratio * 100).toFixed(1)}%)`);
+    if (fid === 4) assert.ok(ratio > 0.14 && ratio < 0.45, `#04 Linear snowfield has focused corridor area (${(ratio * 100).toFixed(1)}%)`);
+    if (fid === 7) assert.ok(ratio > 0.14 && ratio < 0.48, `#07 Hybrid sky islands leave vast cloud-sea negative space (${(ratio * 100).toFixed(1)}%)`);
+    assert.ok(bp.checkpoints.length >= 3, `Blueprint #${fid} defines 3+ teleport checkpoints`);
+    assert.ok(bp.bridges.length >= 1, `Blueprint #${fid} defines bridge spans`);
+    assert.ok(bp.glides.length >= 2, `Blueprint #${fid} defines one-way glide shortcuts`);
+    const w = bpMod.uvToWorld(0.5, 0.5, 120);
+    assert.equal(w.x, 0); assert.equal(w.z, 0);
+  }
+  // Verify checkpoint teleport cycles between unlocked checkpoints
+  const cpMock = {
+    meta: { p: structuredClone(frontier.progressDefaults), save() {} },
+    player: { pos: { x: 0, z: 0, set(x, y, z) { this.x = x; this.z = z; } }, y: 0, mana: 50, stats: { maxHp: 100, mana: 100 } },
+    world: { gh: () => 0.5 },
+    checkpoints: [
+      { idx: 0, name: 'CP-A', x: 10, z: 10, y: 0.5, unlocked: true },
+      { idx: 1, name: 'CP-B', x: 80, z: -40, y: 2.0, unlocked: true },
+    ],
+    ui: { toast() {} },
+  };
+  assert.equal(frontier.useFieldSpot(cpMock, { kind: 'checkpoint', cpIdx: 0 }), true);
+  assert.ok(Math.hypot(cpMock.player.pos.x - 81.6, cpMock.player.pos.z + 38.4) < 0.5, 'Checkpoint teleports player to next unlocked checkpoint');
+  // Verify Phase 2B GLB landmark & monster assets exist on disk
+  const p2bAssets = await import(src('assets.js'));
+  const fsMod = require('node:fs');
+  const gameDir = path.resolve(__dirname, '../game');
+  assert.equal(Object.keys(p2bAssets.LANDMARK_FILES).length, 10, '10 landmark GLBs registered');
+  assert.equal(Object.keys(p2bAssets.MONSTER_FILES).length, 4, '4 monster GLBs registered');
+  for (const rel of [...Object.values(p2bAssets.LANDMARK_FILES), ...Object.values(p2bAssets.MONSTER_FILES)]) {
+    const full = path.join(gameDir, rel);
+    assert.ok(fsMod.existsSync(full) && fsMod.statSync(full).size > 2000, `GLB asset exists and non-empty: ${rel}`);
+  }
+
+  console.log('ALL 21 LOGIC, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
 })();

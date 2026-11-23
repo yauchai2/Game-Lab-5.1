@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { mulberry32, Noise, clamp, smooth, rand, pick, lerp } from './util.js';
 import { natureAssets, buildAssetMaterial } from './assets.js';
+import { getBlueprintGrid, sampleBlueprintCell, uvToWorld } from './field_blueprints.js';
 
 export const HALF = 30;          // world spans -30..30
 export const RES = 1 / 3;        // 更高密度的地形網格解析度，告別大地圖巨大鋸齒三角
@@ -241,6 +242,9 @@ export class World {
     this.lanterns = [];
     this.trees = [];
     this.pierBounds = [];
+    this.bridges = [];
+    this.bp = null;
+    this.bpCell = null;
     this.occludables = [];
     this.buoys = [];
     this.waterMat = null;
@@ -251,9 +255,24 @@ export class World {
     if (i < 0 || j < 0 || i >= GW || j >= GW) return -1;
     return j * GW + i;
   }
+  isBridge(x, z) {
+    for (const b of this.bridges) {
+      const vx = b.x1 - b.x0, vz = b.z1 - b.z0;
+      const len2 = vx * vx + vz * vz;
+      if (len2 < 1e-4) continue;
+      const t = ((x - b.x0) * vx + (z - b.z0) * vz) / len2;
+      if (t < -0.05 || t > 1.05) continue;
+      const tc = clamp(t, 0, 1);
+      const px = b.x0 + vx * tc, pz = b.z0 + vz * tc;
+      if (Math.hypot(x - px, z - pz) <= b.hw) {
+        return { y: lerp(b.y0, b.y1, tc) + Math.sin(tc * Math.PI) * (b.arch || 0.45) };
+      }
+    }
+    return null;
+  }
   isPier(x, z) {
     for (const p of this.pierBounds) if (x >= p.x0 && x <= p.x1 && z >= p.z0 && z <= p.z1) return p;
-    return null;
+    return this.isBridge(x, z);
   }
   isWalk(x, z) { if (this.isPier(x, z)) return true; const k = this.idx(x, z); return k >= 0 && this.walk[k] === 1; }
   groundY(x, z) { const pr = this.isPier(x, z); if (pr) return pr.y; const k = this.idx(x, z); return k < 0 ? -2 : Math.max(this.height[k], -0.3); }
@@ -267,7 +286,7 @@ export class World {
     const h = (H[k] * (1 - tx) + H[k + 1] * tx) * (1 - tz) + (H[k + GW] * (1 - tx) + H[k + GW + 1] * tx) * tz;
     return Math.max(h, -0.3);
   }
-  isLand(x, z) { if (this.isPier(x, z)) return true; const k = this.idx(x, z); return k >= 0 && this.height[k] > -0.2 && this.RR[k] < 1.0; }
+  isLand(x, z) { if (this.isPier(x, z)) return true; const k = this.idx(x, z); return k >= 0 && this.height[k] > -0.25 && this.RR[k] < 1.0; }
 
   clear() {
     this.waterMat?.uniforms.uShore.value.dispose();
@@ -279,6 +298,9 @@ export class World {
     this.lanterns = [];
     this.trees = [];
     this.pierBounds = [];
+    this.bridges = [];
+    this.bp = null;
+    this.bpCell = null;
     this.occludables = [];
     this.buoys = [];
   }
@@ -297,129 +319,241 @@ export class World {
     const T = new Uint8Array(GW * GW); // 0 water, 1 ground, 2 plateau, 3 high
     const RR = new Float32Array(GW * GW);
     const H = this.height;
-
-    for (let j = 0; j < GW; j++) for (let i = 0; i < GW; i++) {
-      const x = -this.half + i * this.res, z = -this.half + j * this.res, k = j * GW + i;
-      const rr = Math.hypot(x * ax, z * az) / R + (N.fbm(x * 0.07 + so, z * 0.07) - 0.5) * nAmp;
-      RR[k] = rr;
-      let t = rr < 1 ? 1 : 0;
-      const dc = Math.hypot(x, z);
-      if (t === 1 && dc > 6.5 && !opts.town) {
-        const p = N.fbm(x * 0.1 + 50 + so, z * 0.1 + 50);
-        const edge = smooth(0.72, 0.95, rr) * 0.22;
-        const v = p + edge - (opts.boss ? 0.12 : 0);
-        if (v > 0.6) t = 2;
-        if (v > 0.72) t = 3;
-      }
-      // 燈谷鎮：北半部環抱的橫紋岩壁（山谷港鎮），北門留缺口
-      if (t === 1 && opts.town && z < 5) {
-        const gap = Math.abs(x) < 3.8 && z < -9;
-        const rim = rr + (N.fbm(x * 0.18 + 21, z * 0.18) - 0.5) * 0.06 + Math.max(0, z) * 0.012;
-        if (!gap && rim > 0.79) t = 2;
-        if (!gap && rim > 0.88 && z < -2) t = 3;
-      }
-      T[k] = t;
-    }
     const walk = this.walk;
-    const floodWalk = () => {
-    walk.fill(0);
-    let start = -1, best = 1e9;
-    for (let k = 0; k < GW * GW; k++) if (T[k] === 1 && RR[k] < 0.94) {
-      const i = k % GW, j = (k / GW) | 0;
-      const d = Math.hypot(i - GW / 2, j - GW / 2);
-      if (d < best) { best = d; start = k; }
-    }
-    const q = [start]; walk[start] = 1;
-    while (q.length) {
-      const k = q.pop(); const i = k % GW, j = (k / GW) | 0;
-      for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-        const ni = i + di, nj = j + dj; if (ni < 1 || nj < 1 || ni >= GW - 1 || nj >= GW - 1) continue;
-        const nk = nj * GW + ni;
-        if (!walk[nk] && T[nk] === 1 && RR[nk] < 0.94) { walk[nk] = 1; q.push(nk); }
-      }
-    }
-    // erode walk 1 cell next to cliffs so the player doesn't clip into walls
-    const w2 = walk.slice();
-    for (let j = 1; j < GW - 1; j++) for (let i = 1; i < GW - 1; i++) {
-      const k = j * GW + i; if (!walk[k]) continue;
-      if (T[k + 1] >= 2 || T[k - 1] >= 2 || T[k + GW] >= 2 || T[k - GW] >= 2) w2[k] = 0;
-    }
-    walk.set(w2);
-    };
-    floodWalk();
-
-    // dirt paths: centre -> exits
+    const bp = opts.blueprint || null;
+    this.bp = bp;
     const exits = [];
-    const exitCount = opts.exitCount ?? 2;
-    {
-      // candidate walkable cells far from centre, pick spread apart (north-ish half)
-      const cands = [];
-      for (let k = 0; k < GW * GW; k++) if (walk[k]) {
-        const i = k % GW, j = (k / GW) | 0, x = -this.half + i * this.res, z = -this.half + j * this.res;
-        const d = Math.hypot(x, z);
-        // need open space around
-        let ok = true;
-        for (let dj = -3; dj <= 3 && ok; dj++) for (let di = -3; di <= 3; di++) {
-          const nk = (j + dj) * GW + (i + di); if (!walk[nk]) { ok = false; break; }
-        }
-        if (ok && d > 9 && z < 4) cands.push({ x, z, d, a: Math.atan2(z, x) });
-      }
-      if (opts.cardinalExits && exitCount >= 2) {
-        const pickNear = (tx, tz) => {
-          let best = null, bd = 1e9;
-          for (const c of cands) {
-            if (exits.some(e => Math.hypot(e.x - c.x, e.z - c.z) < 12)) continue;
-            const d = Math.hypot(c.x - tx, c.z - tz);
-            if (d < bd) { bd = d; best = c; }
-          }
-          return best;
-        };
-        const R0 = R * 0.72;
-        const nEx = pickNear(0, -R0) || cands[0]; if (nEx) exits.push({ ...nEx, dir: 'north' });
-        const sEx = pickNear(0, R0 * 0.85) || cands[1]; if (sEx) exits.push({ ...sEx, dir: 'south' });
-        if (exitCount >= 3) { const eEx = pickNear(R0, 0) || cands[2]; if (eEx) exits.push({ ...eEx, dir: 'east' }); }
-      } else {
-        if (opts.town) cands.sort((a, b) => Math.hypot(a.x, a.z + 18) - Math.hypot(b.x, b.z + 18)); else cands.sort((a, b) => b.d - a.d);
-        for (const c of cands) {
-          if (exits.length >= exitCount) break;
-          if (exits.every(e => Math.hypot(e.x - c.x, e.z - c.z) > 9)) exits.push(c);
-        }
-      }
-      if (exits.length === 0 && exitCount > 0) exits.push({ x: 0, z: -6, dir: 'north' });
-    }
-    this.exits = exits;
-    // spawn point: walkable near centre-south
     let spawn = { x: 0, z: 0 };
-    { let bd = 1e9; for (let k = 0; k < GW * GW; k++) if (walk[k]) {
-      const x = -this.half + (k % GW) * this.res, z = -this.half + ((k / GW) | 0) * this.res;
-      const d = Math.hypot(x, z - 5); if (d < bd) { bd = d; spawn = { x, z }; } } }
-    this.spawn = spawn;
-    const paths = exits.map(e => [spawn, e]);
+    let paths = [];
     const distSeg = (px, pz, a, b) => {
       const vx = b.x - a.x, vz = b.z - a.z, wx = px - a.x, wz = pz - a.z;
       const t = clamp((wx * vx + wz * vz) / (vx * vx + vz * vz + 1e-6), 0, 1);
       return Math.hypot(px - (a.x + vx * t), pz - (a.z + vz * t));
     };
 
-    // carve guaranteed wide corridors spawn -> exits (fixes pinched/blocked routes), then re-flood
-    for (let k = 0; k < GW * GW; k++) {
-      if (RR[k] > 0.95 || T[k] === 1) continue;
-      const x = -this.half + (k % GW) * this.res, z = -this.half + ((k / GW) | 0) * this.res;
-      let dp = 9; for (const [p0, p1] of paths) dp = Math.min(dp, distSeg(x, z, p0, p1));
-      if (dp < 2.1) T[k] = 1;
-    }
-    floodWalk();
-    this.T = T;
-    // heights
-    for (let k = 0; k < GW * GW; k++) {
-      const i = k % GW, j = (k / GW) | 0, x = -this.half + i * this.res, z = -this.half + j * this.res;
-      const t = T[k], rr = RR[k];
-      const nz = N.n2(x * 0.6, z * 0.6);
-      if (t === 0 || t === 1) {
-        const base = 0.04 * nz;
-        H[k] = lerp(-1.5, base, smooth(1.08, 0.97, rr));
-      } else if (t === 2) H[k] = 1.5 + nz * 0.2;
-      else H[k] = 2.7 + nz * 0.25;
+    if (bp) {
+      // ===== v5 藍圖離散雕塑地形（1:1 對應 docs/field_maps_floorplan.html）=====
+      const bpGrid = getBlueprintGrid(bp.id);
+      const bpCell = new Uint8Array(GW * GW);
+      this.bpCell = bpCell;
+      for (let j = 0; j < GW; j++) {
+        const v = j / (GW - 1);
+        for (let i = 0; i < GW; i++) {
+          const u = i / (GW - 1);
+          const k = j * GW + i;
+          const cell = sampleBlueprintCell(bpGrid, u, v);
+          bpCell[k] = cell;
+          if (cell === 0) {
+            T[k] = 0; RR[k] = 1.15; H[k] = -1.55;
+          } else if (cell === 1) {
+            T[k] = 1; RR[k] = 0.86; H[k] = -0.14;
+          } else if (cell === 2) {
+            T[k] = 1; RR[k] = 0.48; H[k] = 0.16;
+          } else if (cell === 3) {
+            T[k] = 2; RR[k] = 0.42; H[k] = 1.95;
+          } else if (cell === 4) {
+            T[k] = 3; RR[k] = 0.36; H[k] = 3.75;
+          } else {
+            // cell === 5: 遺跡斷壁
+            T[k] = 3; RR[k] = 0.40; H[k] = 2.45;
+          }
+        }
+      }
+      // 溫和平滑陸地高度（僅在可通行陸地間平滑，讓 L1↔L2↔L3 形成順暢斜坡，同時維持外緣懸崖俐落）
+      const tmpH = new Float32Array(GW * GW);
+      for (let pass = 0; pass < 3; pass++) {
+        tmpH.set(H);
+        for (let j = 1; j < GW - 1; j++) {
+          for (let i = 1; i < GW - 1; i++) {
+            const k = j * GW + i;
+            const c = bpCell[k];
+            if (c < 2 || c > 4) continue;
+            let sum = H[k] * 2, wsum = 2;
+            for (const nk of [k - 1, k + 1, k - GW, k + GW, k - GW - 1, k - GW + 1, k + GW - 1, k + GW + 1]) {
+              if (bpCell[nk] >= 2 && bpCell[nk] <= 4) { sum += H[nk]; wsum += 1; }
+            }
+            tmpH[k] = sum / wsum;
+          }
+        }
+        H.set(tmpH);
+      }
+      // 加上細微自然地形起伏
+      for (let k = 0; k < GW * GW; k++) {
+        const c = bpCell[k];
+        if (c >= 2 && c <= 4) {
+          const x = -this.half + (k % GW) * this.res, z = -this.half + ((k / GW) | 0) * this.res;
+          H[k] += (N.n2(x * 0.12, z * 0.12) - 0.5) * 0.24;
+        }
+      }
+      // 可步行區域：所有淺溪/L1/L2/L3（避開深水/斷壁鄰接 1 格防卡牆）
+      walk.fill(0);
+      for (let j = 2; j < GW - 2; j++) {
+        for (let i = 2; i < GW - 2; i++) {
+          const k = j * GW + i;
+          const c = bpCell[k];
+          if (c < 1 || c > 4) continue;
+          if (bpCell[k - 1] === 0 || bpCell[k + 1] === 0 || bpCell[k - GW] === 0 || bpCell[k + GW] === 0) continue;
+          if (bpCell[k - 1] === 5 || bpCell[k + 1] === 5 || bpCell[k - GW] === 5 || bpCell[k + GW] === 5) continue;
+          walk[k] = 1;
+        }
+      }
+      const snapWalk = (tx, tz) => {
+        const k0 = this.idx(tx, tz);
+        if (k0 >= 0 && walk[k0]) return { x: tx, z: tz };
+        let best = { x: tx, z: tz }, bd = 1e9;
+        const ci = Math.round((tx + this.half) / this.res), cj = Math.round((tz + this.half) / this.res);
+        for (let dj = -14; dj <= 14; dj++) {
+          for (let di = -14; di <= 14; di++) {
+            const ni = ci + di, nj = cj + dj;
+            if (ni < 2 || nj < 2 || ni >= GW - 2 || nj >= GW - 2) continue;
+            if (!walk[nj * GW + ni]) continue;
+            const d = di * di + dj * dj;
+            if (d < bd) { bd = d; best = { x: -this.half + ni * this.res, z: -this.half + nj * this.res }; }
+          }
+        }
+        return best;
+      };
+      // 依藍圖 POI 建立出入口（順序對齊 game.js：exits[0]=dungeon, exits[1]=south/prev, exits[2]=east/next）
+      const dungPoi = (bp.pois || []).find(p => p.k === 'dungeon');
+      const southPoi = (bp.pois || []).find(p => p.k === 'exit' && p.dir === 'south') || (bp.pois || []).find(p => p.k === 'exit');
+      const eastPoi = (bp.pois || []).find(p => p.k === 'exit' && p.dir === 'east');
+      if (dungPoi) {
+        const w = uvToWorld(dungPoi.x, dungPoi.y, this.half);
+        exits.push({ ...snapWalk(w.x, w.z), dir: 'north' });
+      }
+      if (southPoi) {
+        const w = uvToWorld(southPoi.x, southPoi.y, this.half);
+        exits.push({ ...snapWalk(w.x, w.z), dir: 'south' });
+      }
+      if (eastPoi && (opts.exitCount ?? 3) >= 3) {
+        const w = uvToWorld(eastPoi.x, eastPoi.y, this.half);
+        exits.push({ ...snapWalk(w.x, w.z), dir: 'east' });
+      }
+      if (exits.length === 0) exits.push({ x: 0, z: -6, dir: 'north' });
+      this.exits = exits;
+      const spRef = bp.checkpoints?.[0] ? uvToWorld(bp.checkpoints[0][0], bp.checkpoints[0][1], this.half) : (exits[1] || exits[0]);
+      spawn = snapWalk(spRef.x, spRef.z);
+      this.spawn = spawn;
+      // 藍圖小徑折線轉為泥土路段落
+      for (const tr of bp.trails || []) {
+        for (let ti = 0; ti < tr.length - 1; ti++) {
+          paths.push([uvToWorld(tr[ti][0], tr[ti][1], this.half), uvToWorld(tr[ti + 1][0], tr[ti + 1][1], this.half)]);
+        }
+      }
+      this.T = T;
+    } else {
+      for (let j = 0; j < GW; j++) for (let i = 0; i < GW; i++) {
+        const x = -this.half + i * this.res, z = -this.half + j * this.res, k = j * GW + i;
+        const rr = Math.hypot(x * ax, z * az) / R + (N.fbm(x * 0.07 + so, z * 0.07) - 0.5) * nAmp;
+        RR[k] = rr;
+        let t = rr < 1 ? 1 : 0;
+        const dc = Math.hypot(x, z);
+        if (t === 1 && dc > 6.5 && !opts.town) {
+          const p = N.fbm(x * 0.1 + 50 + so, z * 0.1 + 50);
+          const edge = smooth(0.72, 0.95, rr) * 0.22;
+          const v = p + edge - (opts.boss ? 0.12 : 0);
+          if (v > 0.6) t = 2;
+          if (v > 0.72) t = 3;
+        }
+        // 燈谷鎮：北半部環抱的橫紋岩壁（山谷港鎮），北門留缺口
+        if (t === 1 && opts.town && z < 5) {
+          const gap = Math.abs(x) < 3.8 && z < -9;
+          const rim = rr + (N.fbm(x * 0.18 + 21, z * 0.18) - 0.5) * 0.06 + Math.max(0, z) * 0.012;
+          if (!gap && rim > 0.79) t = 2;
+          if (!gap && rim > 0.88 && z < -2) t = 3;
+        }
+        T[k] = t;
+      }
+      const floodWalk = () => {
+        walk.fill(0);
+        let start = -1, best = 1e9;
+        for (let k = 0; k < GW * GW; k++) if (T[k] === 1 && RR[k] < 0.94) {
+          const i = k % GW, j = (k / GW) | 0;
+          const d = Math.hypot(i - GW / 2, j - GW / 2);
+          if (d < best) { best = d; start = k; }
+        }
+        const q = [start]; walk[start] = 1;
+        while (q.length) {
+          const k = q.pop(); const i = k % GW, j = (k / GW) | 0;
+          for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            const ni = i + di, nj = j + dj; if (ni < 1 || nj < 1 || ni >= GW - 1 || nj >= GW - 1) continue;
+            const nk = nj * GW + ni;
+            if (!walk[nk] && T[nk] === 1 && RR[nk] < 0.94) { walk[nk] = 1; q.push(nk); }
+          }
+        }
+        // erode walk 1 cell next to cliffs so the player doesn't clip into walls
+        const w2 = walk.slice();
+        for (let j = 1; j < GW - 1; j++) for (let i = 1; i < GW - 1; i++) {
+          const k = j * GW + i; if (!walk[k]) continue;
+          if (T[k + 1] >= 2 || T[k - 1] >= 2 || T[k + GW] >= 2 || T[k - GW] >= 2) w2[k] = 0;
+        }
+        walk.set(w2);
+      };
+      floodWalk();
+
+      // dirt paths: centre -> exits
+      const exitCount = opts.exitCount ?? 2;
+      {
+        const cands = [];
+        for (let k = 0; k < GW * GW; k++) if (walk[k]) {
+          const i = k % GW, j = (k / GW) | 0, x = -this.half + i * this.res, z = -this.half + j * this.res;
+          const d = Math.hypot(x, z);
+          let ok = true;
+          for (let dj = -3; dj <= 3 && ok; dj++) for (let di = -3; di <= 3; di++) {
+            const nk = (j + dj) * GW + (i + di); if (!walk[nk]) { ok = false; break; }
+          }
+          if (ok && d > 9 && z < 4) cands.push({ x, z, d, a: Math.atan2(z, x) });
+        }
+        if (opts.cardinalExits && exitCount >= 2) {
+          const pickNear = (tx, tz) => {
+            let best = null, bd = 1e9;
+            for (const c of cands) {
+              if (exits.some(e => Math.hypot(e.x - c.x, e.z - c.z) < 12)) continue;
+              const d = Math.hypot(c.x - tx, c.z - tz);
+              if (d < bd) { bd = d; best = c; }
+            }
+            return best;
+          };
+          const R0 = R * 0.72;
+          const nEx = pickNear(0, -R0) || cands[0]; if (nEx) exits.push({ ...nEx, dir: 'north' });
+          const sEx = pickNear(0, R0 * 0.85) || cands[1]; if (sEx) exits.push({ ...sEx, dir: 'south' });
+          if (exitCount >= 3) { const eEx = pickNear(R0, 0) || cands[2]; if (eEx) exits.push({ ...eEx, dir: 'east' }); }
+        } else {
+          if (opts.town) cands.sort((a, b) => Math.hypot(a.x, a.z + 18) - Math.hypot(b.x, b.z + 18)); else cands.sort((a, b) => b.d - a.d);
+          for (const c of cands) {
+            if (exits.length >= exitCount) break;
+            if (exits.every(e => Math.hypot(e.x - c.x, e.z - c.z) > 9)) exits.push(c);
+          }
+        }
+        if (exits.length === 0 && exitCount > 0) exits.push({ x: 0, z: -6, dir: 'north' });
+      }
+      this.exits = exits;
+      { let bd = 1e9; for (let k = 0; k < GW * GW; k++) if (walk[k]) {
+        const x = -this.half + (k % GW) * this.res, z = -this.half + ((k / GW) | 0) * this.res;
+        const d = Math.hypot(x, z - 5); if (d < bd) { bd = d; spawn = { x, z }; } } }
+      this.spawn = spawn;
+      paths = exits.map(e => [spawn, e]);
+
+      // carve guaranteed wide corridors spawn -> exits (fixes pinched/blocked routes), then re-flood
+      for (let k = 0; k < GW * GW; k++) {
+        if (RR[k] > 0.95 || T[k] === 1) continue;
+        const x = -this.half + (k % GW) * this.res, z = -this.half + ((k / GW) | 0) * this.res;
+        let dp = 9; for (const [p0, p1] of paths) dp = Math.min(dp, distSeg(x, z, p0, p1));
+        if (dp < 2.1) T[k] = 1;
+      }
+      floodWalk();
+      this.T = T;
+      // heights
+      for (let k = 0; k < GW * GW; k++) {
+        const i = k % GW, j = (k / GW) | 0, x = -this.half + i * this.res, z = -this.half + j * this.res;
+        const t = T[k], rr = RR[k];
+        const nz = N.n2(x * 0.6, z * 0.6);
+        if (t === 0 || t === 1) {
+          const base = 0.04 * nz;
+          H[k] = lerp(-1.5, base, smooth(1.08, 0.97, rr));
+        } else if (t === 2) H[k] = 1.5 + nz * 0.2;
+        else H[k] = 2.7 + nz * 0.25;
+      }
     }
 
     // ---------- terrain mesh (fine flat-shaded grid + smooth path feathering) ----------
@@ -435,6 +569,8 @@ export class World {
     const C = (h) => new THREE.Color(h);
     const cGrass = C(P.grass), cGL = C(P.grassLight), cGD = C(P.grassDark), cPl = C(P.plateau),
       cSand = C(P.sand), cWet = C(P.sandWet), cDirt = C(P.dirt), cRock = C(P.rock), cRD = C(P.rockDark);
+    const cShallow = bp?.shallowColor ? C(bp.shallowColor) : C(0x4dbbd8);
+    const cRuin = C(0xb8b0a0);
     const tmp = new THREE.Color();
     const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), n = new THREE.Vector3();
     const pushTri = (k0, k1, k2) => {
@@ -442,7 +578,14 @@ export class World {
       n.subVectors(c, b).cross(new THREE.Vector3().subVectors(a, b)).normalize();
       const cx = (a.x + b.x + c.x) / 3, cy = (a.y + b.y + c.y) / 3, cz = (a.z + b.z + c.z) / 3;
       const rr = (RR[k0] + RR[k1] + RR[k2]) / 3;
-      if (n.y < 0.6) {
+      const bpc = this.bpCell ? Math.max(this.bpCell[k0], this.bpCell[k1], this.bpCell[k2]) : 0;
+      const isShallow = this.bpCell && (this.bpCell[k0] === 1 && this.bpCell[k1] === 1 && this.bpCell[k2] === 1);
+      if (this.bpCell && bpc === 5) {
+        tmp.copy(cRuin);
+      } else if (isShallow) {
+        tmp.copy(cShallow);
+        if (N.n2(cx * 0.45, cz * 0.45) > 0.62) tmp.lerp(C(0xdcf6ff), 0.25);
+      } else if (n.y < 0.6) {
         const band = Math.floor(cy * 2.6 + N.n2(cx * 0.8, cz * 0.8) * 1.6) % 2;
         tmp.copy(band ? cRock : cRD);
         if (N.n2(cx * 2.1, cy * 3.1 + cz) > 0.72) tmp.lerp(cRD, 0.5);
@@ -562,16 +705,18 @@ export class World {
 
     const areaScale = Math.max(1, (this.half / 30) * 1.4);
     const propTries = Math.min(6800, Math.round(2600 * areaScale));
-    const treeRate = opts.size >= 200 ? 0.055 : 0.03;
+    const treeRate = bp ? (bp.family === 'open' ? 0.018 : bp.family === 'linear' ? 0.028 : 0.026) : (opts.size >= 200 ? 0.055 : 0.03);
     for (let tries = 0; tries < propTries; tries++) {
       const x = rand(r, -this.half + 1, this.half - 1), z = rand(r, -this.half + 1, this.half - 1);
       const k = this.idx(x, z); if (k < 0) continue;
       const t = T[k], y = H[k], rr = RR[k];
+      if (this.bpCell && (this.bpCell[k] === 1 || this.bpCell[k] === 5)) continue;
       if (t >= 2) {
         // dense canopy on plateaus — only on flat tops
         const kk = [k + 1, k - 1, k + GW, k - GW, k + 2, k - 2, k + 2 * GW, k - 2 * GW];
         if (kk.some(q2 => T[q2] !== t)) continue;
-        if (r() < 0.5) {
+        const plateauTreeChance = bp?.family === 'open' ? 0.16 : bp ? 0.24 : 0.5;
+        if (r() < plateauTreeChance) {
           const s = 0.75 + r() * 0.65;
           const isPine = r() < pineBias;
           if (isPine) pines[Math.floor(r() * 2)].push({ x, y, z, s, ry: r() * 6 });
@@ -607,10 +752,13 @@ export class World {
     }
     // 聚落式森林群組（Art-directed Forest Groves：每群 4~7 棵樹＋白樺楓紅點綴＋林下灌木與野花，消除空曠感）
     if (!opts.town && !opts.raid) {
-      const groveCount = Math.min(54, Math.round(9 * areaScale));
+      const groveCount = bp
+        ? (bp.family === 'open' ? 10 : bp.family === 'linear' ? 14 : 12)
+        : Math.min(54, Math.round(9 * areaScale));
       for (let g = 0; g < groveCount; g++) {
         const gx = rand(r, -this.half + 5, this.half - 5), gz = rand(r, -this.half + 5, this.half - 5);
         const gk = this.idx(gx, gz); if (gk < 0 || !walk[gk]) continue;
+        if (this.bpCell && this.bpCell[gk] === 1) continue;
         if (nearExitOrSpawn(gx, gz, 9) || nearPath(gx, gz, 4.5)) continue;
         const cnt = 4 + Math.floor(r() * 4);
         for (let m = 0; m < cnt; m++) {
@@ -686,11 +834,85 @@ export class World {
       this.group.add(lm);
     }
     this.T = T; this.RR = RR;
-    for (let k = 0; k < GW * GW; k++) this.land[k] = (T[k] >= 1 && RR[k] < 0.96) ? 1 : 0;
+    for (let k = 0; k < GW * GW; k++) this.land[k] = (T[k] >= 1 && RR[k] < 0.96 && (!this.bpCell || this.bpCell[k] !== 5)) ? 1 : 0;
     this.paths = paths;
+    if (bp) this.buildBlueprintBridges(bp);
     this.buildShoreBuoys(r, opts.town ? 6 : 10);
     if (!opts.town && !opts.raid && (opts.size || 60) >= 120) this.buildScenicLandmarks(P, r, spawn, exits, paths);
     return { spawn, exits };
+  }
+
+  // v5 藍圖跨谷橋梁／獨木冰橋／懸空繩橋（附帶微拱可步行碰撞與敵人尋路連通）
+  buildBlueprintBridges(bp) {
+    const style = bp.bridgeStyle || 'wood';
+    const deckCol = style === 'ice_log' ? 0x9cd6f0 : style === 'rope' ? 0xb47b48 : 0xc88d52;
+    const postCol = style === 'ice_log' ? 0x6ea6c8 : 0x6b452c;
+    const railCol = style === 'rope' ? 0xe6cf9a : 0x8c5a36;
+    const sampleLandY = (x, z) => {
+      const k = this.idx(x, z);
+      if (k >= 0 && this.height[k] > -0.25) return this.height[k];
+      return 0.16;
+    };
+    for (const seg of bp.bridges || []) {
+      const p0 = uvToWorld(seg[0], seg[1], this.half);
+      const p1 = uvToWorld(seg[2], seg[3], this.half);
+      const dx = p1.x - p0.x, dz = p1.z - p0.z;
+      const rawLen = Math.hypot(dx, dz);
+      if (rawLen < 1) continue;
+      const ux = dx / rawLen, uz = dz / rawLen;
+      // 兩端略微延伸進陸地 2.2m 確保順暢上下橋
+      const x0 = p0.x - ux * 2.2, z0 = p0.z - uz * 2.2;
+      const x1 = p1.x + ux * 2.2, z1 = p1.z + uz * 2.2;
+      const y0 = Math.max(0.12, sampleLandY(x0, z0)) + 0.12;
+      const y1 = Math.max(0.12, sampleLandY(x1, z1)) + 0.12;
+      const len = Math.hypot(x1 - x0, z1 - z0);
+      const ang = Math.atan2(x1 - x0, z1 - z0);
+      const arch = style === 'rope' ? 0.55 : 0.42;
+      const hw = style === 'ice_log' ? 1.55 : 1.95;
+
+      this.bridges.push({ x0, z0, y0, x1, z1, y1, hw, arch });
+
+      // 標記橋面下對應的 land[] 格子，使敵人 flowField 可順利過橋
+      const steps = Math.ceil(len / (this.res * 0.6));
+      for (let s = 0; s <= steps; s++) {
+        const t = s / steps;
+        const bx = lerp(x0, x1, t), bz = lerp(z0, z1, t);
+        for (let ox = -1; ox <= 1; ox++) {
+          for (let oz = -1; oz <= 1; oz++) {
+            const k = this.idx(bx + ox * this.res, bz + oz * this.res);
+            if (k >= 0) this.land[k] = 1;
+          }
+        }
+      }
+
+      // 建立微拱 3D 木板橋／繩橋模型
+      const grp = new THREE.Group();
+      const planks = Math.max(6, Math.ceil(len / 0.85));
+      const parts = [];
+      for (let i = 0; i <= planks; i++) {
+        const t = i / planks;
+        const px = lerp(x0, x1, t), pz = lerp(z0, z1, t);
+        const py = lerp(y0, y1, t) + Math.sin(t * Math.PI) * arch;
+        const pGeo = new THREE.BoxGeometry(hw * 1.92, 0.22, 0.68);
+        parts.push(part(pGeo, i % 2 ? deckCol : (style === 'ice_log' ? 0xb4e4fa : 0xb57b42), px, py - 0.08, pz, 0, ang, 0));
+        if (i % 3 === 0 || i === planks) {
+          const rx = Math.cos(ang) * (hw * 0.92), rz = -Math.sin(ang) * (hw * 0.92);
+          parts.push(part(new THREE.BoxGeometry(0.18, 1.05, 0.18), postCol, px + rx, py + 0.42, pz + rz, 0, ang, 0));
+          parts.push(part(new THREE.BoxGeometry(0.18, 1.05, 0.18), postCol, px - rx, py + 0.42, pz - rz, 0, ang, 0));
+        }
+      }
+      // 兩側長扶手／繩索
+      const midX = (x0 + x1) * 0.5, midZ = (z0 + z1) * 0.5, midY = (y0 + y1) * 0.5 + arch * 0.72 + 0.78;
+      const pitch = Math.atan2(y1 - y0, len);
+      const rx = Math.cos(ang) * (hw * 0.92), rz = -Math.sin(ang) * (hw * 0.92);
+      parts.push(part(new THREE.BoxGeometry(0.12, 0.12, len), railCol, midX + rx, midY, midZ + rz, -pitch, ang, 0));
+      parts.push(part(new THREE.BoxGeometry(0.12, 0.12, len), railCol, midX - rx, midY, midZ - rz, -pitch, ang, 0));
+
+      const mesh = new THREE.Mesh(mergeGeometries(parts), toonMat({ vertexColors: true }));
+      mesh.castShadow = true; mesh.receiveShadow = true;
+      grp.add(mesh);
+      this.group.add(grp);
+    }
   }
 
   // 多層次特別景觀建築與自然地標：巨樹、巨石、遺跡八角噴泉石柱、木造瞭望塔、海岸遮陽傘與林間營地

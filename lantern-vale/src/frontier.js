@@ -1,5 +1,9 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { BIOMES, mulberry32 } from './util.js';
+import { toonMat, part } from './world.js';
+import { attachLandmarkGlb } from './assets.js';
+import { FIELD_BLUEPRINTS, uvToWorld } from './field_blueprints.js';
 import { makeItem, serializeItem, deserializeItem } from './loot.js';
 import { ALL_GEMS, addGemToBag } from './puzzle.js';
 import { spawnSkyFeatures, startGatherMini, openHighChest, FIELD_NPCS } from './world_alive.js';
@@ -95,6 +99,15 @@ function marker(kind) {
     crystal.position.y = 2.55; group.add(crystal);
     const ring = new THREE.Mesh(new THREE.RingGeometry(0.95, 1.25, 18), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.65, side: THREE.DoubleSide, depthWrite: false }));
     ring.rotation.x = -Math.PI / 2; ring.position.y = 0.08; ring.userData.noNormal = true; group.add(ring);
+  } else if (kind === 'checkpoint') {
+    part(new THREE.CylinderGeometry(1.15, 1.35, 0.28, 8), 0x8d95a0, 0.14);
+    part(new THREE.CylinderGeometry(0.65, 0.8, 0.36, 8), 0xb8c4d0, 0.42);
+    const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(0.46, 0), new THREE.MeshBasicMaterial({ color: 0x38d0ff }));
+    crystal.position.y = 1.65; group.add(crystal);
+    const ring = new THREE.Mesh(new THREE.RingGeometry(1.25, 1.65, 22), new THREE.MeshBasicMaterial({ color: 0x38d0ff, transparent: true, opacity: 0.72, side: THREE.DoubleSide, depthWrite: false }));
+    ring.rotation.x = -Math.PI / 2; ring.position.y = 0.08; ring.userData.noNormal = true; group.add(ring);
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.36, 7.5, 8, 1, true), new THREE.MeshBasicMaterial({ color: 0x52dcff, transparent: true, opacity: 0.22, depthWrite: false, blending: THREE.AdditiveBlending }));
+    beam.position.y = 4.0; beam.userData.noNormal = true; group.add(beam);
   } else {
     part(new THREE.BoxGeometry(.95,1.3,.42),0x76767b,.65);
     part(new THREE.OctahedronGeometry(.28),0xffd268,1.55);
@@ -106,28 +119,203 @@ function addSpot(g, kind, label, x, z) {
   mesh.position.set(x, g.world.gh(x,z), z); g.world.group.add(mesh);
   g.spots.push({ kind, label, x, z, mesh, top: mesh.position.y + 2 });
 }
+function buildBlueprintLandmarks(g, bp) {
+  const grp = new THREE.Group();
+  const half = g.world.half;
+  g.spinners = [];
+  const place = (obj, x, z, obstR = 0) => {
+    const y = g.world.gh(x, z);
+    obj.position.set(x, y, z);
+    grp.add(obj);
+    if (obstR > 0) g.world.obstacles.push({ x, z, r: obstR, h: y });
+    return obj;
+  };
+  const placeGlb = (key, x, z, fallbackObj, opts = {}, obstR = 0) => {
+    const holder = new THREE.Group();
+    place(holder, x, z, obstR);
+    attachLandmarkGlb(holder, key, fallbackObj, opts);
+    return holder;
+  };
+
+  for (const poi of bp.pois || []) {
+    const pos = uvToWorld(poi.x, poi.y, half);
+    // 副本地城入口：統一加上低面立體岩洞拱門（4130）
+    if (poi.k === 'dungeon') {
+      placeGlb('cave_arch', pos.x, pos.z - 4.2, null, { scale: 1.15, rotY: 0, yOffset: -0.25 }, 0);
+    }
+    if (!poi.landmark) continue;
+    if (poi.landmark === 'teapot_hill') {
+      // #01 東北高丘：巨型溫暖陶瓷茶壺屋＋紅白蘑菇群＋4167 巨石陣環繞前庭
+      const teapot = new THREE.Mesh(mergeGeometries([
+        part(new THREE.SphereGeometry(4.2, 12, 8), 0xf3e4c8, 0, 3.2, 0),
+        part(new THREE.CylinderGeometry(2.6, 3.2, 0.8, 10), 0xd85a42, 0, 6.9, 0),
+        part(new THREE.SphereGeometry(0.75, 8, 6), 0xffd268, 0, 7.6, 0),
+        part(new THREE.CylinderGeometry(0.55, 0.95, 3.6, 7), 0xf3e4c8, 4.3, 3.6, 0, 0, 0, -0.75),
+        part(new THREE.TorusGeometry(1.9, 0.42, 6, 12, Math.PI), 0xd85a42, -3.9, 3.4, 0, 0, 0, Math.PI / 2),
+        part(new THREE.BoxGeometry(1.5, 2.2, 0.4), 0x7c4c30, 0, 1.1, 3.85),
+        part(new THREE.CylinderGeometry(0.45, 0.65, 2.2, 6), 0xfff0d4, -5.8, 1.1, 3.2),
+        part(new THREE.SphereGeometry(1.65, 9, 5, 0, Math.PI * 2, 0, Math.PI / 2), 0xe24a3c, -5.8, 2.1, 3.2),
+        part(new THREE.CylinderGeometry(0.32, 0.45, 1.5, 6), 0xfff0d4, 5.2, 0.75, 2.8),
+        part(new THREE.SphereGeometry(1.15, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2), 0xe86248, 5.2, 1.45, 2.8),
+      ]), toonMat({ vertexColors: true }));
+      teapot.castShadow = true; teapot.receiveShadow = true;
+      place(teapot, pos.x, pos.z, 4.3);
+      placeGlb('stonehenge', pos.x - 11.2, pos.z + 6.5, null, { scale: 1.0, rotY: 0.35, yOffset: -0.15 }, 2.2);
+      placeGlb('stonehenge', pos.x + 10.8, pos.z + 7.2, null, { scale: 0.95, rotY: -0.45, yOffset: -0.15 }, 2.0);
+    } else if (poi.landmark === 'cable_summit') {
+      // #04 西北雪峰站：4137 雪頂瞭望纜車塔＋雪山木屋站＋橘白滑雪旗門
+      const fallbackStation = new THREE.Mesh(mergeGeometries([
+        part(new THREE.BoxGeometry(5.6, 3.4, 4.2), 0x8f5d3c, 0, 1.7, 0),
+        part(new THREE.ConeGeometry(4.4, 2.3, 4), 0xf2f7fc, 0, 4.4, 0, 0, Math.PI / 4, 0),
+      ]), toonMat({ vertexColors: true }));
+      placeGlb('snow_tower', pos.x, pos.z, fallbackStation, { scale: 1.05, rotY: 0.35, yOffset: -0.15 }, 2.8);
+      placeGlb('snow_house', pos.x - 7.0, pos.z + 3.2, null, { scale: 1.05, rotY: 0.6, yOffset: -0.15 }, 2.6);
+      // 橘白滑雪道出發旗門
+      const gate = new THREE.Mesh(mergeGeometries([
+        part(new THREE.CylinderGeometry(0.12, 0.12, 3.0, 5), 0xff6a38, -3.5, 1.5, 0),
+        part(new THREE.CylinderGeometry(0.12, 0.12, 3.0, 5), 0xff6a38, 3.5, 1.5, 0),
+        part(new THREE.BoxGeometry(7.3, 0.65, 0.14), 0xff6a38, 0, 2.7, 0),
+      ]), toonMat({ vertexColors: true }));
+      gate.castShadow = true;
+      place(gate, pos.x + 5.2, pos.z + 5.4, 0);
+    } else if (poi.landmark === 'ice_spires') {
+      // #04 東北：4130 清透淡冰藍晶尖塔群環繞寒霜冰窟
+      const offsets = [[-6.5, -2.5, 1.2, 0.3], [6.5, -2.0, 1.1, 1.4], [-5.0, 4.5, 0.85, 2.2], [5.2, 4.2, 0.95, -0.8]];
+      for (const [ox, oz, sc, ry] of offsets) {
+        const fb = new THREE.Mesh(new THREE.ConeGeometry(1.4 * sc, 6.2 * sc, 5), toonMat({ color: 0x9ceeff }));
+        fb.position.y = 3.1 * sc;
+        placeGlb('ice_crystal', pos.x + ox, pos.z + oz, fb, { scale: sc, rotY: ry, yOffset: -0.2, flatTint: 0xa4ecff, emissive: 0x3b8ec4, emissiveIntensity: 0.42 }, 1.5);
+      }
+    } else if (poi.landmark === 'snow_cabin') {
+      // #04 西側裂谷雪屋（4137 雪地木屋實模）
+      const fb = new THREE.Mesh(mergeGeometries([
+        part(new THREE.BoxGeometry(3.8, 2.4, 3.2), 0x9b6b46, 0, 1.2, 0),
+        part(new THREE.ConeGeometry(3.1, 1.9, 4), 0xf4f9ff, 0, 3.2, 0, 0, Math.PI / 4, 0),
+      ]), toonMat({ vertexColors: true }));
+      placeGlb('snow_house', pos.x, pos.z, fb, { scale: 1.05, rotY: 0.45, yOffset: -0.15 }, 2.6);
+    } else if (poi.landmark === 'cliff_lighthouse') {
+      // #07 東側巨崖：4379 浮空島紅白相間燈塔＋守塔海島木屋（提亮 Pixel-Toon）
+      const fbTower = new THREE.Mesh(mergeGeometries([
+        part(new THREE.CylinderGeometry(1.3, 2.1, 3.2, 10), 0xfff4e2, 0, 1.6, 0),
+        part(new THREE.CylinderGeometry(1.15, 1.3, 2.6, 10), 0xdc4438, 0, 4.5, 0),
+        part(new THREE.CylinderGeometry(1.0, 1.15, 2.6, 10), 0xfff4e2, 0, 7.1, 0),
+        part(new THREE.ConeGeometry(1.35, 1.5, 10), 0xdc4438, 0, 9.4, 0),
+      ]), toonMat({ vertexColors: true }));
+      placeGlb('lighthouse', pos.x, pos.z, fbTower, { scale: 1.05, rotY: -0.4, yOffset: -0.2, emissive: 0x4a4236, emissiveIntensity: 0.42 }, 2.6);
+      placeGlb('island_house', pos.x - 7.0, pos.z + 4.4, null, { scale: 1.0, rotY: 0.55, yOffset: -0.15, emissive: 0x463e34, emissiveIntensity: 0.40 }, 2.6);
+    } else if (poi.landmark === 'star_aqueduct') {
+      // #07 北端星穹斷柱水道：4167 巨石陣門柱
+      placeGlb('stonehenge', pos.x - 6.0, pos.z + 2.5, null, { scale: 1.1, rotY: 0.2, yOffset: -0.15 }, 2.0);
+      placeGlb('stonehenge', pos.x + 6.0, pos.z + 2.5, null, { scale: 1.1, rotY: -0.2, yOffset: -0.15 }, 2.0);
+    }
+  }
+
+  // 首批三張圖的起點迎賓地標（讓玩家一進入地圖就看見高辨識度 3D 實模！）
+  if (bp.id === 1) {
+    // #01 西南風車南瓜農莊（4137 直立木石風車塔＋動態旋轉四翼大扇葉＋農舍木屋＋南瓜田）
+    const farmPos = uvToWorld(0.24, 0.74, half);
+    const millRig = new THREE.Group();
+    const millY = g.world.gh(farmPos.x, farmPos.z);
+    millRig.position.set(farmPos.x, millY, farmPos.z);
+    millRig.rotation.y = 0.28;
+    grp.add(millRig);
+    g.world.obstacles.push({ x: farmPos.x, z: farmPos.z, r: 3.0, h: millY });
+
+    const fbFarm = new THREE.Mesh(mergeGeometries([
+      part(new THREE.CylinderGeometry(1.5, 2.3, 6.2, 8), 0xf5e8d0, 0, 3.1, 0),
+      part(new THREE.ConeGeometry(2.1, 2.1, 8), 0xd85842, 0, 7.2, 0),
+    ]), toonMat({ vertexColors: true }));
+    attachLandmarkGlb(millRig, 'windmill', fbFarm, { scale: 1.0, yOffset: -0.2 });
+
+    // 直立旋轉四翼扇葉掛載於風車塔正面
+    const bladeHub = new THREE.Group();
+    bladeHub.position.set(0, 6.4, 2.35);
+    millRig.add(bladeHub);
+    attachLandmarkGlb(bladeHub, 'windmill_blades', null, { scale: 1.0 });
+    g.spinners.push({ obj: bladeHub, axis: 'z', speed: -0.55 });
+
+    placeGlb('cottage', farmPos.x - 9.0, farmPos.z + 6.8, null, { scale: 1.0, rotY: 0.8, yOffset: -0.15 }, 2.8);
+    // 南瓜田
+    const pumpkins = new THREE.Mesh(mergeGeometries([
+      part(new THREE.SphereGeometry(0.6, 7, 5), 0xf08228, 4.4, 0.48, 2.4),
+      part(new THREE.SphereGeometry(0.5, 7, 5), 0xe86c20, 5.5, 0.40, 3.2),
+      part(new THREE.SphereGeometry(0.55, 7, 5), 0xf59234, 4.0, 0.44, 3.9),
+      part(new THREE.SphereGeometry(0.48, 7, 5), 0xeb7624, 6.2, 0.38, 2.2),
+    ]), toonMat({ vertexColors: true }));
+    pumpkins.castShadow = true;
+    place(pumpkins, farmPos.x, farmPos.z, 0);
+  } else if (bp.id === 4) {
+    // #04 南坡雪營起點旁：雪山木屋＋淡冰晶標誌
+    const campPos = uvToWorld(0.18, 0.78, half);
+    placeGlb('snow_house', campPos.x, campPos.z, null, { scale: 1.0, rotY: -0.5, yOffset: -0.15 }, 2.6);
+    placeGlb('ice_crystal', campPos.x + 6.5, campPos.z - 4.0, null, { scale: 0.75, rotY: 0.4, yOffset: -0.15, flatTint: 0xa4ecff, emissive: 0x3b8ec4, emissiveIntensity: 0.42 }, 1.2);
+  } else if (bp.id === 7) {
+    // #07 南島浮空碼頭起點：4379 浮空島木屋＋4167 古石陣
+    const dockPos = uvToWorld(0.19, 0.82, half);
+    placeGlb('island_house', dockPos.x, dockPos.z, null, { scale: 0.95, rotY: -0.5, yOffset: -0.15, emissive: 0x463e34, emissiveIntensity: 0.40 }, 2.5);
+    placeGlb('stonehenge', dockPos.x - 6.8, dockPos.z - 3.0, null, { scale: 0.85, rotY: 0.5, yOffset: -0.15 }, 1.8);
+  }
+  g.world.group.add(grp);
+}
+
 export function setupField(g, restored = false) {
   const f = FIELDS[g.field], r = mulberry32(919 + g.field);
+  const bp = FIELD_BLUEPRINTS[g.field] || null;
   // 記錄已探索區域（供坐騎里程碑解鎖判定）
   g.meta.p.visitedFields = g.meta.p.visitedFields || [];
   if (!g.meta.p.visitedFields.includes(g.field)) { g.meta.p.visitedFields.push(g.field); g.meta.save(); }
-  // 高密度刷怪爽感：9–13 個魔物聚落（每群 5–8 隻＋精英頭領，總計 55–95 隻魔物！）
-  const campCount = f.size >= 360 ? 13 : f.size >= 300 ? 11 : 9;
+  // 高密度刷怪爽感：依藍圖聚落或面積生成 55–95 隻魔物
   const spawns = [];
-  for (let c = 0; c < campCount; c++) {
-    const center = g.world.randomWalkable(r, g.player.pos, 12);
-    const packSize = 5 + Math.floor(r() * 4);
-    for (let k = 0; k < packSize; k++) {
-      const ang = (k / packSize) * Math.PI * 2 + r() * 0.55;
-      const dist = k === 0 ? 0 : 1.8 + r() * 3.8;
-      const px = center.x + Math.cos(ang) * dist, pz = center.z + Math.sin(ang) * dist;
-      const valid = g.world.isLand(px, pz) ? { x: px, z: pz } : center;
-      spawns.push({ ...valid, campLeader: k === 0, dense: true });
+  if (bp) {
+    for (const [cu, cv] of bp.camps || []) {
+      const w = uvToWorld(cu, cv, g.world.half);
+      const center = g.world.isLand(w.x, w.z) ? w : g.world.randomWalkable(r, g.player.pos, 12);
+      const packSize = 6 + Math.floor(r() * 3);
+      for (let k = 0; k < packSize; k++) {
+        const ang = (k / packSize) * Math.PI * 2 + r() * 0.55;
+        const dist = k === 0 ? 0 : 2.0 + r() * 4.2;
+        const px = center.x + Math.cos(ang) * dist, pz = center.z + Math.sin(ang) * dist;
+        const valid = g.world.isLand(px, pz) ? { x: px, z: pz } : center;
+        spawns.push({ ...valid, campLeader: k === 0, dense: true });
+      }
     }
+    const bossPoi = (bp.pois || []).find(p => p.k === 'boss');
+    const bossW = bossPoi ? uvToWorld(bossPoi.x, bossPoi.y, g.world.half) : g.world.randomWalkable(r, g.player.pos, 26);
+    spawns.push({ ...(g.world.isLand(bossW.x, bossW.z) ? bossW : g.world.randomWalkable(r, g.player.pos, 26)), legendary: true });
+  } else {
+    const campCount = f.size >= 360 ? 13 : f.size >= 300 ? 11 : 9;
+    for (let c = 0; c < campCount; c++) {
+      const center = g.world.randomWalkable(r, g.player.pos, 12);
+      const packSize = 5 + Math.floor(r() * 4);
+      for (let k = 0; k < packSize; k++) {
+        const ang = (k / packSize) * Math.PI * 2 + r() * 0.55;
+        const dist = k === 0 ? 0 : 1.8 + r() * 3.8;
+        const px = center.x + Math.cos(ang) * dist, pz = center.z + Math.sin(ang) * dist;
+        const valid = g.world.isLand(px, pz) ? { x: px, z: pz } : center;
+        spawns.push({ ...valid, campLeader: k === 0, dense: true });
+      }
+    }
+    for (let s = 0; s < 8; s++) spawns.push({ ...g.world.randomWalkable(r, g.player.pos, 11), campLeader: false });
+    spawns.push({ ...g.world.randomWalkable(r, g.player.pos, 26), legendary: true });
   }
-  for (let s = 0; s < 8; s++) spawns.push({ ...g.world.randomWalkable(r, g.player.pos, 11), campLeader: false });
-  spawns.push({ ...g.world.randomWalkable(r, g.player.pos, 26), legendary: true });
   g.fieldSpawns = spawns;
+
+  // v5 藍光傳送檢查點（消除回頭路）
+  g.checkpoints = [];
+  if (bp?.checkpoints?.length) {
+    bp.checkpoints.forEach(([cu, cv, cpName], idx) => {
+      const w = uvToWorld(cu, cv, g.world.half);
+      const pt = g.world.isLand(w.x, w.z) ? w : g.world.randomWalkable(r, g.player.pos, 8);
+      const mesh = marker('checkpoint');
+      const y = g.world.gh(pt.x, pt.z);
+      mesh.position.set(pt.x, y, pt.z);
+      g.world.group.add(mesh);
+      const cp = { idx, name: cpName || `檢查點 ${idx + 1}`, x: pt.x, z: pt.z, y, unlocked: idx === 0, mesh };
+      g.checkpoints.push(cp);
+      g.spots.push({ kind: 'checkpoint', cpIdx: idx, label: `🔵 傳送檢查點 · ${cp.name}（[F] 瞬移）`, x: pt.x, z: pt.z, top: y + 2.4, mesh });
+    });
+  }
+
   for (const kind of Object.keys(GOODS)) {
     const count = f.size >= 320 ? 5 : 3;
     for (let n = 0; n < count; n++) {
@@ -149,9 +337,15 @@ export function setupField(g, restored = false) {
   const grave = g.meta.p.graves[g.field];
   if (grave) addSpot(g,'grave','取回墓碑素材',grave.x,grave.z);
   spawnSkyFeatures(g);
-  buildZoneLandmarks(g);
+  if (bp) buildBlueprintLandmarks(g, bp);
+  else buildZoneLandmarks(g);
   g.fieldClock = restored ? 1 : 0; g.dueling = false;
-  g.ui.banner(f.name, restored ? '【常駐區域 · 已延續先前探索進度】' : `【常駐超大地圖】Lv.${f.level}+ · ${spawns.length} 隻魔物聚落出沒`);
+  const sub = restored
+    ? '【常駐區域 · 已延續先前探索進度】'
+    : bp
+      ? `【v5 藍圖 · ${bp.planSize}】Lv.${f.level}+ · ${spawns.length} 隻魔物 · ${g.checkpoints.length} 座藍光檢查點`
+      : `【常駐超大地圖】Lv.${f.level}+ · ${spawns.length} 隻魔物聚落出沒`;
+  g.ui.banner(f.name, sub);
 }
 export function tickField(g, dt) {
   g.fieldClock -= dt;
@@ -177,9 +371,40 @@ export function tickField(g, dt) {
     if (legendary) g.ui.bossBar(true, f.name + '守護獸');
   });
   for (const spot of g.spots) if (GOODS[spot.kind]) spot.mesh.visible = !(g.meta.p.timers[g.field + ':' + spot.kind] > now);
+  // 自動解鎖靠近的藍光傳送檢查點
+  for (const cp of g.checkpoints || []) {
+    if (!cp.unlocked && Math.hypot(g.player.pos.x - cp.x, g.player.pos.z - cp.z) < 7.0) {
+      cp.unlocked = true;
+      g.audio?.sfx?.('win');
+      g.fx?.burst?.(cp.x, cp.y + 1.5, cp.z, 20, { c: [0x38d0ff, 0xffffff, 0x9cf2ff], s: 0.14, speed: 5, up: 4, life: 0.65 });
+      g.ui?.toast?.(`🔵 已解鎖傳送檢查點：${cp.name}`, '#6ae8ff');
+    }
+  }
 }
 export function useFieldSpot(g,s) {
   const p = g.meta.p;
+  if (s.kind === 'checkpoint') {
+    const cps = g.checkpoints || [];
+    const cur = cps[s.cpIdx];
+    if (cur && !cur.unlocked) cur.unlocked = true;
+    const unlocked = cps.filter(c => c.unlocked);
+    if (unlocked.length <= 1) {
+      g.heal?.(g.player.stats.maxHp * 0.35, false);
+      g.player.mana = Math.min(g.player.stats.mana, g.player.mana + g.player.stats.mana * 0.4);
+      g.audio?.sfx?.('wisp');
+      g.ui?.toast?.('🔵 藍光檢查點共鳴回復！探索並靠近其他藍光石陣即可相互瞬移', '#6ae8ff');
+      return true;
+    }
+    const curPos = unlocked.findIndex(c => c.idx === s.cpIdx);
+    const next = unlocked[(curPos + 1) % unlocked.length];
+    g.player.pos.set(next.x + 1.6, next.y, next.z + 1.6);
+    g.player.y = g.world.gh(next.x + 1.6, next.z + 1.6);
+    g.camPos?.set?.(next.x + 1.6, 0, next.z + 1.6);
+    g.audio?.sfx?.('wisp');
+    g.fx?.burst?.(next.x + 1.6, g.player.y + 1.2, next.z + 1.6, 22, { c: [0x38d0ff, 0xffffff, 0xa8f2ff], s: 0.14, speed: 5, up: 4, life: 0.6 });
+    g.ui?.toast?.(`🔵 瞬移至「${next.name}」`, '#6ae8ff');
+    return true;
+  }
   if (s.kind.startsWith('shrine_')) {
     s.mesh.visible = false;
     g.shrineBuffs = g.shrineBuffs || { fury: 0, frost: 0, gold: 0, sheep: 0 };

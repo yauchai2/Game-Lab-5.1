@@ -26,6 +26,7 @@ const MIME = {
   '.js': 'application/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.gltf': 'model/gltf+json',
+  '.glb': 'model/gltf-binary',
   '.bin': 'application/octet-stream',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
@@ -121,12 +122,65 @@ async function runCapture(req) {
         await ensureStarted();
         await page.evaluate(() => window.__game.enterHarbor());
         await page.waitForTimeout(1500);
+      } else if (shot.startsWith('spot:')) {
+        const [, fidStr, uStr, vStr] = shot.split(':');
+        const fid = Number(fidStr) || 1;
+        const u = Number(uStr) || 0.5;
+        const v = Number(vStr) || 0.5;
+        await ensureStarted();
+        await closeAllUI();
+        await page.evaluate(({ n, uu, vv }) => {
+          const g = window.__game;
+          if (g.field !== n) g.enterField(n);
+          const half = g.world.half || 120;
+          const x = (uu - 0.5) * half * 2;
+          const z = (vv - 0.5) * half * 2 + 8.5;
+          const y = g.world.gh(x, z);
+          g.player.pos.set(x, y, z);
+          g.player.y = y;
+          g.player.facing = Math.PI;
+          g.camPos.set(x, 0, z - 4.5);
+        }, { n: fid, uu: u, vv: v });
+        await page.waitForTimeout(1600);
       } else if (shot.startsWith('field:')) {
         const fid = Number(shot.split(':')[1]) || 1;
         await ensureStarted();
         await closeAllUI();
         await page.evaluate((n) => window.__game.enterField(n), fid);
         await page.waitForTimeout(1500);
+        if (fid === 1) {
+          // 額外拍攝 Phase 2B 首批三張重製地圖地標與專屬低面怪物特寫（不影響原 13 鏡頭清單）
+          const snapSpot = async (fname, fNum, u, v, dz = 9.0, spawnNear = null) => {
+            await page.evaluate(({ n, uu, vv, offZ, sn }) => {
+              const g = window.__game;
+              if (g.field !== n) g.enterField(n);
+              const half = g.world.half || 120;
+              const x = (uu - 0.5) * half * 2;
+              const z = (vv - 0.5) * half * 2 + offZ;
+              const y = g.world.gh(x, z);
+              g.player.pos.set(x, y, z);
+              g.player.y = y;
+              g.player.facing = Math.PI;
+              g.camPos.set(x, 0, z - 4.0);
+              if (sn) {
+                const e = g.spawnEnemy(sn.type, { x: x + (sn.dx || 2.8), z: z + (sn.dz || -3.6) }, !!sn.elite);
+                e.level = n === 1 ? 3 : n === 4 ? 16 : 13;
+                e.hp = e.maxHp;
+              }
+            }, { n: fNum, uu: u, vv: v, offZ: dz, sn: spawnNear });
+            await page.waitForTimeout(1100);
+            await page.screenshot({ path: path.join(runDir, fname) });
+          };
+          await snapSpot('p2b_01_f1_windmill.png', 1, 0.24, 0.74, 10.5, { type: 'slime', elite: true, dx: 3.5, dz: -3.2 });
+          await snapSpot('p2b_02_f1_teapot.png', 1, 0.84, 0.27, 11.5);
+          await snapSpot('p2b_03_f4_summit.png', 4, 0.21, 0.22, 11.0, { type: 'boar', elite: false, dx: 3.6, dz: -3.0 });
+          await snapSpot('p2b_04_f4_icespires.png', 4, 0.85, 0.20, 11.5, { type: 'boar', elite: true, dx: -3.2, dz: -3.5 });
+          await snapSpot('p2b_05_f7_lighthouse.png', 7, 0.74, 0.56, 11.5, { type: 'skyray', elite: false, dx: 3.2, dz: -3.2 });
+          await snapSpot('p2b_06_f7_aqueduct.png', 7, 0.54, 0.17, 11.0, { type: 'skyray', elite: true, dx: -2.8, dz: -3.5 });
+          // 切回 field:1 正常狀態，確保 09_field_1.png 與後續鏡頭一致
+          await page.evaluate(() => window.__game.enterField(1));
+          await page.waitForTimeout(1000);
+        }
         if (recordVideo) {
           await page.keyboard.down('KeyW');
           await page.waitForTimeout(450);

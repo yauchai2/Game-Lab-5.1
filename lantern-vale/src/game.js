@@ -1,6 +1,7 @@
 import { Weather } from './weather.js';
 import { bindGuild, updateRaid } from './guild.js';
 import { FIELDS, fieldBiome, awardKill, setupField, tickField, useFieldSpot, leaveGrave, rememberGear, restoreGear } from './frontier.js';
+import { FIELD_BLUEPRINTS } from './field_blueprints.js';
 import { CLASSES, ensurePuzzle, computeBoard } from './puzzle.js';
 import { dayInfo, findSecondClass, buildDungeonLandmark, tickSkyFeatures, buildInterior } from './world_alive.js';
 import { buildHarborTown, buildFerryBoat, buildWoodenPier } from './harbor.js';
@@ -8,7 +9,7 @@ import { addGearToBag } from './physbag.js';
 import { t } from './i18n.js';
 import * as THREE from 'three';
 import { World, toonMat, HALF, windU } from './world.js';
-import { preloadNatureAssets } from './assets.js';
+import { preloadNatureAssets, attachMonsterGlb } from './assets.js';
 import { BIOMES, mulberry32, clamp, lerp, angleLerp, rand, pick } from './util.js';
 import { buildTownScenery, buildGuildKiosk, buildAwakenAltar, buildWardrobe, buildSheep, TOWN_LAYOUT, buildCottage } from './town.js';
 import { loadSettings, applySettings, buildSettingsUI } from './settings.js';
@@ -447,7 +448,7 @@ export class Game {
     const boss = depth === 9 && !title && !this.field;
     const seed = this.field ? 7201 + this.field * 319 : title ? 4242 : harbor ? 9002 : town ? 9001 : (this.runSeed || 1) + depth * 101;
     this.rng = mulberry32(seed + 77);
-    const { spawn, exits } = this.world.generate(seed, B, { boss, town: anyTown, raid: !!extra.raid, cardinalExits: !!this.field, size: FIELDS[this.field]?.size, exitCount: extra.raid ? 0 : this.field ? (FIELDS[this.field + 1] ? 3 : 2) : town ? 1 : harbor ? 0 : boss ? 0 : (depth === 0 ? 2 : (this.rng() < 0.5 ? 2 : 3)) });
+    const { spawn, exits } = this.world.generate(seed, B, { boss, town: anyTown, raid: !!extra.raid, cardinalExits: !!this.field, blueprint: this.field ? FIELD_BLUEPRINTS[this.field] : null, size: FIELDS[this.field]?.size, exitCount: extra.raid ? 0 : this.field ? (FIELDS[this.field + 1] ? 3 : 2) : town ? 1 : harbor ? 0 : boss ? 0 : (depth === 0 ? 2 : (this.rng() < 0.5 ? 2 : 3)) });
     this.sun.color.set(B.sun); this.sun.intensity = B.sunI * 1.45;
     this.hemi.color.set(B.sky); this.hemi.groundColor.set(B.ground); this.hemi.intensity = B.ambient * 1.15;
     this.pipe.postMat.uniforms.uGrade.value.set(...B.grade);
@@ -572,6 +573,19 @@ export class Game {
     const s = elite ? 1.35 : 1;
     m.root.scale.setScalar(s);
     this.scene.add(m.root);
+    // v6 生態專屬低面 3D 怪物實模（首批三張圖：#01 食人花南瓜怪、#04 冰霜巨人、#07 獨眼浮游魔＆飛翼魔）
+    if (this.field === 1 && type === 'slime' && (elite || Math.random() < 0.6)) {
+      attachMonsterGlb(m, 'plant_chewer', { scale: 1.05, emissive: 0x2a2418, emissiveIntensity: 0.25 });
+    } else if (this.field === 4 && (type === 'boar' || type === 'stag')) {
+      attachMonsterGlb(m, 'golem_ice', { scale: type === 'stag' ? 1.45 : 1.05, emissive: 0x223648, emissiveIntensity: 0.30 });
+    } else if (this.field === 7 && (type === 'skyray' || type === 'stag')) {
+      const isBossFly = elite || type === 'stag';
+      attachMonsterGlb(m, isBossFly ? 'flying_demon' : 'beholder', {
+        scale: type === 'stag' ? 1.35 : 1.25,
+        emissive: isBossFly ? 0x482c58 : 0x4a284e,
+        emissiveIntensity: 0.45,
+      });
+    }
     const e = {
       type, m, pos: new V3(pos.x, 0, pos.z), vel: new V3(), knock: new V3(), facing: Math.random() * 6,
       hp: DEF.hp * scale * (elite ? 2.6 : 1) * (type === 'stag' && !this.field ? 1 / scale : 1), dmg: DEF.dmg * (1 + d * 0.12) * (elite ? 1.3 : 1),

@@ -4,6 +4,7 @@ import { part, toonMat } from './world.js';
 import { buildPlayer } from './models.js';
 import { mulberry32, clamp, lerp } from './util.js';
 import { GOODS, FIELDS } from './frontier.js';
+import { uvToWorld } from './field_blueprints.js';
 import { ALL_GEMS, addGemToBag } from './puzzle.js';
 import { makeItem } from './loot.js';
 
@@ -118,9 +119,7 @@ export function spawnSkyFeatures(g) {
   g.updrafts = []; g.skyRings = []; g.chests = [];
   if (!g.field) return;
   const r = mulberry32(4100 + g.field * 97);
-  // 3 座上升氣流柱
-  for (let i = 0; i < 3; i++) {
-    const pos = g.world.randomWalkable(r, g.player.pos, 7);
+  const addUpdraftAt = (pos, ringPos, ringRotY) => {
     const y = g.world.gh(pos.x, pos.z);
     const grp = new THREE.Group();
     const col = new THREE.Mesh(
@@ -137,16 +136,33 @@ export function spawnSkyFeatures(g) {
     g.world.group.add(grp);
     g.updrafts.push({ x: pos.x, y, z: pos.z, grp, ring });
 
-    // 氣流附近的高空星環（滑翔穿過領獎！）
-    const rx = pos.x + (r() - 0.5) * 10, rz = pos.z + (r() - 0.5) * 10;
-    const ry = y + 3.6 + r() * 1.4;
+    const rx = ringPos.x, rz = ringPos.z;
+    const ry = y + 3.8 + r() * 1.2;
     const sring = new THREE.Mesh(
       new THREE.TorusGeometry(1.15, 0.14, 6, 16),
       new THREE.MeshBasicMaterial({ color: 0xffdc5e }),
     );
-    sring.position.set(rx, ry, rz); sring.rotation.y = r() * Math.PI; sring.userData.noNormal = true;
+    sring.position.set(rx, ry, rz); sring.rotation.y = ringRotY; sring.userData.noNormal = true;
     g.world.group.add(sring);
     g.skyRings.push({ x: rx, y: ry, z: rz, mesh: sring, got: false });
+  };
+
+  const bp = g.world.bp;
+  if (bp?.glides?.length) {
+    // v5 藍圖單向滑翔捷徑：起點擺放上升氣流柱，中點擺放金色高空星環
+    for (const gl of bp.glides) {
+      const p0 = uvToWorld(gl[0], gl[1], g.world.half);
+      const pm = uvToWorld(gl[2], gl[3], g.world.half);
+      const p1 = uvToWorld(gl[4], gl[5], g.world.half);
+      const rotY = Math.atan2(p1.x - p0.x, p1.z - p0.z);
+      addUpdraftAt(p0, pm, rotY);
+    }
+  } else {
+    // 3 座上升氣流柱
+    for (let i = 0; i < 3; i++) {
+      const pos = g.world.randomWalkable(r, g.player.pos, 7);
+      addUpdraftAt(pos, { x: pos.x + (r() - 0.5) * 10, z: pos.z + (r() - 0.5) * 10 }, r() * Math.PI);
+    }
   }
   // 高台秘寶箱（找高處平台放 2 個寶箱）
   let placedChests = 0;
@@ -181,6 +197,9 @@ export function spawnSkyFeatures(g) {
 
 export function tickSkyFeatures(g, dt) {
   const p = g.player;
+  for (const sp of g.spinners || []) {
+    if (sp.obj) sp.obj.rotation[sp.axis || 'z'] += (sp.speed || 0.5) * dt;
+  }
   for (const u of g.updrafts || []) {
     u.ring.position.y = 0.5 + ((g.time * 3.5) % 7.5);
     u.ring.rotation.z = g.time * 2;
@@ -370,16 +389,36 @@ export function drawRegionMap(g, canvas) {
   const toX = x => ((x + half) / (half * 2)) * W;
   const toY = z => ((z + half) / (half * 2)) * H;
 
-  // 地形底圖
+  // 地形底圖（支援 v5 藍圖淺溪／冰湖／斷壁分色）
   const step = 3;
+  const bpCell = g.world.bpCell;
   for (let py = 0; py < H; py += step) {
     const wz = (py / H) * half * 2 - half;
     for (let px = 0; px < W; px += step) {
       const wx = (px / W) * half * 2 - half;
       const k = g.world.idx(wx, wz);
       const t = k >= 0 ? g.world.T?.[k] : 0;
-      ctx.fillStyle = t === 0 ? '#5b9ea8' : t === 1 ? '#8cb862' : t === 2 ? '#6e9450' : '#b2a288';
+      const bc = (k >= 0 && bpCell) ? bpCell[k] : -1;
+      if (bc === 1) ctx.fillStyle = '#48b8dc';
+      else if (bc === 5) ctx.fillStyle = '#d4cbb8';
+      else ctx.fillStyle = t === 0 ? '#3a6f86' : t === 1 ? '#8cb862' : t === 2 ? '#6e9450' : '#b2a288';
       ctx.fillRect(px, py, step, step);
+    }
+  }
+  // v5 跨谷橋梁（金色線段）與單向滑翔捷徑（青色虛線）
+  for (const b of g.world.bridges || []) {
+    ctx.save();
+    ctx.strokeStyle = '#f5c842'; ctx.lineWidth = 3.5;
+    ctx.beginPath(); ctx.moveTo(toX(b.x0), toY(b.z0)); ctx.lineTo(toX(b.x1), toY(b.z1)); ctx.stroke();
+    ctx.restore();
+  }
+  if (g.world.bp?.glides?.length) {
+    for (const gl of g.world.bp.glides) {
+      const p0 = uvToWorld(gl[0], gl[1], half), pm = uvToWorld(gl[2], gl[3], half), p1 = uvToWorld(gl[4], gl[5], half);
+      ctx.save();
+      ctx.strokeStyle = '#46e0ff'; ctx.lineWidth = 1.8; ctx.setLineDash([4, 3]);
+      ctx.beginPath(); ctx.moveTo(toX(p0.x), toY(p0.z)); ctx.quadraticCurveTo(toX(pm.x), toY(pm.z), toX(p1.x), toY(p1.z)); ctx.stroke();
+      ctx.restore();
     }
   }
   const dot = (x, z, col, r = 4) => {
@@ -387,6 +426,7 @@ export function drawRegionMap(g, canvas) {
     ctx.fillStyle = col; ctx.beginPath(); ctx.arc(toX(x), toY(z), r, 0, Math.PI * 2); ctx.fill();
   };
   for (const u of g.updrafts || []) dot(u.x, u.z, '#9ef6ff', 3.5);
+  for (const cp of g.checkpoints || []) dot(cp.x, cp.z, cp.unlocked ? '#38d0ff' : '#7898b0', 5.2);
   for (const s of g.spots || []) {
     if (s.mesh?.visible === false) continue;
     const c = s.kind === 'grave' ? '#ff7070' : s.kind === 'chest' ? '#ffd85a' : s.kind === 'field_quest' ? '#ff9be0' : '#ffe9a0';

@@ -128,6 +128,114 @@ export function buildAssetMaterial(part, opts = {}) {
   return mat;
 }
 
+export const LANDMARK_FILES = {
+  windmill:        'assets/landmarks/windmill.glb',
+  windmill_blades: 'assets/landmarks/windmill_blades.glb',
+  cottage:         'assets/landmarks/cottage.glb',
+  stonehenge:      'assets/landmarks/stonehenge.glb',
+  snow_house:      'assets/landmarks/snow_house.glb',
+  snow_tower:      'assets/landmarks/snow_tower.glb',
+  ice_crystal:     'assets/landmarks/ice_crystal.glb',
+  cave_arch:       'assets/landmarks/cave_arch.glb',
+  lighthouse:      'assets/landmarks/lighthouse.glb',
+  island_house:    'assets/landmarks/island_house.glb',
+};
+
+export const MONSTER_FILES = {
+  plant_chewer: 'assets/monsters/plant_chewer.glb',
+  golem_ice:    'assets/monsters/golem_ice.glb',
+  beholder:     'assets/monsters/beholder.glb',
+  flying_demon: 'assets/monsters/flying_demon.glb',
+};
+
+const _glbCache = new Map();
+const _glbPending = new Map();
+let _sharedLoader = null;
+
+function getSharedLoader() {
+  if (!_sharedLoader) _sharedLoader = new GLTFLoader();
+  return _sharedLoader;
+}
+
+function bakePixelToonScene(srcScene, opts = {}) {
+  const clone = srcScene.clone(true);
+  const tint = opts.tint ? new THREE.Color(opts.tint) : new THREE.Color(0xffffff);
+  let primaryMat = null;
+  clone.traverse(o => {
+    if (!o.isMesh) return;
+    const srcMat = Array.isArray(o.material) ? o.material[0] : o.material;
+    const map = (!opts.flatTint && srcMat?.map) ? prepTexture(srcMat.map) : null;
+    const baseCol = opts.flatTint
+      ? new THREE.Color(opts.flatTint)
+      : (map ? tint.clone() : (srcMat?.color ? srcMat.color.clone().multiply(tint) : tint.clone()));
+    const mat = toonMat({
+      color: baseCol,
+      map,
+      emissive: new THREE.Color(opts.emissive ?? 0x2c2822),
+      emissiveIntensity: opts.emissiveIntensity ?? 0.28,
+    });
+    o.material = mat;
+    o.castShadow = true;
+    o.receiveShadow = true;
+    if (!primaryMat) primaryMat = mat;
+  });
+  return { root: clone, mat: primaryMat };
+}
+
+export function loadGlbAsset(url) {
+  if (typeof window === 'undefined' || window.location?.protocol === 'file:') return Promise.resolve(null);
+  if (_glbCache.has(url)) return Promise.resolve(_glbCache.get(url));
+  if (_glbPending.has(url)) return _glbPending.get(url);
+  const p = new Promise(resolve => {
+    getSharedLoader().load(
+      url,
+      gltf => {
+        _glbCache.set(url, gltf.scene);
+        _glbPending.delete(url);
+        resolve(gltf.scene);
+      },
+      undefined,
+      () => {
+        _glbPending.delete(url);
+        resolve(null);
+      },
+    );
+  });
+  _glbPending.set(url, p);
+  return p;
+}
+
+export function attachLandmarkGlb(holder, key, fallbackObj, opts = {}) {
+  if (fallbackObj) holder.add(fallbackObj);
+  const url = LANDMARK_FILES[key];
+  if (!url) return holder;
+  loadGlbAsset(url).then(scene => {
+    if (!scene || !holder.parent) return;
+    if (fallbackObj) holder.remove(fallbackObj);
+    const { root } = bakePixelToonScene(scene, opts);
+    if (opts.scale) root.scale.setScalar(opts.scale);
+    if (opts.rotY) root.rotation.y = opts.rotY;
+    if (opts.yOffset) root.position.y = opts.yOffset;
+    holder.add(root);
+  });
+  return holder;
+}
+
+export function attachMonsterGlb(modelObj, key, opts = {}) {
+  const url = MONSTER_FILES[key];
+  if (!url) return;
+  loadGlbAsset(url).then(scene => {
+    if (!scene || !modelObj?.body || !modelObj.root?.parent) return;
+    while (modelObj.body.children.length) modelObj.body.remove(modelObj.body.children[0]);
+    const { root, mat } = bakePixelToonScene(scene, { emissive: 0x201c18, emissiveIntensity: 0.18, ...opts });
+    if (opts.scale) root.scale.setScalar(opts.scale);
+    if (opts.rotY) root.rotation.y = opts.rotY;
+    if (opts.yOffset) root.position.y = opts.yOffset;
+    modelObj.body.add(root);
+    if (mat) modelObj.mat = mat;
+  });
+}
+
 export function preloadNatureAssets(onReady) {
   if (onReady) {
     if (_ready) { onReady(natureAssets); return; }
@@ -138,6 +246,9 @@ export function preloadNatureAssets(onReady) {
 
   // Node.js 測試環境或本機 file:// 開啟時自動採用內建程序化幾何體，避免 CORS 報錯
   if (typeof window === 'undefined' || window.location?.protocol === 'file:') return;
+
+  // 順帶非同步預載首批怪物低面實模（總計 < 750KB）
+  for (const url of Object.values(MONSTER_FILES)) loadGlbAsset(url);
 
   const loader = new GLTFLoader();
   const basePath = 'assets/nature/';
