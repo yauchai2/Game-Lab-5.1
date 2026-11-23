@@ -310,7 +310,18 @@ async function runCapture(req) {
           });
           await page.waitForTimeout(450);
           await page.screenshot({ path: path.join(runDir, 'p5b_debugger_vram.png') });
-          await page.evaluate(() => window.__game.dbg?.toggle?.(false));
+          await page.evaluate(() => {
+            window.__game.dbg?.setDevMode?.(true);
+            window.__game.dev.god = true;
+            window.__game.dev.noCd = true;
+            window.__game.dbg?.openTools?.();
+          });
+          await page.waitForTimeout(450);
+          await page.screenshot({ path: path.join(runDir, 'p5c_devmode.png') });
+          await page.evaluate(() => {
+            window.__game.dbg?.setDevMode?.(false);
+            window.__game.dbg?.toggle?.(false);
+          });
 
           // 切回 field:1 正常狀態，確保 09_field_1.png 與後續鏡頭一致
           await page.evaluate(() => window.__game.enterField(1));

@@ -2,7 +2,12 @@
 // 提供：錯誤與警告攔截、輸出日誌過濾、即時 FPS/FrameTime 折線監視器、WebGL 顯存與 ObjectDB 統計、快捷除錯工具
 
 import { FIELDS } from './frontier.js';
+import { FIELD_BLUEPRINTS } from './field_blueprints.js';
 import { getGlbCacheCount } from './assets.js';
+import { ALL_GEMS, addGemToBag } from './puzzle.js';
+import { makeItem } from './loot.js';
+import { MONSTER_SOULS, grantSoul } from './souls.js';
+import { MOUNTS } from './mounts.js';
 
 const MAX_LOGS = 250;
 const HIST_LEN = 64;
@@ -68,9 +73,10 @@ export function installDebugger(game) {
         <button type="button" class="dbg-tab" data-tab="output">📜 輸出</button>
         <button type="button" class="dbg-tab" data-tab="monitors">📈 效能分析</button>
         <button type="button" class="dbg-tab" data-tab="vram">🧠 顯存 / ObjectDB</button>
-        <button type="button" class="dbg-tab" data-tab="tools">🧰 雜項工具</button>
+        <button type="button" class="dbg-tab" data-tab="tools">🧪 開發者模式</button>
       </div>
       <div class="dbg-right">
+        <button type="button" class="dbg-dev-sw" id="dbgDevMaster" title="切換開發者模式 (Shift+F3)">🧪 DEV：關</button>
         <span id="dbgMiniFps">60 FPS · 16.6ms</span>
         <button type="button" class="dbg-x" id="dbgClose" title="關閉除錯面板 (F3)">✕</button>
       </div>
@@ -101,16 +107,55 @@ export function installDebugger(game) {
       <div class="dbg-pane hide" data-pane="vram">
         <div class="dbg-kv" id="dbgVramKv"></div>
       </div>
-      <div class="dbg-pane hide" data-pane="tools">
-        <div class="dbg-tools-row">
-          <label>跳轉區域：<select id="dbgZoneSel"></select></label>
-          <button type="button" id="dbgGoZone">⚡ 立即傳送</button>
-          <button type="button" id="dbgHealFull">❤️ 補滿血魔＆藥水</button>
-          <button type="button" id="dbgGiveRes">💰 +500 金幣＆星砂</button>
-          <button type="button" id="dbgChargeUlt">⚡ 滿怒大絕</button>
-          <button type="button" id="dbgTogAuto">🏮 切換巡遊</button>
+      <div class="dbg-pane hide" data-pane="tools" style="overflow:auto">
+        <div class="dbg-dev-grid">
+          <div class="dbg-dev-box">
+            <b>⚙️ 開發者常駐開關（需先開啟上方 🧪 DEV）</b>
+            <div class="dbg-tools-row">
+              <button type="button" id="devGod">🛡️ 無敵模式：關</button>
+              <button type="button" id="devNoCd">⚡ 零冷卻＆無限魔力：關</button>
+              <button type="button" id="devFast">🚀 跑圖 2.2× 速：關</button>
+              <button type="button" id="devUnlockMap">🏮 解鎖全 22 島星燈＆檢查點</button>
+            </div>
+          </div>
+          <div class="dbg-dev-box">
+            <b>🌍 場景、副本與天氣測試</b>
+            <div class="dbg-tools-row">
+              <select id="dbgZoneSel"></select>
+              <button type="button" id="dbgGoZone">⚡ 瞬移</button>
+              <button type="button" id="devDungeon">⛩ 進副本 1F</button>
+              <button type="button" id="devBoss">👑 直衝 Boss 房</button>
+              <button type="button" id="devDay">☀️/🌙 切換晝夜</button>
+              <button type="button" id="devRain">🌧️ 切換降雨</button>
+            </div>
+          </div>
+          <div class="dbg-dev-box">
+            <b>🔥 餘燼潮汐、元素連鎖與生怪測試</b>
+            <div class="dbg-tools-row">
+              <button type="button" id="devTideSwarm">🌊 餘燼狂潮</button>
+              <button type="button" id="devTideApex">👑 熾炎巔峰(潮汐王)</button>
+              <button type="button" id="devTideLull">🏕️ 潮退休整營火</button>
+              <button type="button" id="devElemTest">⚡ 生成水窪＋怪測連鎖</button>
+              <button type="button" id="devSpawnElite">💀 生詞綴精英</button>
+              <button type="button" id="devClearMobs">💥 清空敵人</button>
+            </div>
+          </div>
+          <div class="dbg-dev-box">
+            <b>🎒 角色、裝備、拼圖、靈魂與巡遊測試</b>
+            <div class="dbg-tools-row">
+              <button type="button" id="dbgHealFull">❤️ 滿血魔藥水</button>
+              <button type="button" id="devLvUp">⬆️ 等級 +5</button>
+              <button type="button" id="dbgGiveRes">💰 +1000 金幣/星砂/鑰石</button>
+              <button type="button" id="devLegend">🎁 掉傳說裝備</button>
+              <button type="button" id="devAllGems">💎 全套拼圖寶石</button>
+              <button type="button" id="devAllSouls">👻 解鎖全靈魂</button>
+              <button type="button" id="devAllMounts">🦌 解鎖全坐騎</button>
+              <button type="button" id="dbgChargeUlt">⚡ 滿怒大絕</button>
+              <button type="button" id="devSpark5">🔥 滿 5 層星火</button>
+              <button type="button" id="dbgTogAuto">🏮 切換巡遊</button>
+            </div>
+          </div>
         </div>
-        <div class="dbg-hint" style="margin-top:8px">快捷鍵：<b>F3</b> 或 <b>\`</b>（反引號）隨時開關此面板 · 所有統計僅在面板展開時更新，關閉時零效能損耗。</div>
       </div>
     </div>
   `;
@@ -263,31 +308,149 @@ export function installDebugger(game) {
     navigator.clipboard?.writeText(JSON.stringify(rep, null, 2)).catch(() => {});
     game.ui?.toast?.('📋 已複製除錯診斷報告至剪貼簿', '#7ae8ff');
   };
+  // 浮動 🧪 DEV MODE 小標籤（僅開發者模式開啟時顯示，點擊直開測試台）
+  const devPill = document.createElement('button');
+  devPill.id = 'devPill';
+  devPill.type = 'button';
+  devPill.className = 'hide';
+  devPill.textContent = '🧪 DEV MODE';
+  devPill.title = '開發者模式運作中 · 點擊開啟測試台 (F3 / Shift+F3)';
+  devPill.onclick = () => { toggle(true); setTab('tools'); };
+  document.body.appendChild(devPill);
+
+  function syncDevUI() {
+    const dev = game.dev || (game.dev = { on: false, god: false, noCd: false, fastMove: false });
+    const mBtn = $d('dbgDevMaster');
+    if (mBtn) {
+      mBtn.textContent = dev.on ? '🧪 DEV：開' : '🧪 DEV：關';
+      mBtn.classList.toggle('on', !!dev.on);
+    }
+    devPill.classList.toggle('hide', !dev.on);
+    const flags = [dev.god && '無敵', dev.noCd && '零CD', dev.fastMove && '2.2×速'].filter(Boolean);
+    devPill.textContent = flags.length ? `🧪 DEV · ${flags.join(' / ')}` : '🧪 DEV MODE';
+    const gBtn = $d('devGod'); if (gBtn) { gBtn.textContent = `🛡️ 無敵模式：${dev.god ? '開' : '關'}`; gBtn.classList.toggle('on', !!(dev.on && dev.god)); }
+    const cBtn = $d('devNoCd'); if (cBtn) { cBtn.textContent = `⚡ 零冷卻＆無限魔力：${dev.noCd ? '開' : '關'}`; cBtn.classList.toggle('on', !!(dev.on && dev.noCd)); }
+    const fBtn = $d('devFast'); if (fBtn) { fBtn.textContent = `🚀 跑圖 2.2× 速：${dev.fastMove ? '開' : '關'}`; fBtn.classList.toggle('on', !!(dev.on && dev.fastMove)); }
+  }
+
+  function setDevMode(on) {
+    game.dev = game.dev || { on: false, god: false, noCd: false, fastMove: false };
+    game.dev.on = typeof on === 'boolean' ? on : !game.dev.on;
+    try { localStorage.setItem('lv_dev_mode', game.dev.on ? '1' : '0'); } catch (_) {}
+    syncDevUI();
+    game.ui?.toast?.(game.dev.on ? '🧪 開發者模式已開啟（按 F3 開啟測試台）' : '🧪 開發者模式已關閉，還原正常遊玩', game.dev.on ? '#7ef0ff' : '#e8dcc8');
+  }
+
+  // 若上次儲存為開發者模式則自動恢復開關狀態
+  try { if (localStorage.getItem('lv_dev_mode') === '1') { game.dev.on = true; } } catch (_) {}
+  syncDevUI();
+
+  $d('dbgDevMaster').onclick = () => setDevMode();
+  $d('devGod').onclick = () => { if (!game.dev.on) setDevMode(true); game.dev.god = !game.dev.god; syncDevUI(); };
+  $d('devNoCd').onclick = () => { if (!game.dev.on) setDevMode(true); game.dev.noCd = !game.dev.noCd; syncDevUI(); };
+  $d('devFast').onclick = () => { if (!game.dev.on) setDevMode(true); game.dev.fastMove = !game.dev.fastMove; syncDevUI(); };
+  $d('devUnlockMap').onclick = () => {
+    game.meta.p.visitedFields = Array.from({ length: 20 }, (_, i) => i + 1);
+    game.meta.p.unlockedCps = game.meta.p.unlockedCps || {};
+    for (let i = 1; i <= 20; i++) {
+      const n = FIELD_BLUEPRINTS[i]?.checkpoints?.length || 3;
+      game.meta.p.unlockedCps[i] = Array.from({ length: n }, (_, k) => k);
+    }
+    for (const cp of game.checkpoints || []) cp.unlocked = true;
+    game.meta.save();
+    game.ui?.toast?.('🏮 已解鎖全 22 座島嶼星燈與全部藍光檢查點！', '#ffd85a');
+  };
   $d('dbgGoZone').onclick = () => {
     const v = zSel?.value || 'town';
     if (v === 'town') game.enterTown();
     else if (v === 'harbor') game.enterHarbor();
     else if (v.startsWith('f:')) game.enterField(Number(v.slice(2)));
   };
+  $d('devDungeon').onclick = () => { game.field = 0; game.startRun?.(); };
+  $d('devBoss').onclick = () => { game.field = 0; game.state = 'play'; game.loadRoom(9, 'boss'); };
+  $d('devDay').onclick = () => { game.dayTime = ((game.dayTime || 0) + 0.5) % 1; game.ui?.toast?.('🌗 已切換晝夜時段', '#ffe9a0'); };
+  $d('devRain').onclick = () => {
+    if (game.weather) { game.weather.isRaining = !game.weather.isRaining; game.ui?.toast?.(game.weather.isRaining ? '🌧️ 已強制開啟降雨天氣' : '☀️ 已切換為晴朗天氣', '#7ae8ff'); }
+  };
+  $d('devTideSwarm').onclick = () => game.triggerTideDemo?.('swarm');
+  $d('devTideApex').onclick = () => game.triggerTideDemo?.('apex');
+  $d('devTideLull').onclick = () => game.triggerTideDemo?.('lull');
+  $d('devElemTest').onclick = () => {
+    const p = game.player;
+    const tx = p.pos.x + Math.sin(p.facing) * 3.5, tz = p.pos.z + Math.cos(p.facing) * 3.5;
+    game.spawnGroundZone?.('water', tx, tz, 3.6, 12);
+    game.spawnEnemy?.('slime', { x: tx + 1.0, z: tz }, false);
+    game.spawnEnemy?.('boar', { x: tx - 1.0, z: tz }, false);
+    game.ui?.toast?.('⚡ 已於前方生成潮濕水窪＋魔物，施放冰／火／雷即可測試連鎖反應！', '#7ae8ff');
+  };
+  $d('devSpawnElite').onclick = () => {
+    const p = game.player;
+    game.spawnEnemy?.('boar', { x: p.pos.x + Math.sin(p.facing) * 4.5, z: p.pos.z + Math.cos(p.facing) * 4.5 }, true);
+    game.ui?.toast?.('💀 已於前方生成詞綴精英怪！', '#ff8a6a');
+  };
+  $d('devClearMobs').onclick = () => {
+    let n = 0;
+    for (const e of game.enemies || []) if (!e.dead) { game.hitEnemy?.(e, { dmg: 999999, crit: true, fire: false }, 0, 0); n++; }
+    game.ui?.toast?.(`💥 已清空場上 ${n} 隻魔物`, '#ffd85a');
+  };
   $d('dbgHealFull').onclick = () => {
     game.player.hp = game.player.stats.maxHp;
     game.player.mana = game.player.stats.mana;
     game.player.flask.charges = game.player.flask.max;
-    game.ui?.toast?.('🛠️ 已補滿生命、魔力與蜜藥瓶', '#7fe08a');
+    game.ui?.toast?.('❤️ 已補滿生命、魔力與蜜藥瓶', '#7fe08a');
+  };
+  $d('devLvUp').onclick = () => {
+    game.meta.p.level = Math.min(30, (game.meta.p.level || 1) + 5);
+    game.meta.save(); game.recalc?.();
+    game.ui?.toast?.(`⬆️ 旅人等級已提升至 Lv.${game.meta.p.level}`, '#ffd85a');
   };
   $d('dbgGiveRes').onclick = () => {
-    game.meta.p.coins += 500; game.meta.p.shards += 500; game.meta.save();
-    game.ui?.toast?.('🛠️ 已增加 500 金幣與 500 星砂', '#ffd85a');
+    game.meta.p.coins += 1000; game.meta.p.shards += 1000; game.meta.p.keys = (game.meta.p.keys || 0) + 10; game.meta.save();
+    game.ui?.toast?.('💰 已增加 1000 金幣、1000 星砂與 10 把鑰石', '#ffd85a');
+  };
+  $d('devLegend').onclick = () => {
+    const p = game.player;
+    const it = makeItem(Math.random, 8, 3);
+    game.dropItem?.(p.pos.x + 1.5, p.pos.z + 1.5, it);
+    game.ui?.toast?.(`🎁 已掉落傳說裝備：${it.name}`, '#ffaa38');
+  };
+  $d('devAllGems').onclick = () => {
+    for (const gid of Object.keys(ALL_GEMS)) addGemToBag(game.meta.p, gid);
+    game.meta.save();
+    game.ui?.toast?.(`💎 已獲得全套 ${Object.keys(ALL_GEMS).length} 顆拼圖寶石（按 K 檢視）`, '#c08cff');
+  };
+  $d('devAllSouls').onclick = () => {
+    for (const sid of Object.keys(MONSTER_SOULS)) grantSoul(game.meta.p, sid);
+    game.meta.save();
+    game.ui?.toast?.(`👻 已解鎖全部 ${Object.keys(MONSTER_SOULS).length} 種怪物靈魂（按 I → 靈魂）`, '#d8a8ff');
+  };
+  $d('devAllMounts').onclick = () => {
+    game.meta.p.visitedFields = Array.from({ length: 20 }, (_, i) => i + 1);
+    game.meta.p.kills = Math.max(game.meta.p.kills || 0, 200);
+    game.meta.p.best = game.meta.p.best || { depth: 0, wins: 0 };
+    game.meta.p.best.wins = Math.max(game.meta.p.best.wins || 0, 1);
+    game.meta.p.feathers = Math.max(game.meta.p.feathers || 0, 10);
+    game.meta.save();
+    game.ui?.toast?.(`🦌 已達成全部 ${MOUNTS.length} 種坐騎解鎖條件（按 G 或 I → 坐騎）`, '#7fe08a');
   };
   $d('dbgChargeUlt').onclick = () => {
     if (game.tide) game.tide.ultCharge = 100;
-    game.ui?.toast?.('🛠️ 餘燼大絕 [V] 已充能至 100%', '#ff984a');
+    game.ui?.toast?.('⚡ 餘燼大絕 [V] 已充能至 100%', '#ff984a');
+  };
+  $d('devSpark5').onclick = () => {
+    if (game.autopilot) { game.autopilot.sparkStacks = 5; game.autopilot.sparkBuffT = 150; }
+    game.ui?.toast?.('🔥 已獲得 5 層手動星火＆150 秒歸來爆發 ×1.5！', '#ffd85a');
   };
   $d('dbgTogAuto').onclick = () => game.toggleAutopilot?.();
 
-  // 快捷鍵 F3 或 `（反引號）開關除錯面板
+  // 快捷鍵 F3 / ` 開關除錯面板，Shift+F3 快速切換開發者模式
   window.addEventListener('keydown', e => {
     if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT')) return;
+    if (e.key === 'F3' && e.shiftKey) {
+      e.preventDefault();
+      setDevMode();
+      return;
+    }
     if (e.key === 'F3' || e.code === 'Backquote') {
       e.preventDefault();
       toggle();
@@ -296,6 +459,8 @@ export function installDebugger(game) {
 
   return {
     toggle,
+    setDevMode,
+    openTools: () => { toggle(true); setTab('tools'); },
     isOpen: () => open,
     getCounts: () => ({ errors: errCount, warnings: warnCount, total: logs.length }),
     log: (msg) => pushLog('log', [msg]),

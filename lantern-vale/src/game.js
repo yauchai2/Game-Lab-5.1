@@ -146,6 +146,7 @@ export class Game {
     this.dayTime = 0.28; this.isNight = false; this.campfires = []; this.prisms = []; this.interior = null; this.photoMode = false;
     this.recallT = 0; this.sailing = null; this.lastTown = -1; this.waypoint = null; this.worldBoxes = [];
     this.zoneStates = new Map(); this.camZoom = 1.0; this.camYaw = 0.62; this.camPunch = 0; this.exitCooldown = 0; this.groundZones = []; this.physProps = []; this.mount = null; this.beams = []; this._fadedMats = new Map(); this.combo = { count: 0, timer: 0 }; this.glideTrails = []; this.sheep = []; this.shrineBuffs = { fury: 0, frost: 0, gold: 0, sheep: 0 }; this.tide = createTideState(); this.autopilot = createAutopilotState();
+    this.dev = { on: false, god: false, noCd: false, fastMove: false };
     this.onAutoKill = (d) => onAutopilotKill(this, d);
     this.toggleAutopilot = (m) => toggleAutopilot(this, m);
     this.dbg = installDebugger(this);
@@ -884,6 +885,7 @@ export class Game {
   }
   hurtPlayer(dmg, src, statusKind = null) {
     const p = this.player;
+    if (this.dev?.on && this.dev?.god) return;
     if (p.iframes > 0 || p.roll > 0 || this.state !== 'play' || this.depth < 0) return;
     const air = p.y - this.world.gh(p.pos.x, p.pos.z);
     if (air > 0.8 && !p.gliding) return;
@@ -2093,6 +2095,15 @@ export class Game {
       this.exitCooldown = Math.max(0, (this.exitCooldown || 0) - dt);
       for (const k in p.cds) p.cds[k] = Math.max(0, p.cds[k] - dt);
       for (let i = 0; i < 4; i++) p.skillCds[i] = Math.max(0, (p.skillCds[i] || 0) - dt);
+      if (this.dev?.on) {
+        if (this.dev.god) p.hp = S.maxHp;
+        if (this.dev.noCd) {
+          p.mana = S.mana; p.stamina = 100;
+          for (const k in p.cds) p.cds[k] = 0;
+          for (let i = 0; i < 4; i++) p.skillCds[i] = 0;
+          if (this.tide) this.tide.ultCharge = 100;
+        }
+      }
       p.iframes = Math.max(0, p.iframes - dt);
       p.mana = Math.min(S.mana, p.mana + dt * 7 * (1 + (S.manaRegen || 0) / 100));
       if (S.regen) this.heal(S.regen * dt, false);
@@ -2169,7 +2180,8 @@ export class Game {
         const buffSpd = ((this.shrineBuffs?.fury || 0) > 0 ? 1.2 : 1) * ((this.shrineBuffs?.sheep || 0) > 0 ? 1.1 : 1);
         const glideSpd = p.gliding ? (p.souls?.mobility?.id === 'skyray' ? 1.95 : 1.35) : 1;
         const terrainSpd = (p.terrainFx ? (p.terrainFx.speedMult || 1) : 1) * (p.realmRule?.speedMult || 1);
-        const f = chillMul * mountSpd * buffSpd * terrainSpd * (attacking ? 0.55 : 1) * (p.climbing ? 0.22 : 1) * glideSpd * (canSprint ? 1.25 : 1);
+        const devSpd = (this.dev?.on && this.dev?.fastMove) ? 2.2 : 1;
+        const f = chillMul * mountSpd * buffSpd * terrainSpd * devSpd * (attacking ? 0.55 : 1) * (p.climbing ? 0.22 : 1) * glideSpd * (canSprint ? 1.25 : 1);
         if (mountDef?.ramKnockback && mv.lengthSq() > 0.2) {
           for (const e of this.enemies) if (!e.dead && e.type !== 'stag' && e.pos.distanceTo(p.pos) < e.r + 1.0) {
             const dx = e.pos.x - p.pos.x, dz = e.pos.z - p.pos.z, d = Math.hypot(dx, dz) || 1;
