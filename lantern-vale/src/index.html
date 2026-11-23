@@ -255,6 +255,16 @@ html,body{image-rendering:pixelated;-webkit-font-smoothing:none;font-smooth:neve
 #tideHud .td-cyc-btn{font-family:inherit;font-size:12px;padding:4px 7px;background:#5a3826;color:#fff6e2;border:2px solid #2b1812;cursor:pointer}
 #tideHud .td-buffs{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
 #tideHud .td-b{background:#5a3826;color:#ffd85a;border:1px solid #ffcf4a;padding:1px 5px;font-size:11px}
+#autoHud{position:absolute;right:12px;top:174px;width:238px;padding:8px 10px;background:#2b2334f0!important;color:#fff6e2;border:2px solid #ffd85a;pointer-events:auto;z-index:16;font-size:12px;box-shadow:0 4px 0 rgba(20,14,28,.65)}
+#autoHud .ap-head{display:flex;justify-content:space-between;align-items:center;font-weight:900;color:#ffe478;margin-bottom:4px}
+#autoHud .ap-stats{display:grid;grid-template-columns:1fr 1fr;gap:3px 6px;font-size:11.5px;color:#e8def8;margin-bottom:5px}
+#autoHud .ap-spark{background:#1d1626;border:1px solid #8a64b8;padding:3px 6px;border-radius:4px;margin-bottom:5px;font-size:11.5px;color:#ffd86b;font-weight:800}
+#autoHud .ap-btns{display:flex;flex-wrap:wrap;gap:4px}
+#autoHud .ap-btn{flex:1;min-width:46%;font-family:inherit;font-size:11px;padding:3px 5px;background:#45365a;color:#fff6e2;border:1.5px solid #22182e;cursor:pointer;border-radius:4px;font-weight:700}
+#autoHud .ap-btn.on{background:#6e5094;border-color:#ffd85a;color:#fff0a8}
+#autoHud .ap-btn.stop{background:#c84a38;color:#fff;border-color:#2b1812;width:100%}
+#sk-auto.on{outline:2px solid #ffd85a;background:#684828!important;box-shadow:0 0 8px rgba(255,216,90,.6)}
+.st-spark{background:linear-gradient(90deg,#e87a24,#d94258);animation:pulseSt .55s infinite alternate}
 #comboBadge{position:absolute;right:12px;top:216px;padding:6px 14px;background:linear-gradient(135deg,#d93a49,#e8734a);color:#fff8e4;border:3px solid #2b1812;box-shadow:0 4px 0 #2b1812;font-size:18px;font-weight:900;text-align:right;pointer-events:none;transition:transform .12s}
 #comboBadge small{display:block;font-size:11px;color:#ffe9a0;font-weight:400}
 .cx-box{width:min(820px,94vw);max-height:86vh;display:flex;flex-direction:column;gap:10px;background:#f4e8ce;border:4px solid #3c261c;box-shadow:0 8px 0 rgba(38,22,16,.75);padding:14px;border-radius:10px;color:#2e1d16}
@@ -461,6 +471,17 @@ body.photo-mode #hud > *:not(#photoBadge){opacity:0!important;pointer-events:non
     <div class="td-ult-row"><button type="button" class="td-ult-btn" id="btnTideUlt">⚡ [V] 星燈雷雨風暴 0%</button><button type="button" class="td-cyc-btn" id="btnTideCycle" title="切換大絕 (Shift+V)">↻</button></div>
     <div class="td-buffs" id="tdBuffs"></div>
   </div>
+  <div id="autoHud" class="panel hide">
+    <div class="ap-head"><span id="apMode">🏮 提燈巡遊中</span><span id="apTime">00:00</span></div>
+    <div class="ap-stats" id="apStats"></div>
+    <div class="ap-spark" id="apSpark">🔥 手動星火：0/5</div>
+    <div class="ap-btns">
+      <button type="button" class="ap-btn" id="apToggleMode">🔄 全自動</button>
+      <button type="button" class="ap-btn on" id="apToggleSalv">♻️ 拆白綠裝</button>
+      <button type="button" class="ap-btn on" id="apToggleCozy">🎥 桌寵鏡頭</button>
+      <button type="button" class="ap-btn stop" id="apStop">🕹️ [Z] 接管手動（引爆星火）</button>
+    </div>
+  </div>
   <div id="comboBadge" class="hide"></div>
   <div id="stam"></div>
   <div id="topbar" class="panel"><span id="roomInfo"></span><span id="killInfo" hidden></span><span id="shardInfo"></span><span id="coinInfo"></span><span id="dayInfo" title="點擊切換晝夜時段">☀️ 白晝</span><span id="mealInfo" hidden></span></div>
@@ -493,6 +514,7 @@ body.photo-mode #hud > *:not(#photoBadge){opacity:0!important;pointer-events:non
     <button type="button" class="sk util" id="sk-recall" title="快捷回城 (H)"><span class="k key">H</span><span class="ic">🐚</span><span class="sname" data-i18n="skRecall">回城</span><div class="cd"></div></button>
     <button type="button" class="sk util" id="sk-bag" title="物理背包與裝備 (I)"><span class="k">I</span><span class="ic">🎒</span><span class="sname" data-i18n="skBag">背包</span></button>
     <button type="button" class="sk util pz-open" id="sk-puzzle" title="技能拼圖與寶石商人 (K)"><span class="k">K</span><span class="ic">💎</span><span class="sname" data-i18n="skPuzzle">拼圖</span></button>
+    <button type="button" class="sk util" id="sk-auto" title="提燈自動巡遊 (Z · Shift+Z 切換全自動／半自動)"><span class="k key">Z</span><span class="ic">🏮</span><span class="sname">巡遊</span></button>
   </div>
   <div id="tip" class="panel hide"></div>
   <div id="exitHint" class="exitHint" style="display:none"></div>

@@ -285,6 +285,19 @@ async function runCapture(req) {
           await snapSpot('p4b_f19_scifi.png', 19, 0.50, 0.50, 9.5);
           await snapSpot('p4b_f20_alien.png', 20, 0.50, 0.50, 9.5);
 
+          // Phase 5A：🏮 提燈自動巡遊模式實機截圖（領航小星燈＋右側戰報卡＋手動星火充能）
+          await page.evaluate(() => {
+            const g = window.__game;
+            g.enterField(1);
+            g.toggleAutopilot('full');
+            g.autopilot.sparkStacks = 3;
+            g.autopilot.stats = { sec: 185, kills: 24, xp: 340, coins: 48, shards: 16, mats: 9 };
+          });
+          await page.waitForTimeout(900);
+          await page.screenshot({ path: path.join(runDir, 'p5a_autopilot.png') });
+          await page.evaluate(() => window.__game.toggleAutopilot('off'));
+          await page.waitForTimeout(400);
+
           // 切回 field:1 正常狀態，確保 09_field_1.png 與後續鏡頭一致
           await page.evaluate(() => window.__game.enterField(1));
           await page.waitForTimeout(1000);

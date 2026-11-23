@@ -28,6 +28,7 @@ import { ensureAtlas, computeAtlasSummary } from './atlas.js';
 import { initParts, resolveHitPart, damagePart, partStatusText } from './parts.js';
 import { SURFACE_DEFS, resolveSurfaceReaction, inferElement } from './elements.js';
 import { createTideState, resetTide, cycleUltimate, onTideKill, rekindleTide, castUltimate, tickTide, triggerTideDemo } from './tide.js';
+import { createAutopilotState, isAutopilotActive, manualSparkMult, toggleAutopilot, onAutopilotKill, tickAutopilot, AUTO_RATES } from './autopilot.js';
 
 export const ELITE_MODS = [
   { id: 'molten', name: '🔥 熔岩步', color: 0xff6a30, status: 'burn' },
@@ -130,7 +131,9 @@ export class Game {
     this.playerName = '旅人'; this.hoodIdx = 0; this.posT = 0;
     this.dayTime = 0.28; this.isNight = false; this.campfires = []; this.prisms = []; this.interior = null; this.photoMode = false;
     this.recallT = 0; this.sailing = null; this.lastTown = -1; this.waypoint = null; this.worldBoxes = [];
-    this.zoneStates = new Map(); this.camZoom = 1.0; this.camYaw = 0.62; this.camPunch = 0; this.exitCooldown = 0; this.groundZones = []; this.physProps = []; this.mount = null; this.beams = []; this._fadedMats = new Map(); this.combo = { count: 0, timer: 0 }; this.glideTrails = []; this.sheep = []; this.shrineBuffs = { fury: 0, frost: 0, gold: 0, sheep: 0 }; this.tide = createTideState();
+    this.zoneStates = new Map(); this.camZoom = 1.0; this.camYaw = 0.62; this.camPunch = 0; this.exitCooldown = 0; this.groundZones = []; this.physProps = []; this.mount = null; this.beams = []; this._fadedMats = new Map(); this.combo = { count: 0, timer: 0 }; this.glideTrails = []; this.sheep = []; this.shrineBuffs = { fury: 0, frost: 0, gold: 0, sheep: 0 }; this.tide = createTideState(); this.autopilot = createAutopilotState();
+    this.onAutoKill = (d) => onAutopilotKill(this, d);
+    this.toggleAutopilot = (m) => toggleAutopilot(this, m);
     this.bindInput();
     this.setupNet(); bindGuild(this);
     // title scene: a pretty room in the background
@@ -182,7 +185,12 @@ export class Game {
         if (k === 'p' && !this.ui.panelOpen && !this.ui.setOpen && !this.ui.invOpen) { this.togglePhotoMode(); return; }
         if (k === 'b' && !this.ui.panelOpen && !this.ui.setOpen && !this.ui.invOpen) { this.placeCampfire(); return; }
         if (k === 'g' && !this.ui.panelOpen && !this.ui.setOpen && !this.ui.invOpen && !this.ui.codexOpen) { this.toggleMount(); return; }
-        if (k === 'v' && !this.ui.panelOpen && !this.ui.setOpen && !this.ui.invOpen && !this.ui.codexOpen) { if (e.shiftKey) cycleUltimate(this); else castUltimate(this); return; }
+        if (k === 'v' && !this.ui.panelOpen && !this.ui.setOpen && !this.ui.invOpen && !this.ui.codexOpen) { if (isAutopilotActive(this)) toggleAutopilot(this, 'off', 'manual'); if (e.shiftKey) cycleUltimate(this); else castUltimate(this); return; }
+        if (k === 'z' && !e.repeat && !this.ui.panelOpen && !this.ui.setOpen && !this.ui.invOpen && !this.ui.codexOpen) {
+          if (e.shiftKey) toggleAutopilot(this, this.autopilot.mode === 'full' ? 'assist' : 'full');
+          else toggleAutopilot(this);
+          return;
+        }
         if (k === 'tab' && !this.ui.panelOpen && !this.ui.setOpen) { this.ui.toggleRegionMap?.(this); return; }
         if (k === 'k' && !this.ui.panelOpen && !this.ui.setOpen && !this.ui.invOpen) { this.ui.openPuzzle?.(); return; }
         if (k === ' ') {
@@ -808,10 +816,13 @@ export class Game {
         if (Math.hypot(this.player.pos.x - mx, this.player.pos.z - mz) < 2.9) this.hurtPlayer(mdmg, new V3(mx, 0, mz), 'burn');
       });
     }
-    this.onKillMeta(e); awardKill(this, e); onTideKill(this, e);
+    const autoOn = isAutopilotActive(this);
+    const sparkMul = manualSparkMult(this);
+    this.onKillMeta(e); awardKill(this, e);
+    if (!autoOn) onTideKill(this, e);
     const atlas = (!this.field && this.depth >= 0) ? computeAtlasSummary(ensureAtlas(this.meta.p)) : null;
-    // 「怪物即技能」吸收系統：擊殺魔物機率吸收其靈魂卡
-    const soulRes = rollSoulDrop(this.meta.p, e.type, e.elite, atlas ? atlas.soulDropMult : 1);
+    // 「怪物即技能」吸收系統：限定手動戰鬥吸收靈魂卡
+    const soulRes = autoOn ? null : rollSoulDrop(this.meta.p, e.type, e.elite, atlas ? atlas.soulDropMult : 1);
     if (soulRes?.granted && soulRes.isNew) {
       this.meta.save(); this.audio.sfx('classup');
       this.ui.toast(`👻 吸收新靈魂：${soulRes.def.icon} ${soulRes.def.name}！（按 I → 怪物靈魂 鑲嵌）`, '#d8a8ff');
@@ -824,11 +835,16 @@ export class Game {
     const comboDrop = Math.min(0.12, this.combo.count * 0.008);
     const goldDrop = (this.shrineBuffs?.gold || 0) > 0 ? 0.25 : 0;
     const atlasDrop = atlas ? atlas.lootBonus * 0.22 : 0;
-    const dropChance = e.elite ? 1 : e.type === 'stag' ? 1 : (0.08 + comboDrop + goldDrop + atlasDrop);
-    if (r < dropChance && this.field) this.dropItem(e.pos.x,e.pos.z,makeItem(Math.random,Math.floor(this.meta.p.level/4),e.elite?2:1));
-    else if (r < dropChance) {
-      let it = makeItem(Math.random, this.depth + this.meta.dropBonus + (atlas?.dropTierBonus || 0), e.type === 'stag' ? 3 : e.elite ? (Math.random() < 0.35 ? 3 : 2) : null);
-      if (atlas?.corruptDropChance > 0 && Math.random() < atlas.corruptDropChance) { const cr = corruptItem(it); if (cr.ok) it = cr.item; }
+    const baseDropChance = e.elite ? 1 : e.type === 'stag' ? 1 : (0.08 + comboDrop + goldDrop + atlasDrop);
+    const dropChance = autoOn ? baseDropChance * AUTO_RATES.dropChanceMult : Math.min(1, baseDropChance * sparkMul);
+    if (r < dropChance && this.field) {
+      const capR = autoOn ? Math.min(AUTO_RATES.maxDropRarity, e.elite ? 2 : 1) : (e.elite ? 2 : 1);
+      this.dropItem(e.pos.x, e.pos.z, makeItem(Math.random, Math.floor(this.meta.p.level / 4), capR));
+    } else if (r < dropChance) {
+      let maxR = e.type === 'stag' ? 3 : e.elite ? (Math.random() < 0.35 ? 3 : 2) : null;
+      if (autoOn && (maxR == null || maxR > AUTO_RATES.maxDropRarity)) maxR = Math.min(AUTO_RATES.maxDropRarity, e.elite ? 2 : 1);
+      let it = makeItem(Math.random, this.depth + this.meta.dropBonus + (atlas?.dropTierBonus || 0), maxR);
+      if (!autoOn && atlas?.corruptDropChance > 0 && Math.random() < atlas.corruptDropChance) { const cr = corruptItem(it); if (cr.ok) it = cr.item; }
       this.dropItem(e.pos.x, e.pos.z, it);
     }
     if (Math.random() < 0.16) this.dropOrb(e.pos.x, e.pos.z);
@@ -973,6 +989,9 @@ export class Game {
 
   // ---------------- skills ----------------
   aimDir() {
+    if (isAutopilotActive(this) && this.autopilot.aimVec) {
+      return new V2(this.autopilot.aimVec.x, this.autopilot.aimVec.y);
+    }
     const p = this.player;
     tmp2.set(this.aim.x - p.pos.x, this.aim.z - p.pos.z);
     if (tmp2.lengthSq() < 0.01) tmp2.set(Math.sin(p.facing), Math.cos(p.facing));
@@ -2063,8 +2082,10 @@ export class Game {
         const kb = this.settings?.keybinds;
         if (this.mouse.r && (!kb || kb.sk0 === 'rmb')) this.castHotbar(0);
       }
-      // movement (3D: walk, sprint, jump, climb walls, glide)
+      // movement (3D: walk, sprint, jump, climb walls, glide) + 🏮 提燈自動巡遊
       const mv = this.moveInput();
+      const autoMv = tickAutopilot(this, dt, mv);
+      if (autoMv) mv.set(autoMv.x, autoMv.y);
       if (this.recallT > 0) {
         if (mv.lengthSq() > 0.05 || p.roll > 0 || p.swingT > 0) {
           this.recallT = 0;

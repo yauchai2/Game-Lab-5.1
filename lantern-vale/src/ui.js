@@ -44,6 +44,11 @@ export class UI {
     $('btnMute').textContent = game.audio.muted ? '🔇 音效：關' : '🔊 音效：開';
     bindWorldMap(game); bindTouch(game); bindPuzzleUI(game); bindCodexUI(game);
     const pzBtn = $('sk-puzzle'); if (pzBtn) pzBtn.onclick = () => { if (this.puzzleOpen) this.closePuzzle(); else this.openPuzzle(); };
+    const autoBtn = $('sk-auto'); if (autoBtn) autoBtn.onclick = () => game.toggleAutopilot?.();
+    const apModeBtn = $('apToggleMode'); if (apModeBtn) apModeBtn.onclick = () => { const ap = game.autopilot; if (ap) game.toggleAutopilot?.(ap.mode === 'full' ? 'assist' : 'full'); };
+    const apSalvBtn = $('apToggleSalv'); if (apSalvBtn) apSalvBtn.onclick = () => { const ap = game.autopilot; if (ap) { ap.autoSalvage = !ap.autoSalvage; game.ui.toast(ap.autoSalvage ? '♻️ 已開啟掛機自動分解白／綠裝' : '♻️ 已關閉掛機自動分解', '#e8dcc8'); } };
+    const apCozyBtn = $('apToggleCozy'); if (apCozyBtn) apCozyBtn.onclick = () => { const ap = game.autopilot; if (ap) { ap.cozyCam = !ap.cozyCam; ap.idleT = 0; game.ui.toast(ap.cozyCam ? '🎥 已開啟桌寵觀賞鏡頭（20秒無操作啟動）' : '🎥 已關閉桌寵觀賞鏡頭', '#e8dcc8'); } };
+    const apStopBtn = $('apStop'); if (apStopBtn) apStopBtn.onclick = () => game.toggleAutopilot?.('off');
     const bagBtn = $('sk-bag'); if (bagBtn) bagBtn.onclick = () => this.toggleInv(game, 'bag');
     const recBtn = $('sk-recall'); if (recBtn) recBtn.onclick = () => game.startRecall?.();
     const mntBtn = $('sk-mount'); if (mntBtn) mntBtn.onclick = () => game.toggleMount?.();
@@ -508,6 +513,7 @@ export class UI {
       if (sb.gold > 0) pills.push(`<span class="st-pill st-buff-gold">💰 雙倍掉寶 ${Math.ceil(sb.gold)}s</span>`);
       if (sb.sheep > 0) pills.push(`<span class="st-pill st-buff-sheep">🐑 軟綿祝福 ${Math.ceil(sb.sheep)}s</span>`);
       if (p.galeBuff) pills.push(`<span class="st-pill st-buff-gold">💨 疾風強化 +60%</span>`);
+      if ((g.autopilot?.sparkBuffT || 0) > 0 && g.autopilot?.mode === 'off') pills.push(`<span class="st-pill st-spark">✨ 歸來星火 ×1.5 (${Math.ceil(g.autopilot.sparkBuffT)}s)</span>`);
       if (p.realmRule) pills.push(`<span class="st-pill ${p.realmRule.pillClass || 'st-realm-sea'}">${p.realmRule.icon} ${p.realmRule.short}</span>`);
       if (p.terrainFx) pills.push(`<span class="st-pill ${p.terrainFx.pillClass || 'st-terrain-water'}">${p.terrainFx.icon} ${p.terrainFx.short}</span>`);
       const html = pills.join('');
@@ -593,6 +599,27 @@ export class UI {
             .map(b => `<span class="td-b">${b.icon} ${b.name} ${Math.ceil(td.microBuffs[b.id])}s</span>`).join('');
           if (bf._last !== html) { bf.innerHTML = html; bf._last = html; }
         }
+      }
+    }
+    // 🏮 提燈自動巡遊 HUD 戰報卡片與快捷鍵亮燈
+    const ah = $('autoHud');
+    const ap = g.autopilot;
+    const autoOn = !!(ap && ap.mode !== 'off' && g.state === 'play');
+    const skAuto = $('sk-auto');
+    if (skAuto) skAuto.classList.toggle('on', autoOn);
+    if (ah) {
+      ah.classList.toggle('hide', !autoOn);
+      if (autoOn) {
+        const mins = Math.floor(ap.stats.sec / 60), secs = Math.floor(ap.stats.sec % 60);
+        const am = $('apMode'); if (am) am.textContent = ap.mode === 'full' ? (ap.cozyActive ? '🎥 桌寵巡遊 (30%)' : '🏮 全自動巡遊 (30%)') : '🏮 半自動輔助 (30%)';
+        const at = $('apTime'); if (at) at.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        const as = $('apStats');
+        if (as) as.innerHTML = `<span>⚔️ 擊殺 ${ap.stats.kills}</span><span>✨ 經驗 +${ap.stats.xp}</span><span>🪙 金幣 +${ap.stats.coins}</span><span>💎 星砂 +${ap.stats.shards}</span>`;
+        const asp = $('apSpark');
+        if (asp) asp.textContent = `🔥 手動星火：${'🔥'.repeat(ap.sparkStacks)}${'▫️'.repeat(5 - ap.sparkStacks)} (${ap.sparkStacks}/5)`;
+        const mBtn = $('apToggleMode'); if (mBtn) mBtn.textContent = ap.mode === 'full' ? '🔄 切半自動' : '🔄 切全自動';
+        const sBtn = $('apToggleSalv'); if (sBtn) sBtn.classList.toggle('on', !!ap.autoSalvage);
+        const cBtn = $('apToggleCozy'); if (cBtn) cBtn.classList.toggle('on', !!ap.cozyCam);
       }
     }
     const cbEl = $('comboBadge');

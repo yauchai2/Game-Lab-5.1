@@ -1,5 +1,5 @@
 {
-  "id": "auto-20261124-004205",
+  "id": "auto-20261124-010041",
   "shots": ["title", "town", "ui:bag", "ui:puzzle", "ui:souls", "ui:atlas", "ui:forge", "ui:map", "field:1", "combat:elements", "field:12", "boss"],
   "recordVideo": true
 }

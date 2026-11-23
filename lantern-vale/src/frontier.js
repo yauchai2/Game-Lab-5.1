@@ -50,10 +50,15 @@ export function restoreGear(g, player) {
 }
 export function awardKill(g, enemy) {
   const p = g.meta.p;
+  const autoOn = !!(g.autopilot && g.autopilot.mode !== 'off');
+  const sparkMul = (!autoOn && (g.autopilot?.sparkBuffT || 0) > 0) ? 1.5 : 1;
   const level = enemy.level || Math.min(30, g.depth * 2 + 1);
-  const mult = (g.isNight ? 1.25 : 1) * (p.guildName ? 1.1 : 1);
-  p.xp += Math.round((10 + level * (enemy.elite ? 4 : 2)) * mult);
-  p.coins += enemy.elite ? 5 : 2;
+  const mult = (g.isNight ? 1.25 : 1) * (p.guildName ? 1.1 : 1) * (autoOn ? 0.30 : sparkMul);
+  const xpGain = Math.max(1, Math.round((10 + level * (enemy.elite ? 4 : 2)) * mult));
+  const rawCoins = enemy.elite ? 5 : 2;
+  const coinGain = autoOn ? (Math.random() < 0.30 ? Math.max(1, Math.round(rawCoins * 0.5)) : 0) : Math.round(rawCoins * sparkMul);
+  p.xp += xpGain;
+  p.coins += coinGain;
   p.species[enemy.type] = (p.species[enemy.type] || 0) + 1;
   if (g.field && FIELD_NPCS[g.field]) {
     const qid = FIELD_NPCS[g.field].quest.id;
@@ -66,19 +71,27 @@ export function awardKill(g, enemy) {
     g.ui.toast('旅人等級提升至 ' + p.level, '#ffdc80'); g.recalc();
   }
   if (p.level === 30) p.xp = 0;
+  let matGain = 0;
   if (g.field) {
     const material = ['wood','ore','fish'][(enemy.spawnIndex ?? 0) % 3];
-    p.goods[material] += enemy.elite ? 3 : 1;
-    if (enemy.elite || enemy.legendary) {
-      p.keys++;
-      const pool = Object.keys(ALL_GEMS);
-      const gemId = pool[Math.floor(Math.random() * pool.length)];
-      addGemToBag(p, gemId);
-      g.ui.toast(`獲得拼圖寶石：${ALL_GEMS[gemId].name}`, '#c08cff');
+    if (!autoOn) {
+      matGain = enemy.elite ? 3 : 1;
+      p.goods[material] += matGain;
+      if (enemy.elite || enemy.legendary) {
+        p.keys++;
+        const pool = Object.keys(ALL_GEMS);
+        const gemId = pool[Math.floor(Math.random() * pool.length)];
+        addGemToBag(p, gemId);
+        g.ui.toast(`獲得拼圖寶石：${ALL_GEMS[gemId].name}`, '#c08cff');
+      }
+      g.ui.toast(GOODS[material] + (enemy.elite ? ' +3 · 鑰石 +1' : ' +1'), '#ffe5a5');
+    } else if (Math.random() < 0.35) {
+      matGain = 1;
+      p.goods[material] += 1;
     }
-    g.ui.toast(GOODS[material] + (enemy.elite ? ' +3 · 鑰石 +1' : ' +1'), '#ffe5a5');
     if (enemy.spawnIndex != null) p.timers[g.field + ':mob:' + enemy.spawnIndex] = Date.now() + (enemy.legendary ? 90000 : 16000);
   }
+  if (autoOn) g.onAutoKill?.({ xp: xpGain, coins: coinGain, mats: matGain });
   g.meta.save();
 }
 export function fieldBiome(i) {

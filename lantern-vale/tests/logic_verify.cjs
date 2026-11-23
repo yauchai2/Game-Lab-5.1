@@ -597,5 +597,51 @@ const createGuild = require('../server/guild.cjs');
   assert.equal(elements.resolveSurfaceReaction(tfxMod.getTerrainEffect('ice_lake').surfaceBase, 'fire').nextKind, 'steam', 'Ice lake + fire melts into steam');
   assert.equal(elements.resolveSurfaceReaction(tfxMod.getTerrainEffect('creek').surfaceBase, 'shock').nextKind, 'electrified_water', 'Shallow creek + shock triggers electrified_water');
 
-  console.log('ALL 22 LOGIC, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
+  // 23. Phase 5A: Lantern Autopilot (30% yield, Spark Surge x1.5, WASD instant takeover, auto-flask & safety retreat, Cozy Cam)
+  const apMod = await import(src('autopilot.js'));
+  assert.equal(apMod.AUTO_RATES.xpMult, 0.30);
+  assert.equal(apMod.AUTO_RATES.dropChanceMult, 0.20);
+  assert.equal(apMod.AUTO_RATES.maxDropRarity, 2);
+  let flaskUsed = 0, atkCount = 0;
+  const apMock = {
+    field: 1, depth: 0, time: 0, camZoom: 1.0, camYaw: 0.62,
+    autopilot: apMod.createAutopilotState(),
+    meta: { p: structuredClone(frontier.progressDefaults), save() {} },
+    player: {
+      pos: { x: 0, z: 0, set(x, y, z) { this.x = x; this.z = z; } }, y: 0,
+      hp: 40, mana: 80, stats: { maxHp: 100, mana: 100 },
+      flask: { charges: 2, max: 3 }, hotbar: [], skillCds: [0, 0, 0, 0],
+    },
+    enemies: [{ dead: false, legendary: false, type: 'slime', pos: { x: 2.2, z: 0 } }],
+    drops: [{ kind: 'item', item: { rarity: 1 }, g: { position: { x: 1, z: 0 } } }],
+    checkpoints: [{ idx: 0, name: 'CP0', x: 0, z: 0, y: 0, unlocked: true }],
+    world: { gh: () => 0, shallowAt: () => null },
+    ui: { toast() {} }, fx: { burst() {} }, audio: { sfx() {} },
+    tryFlask() { flaskUsed++; this.player.flask.charges--; this.player.hp = 85; },
+    tryAttack() { atkCount++; },
+    onAutoKill(d) { apMod.onAutopilotKill(this, d); },
+  };
+  assert.equal(apMod.toggleAutopilot(apMock, 'full'), true);
+  assert.equal(apMod.isAutopilotActive(apMock), true);
+  const mvRes = apMod.tickAutopilot(apMock, 0.2, { lengthSq: () => 0 });
+  assert.ok(mvRes !== null, 'Autopilot returns steering vector in full mode');
+  assert.equal(flaskUsed, 1, 'Autopilot auto-drinks flask at HP < 45%');
+  assert.ok(atkCount >= 1, 'Autopilot auto-attacks nearby normal enemy');
+  assert.equal(apMock.drops.length, 0, 'Autopilot auto-salvages uncommon gear into shards');
+  assert.equal(apMock.autopilot.stats.shards, 4, 'Auto-salvaging green item grants 4 shards');
+  // Test 30% XP yield in awardKill during autopilot
+  apMock.meta.p.xp = 0;
+  frontier.awardKill(apMock, { type: 'slime', level: 10, elite: false, spawnIndex: 0 });
+  assert.equal(apMock.meta.p.xp, 9, 'Autopilot awards 30% XP (30 * 0.30 = 9)');
+  // Test Cozy Cam after 20s idle & Spark Surge x1.5 upon manual WASD takeover
+  apMock.autopilot.idleT = 22;
+  apMock.autopilot.sparkStacks = 2;
+  apMod.tickAutopilot(apMock, 0.5, { lengthSq: () => 0 });
+  assert.equal(apMock.autopilot.cozyActive, true, 'Cozy Cam activates after 20s idle');
+  apMod.tickAutopilot(apMock, 0.1, { lengthSq: () => 1.0 }); // manual WASD takeover
+  assert.equal(apMod.isAutopilotActive(apMock), false, 'WASD instantaneously exits full autopilot');
+  assert.ok(apMock.autopilot.sparkBuffT >= 59, 'Exiting autopilot with 2 Spark stacks activates 60s Return Surge');
+  assert.equal(apMod.manualSparkMult(apMock), 1.5, 'Return Surge multiplies manual XP & loot by 1.5x');
+
+  console.log('ALL 23 LOGIC, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
 })();
