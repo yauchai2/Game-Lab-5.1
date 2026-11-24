@@ -686,8 +686,8 @@ export function bindCharacters(game) {
     } else if (pv === 'dressup') {
       focusHero(qJob ?? 2, false); enterDressup();
       camCurPos.copy(camGoalPos); camCurTarget.copy(camGoalTarget); camCurFov = camGoalFov;
-    } else if (pv === 'town' || pv === 'harbor' || pv === 'field' || pv === 'inv' || pv === 'puzzle' || pv === 'map' || pv === 'vfx_demo') {
-      const targetJob = qJob ?? (pv === 'town' || pv === 'harbor' ? 4 : 0);
+    } else if (pv === 'town' || pv === 'field' || pv === 'inv' || pv === 'puzzle' || pv === 'map' || pv === 'vfx_demo') {
+      const targetJob = qJob ?? (pv === 'town' ? 4 : 0);
       selectedJob = targetJob;
       activeSlotLook = normalizeCharacterLook(CHAR_CATALOG.classPresets[targetJob], targetJob);
       game.character = { ...activeSlotLook, job: targetJob };
@@ -695,9 +695,8 @@ export function bindCharacters(game) {
       titleEl.classList.add('hide');
       $('hud')?.classList.remove('hide');
       setTimeout(() => {
-        game.dayTime = 0.50;
-        if (pv === 'field' || pv === 'vfx_demo') { game.enterTown?.(); game.enterField?.(+(qs.get('fid') || 1)); }
-        else if (pv === 'harbor') game.enterHarbor?.();
+        game.dayTime = 0.36;
+        if (pv === 'field' || pv === 'vfx_demo') { game.enterTown?.(); game.enterField?.(1); }
         else game.enterTown?.();
         game.fade = 0;
         if (game.camZoom) game.camZoom = 0.85;
