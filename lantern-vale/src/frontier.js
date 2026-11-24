@@ -218,11 +218,12 @@ function buildBlueprintLandmarks(g, bp) {
       // #04 東北：Palmov 藍冰晶山峰群
       placePalmov('crystal_mountain', pos.x, pos.z, { scale: 1.0, rotY: 0.2, yOffset: -0.25, emissive: 0x2c4e68, emissiveIntensity: 0.32 }, 4.0);
     } else if (poi.landmark === 'snow_cabin') {
-      // #04 西側裂谷雪屋：Palmov 河畔雪屋木橋
-      placePalmov('river_winter', pos.x, pos.z, { scale: 0.95, rotY: 0.45, yOffset: -0.25, emissive: 0x344252, emissiveIntensity: 0.26 }, 3.5);
+      // #04 西側裂谷雪屋：著地雪山木屋（不放陸地船隻與碼頭）
+      placeGlb('snow_house', pos.x, pos.z, null, { scale: 1.08, rotY: 0.45, yOffset: -0.15 }, 2.6);
     } else if (poi.landmark === 'cliff_lighthouse') {
-      // #07 東側巨崖：Palmov 三層飛瀑燈塔巨崖（已實查非 three level island）
-      placePalmov('cliff_lighthouse', pos.x, pos.z, { scale: 1.05, rotY: -0.35, yOffset: -0.25 }, 4.0);
+      // #07 東側巨崖：著地燈塔＋守塔木屋（不因去底板導致浮空）
+      placeGlb('lighthouse', pos.x, pos.z, null, { scale: 1.08, rotY: -0.4, yOffset: -0.2, emissive: 0x5c5246, emissiveIntensity: 0.45 }, 2.6);
+      placeGlb('island_house', pos.x - 7.0, pos.z + 4.4, null, { scale: 1.0, rotY: 0.55, yOffset: -0.15, emissive: 0x564c40, emissiveIntensity: 0.42 }, 2.6);
     } else if (poi.landmark === 'star_aqueduct') {
       // #07 北端星穹斷柱水道：Palmov 古羅馬列柱遺址
       placePalmov('roman_ruins', pos.x, pos.z, { scale: 1.0, rotY: 0.2, yOffset: -0.25 }, 3.6);
@@ -230,17 +231,19 @@ function buildBlueprintLandmarks(g, bp) {
       // #02 西南：Palmov 白樺荒野廢屋（已剔除現代破轎車）
       placePalmov('abandoned_house', pos.x, pos.z, { scale: 1.0, rotY: 0.35, yOffset: -0.25 }, 3.2);
     } else if (poi.landmark === 'canopy_vault') {
-      // #02 東北樹冠秘境：Palmov 森林瀑布崖（拔除原先錯放的農莊風車）
+      // #02 東北樹冠秘境：Palmov 森林瀑布崖（已剔除陸地帆船，拔除原先農莊風車）
       placePalmov('forest_waterfall', pos.x, pos.z, { scale: 0.92, rotY: -0.3, yOffset: -0.25 }, 3.2);
     } else if (poi.landmark === 'forest_tomb') {
       // #02 東南古墓凹地：Palmov 哥德古墓石堂（已清除 [WALL] 鑿平）
       placePalmov('cemetery_church', pos.x, pos.z, { scale: 0.80, rotY: 0.2, yOffset: -0.25 }, 3.5);
     } else if (poi.landmark === 'kraken_wreck') {
-      // #03 中央：Palmov 真海怪巨型觸手纏繞沉船（取代舊版 Torus 拼裝觸手）
+      // #03 中央：Palmov 真海怪巨型觸手纏繞沉船（已剔除陸地散落小艇）
       placePalmov('kraken_wreck', pos.x, pos.z, { scale: 1.05, rotY: 0.35, yOffset: -0.25 }, 4.2);
     } else if (poi.landmark === 'stilt_village') {
-      // #03 東側：Palmov 真高腳吊橋木屋漁村（取代孤屋）
-      placePalmov('stilt_village', pos.x, pos.z, { scale: 1.0, rotY: -0.45, yOffset: -0.25 }, 3.8);
+      // #03 東側：著地沼澤木屋聚落＋螢光巨菇（徹底移除懸空吊橋與陸地船隻）
+      placeGlb('beach_house', pos.x - 3.5, pos.z - 2.0, null, { scale: 1.05, rotY: -0.45, yOffset: -0.15, emissive: 0x3a342a, emissiveIntensity: 0.36 }, 2.8);
+      placeGlb('fishing_hut', pos.x + 5.2, pos.z + 2.4, null, { scale: 1.0, rotY: 0.5, yOffset: -0.15, emissive: 0x3a342a, emissiveIntensity: 0.36 }, 2.6);
+      placeGlb('giant_shroom', pos.x - 6.8, pos.z + 4.2, null, { scale: 1.05, rotY: 0.3, yOffset: -0.1, tint: 0xa4f4e0, emissive: 0x26786a, emissiveIntensity: 0.42 }, 1.2);
     } else if (poi.landmark === 'shroom_grove') {
       // #03 北礁螢光巨菇群
       placeGlb('giant_shroom', pos.x, pos.z, null, { scale: 1.35, rotY: 0.2, yOffset: -0.1, tint: 0xa4f4e0, emissive: 0x26786a, emissiveIntensity: 0.42 }, 1.6);
@@ -261,13 +264,14 @@ function buildBlueprintLandmarks(g, bp) {
       // #05 東南：Palmov 紅岩瀑布綠洲
       placePalmov('redrock_oasis', pos.x, pos.z, { scale: 1.0, rotY: -0.35, yOffset: -0.25, emissive: 0x3e2c22, emissiveIntensity: 0.26 }, 3.5);
     } else if (poi.landmark === 'ancient_pagoda') {
-      // #06 西北：Palmov 真東方五重古塔寺廟（拔除原先錯放的農莊風車）
-      placePalmov('ancient_pagoda', pos.x, pos.z, { scale: 1.05, rotY: 0.2, yOffset: -0.25 }, 4.0);
+      // #06 西北：遠古巨石林瀑布秘境（絕不放違合日式寺廟！）
+      placePalmov('forest_waterfall', pos.x, pos.z, { scale: 1.0, rotY: 0.25, yOffset: -0.25 }, 3.5);
+      placeGlb('stonehenge', pos.x - 8.5, pos.z + 5.5, null, { scale: 1.05, rotY: 0.5, yOffset: -0.15 }, 2.0);
     } else if (poi.landmark === 'spirit_terrace') {
-      // #06 東坡：Palmov 三疊露天溫泉石池
+      // #06 東坡：Palmov 天然三疊石泉池
       placePalmov('hot_springs', pos.x, pos.z, { scale: 0.95, rotY: 0.4, yOffset: -0.25 }, 3.2);
     } else if (poi.landmark === 'world_tree_core') {
-      // #06 中央：Palmov 古木森山林核（取代舊版正二十面體巨樹）
+      // #06 中央：Palmov 古木森山林核
       placePalmov('mountain_forest', pos.x, pos.z, { scale: 1.05, rotY: 0.25, yOffset: -0.25 }, 3.8);
     } else if (poi.landmark === 'forest_camp') {
       placeGlb('forest_cabin', pos.x, pos.z, null, { scale: 1.05, rotY: -0.4, yOffset: -0.15, emissive: 0x3a3428, emissiveIntensity: 0.35 }, 2.6);
@@ -280,35 +284,41 @@ function buildBlueprintLandmarks(g, bp) {
       placeGlb('coconut_tree', pos.x - 6.2, pos.z + 3.2, null, { scale: 1.2, rotY: 0.3, yOffset: -0.15, emissive: 0x38462c, emissiveIntensity: 0.36 }, 1.0);
       placeGlb('coconut_tree', pos.x + 5.8, pos.z - 2.5, null, { scale: 1.1, rotY: 2.0, yOffset: -0.15, emissive: 0x38462c, emissiveIntensity: 0.36 }, 1.0);
     } else if (poi.landmark === 'coral_reef') {
-      placeGlb('pirate_boat', pos.x, pos.z, null, { scale: 1.2, rotY: -0.8, yOffset: -0.1, emissive: 0x44362a, emissiveIntensity: 0.38 }, 2.4);
+      placeGlb('coconut_tree', pos.x - 3.5, pos.z - 2.0, null, { scale: 1.15, rotY: 0.6, yOffset: -0.15, emissive: 0x38462c, emissiveIntensity: 0.36 }, 1.0);
+      placeGlb('beach_house', pos.x + 3.5, pos.z + 1.5, null, { scale: 0.95, rotY: -0.6, yOffset: -0.15, emissive: 0x443c32, emissiveIntensity: 0.38 }, 2.4);
     } else if (poi.landmark === 'tesla_tower') {
-      // #09 西北：Palmov 海港紅白燈塔碼頭＋電光晶柱
-      placePalmov('lighthouse_pier', pos.x, pos.z, { scale: 1.0, rotY: 0.2, yOffset: -0.25, tint: 0xc8ebff, emissive: 0x265272, emissiveIntensity: 0.36 }, 3.6);
-      placeGlb('ice_crystal', pos.x - 7.5, pos.z + 4.5, null, { scale: 1.05, rotY: 0.4, yOffset: -0.15, flatTint: 0x62e2ff, emissive: 0x2896d8, emissiveIntensity: 0.55 }, 1.4);
-      placeGlb('ice_crystal', pos.x + 7.5, pos.z + 4.5, null, { scale: 1.05, rotY: -0.4, yOffset: -0.15, flatTint: 0x62e2ff, emissive: 0x2896d8, emissiveIntensity: 0.55 }, 1.4);
-    } else if (poi.landmark === 'stilt_plaza') {
-      // #09 中央：Palmov 彩頂海港商棧碼頭（已清除 [WALL] 鑿平，並剔除微小物）
-      placePalmov('trade_port', pos.x, pos.z, { scale: 1.0, rotY: -0.3, yOffset: -0.25, emissive: 0x2e3e4c, emissiveIntensity: 0.30 }, 4.0);
-    } else if (poi.landmark === 'market_pier') {
-      // #09 東南：Palmov 海港黑帆木樓市集（已剔除微小物）
-      placePalmov('pirate_seaport', pos.x, pos.z, { scale: 1.0, rotY: 0.45, yOffset: -0.25, emissive: 0x2e3e4c, emissiveIntensity: 0.30 }, 3.8);
+      // #09 西北：水沒變電巨塔（著地燈塔＋電光晶柱，絕不放陸地船隻與碼頭）
+      placeGlb('lighthouse', pos.x, pos.z - 3.5, null, { scale: 1.15, rotY: 0.1, yOffset: -0.2, tint: 0xb8e6ff, emissive: 0x26547a, emissiveIntensity: 0.45 }, 2.6);
+      placeGlb('ice_crystal', pos.x - 6.2, pos.z + 3.0, null, { scale: 1.05, rotY: 0.4, yOffset: -0.15, flatTint: 0x62e2ff, emissive: 0x2896d8, emissiveIntensity: 0.55 }, 1.4);
+      placeGlb('ice_crystal', pos.x + 6.2, pos.z + 3.0, null, { scale: 1.05, rotY: -0.4, yOffset: -0.15, flatTint: 0x62e2ff, emissive: 0x2896d8, emissiveIntensity: 0.55 }, 1.4);
+    } else if (poi.landmark === 'stilt_plaza' || poi.landmark === 'market_pier') {
+      // #09 著地海灣電光屋舍廣場（徹底移除陸地大帆船與懸空木碼頭）
+      placeGlb('island_house', pos.x - 4.5, pos.z - 2.5, null, { scale: 1.05, rotY: -0.45, yOffset: -0.15, tint: 0xd0e8f8, emissive: 0x2c465c, emissiveIntensity: 0.38 }, 2.6);
+      placeGlb('fishing_hut', pos.x + 6.2, pos.z + 2.5, null, { scale: 1.0, rotY: 0.55, yOffset: -0.15, tint: 0xd0e8f8, emissive: 0x2c465c, emissiveIntensity: 0.38 }, 2.4);
     } else if (poi.landmark === 'clock_roof') {
       placeGlb('snow_tower', pos.x, pos.z, null, { scale: 1.05, rotY: 0.3, yOffset: -0.15, tint: 0xc8dce8, emissive: 0x2e465c, emissiveIntensity: 0.38 }, 2.6);
     } else if (poi.landmark === 'sakura_shrine') {
-      // #10 西北：Palmov 和風藍瓦天守閣水宮（拔除舊版熱帶木屋）
-      placePalmov('imperial_palace', pos.x, pos.z, { scale: 1.05, rotY: 0.25, yOffset: -0.25 }, 4.2);
+      // #10 西北：奇幻花林瀑布林園（絕不放違合日式城堡／寺廟！）
+      placePalmov('forest_waterfall', pos.x, pos.z, { scale: 1.0, rotY: 0.3, yOffset: -0.25 }, 3.5);
+      placeGlb('sakura_tree', pos.x - 7.5, pos.z + 3.5, null, { scale: 1.25, rotY: 0.4, yOffset: -0.15, flatTint: 0xffb8da, emissive: 0xc4588a, emissiveIntensity: 0.52 }, 1.4);
+      placeGlb('sakura_tree', pos.x + 7.5, pos.z + 3.5, null, { scale: 1.2, rotY: -0.5, yOffset: -0.15, flatTint: 0xffcce6, emissive: 0xc86492, emissiveIntensity: 0.52 }, 1.4);
     } else if (poi.landmark === 'sakura_bridge') {
-      // #10 中央：Palmov 雙鳥居大弧朱紅橋與櫻花亭
-      placePalmov('sakura_bridge', pos.x, pos.z, { scale: 1.0, rotY: 0.2, yOffset: -0.25 }, 3.5);
+      // #10 中央：花林水岸木屋與粉櫻樹群（無日式寺廟／鳥居圍牆）
+      placeGlb('cottage', pos.x - 6.5, pos.z - 2.5, null, { scale: 1.0, rotY: 0.4, yOffset: -0.15 }, 2.6);
+      placeGlb('sakura_tree', pos.x + 6.5, pos.z - 2.8, null, { scale: 1.18, rotY: 1.1, yOffset: -0.15, flatTint: 0xffb8da, emissive: 0xc4588a, emissiveIntensity: 0.52 }, 1.4);
     } else if (poi.landmark === 'sea_torii_island') {
-      // #10 西南：Palmov 海上紅塔鳥居孤島（japanes island，非冬季雪景）
-      placePalmov('sea_torii_island', pos.x, pos.z, { scale: 1.0, rotY: 0.35, yOffset: -0.25 }, 3.5);
+      // #10 西南：花林湖心天然石泉
+      placePalmov('hot_springs', pos.x, pos.z, { scale: 0.92, rotY: 0.35, yOffset: -0.25 }, 3.2);
+      placeGlb('sakura_tree', pos.x - 6.0, pos.z + 2.5, null, { scale: 1.15, rotY: 0.8, yOffset: -0.15, flatTint: 0xffc4e0, emissive: 0xc4588a, emissiveIntensity: 0.52 }, 1.3);
     } else if (poi.landmark === 'tea_house') {
-      // #10 東北：Palmov 竹林和風茶亭庭園
-      placePalmov('bamboo_tea', pos.x, pos.z, { scale: 1.0, rotY: -0.4, yOffset: -0.25 }, 3.5);
+      // #10 東北：花林湖畔茶舍木屋
+      placeGlb('island_house', pos.x, pos.z, null, { scale: 1.0, rotY: -0.45, yOffset: -0.15, emissive: 0x52463e, emissiveIntensity: 0.42 }, 2.5);
+      placeGlb('sakura_tree', pos.x + 5.8, pos.z + 2.4, null, { scale: 1.15, rotY: 0.3, yOffset: -0.15, flatTint: 0xffb8da, emissive: 0xc4588a, emissiveIntensity: 0.52 }, 1.3);
     } else if (poi.landmark === 'canyon_train') {
-      // #11 西段：Palmov 峽谷蒸汽火車木棧橋（取代 3 台散放礦車）
-      placePalmov('canyon_train', pos.x, pos.z, { scale: 1.05, rotY: 0.35, yOffset: -0.25 }, 3.8);
+      // #11 西段：著地峽谷礦車列（不使用懸空水谷橋）
+      placeGlb('mine_cart', pos.x - 3.5, pos.z, null, { scale: 1.55, rotY: 0.5, yOffset: -0.05 }, 1.8);
+      placeGlb('mine_cart', pos.x + 0.5, pos.z - 2.0, null, { scale: 1.50, rotY: 0.5, yOffset: -0.05 }, 1.8);
+      placeGlb('mine_cart', pos.x + 4.5, pos.z - 4.0, null, { scale: 1.45, rotY: 0.5, yOffset: -0.05 }, 1.8);
     } else if (poi.landmark === 'mega_sky_ring') {
       // #11 中段：保留標誌性卡比風斜嵌碧藍加速巨環
       const ring = new THREE.Mesh(new THREE.TorusGeometry(10.5, 1.35, 8, 24, Math.PI), toonMat({ color: 0x58c8f8, emissive: 0x1e6ca8, emissiveIntensity: 0.35 }));
@@ -401,23 +411,20 @@ function buildBlueprintLandmarks(g, bp) {
     placeGlb('island_house', dockPos.x, dockPos.z, null, { scale: 0.95, rotY: -0.5, yOffset: -0.15, emissive: 0x463e34, emissiveIntensity: 0.40 }, 2.5);
     placeGlb('stonehenge', dockPos.x - 6.8, dockPos.z - 3.0, null, { scale: 0.85, rotY: 0.5, yOffset: -0.15 }, 1.8);
   } else if (bp.id === 8) {
-    // #08 南岸椰林迎賓金沙灘 ＋ 北岸海蝕石拱門（Palmov mountain arch）
+    // #08 南岸椰林迎賓金沙灘
     const startP = uvToWorld(0.46, 0.80, half);
     placeGlb('beach_house', startP.x + 6.5, startP.z - 2.0, null, { scale: 0.95, rotY: -0.45, yOffset: -0.15, emissive: 0x443c32, emissiveIntensity: 0.38 }, 2.6);
     placeGlb('coconut_tree', startP.x - 5.5, startP.z - 3.5, null, { scale: 1.15, rotY: 0.6, yOffset: -0.15, emissive: 0x38462c, emissiveIntensity: 0.36 }, 1.0);
-    const archP = uvToWorld(0.75, 0.22, half);
-    placePalmov('mountain_arch', archP.x, archP.z, { scale: 1.0, rotY: 0.15, yOffset: -0.25 }, 3.0);
   } else if (bp.id === 10) {
-    // #10 東南落櫻南堤起點：朱紅迎賓鳥居＋粉嫩櫻花樹
+    // #10 東南落櫻南堤起點：粉嫩櫻花樹林（不放違合鳥居寺廟）
     const startP = uvToWorld(0.80, 0.78, half);
-    placeGlb('torii_gate', startP.x, startP.z, null, { scale: 1.15, rotY: 0.45, yOffset: -0.15, tint: 0xffc8c0, emissive: 0x7c2620, emissiveIntensity: 0.46 }, 0);
     placeGlb('sakura_tree', startP.x - 6.0, startP.z - 2.0, null, { scale: 1.15, rotY: 0.3, yOffset: -0.15, flatTint: 0xffb8da, emissive: 0xc4588a, emissiveIntensity: 0.52 }, 1.3);
     placeGlb('sakura_tree', startP.x + 5.8, startP.z - 3.0, null, { scale: 1.05, rotY: 1.6, yOffset: -0.15, flatTint: 0xffcce6, emissive: 0xc86492, emissiveIntensity: 0.52 }, 1.3);
   } else if (bp.id === 13) {
-    // #13 黃金風沙原：既有 4351 埃及遺跡 ＋ 西北綠洲（desert islands）＋ 東北阿拉伯沙城（arab castle）
+    // #13 黃金風沙原：既有 4351 埃及遺跡 ＋ 東北阿拉伯沙城（arab castle）
     const pOasis = uvToWorld(0.28, 0.34, half);
-    placePalmov('desert_oasis', pOasis.x, pOasis.z, { scale: 0.95, rotY: 0.3, yOffset: -0.25 }, 3.2);
-    placeGlb('egypt_obelisk', pOasis.x + 9.0, pOasis.z - 5.5, null, { scale: 1.1, rotY: -0.3, yOffset: -0.15, tint: 0xf6cf92, emissive: 0x5c4224, emissiveIntensity: 0.36 }, 1.6);
+    placeGlb('egypt_house', pOasis.x - 6.5, pOasis.z - 4.0, null, { scale: 1.15, rotY: 0.5, yOffset: -0.15, tint: 0xffe4b8, emissive: 0x624628, emissiveIntensity: 0.38 }, 2.6);
+    placeGlb('egypt_obelisk', pOasis.x + 7.0, pOasis.z - 5.5, null, { scale: 1.1, rotY: -0.3, yOffset: -0.15, tint: 0xf6cf92, emissive: 0x5c4224, emissiveIntensity: 0.36 }, 1.6);
     const pCast = uvToWorld(0.78, 0.30, half);
     placePalmov('arab_castle', pCast.x, pCast.z, { scale: 1.0, rotY: -0.4, yOffset: -0.25 }, 4.2);
     const pStart = uvToWorld(0.22, 0.78, half);

@@ -914,9 +914,11 @@ const createGuild = require('../server/guild.cjs');
   assert.ok(charPageSrc.includes('buildMountainShipStage') && charPageSrc.includes('creator_mountain_ship.glb'), 'Location mountain ship 3D stage wired');
   assert.ok(charPageSrc.includes('heroPins3d') && htmlSrc.includes('id="heroPins3d"'), '3D projected foot pins wired in Character Theater');
 
-  // 42. Phase v6: 20 Field Maps Reasonable Palmov POI Overhaul, 33 Verified POIs, 20 Giant Field Bosses & Zero-WALL POI Guarantee
+  // 42. Phase v6b: 19 Grounded HD-Verified Palmov POIs (zero boats on land, zero Japanese temples), 20 Giant Field Bosses, Zero-WALL POIs & HD Settings Toggle
   const bpV6 = await import('../src/field_blueprints.js');
-  assert.equal(Object.keys(p2bAssets.PALMOV_POIS).length, 33, 'All 33 verified Palmov POI GLBs registered');
+  const settingsSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'settings.js'), 'utf8');
+  assert.ok(settingsSrc.includes('關閉（高清）') && settingsSrc.includes("key === 'pixel' ? 1 : 0"), 'Settings supports disabling low-res pixelation (pixel = 1 HD mode)');
+  assert.equal(Object.keys(p2bAssets.PALMOV_POIS).length, 19, 'All 19 grounded HD-verified Palmov POI GLBs registered');
   for (const [k, rel] of Object.entries(p2bAssets.PALMOV_POIS)) {
     const fp = path.join(__dirname, '..', 'game', rel);
     assert.ok(fs.existsSync(fp) && fs.statSync(fp).size > 5000, `Palmov POI GLB exists & valid: ${k} (${rel})`);

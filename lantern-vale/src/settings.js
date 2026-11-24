@@ -69,7 +69,7 @@ function getRows(lang) {
     ],
     video: [
       ['difficulty', '遊戲難度模式', ['cozy', 'standard', 'veteran']],
-      ['pixel', t(lang, 'rowPixel'), ['', '', t(lang, 'optFine'), t(lang, 'optStd'), t(lang, 'optCoarse')]],
+      ['pixel', t(lang, 'rowPixel'), ['', lang === 'en' ? 'Off (HD)' : lang === 'ja' ? 'オフ（高画質）' : '關閉（高清）', t(lang, 'optFine'), t(lang, 'optStd'), t(lang, 'optCoarse')]],
       ['camAngle', t(lang, 'rowCamAngle'), [t(lang, 'cam45'), t(lang, 'cam55'), t(lang, 'cam36')]],
       ['wind', t(lang, 'rowWind'), [off, t(lang, 'optBreeze'), t(lang, 'optGale')]],
       ['water', t(lang, 'rowWater'), [off, on]],
@@ -190,7 +190,7 @@ export function buildSettingsUI(g) {
         body.appendChild(r);
         return;
       }
-      const lo = opts === 'num' ? 0 : (key === 'pixel' ? 2 : 0), hi = opts === 'num' ? 10 : (key === 'pixel' ? 4 : opts.length - 1);
+      const lo = opts === 'num' ? 0 : (key === 'pixel' ? 1 : 0), hi = opts === 'num' ? 10 : (key === 'pixel' ? 4 : opts.length - 1);
       const txt = opts === 'num' ? String(v) : opts[v];
       r.innerHTML = `<span class="sl">${label}</span><span class="sv"><button class="arr" data-d="-1">◀</button><b class="sval">${txt}</b><button class="arr" data-d="1">▶</button></span>`;
       r.querySelectorAll('.arr').forEach(b => b.onclick = () => { const nv = Math.max(lo, Math.min(hi, v + +b.dataset.d)); if (nv !== v) set(key, nv); });

@@ -696,6 +696,10 @@ export function bindCharacters(game) {
       $('hud')?.classList.remove('hide');
       setTimeout(() => {
         game.dayTime = 0.50;
+        if (qs.get('hd') === '1') {
+          if (game.settings) game.settings.pixel = 1;
+          game.pipe?.setPixelScale?.(1);
+        }
         if (pv === 'field' || pv === 'vfx_demo') {
           const fid = +(qs.get('fid') || 1);
           game.enterTown?.(); game.enterField?.(fid);

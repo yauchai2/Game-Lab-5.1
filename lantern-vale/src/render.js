@@ -96,16 +96,19 @@ export class Pipeline {
   setPixelScale(s) { this.pixelScale = s; this.resize(); }
   resize() {
     const W = window.innerWidth, H = window.innerHeight;
-    // choose integer scale so internal height is ~ 270-360 px
+    // target === 1 表示關閉低解像像素效果（原畫高清），>= 2 為復古低像素倍率
     const target = this.pixelScale;
-    const w = Math.max(160, Math.floor(W / target)), h = Math.max(90, Math.floor(H / target));
+    const scale = target <= 1 ? Math.min(window.devicePixelRatio || 1, 2) : (1 / target);
+    const w = Math.max(160, Math.floor(W * scale)), h = Math.max(90, Math.floor(H * scale));
     this.w = w; this.h = h;
     this.renderer.setSize(w, h, false);
     this.renderer.domElement.style.width = W + 'px';
     this.renderer.domElement.style.height = H + 'px';
+    this.renderer.domElement.style.imageRendering = target <= 1 ? 'auto' : 'pixelated';
     if (this.rt) { this.rt.dispose(); this.rtN.dispose(); }
     const dt = new THREE.DepthTexture(w, h); dt.type = THREE.UnsignedIntType;
-    this.rt = new THREE.WebGLRenderTarget(w, h, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthTexture: dt });
+    const filt = target <= 1 ? THREE.LinearFilter : THREE.NearestFilter;
+    this.rt = new THREE.WebGLRenderTarget(w, h, { minFilter: filt, magFilter: filt, depthTexture: dt });
     this.rtN = new THREE.WebGLRenderTarget(w, h, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter });
     this.postMat.uniforms.uRes.value.set(w, h);
     if (this.onResize) this.onResize(w, h);

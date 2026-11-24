@@ -16,44 +16,31 @@ ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 OUT_POI = os.path.join(ROOT_DIR, 'game', 'assets', 'palmov_poi')
 OUT_MON = os.path.join(ROOT_DIR, 'game', 'assets', 'monsters')
 
-# Strict strip keywords (water slabs, flat ground tiles, modern vehicles, micro food clutter)
+# Strict strip keywords (water slabs, flat ground tiles, modern vehicles, floating boats, micro food clutter)
 STRIP_KWS = [
-    'water ', 'watre ', 'land ', 'island mountain ship', 'island lighthouse', 'island ',
+    'water ', 'watre ', 'land ', 'island mountain ship', 'island lighthouse',
     'rotten sedan', 'car suvs', 'space car', 'planet 2',
+    'sailboat', 'boat ',
     'fish', 'meat', 'garnet', 'orange', 'grape', 'bread', 'mango', 'carrot', 'mug',
 ]
 
-# 24 Verified Palmov POI Setpieces (key -> (prefab_rel, target_span_m))
+# 19 Verified Grounded Palmov POI Setpieces (zero boats on land, zero floating bridges, zero out-of-place Japanese temples)
 PALMOV_POIS = {
     'teapot_hill':      ('Low Poly Autumn/tea house autumn forest with env.prefab', 19.0),
     'forest_waterfall': ('Low Poly Nature/forest waterfall with env.prefab',        18.0),
     'abandoned_house':  ('Low Poly Autumn/abandoned house with env.prefab',         16.0),
     'cemetery_church':  ('Low Poly Autumn/cemetery haunted house with env.prefab',  22.0),
     'kraken_wreck':     ('Low Poly Sea/sea monster attack with env.prefab',         21.0),
-    'stilt_village':    ('Low poly Island/fishing Island with env.prefab',          20.0),
     'ski_resort':       ('Low Poly Winter/ski resort with env.prefab',              21.0),
     'crystal_mountain': ('Low Poly Winter/crystal mountain with env.prefab',        20.0),
-    'river_winter':     ('Low Poly Winter/river winter house with env.prefab',      18.0),
     'coal_mine':        ('Low Poly Western/coal mine with env.prefab',              20.0),
     'redrock_oasis':    ('Low Poly Western/waterfall desert with env.prefab',       19.0),
-    'ancient_pagoda':   ('Low Poly Japanese/japanese sanctuary park with env.prefab', 20.0),
     'hot_springs':      ('Low Poly Autumn/autumn hot springs with env.prefab',      19.0),
     'mountain_forest':  ('Low Poly Nature/mountain forest with env.prefab',         18.0),
-    'cliff_lighthouse': ('Low poly Island/waterfall island with env.prefab',        20.0),
     'roman_ruins':      ('Low Poly Desert/roman ruins with env.prefab',             19.0),
     'mountain_ship':    ('Low poly Island/mountain ship with env.prefab',           20.0),
-    'mountain_arch':    ('Low Poly Sea/mountain arch with env.prefab',              20.0),
-    'trade_port':       ('Low Poly Sea/trade port with env.prefab',                 21.0),
-    'pirate_seaport':   ('Low Poly Sea/pirate seaport with env.prefab',             20.0),
-    'lighthouse_pier':  ('Low Poly Sea/lighthouse pier with env.prefab',            19.0),
-    'imperial_palace':  ('Low Poly Japanese/imperial palace with env.prefab',       22.0),
-    'sakura_bridge':    ('Low Poly Japanese/autumn japan with env.prefab',          21.0),
-    'sea_torii_island': ('Low Poly Japanese/japanes island with env.prefab',        18.0),
-    'bamboo_tea':       ('Low Poly Japanese/japanese hot spring with env.prefab',   19.0),
-    'canyon_train':     ('Low Poly Western/bridge over water gorge with env.prefab',21.0),
     'alpine_camp':      ('Low Poly Autumn/autumn mountain camping with env.prefab', 19.0),
     'autumn_harvest':   ('Low Poly Autumn/autumn harvest with env.prefab',          20.0),
-    'desert_oasis':     ('Low Poly Desert/desert islands with env.prefab',          18.0),
     'arab_castle':      ('Low Poly Desert/arab castle with env.prefab',             21.0),
     'tropical_ruins':   ('Low Poly Desert/tropical ruins with env.prefab',          20.0),
     'space_shuttle':    ('Low Poly Space/space shuttle launch with env.prefab',     20.0),
