@@ -680,46 +680,68 @@ export class World {
     const cShallow = bp?.shallowColor ? C(bp.shallowColor) : C(0x4dbbd8);
     const cRuin = C(0xb8b0a0);
     const tmp = new THREE.Color();
+    const vColR = new Float32Array(GW * GW), vColG = new Float32Array(GW * GW), vColB = new Float32Array(GW * GW);
+    // 預先計算逐頂點平滑地表色（草地／高原／沙灘／泥土小徑柔和過渡，消除鋸齒三角與格仔塊感）
+    for (let k = 0; k < GW * GW; k++) {
+      const x = vx[k], y = H[k], z = vz[k], rr = RR[k];
+      if (y > 1.1) {
+        tmp.copy(cPl);
+        const pn = N.fbm(x * 0.14 + 9, z * 0.14);
+        if (pn > 0.54) tmp.lerp(cGL, smooth(0.54, 0.72, pn) * 0.65);
+        else if (pn < 0.42) tmp.lerp(cGD, smooth(0.42, 0.26, pn) * 0.55);
+      } else if (y < -0.35) {
+        tmp.copy(cWet);
+      } else if (rr > 0.955 || y < -0.05) {
+        tmp.copy(cSand);
+      } else {
+        const pn = N.fbm(x * 0.10 + 3, z * 0.10 + 7);
+        tmp.copy(cGrass);
+        if (pn > 0.54) tmp.lerp(cGL, smooth(0.54, 0.74, pn) * 0.85);
+        else if (pn < 0.44) tmp.lerp(cGD, smooth(0.44, 0.26, pn) * 0.75);
+        if (rr > 0.90) tmp.lerp(cSand, smooth(0.90, 0.96, rr) * 0.7);
+      }
+      // 柔和泥土小徑（逐頂點平滑融合，無鋸齒邊緣）
+      if (y >= -0.05) {
+        let dp = 9;
+        for (const [p0, p1] of paths) dp = Math.min(dp, distSeg(x, z, p0, p1));
+        if (dp < 3.2) {
+          const wob = (N.n2(x * 0.45, z * 0.45) - 0.5) * 0.85;
+          const pMix = 1 - smooth(0.85, 2.25, dp + wob);
+          if (pMix > 0.01) tmp.lerp(cDirt, pMix * 0.90);
+        }
+      }
+      vColR[k] = tmp.r; vColG[k] = tmp.g; vColB[k] = tmp.b;
+    }
     const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), n = new THREE.Vector3();
     const pushTri = (k0, k1, k2) => {
       a.set(vx[k0], H[k0], vz[k0]); b.set(vx[k1], H[k1], vz[k1]); c.set(vx[k2], H[k2], vz[k2]);
       n.subVectors(c, b).cross(new THREE.Vector3().subVectors(a, b)).normalize();
       const cx = (a.x + b.x + c.x) / 3, cy = (a.y + b.y + c.y) / 3, cz = (a.z + b.z + c.z) / 3;
-      const rr = (RR[k0] + RR[k1] + RR[k2]) / 3;
       const bpc = this.bpCell ? Math.max(this.bpCell[k0], this.bpCell[k1], this.bpCell[k2]) : 0;
       const isShallow = this.bpCell && (this.bpCell[k0] === 1 && this.bpCell[k1] === 1 && this.bpCell[k2] === 1);
       if (this.bpCell && bpc === 5) {
         tmp.copy(cRuin);
+        for (const v of [a, b, c]) { pos.push(v.x, v.y, v.z); col.push(tmp.r, tmp.g, tmp.b); }
       } else if (isShallow) {
         tmp.copy(cShallow);
         if (N.n2(cx * 0.45, cz * 0.45) > 0.62) tmp.lerp(C(0xdcf6ff), 0.25);
+        for (const v of [a, b, c]) { pos.push(v.x, v.y, v.z); col.push(tmp.r, tmp.g, tmp.b); }
       } else if (n.y < 0.6) {
+        // 陡峭岩壁保留立體橫紋切面感
         const band = Math.floor(cy * 2.6 + N.n2(cx * 0.8, cz * 0.8) * 1.6) % 2;
         tmp.copy(band ? cRock : cRD);
         if (N.n2(cx * 2.1, cy * 3.1 + cz) > 0.72) tmp.lerp(cRD, 0.5);
-      } else if (cy > 1.1) {
-        tmp.copy(cPl);
-        const pn = N.fbm(cx * 0.15 + 9, cz * 0.15);
-        if (pn > 0.56) tmp.copy(cGL).lerp(cPl, 0.35); else if (pn < 0.41) tmp.copy(cGD);
-      } else if (cy < -0.35) {
-        tmp.copy(cWet);
-      } else if (rr > 0.955 || cy < -0.05) {
-        tmp.copy(cSand);
+        for (const v of [a, b, c]) { pos.push(v.x, v.y, v.z); col.push(tmp.r, tmp.g, tmp.b); }
       } else {
-        const pn = N.fbm(cx * 0.11 + 3, cz * 0.11 + 7);
-        tmp.copy(cGrass);
-        if (pn > 0.56) tmp.lerp(cGL, smooth(0.56, 0.72, pn));
-        else if (pn < 0.43) tmp.lerp(cGD, smooth(0.43, 0.28, pn));
-        if (rr > 0.91) tmp.lerp(cSand, smooth(0.91, 0.96, rr) * 0.65);
-        let dp = 9;
-        for (const [p0, p1] of paths) dp = Math.min(dp, distSeg(cx, cz, p0, p1));
-        const wob = (N.n2(cx * 0.75, cz * 0.75) - 0.5) * 0.75;
-        const pMix = 1 - smooth(0.7, 1.95, dp + wob);
-        if (pMix > 0.01) tmp.lerp(cDirt, pMix * 0.92);
+        // 可行走平滑草地／泥路／沙灘：使用逐頂點插值色，完全告別格仔與三角斷層
+        const ks = [k0, k1, k2];
+        const vs = [a, b, c];
+        for (let m = 0; m < 3; m++) {
+          const km = ks[m], v = vs[m];
+          pos.push(v.x, v.y, v.z);
+          col.push(vColR[km], vColG[km], vColB[km]);
+        }
       }
-      // 柔和的微調色差，避免大型色塊斷裂
-      const jv = 1 + (N.h(Math.floor(cx * 9) & 255, Math.floor(cz * 9) & 255) - 0.5) * 0.035;
-      for (const v of [a, b, c]) { pos.push(v.x, v.y, v.z); col.push(tmp.r * jv, tmp.g * jv, tmp.b * jv); }
     };
     for (let j = 0; j < GW - 1; j++) for (let i = 0; i < GW - 1; i++) {
       const k00 = j * GW + i, k10 = k00 + 1, k01 = k00 + GW, k11 = k01 + 1;
@@ -731,31 +753,40 @@ export class World {
     tg.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
     tg.computeVertexNormals();
     const tmat = toonMat({ vertexColors: true });
-    tmat.customProgramCacheKey = () => 'terrainGustV2';
+    tmat.customProgramCacheKey = () => 'terrainPainterlyV3';
     tmat.onBeforeCompile = (sh) => {
       sh.uniforms.uTime = windU.uTime; sh.uniforms.uWindStr = windU.uWindStr;
       sh.vertexShader = 'varying vec3 vGW;\n' + sh.vertexShader.replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\n vGW = (modelMatrix * vec4(transformed,1.0)).xyz;');
-      sh.fragmentShader = 'uniform float uTime; uniform float uWindStr; varying vec3 vGW;\n float gh2(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }\n float gn2(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix(gh2(i),gh2(i+vec2(1,0)),f.x), mix(gh2(i+vec2(0,1)),gh2(i+vec2(1,1)),f.x), f.y); }\n' +
+      sh.fragmentShader = 'uniform float uTime; uniform float uWindStr; varying vec3 vGW;\n float gh2(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }\n float gn2(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix(gh2(i),gh2(i+vec2(1,0)),f.x), mix(gh2(i+vec2(0,1)),gh2(i+vec2(1,1)),f.x), f.y); }\n float gfbm(vec2 p){ return gn2(p)*0.55 + gn2(p*2.13 + vec2(11.4, 5.2))*0.30 + gn2(p*4.41 + vec2(3.7, 19.1))*0.15; }\n' +
         sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
           float isG = smoothstep(0.02, 0.12, diffuseColor.g - max(diffuseColor.r, diffuseColor.b));
           float isDirt = smoothstep(0.05, 0.16, diffuseColor.r - diffuseColor.b) * (1.0 - isG);
-          // 像素手繪質感：草葉細點與泥土碎石點綴（告別大三角平滑單調感）
-          vec2 pixCell = floor(vGW.xz * 3.4);
-          float tuft = step(0.92, gh2(pixCell)) * 0.06 - step(gh2(pixCell + 19.3), 0.07) * 0.04;
-          float peb = (step(0.86, gh2(pixCell * 1.3 + 5.1)) * 0.09 - step(gh2(pixCell * 1.3 + 13.7), 0.14) * 0.07) * isDirt;
-          // 隨風草浪
-          vec2 gp = vGW.xz * 0.09 - vec2(0.82, 0.48) * uTime * 0.22;
-          float gn = gn2(gp) * 0.65 + gn2(gp * 2.3 + 7.0) * 0.35;
-          float band = step(0.60, gn) * 0.10 - step(gn, 0.30) * 0.06;
-          // 硬邊草地色塊（致敬 8bit 參考：亮綠底＋深綠大斑塊＋小花點）
-          vec2 bp = floor(vGW.xz * 2.0) / 2.0;
-          float blob = step(0.54, gn2(bp * 0.16 + 11.0) * 0.6 + gn2(bp * 0.42 + 3.0) * 0.4);
-          float blobL = step(0.70, gn2(bp * 0.23 + 40.0) * 0.6 + gn2(bp * 0.7) * 0.4);
-          float fl = step(0.985, gh2(floor(vGW.xz * 2.6) + 7.7));
-          vec3 baseCol = diffuseColor.rgb * (1.0 + (band * uWindStr + tuft) * isG + peb);
-          baseCol = mix(baseCol, baseCol * vec3(0.62, 0.86, 0.80), blob * isG * 1.0);
-          baseCol = mix(baseCol, baseCol * vec3(1.10, 1.08, 0.86), blobL * isG * (1.0 - blob));
-          baseCol = mix(baseCol, vec3(0.97, 0.86, 0.95), fl * isG * 0.9);
+          // 手繪風格有機草地色塊（零 floor() 格仔，融合 t3ssel8r × PuffPals × Kirby 柔和筆觸）
+          vec2 warp = vec2(gfbm(vGW.xz * 0.08 + vec2(4.1, 1.7)), gfbm(vGW.xz * 0.08 + vec2(17.3, 9.2))) * 2.4;
+          float lushPatch = gfbm((vGW.xz + warp) * 0.11 + vec2(11.0, 3.0));
+          float sunPatch  = gfbm((vGW.xz - warp * 0.6) * 0.15 + vec2(40.0, 12.0));
+          float shadeBand = smoothstep(0.50, 0.66, lushPatch);
+          float warmBand  = smoothstep(0.56, 0.72, sunPatch) * (1.0 - shadeBand);
+          // 柔和流動草浪（無格仔切邊）
+          vec2 gp = vGW.xz * 0.085 - vec2(0.82, 0.48) * uTime * 0.22;
+          float gn = gn2(gp) * 0.65 + gn2(gp * 2.2 + 7.0) * 0.35;
+          float windHighlight = (smoothstep(0.54, 0.74, gn) * 0.09 - smoothstep(0.36, 0.18, gn) * 0.04) * uWindStr;
+          // 細緻方向性手繪草葉筆觸（取代舊版 30cm 方形點）
+          float sway = sin(uTime * 1.4 + vGW.x * 0.5 + vGW.z * 0.3) * 0.12 * uWindStr;
+          float blades = (gn2(vec2(vGW.x * 1.6 + sway, vGW.z * 4.2)) - 0.5) * 0.065;
+          // 泥土路柔和暖色肌理（零方塊碎石）
+          float dirtGrain = (gfbm(vGW.xz * 0.95 + vec2(5.1, 13.7)) - 0.5) * 0.11 * isDirt;
+          // 圓潤自然小花點（平滑圓形距離，非方形格仔）
+          vec2 fCell = floor(vGW.xz * 0.85);
+          vec2 fUv = fract(vGW.xz * 0.85);
+          vec2 fCtr = vec2(0.25 + gh2(fCell + 3.1) * 0.5, 0.25 + gh2(fCell + 9.7) * 0.5);
+          float fl = smoothstep(0.11, 0.05, length(fUv - fCtr)) * step(0.84, gh2(fCell + 17.3));
+          vec3 flCol = mix(vec3(1.0, 0.96, 0.78), vec3(1.0, 0.86, 0.93), step(0.5, gh2(fCell + 29.1)));
+
+          vec3 baseCol = diffuseColor.rgb * (1.0 + (windHighlight + blades) * isG + dirtGrain);
+          baseCol = mix(baseCol, baseCol * vec3(0.76, 0.91, 0.84), shadeBand * isG * 0.78);
+          baseCol = mix(baseCol, baseCol * vec3(1.12, 1.09, 0.88), warmBand * isG * 0.85);
+          baseCol = mix(baseCol, flCol, fl * isG * 0.85);
           diffuseColor.rgb = baseCol;`);
     };
     const terrain = new THREE.Mesh(tg, tmat);

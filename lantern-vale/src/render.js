@@ -50,12 +50,12 @@ export class Pipeline {
           // --- world position for cloud shadows
           vec4 ndc = vec4(vUv*2.0-1.0, d0*2.0-1.0, 1.0);
           vec4 wp = uInvVP*ndc; wp/=wp.w;
-          // 硬邊雲影：像素手繪風的大片冷色斑塊（二值化，不做柔邊），全場景一致
-          vec2 cwp = floor(wp.xz*3.0)/3.0;
-          float cloud = fbm(cwp*0.035 + vec2(uTime*0.010, uTime*0.005)) * 0.75 + noise(cwp*0.21 + 4.0 - uTime*0.01) * 0.25;
-          float cs = step(0.47, cloud) * step(d0, 0.9999) * uCloud;
-          vec3 shaded = col * vec3(0.52, 0.72, 0.98);
-          shaded = mix(vec3(dot(shaded, vec3(0.299,0.587,0.114))), shaded, 1.3);
+          // 柔和有機雲影（移除 floor 格仔量化，平滑飄過丘陵草地）
+          vec2 cwp = wp.xz;
+          float cloud = fbm(cwp*0.032 + vec2(uTime*0.010, uTime*0.005)) * 0.75 + noise(cwp*0.18 + 4.0 - uTime*0.01) * 0.25;
+          float cs = smoothstep(0.45, 0.58, cloud) * step(d0, 0.9999) * uCloud * 0.52;
+          vec3 shaded = col * vec3(0.60, 0.78, 0.98);
+          shaded = mix(vec3(dot(shaded, vec3(0.299,0.587,0.114))), shaded, 1.25);
           col = mix(col, shaded, cs);
           col = mix(col, col*1.10+0.015, crease*0.5*(1.0-edge));
           // 輪廓：只暗化同色相，不用黑線（A Short Hike 幾乎無黑邊）
