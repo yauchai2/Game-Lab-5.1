@@ -451,6 +451,91 @@ body.holding-gem,body.holding-gem *{cursor:grabbing!important}
 #menuPop button{justify-content:flex-start}
 .map-atlas button.map-hotspot{box-shadow:0 0 0 2.5px #ff9a32,0 0 14px rgba(255,180,50,.85)!important;animation:hsPulse 1.8s ease-in-out infinite}
 @keyframes hsPulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.16)}}
+/* ======== Phase C3–C4：雙舞台 3D 角色劇院（影片浮島群像 + 圖 1 手帳 + 圖 2 木屋換裝間） ======== */
+#title{position:fixed;inset:0;z-index:40;display:block;overflow:hidden;
+  background:radial-gradient(ellipse at 36% 45%,#c2f6fb 0%,#8ee4ef 52%,#63cddb 100%);
+  transition:background .55s ease;image-rendering:auto}
+#title.mode-dressup{background:radial-gradient(ellipse at 34% 44%,#fbe0be 0%,#df9d66 56%,#a65c3a 100%)}
+#title.wardrobe-overlay{z-index:65}
+#creatorCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab;image-rendering:auto}
+#creatorCanvas:active{cursor:grabbing}
+.cr-top{position:absolute;top:14px;left:18px;right:18px;z-index:4;display:flex;align-items:center;justify-content:space-between;gap:12px;pointer-events:none}
+.cr-top>*{pointer-events:auto}
+.cr-brand{display:flex;align-items:baseline;gap:10px}
+.cr-brand h1{margin:0;font-size:clamp(26px,3.2vw,42px);color:#fff8e4;text-shadow:0 4px 0 #3b2a2a,0 0 18px rgba(255,216,90,.45);letter-spacing:.08em}
+.cr-brand .en{margin:0;font-size:12px;letter-spacing:.32em;color:#ffe57a;text-shadow:0 2px 0 #3b2a2a}
+.cr-top-right{display:flex;align-items:center;gap:8px}
+.cr-slot-sel{font:inherit;font-size:13px;font-weight:700;padding:6px 10px;background:#fff8e4;color:#3b2a2a;border:3px solid #3b2a2a;border-radius:10px;box-shadow:0 3px 0 #3b2a2a;cursor:pointer}
+/* 影片同款：底部 ◀ 職業名 ▶ 切換條＋編號點 */
+.cr-stage-bar{position:absolute;bottom:20px;left:32%;transform:translateX(-50%);z-index:5;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none}
+#title.mode-dressup .cr-stage-bar{display:none}
+.cr-pins{display:flex;gap:8px;pointer-events:auto}
+.hero-pin-btn{width:28px;height:28px;border-radius:50%!important;border:2px solid #fff!important;background:rgba(43,29,34,.72);color:#fff8e4;font:inherit;font-size:12px;font-weight:900;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.35)!important;transition:transform .15s,background .15s}
+.hero-pin-btn.on,.hero-pin-btn:hover{background:#e8734a;transform:scale(1.16);border-color:#ffd85a!important}
+.cr-pill{display:flex;align-items:center;gap:10px;padding:6px 14px;border-radius:999px;background:rgba(36,28,38,.78);backdrop-filter:blur(6px);color:#fff8e4;font-size:14px;font-weight:800;pointer-events:auto;box-shadow:0 4px 16px rgba(0,0,0,.28)}
+.cr-pill button{background:none;border:0;color:#ffd85a;font-size:16px;font-weight:900;cursor:pointer;padding:2px 8px;line-height:1}
+.cr-pill button:hover{color:#fff;transform:scale(1.2)}
+.cr-ov-btn{pointer-events:auto;padding:5px 14px;border-radius:999px;border:2px solid #3b2a2a;background:#fff8e4;color:#3b2a2a;font:inherit;font-size:12px;font-weight:800;cursor:pointer;box-shadow:0 3px 0 #3b2a2a}
+.cr-hint{font-size:11px;color:#2b3a3e;background:rgba(255,255,255,.55);padding:2px 10px;border-radius:999px;font-weight:700}
+/* Stage 1 右側：參考圖 1 冒險手帳卡片 */
+.cr-book{position:absolute;top:72px;right:22px;bottom:20px;width:min(380px,42vw);z-index:6;display:flex;flex-direction:column;gap:10px;
+  padding:16px 18px;background:#f7e7c4;border:4px solid #5c3a24;border-radius:14px;
+  box-shadow:0 8px 0 #3b2a2a,inset 0 0 0 3px #fff8e4,0 14px 28px rgba(0,0,0,.28);overflow:auto}
+#title.mode-dressup .cr-book{display:none}
+.sb-tape{position:relative;align-self:center;padding:6px 20px;background:#fff7e2;border:2px solid #8a6446;font-size:17px;font-weight:900;color:#3b2a2a;transform:rotate(-1deg);box-shadow:0 3px 0 rgba(59,42,42,.22)}
+.sb-tape:before,.sb-tape:after{content:'';position:absolute;width:22px;height:10px;background:rgba(226,184,120,.65);top:-5px}
+.sb-tape:before{left:-8px;transform:rotate(-28deg)}.sb-tape:after{right:-8px;transform:rotate(25deg)}
+.sb-desc{font-size:12.5px;line-height:1.5;color:#5a3c28;text-align:center;margin:0}
+.sb-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.sb-stat{background:#fff8e8;border:2px solid #8a6446;border-radius:8px;padding:7px 4px;text-align:center;box-shadow:0 2px 0 rgba(59,42,42,.2)}
+.sb-st-val{display:block;font-size:14px;font-weight:900;color:#3b2a2a}
+.sb-stat small{font-size:10.5px;color:#7a5a42}
+.sb-label{font-size:12px;font-weight:800;color:#6a4830;display:flex;align-items:center;justify-content:space-between}
+.sb-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.sb-slot{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 4px;background:#efe0bc;border:2px solid #8a6446;border-radius:8px;cursor:pointer;font:inherit;color:#3b2a2a}
+.sb-slot.on{background:#d4e8ff;border-color:#2f6cb8;box-shadow:0 0 0 2px #7fb2ff}
+.sb-gic{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;box-shadow:0 2px 0 rgba(0,0,0,.25)}
+.sb-slot small{font-size:10.5px;font-weight:700;white-space:nowrap}
+.sb-note{background:#fff9ec;border:2px dashed #a8825a;border-radius:8px;padding:8px 10px;font-size:12px;line-height:1.45;color:#4a3222;min-height:54px}
+.sb-inputs{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.sb-inputs label{display:flex;flex-direction:column;gap:3px;font-size:11.5px;font-weight:800;color:#5a3c28}
+.sb-inputs input{font:inherit;font-size:13px;padding:6px 8px;background:#fffdf6;border:2px solid #6b4730;border-radius:6px;color:#3b2a2a}
+.sb-ctas{display:grid;grid-template-columns:1fr 1.25fr;gap:8px;margin-top:auto}
+.sb-ctas .btn{font-size:15px!important;padding:10px 8px!important;border-radius:10px!important;border:3px solid #3b2a2a!important}
+/* Stage 2：參考圖 2 暖光木屋換裝間 */
+.du-rot-bar{position:absolute;left:22px;bottom:22px;z-index:6;display:none;flex-direction:column;gap:8px}
+#title.mode-dressup .du-rot-bar{display:flex}
+.du-rot-bar button{width:40px;height:40px;border-radius:50%!important;border:2.5px solid #6b4730!important;background:#fff7e4;color:#4a3222;font-size:18px;font-weight:900;cursor:pointer;box-shadow:0 3px 0 rgba(59,42,42,.35)!important}
+.du-rot-bar button:hover{background:#ffd85a;transform:scale(1.08)}
+.du-panel{position:absolute;top:68px;right:24px;bottom:22px;width:min(440px,46vw);z-index:6;display:none;flex-direction:column;gap:10px;
+  padding:16px 18px;background:rgba(255,248,232,.92);backdrop-filter:blur(8px);border:3px solid #8a5e3c;border-radius:18px;box-shadow:0 10px 28px rgba(59,32,16,.28)}
+#title.mode-dressup .du-panel{display:flex}
+.du-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.du-head h2{margin:0;font-size:18px;color:#5a3822}
+.du-tabs{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.du-tab{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px;background:#efe2c6;border:2px solid transparent;border-radius:12px;cursor:pointer;font:inherit;color:#5a3c28;transition:all .15s}
+.du-tab.on{background:#ffe06a;border-color:#8a5e3c;color:#3b2a2a;font-weight:900;transform:translateY(-2px)}
+.du-tab span{font-size:17px}.du-tab small{font-size:10px}
+.du-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;overflow:auto;padding:2px;flex:1;align-content:start}
+.du-card{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:12px 6px;
+  background:#fffaf0;border:2.5px solid #d9c4a0;border-radius:14px;cursor:pointer;font:inherit;color:#4a3222;transition:transform .12s,border-color .12s}
+.du-card:hover{transform:translateY(-2px);border-color:#e88c42}
+.du-card.on{border-color:#5ca842;background:#f4ffe8;box-shadow:0 0 0 2px rgba(92,168,66,.28)}
+.du-ic{font-size:26px;line-height:1}.du-lb{font-size:12px;font-weight:800;text-align:center}
+.du-chk{position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;background:#6cb848;color:#fff;font-style:normal;font-size:13px;font-weight:900;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 2px 4px rgba(0,0,0,.22)}
+.du-swatches{display:flex;flex-direction:column;gap:6px}
+.du-sw-row{display:flex;align-items:center;gap:8px;background:#f7ead0;padding:6px 10px;border-radius:10px}
+.du-sw-lb{font-size:12px;font-weight:800;color:#5a3c28;min-width:34px}
+.du-sw-list{display:flex;gap:6px;flex-wrap:wrap}
+.du-dot{width:22px;height:22px;border-radius:50%;border:2px solid #5a3c28;cursor:pointer;padding:0;transition:transform .12s}
+.du-dot.on{transform:scale(1.22);outline:2.5px solid #e8734a;outline-offset:1px}
+.du-foot{display:grid;grid-template-columns:1fr auto 1.2fr;gap:8px;padding-top:4px}
+.du-foot button{font:inherit;font-size:13.5px;font-weight:800;padding:10px 12px;border-radius:12px;border:2.5px solid #3b2a2a;cursor:pointer}
+.du-btn-fav{background:#6678b8;color:#fff}.du-btn-rnd{background:#f5c85a;color:#3b2a2a}.du-btn-save{background:#7cc246;color:#fff;text-shadow:0 1px 0 #2e5a16}
+@media (max-width:860px){
+  .cr-book,.du-panel{top:auto;left:12px;right:12px;bottom:12px;width:auto;max-height:48vh}
+  .cr-stage-bar{left:50%;bottom:50vh}
+}
 .pz-cell{position:relative;border:0;background:#f3e3c3;color:#fff;font-family:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0;line-height:1;font-size:11px}
 .pz-cell.locked{background:#58453c;color:#9d887b;font-size:13px;opacity:.75}
 .pz-cell.can{background:#ffe9a0;outline:2px solid #e8734a}
@@ -601,34 +686,66 @@ body.photo-mode #hud > *:not(#photoBadge){opacity:0!important;pointer-events:non
 </div>
 
 <div id="title">
-  <h1>燈谷行</h1>
-  <div class="en">LANTERN VALE</div>
-  <section class="panel creator"><header><h2>選擇旅人</h2><select id="characterSlot" aria-label="角色存檔"></select></header>
-  <div class="charbody"><div class="portraitwell"><canvas id="portrait" aria-label="旅人外觀預覽"></canvas><button id="randomLook" class="btn small">隨機外觀</button></div>
-  <div class="fields"><label>名字<input id="inName" maxlength="12" placeholder="旅人"></label><label>職業<select id="job"></select></label>
-  <div id="jobPerk"></div>
-  <div class="cloak">披風<div class="swatches" id="swatches"></div></div>
-  <details class="adv-look"><summary>🎨 自訂五官外觀與組隊代碼</summary><div class="adv-grid"><label>膚色<select id="skin"></select></label><label>髮色<select id="hair"></select></label><label>髮型<select id="style"></select></label><label>眉型<select id="brow"></select></label><label>臉型<select id="face"></select></label><label>組隊代碼<input id="inParty" maxlength="12" placeholder="留空即可單人出發"></label></div></details></div></div></section>
-  <details class="box panel"><summary>旅人手冊與操作</summary>
-    提著燈籠的旅人們聚集在燈谷鎮，一起出發穿越被餘燼侵蝕的山谷，喚醒沉睡的古樹鹿王。城鎮是安全區，可以和其他玩家聊天；每次旅程地形、敵人和戰利品都不同。
-    <div class="sep"></div>
-    <div class="keys">
-      <b>WASD</b><span>移動</span>
-      <b>左鍵</b><span>杖擊（按住連擊）</span>
-      <b>右鍵</b><span>餘燼彈（消耗法力）</span>
-            <b>空白</b><span>單擊＝翻滾（無敵）；連按兩下＝跳起，按住第二下＝滑翔；頂著懸崖＝攀爬</span>
-      <b>Shift</b><span>按住＝疾步衝刺（消耗體力羽毛）</span>
-      <b>M / Tab</b><span>M 世界地圖傳送 · Tab 地區性地圖</span>
-      <b>K</b><span>技能拼圖與寶石商人</span>
-      <b>右鍵 / Q / E / C</b><span>施放拼圖主動技能</span>
-      <b>V / Shift+V</b><span>V 施放溫馨荒誕大絕 · Shift+V 切換大絕</span>
-      <b>B / P</b><span>B 野外紮營營火 · P 拍照模式</span>
-      <b>R</b><span>蜜藥瓶回血（擊殺補充）</span>
-      <b>F</b><span>互動、入屋、節奏採集、撿起裝備</span>
-      <b>I</b><span>角色、職業、二轉與裝備</span>
+  <canvas id="creatorCanvas" aria-label="3D 英雄浮島與換裝舞台"></canvas>
+  <header class="cr-top">
+    <div class="cr-brand"><h1>燈谷行</h1><div class="en">LANTERN VALE</div></div>
+    <div class="cr-top-right">
+      <select id="characterSlot" class="cr-slot-sel" aria-label="角色存檔"></select>
+      <button id="btnSetTitle" class="btn small" style="background:var(--teal)">⚙ 設定</button>
     </div>
-  </details>
-  <div class="title-actions"><button class="btn" id="btnStart">進入燈谷鎮</button><button id="btnSetTitle" class="btn small" style="background:var(--teal)">⚙ 設定</button></div>
+  </header>
+
+  <div class="cr-stage-bar">
+    <button type="button" class="cr-ov-btn" id="btnOverview" hidden>🏝️ 返回全隊總覽</button>
+    <div class="cr-pins" id="heroPins"></div>
+    <div class="cr-pill">
+      <button type="button" id="btnHeroPrev" aria-label="上一位英雄">◀</button>
+      <span id="heroPillName">1. 🛡 守燈衛士 · Fighter</span>
+      <button type="button" id="btnHeroNext" aria-label="下一位英雄">▶</button>
+    </div>
+    <div class="cr-hint">🖱️ 拖曳 360° 旋轉小島 · 點擊英雄或箭頭平滑飛近特寫</div>
+  </div>
+
+  <!-- Stage 1 右側：參考圖 1 風格冒險手帳 -->
+  <aside class="cr-book" aria-label="旅人冒險手帳">
+    <div class="sb-tape" id="sbClassTag">🛡 守燈衛士 · Fighter</div>
+    <p class="sb-desc" id="sbClassDesc"></p>
+    <div class="sb-stats" id="sbStats"></div>
+    <div class="sb-label"><span>💎 初始技能拼圖與道具</span><small>點選查看說明</small></div>
+    <div class="sb-grid" id="sbGemGrid"></div>
+    <div class="sb-note" id="sbGemNote"></div>
+    <div class="sb-inputs">
+      <label>旅人名字<input id="inName" maxlength="12" placeholder="旅人"></label>
+      <label>組隊代碼（選填）<input id="inParty" maxlength="12" placeholder="留空單人出發"></label>
+    </div>
+    <div class="sb-ctas">
+      <button type="button" class="btn small" id="btnOpenDressup" style="background:#5a78b8">✨ 自訂外觀</button>
+      <button type="button" class="btn" id="btnStart">🏮 進入燈谷鎮</button>
+    </div>
+  </aside>
+
+  <!-- Stage 2 左下：參考圖 2 旋轉鈕 -->
+  <div class="du-rot-bar">
+    <button type="button" id="btnRotL" title="向左轉">↺</button>
+    <button type="button" id="btnRotR" title="向右轉">↻</button>
+    <button type="button" id="btnRotReset" title="回正面">⟲</button>
+  </div>
+
+  <!-- Stage 2 右側：參考圖 2 暖光木屋換裝間 -->
+  <aside class="du-panel" aria-label="造型換裝工坊">
+    <div class="du-head">
+      <h2>✨ 挑選造型 · Pick Outfit</h2>
+      <button type="button" class="modal-x" id="btnDressBack" aria-label="返回">✕</button>
+    </div>
+    <div class="du-tabs" id="duTabs"></div>
+    <div class="du-swatches" id="duSwatches"></div>
+    <div class="du-grid" id="duGrid"></div>
+    <div class="du-foot">
+      <button type="button" class="du-btn-fav" id="btnFavOutfit">⭐ 最愛套裝</button>
+      <button type="button" class="du-btn-rnd" id="randomLook">🎲 隨機</button>
+      <button type="button" class="du-btn-save" id="btnSaveDressup">✔ 儲存造型</button>
+    </div>
+  </aside>
 </div>
 
 <dialog id="worldMap" aria-labelledby="atlasTitle"><header><h2 id="atlasTitle">🏮 星燈雲海航海星圖</h2><input type="search" class="map-search" placeholder="🔍 搜尋島嶼、Boss、規則（如：金字塔、低重力、科幻）" aria-label="搜尋地圖"/><button class="map-close" autofocus aria-label="關閉地圖">✕</button></header>

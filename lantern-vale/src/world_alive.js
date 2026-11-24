@@ -64,6 +64,10 @@ export const SECOND_CLASSES = {
     { id: 'crimsonblade', name: '緋月劍舞者', icon: '🌙', aura: 0xff6a8a, gem: 'phantom', trial: 'Lv.10 或擊敗 5 隻敵人', bonuses: { atkSpd: 25, critMult: 45 }, desc: '在月影中疾斬如風，解鎖「影霧幻陣」寶石。' },
     { id: 'mistphantom', name: '夜霧幻影師', icon: '🌫', aura: 0xb48ae0, gem: 'phantom', trial: 'Lv.10 或完成 1 次完美採集', bonuses: { rollCdr: 20, moveSpd: 15, crit: 12 }, desc: '操縱迷霧分身迷惑群敵，解鎖「影霧幻陣」寶石。' },
   ],
+  4: [
+    { id: 'lotussage', name: '蓮華禪師', icon: '🪷', aura: 0x8ef0b8, gem: 'sakura', trial: 'Lv.10 或完成 1 次完美採集', bonuses: { regen: 4, maxHp: 40, cdr: 12 }, desc: '展開綻放蓮華氣場持續治癒與強化隊友，解鎖「櫻吹雪」寶石。' },
+    { id: 'thunderfist', name: '雷鳴拳聖', icon: '⚡', aura: 0xffd24a, gem: 'quakeg', trial: 'Lv.10 或擊敗 5 隻敵人', bonuses: { atkSpd: 24, baseDmg: 9, crit: 10 }, desc: '以迅雷連擊震盪大地，解鎖「星晶震盪」寶石。' },
+  ],
 };
 
 export function findSecondClass(id) {

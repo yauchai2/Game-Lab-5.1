@@ -241,6 +241,7 @@ export const CLASS_TEAM_ROLES = [
   { job: 1, icon: '🍃', name: '順風破甲光環', desc: '全隊移速 +8% · 攻速 +8% · 破甲標記', partBreakMult: 1.0, bonuses: { moveSpd: 8, atkSpd: 8 } },
   { job: 2, icon: '✨', name: '星陣共鳴光環', desc: '全隊回魔 +25% · 元素連攜爆發核心',    partBreakMult: 1.0, bonuses: { manaRegen: 25 } },
   { job: 3, icon: '✂️', name: '精準破位專精', desc: '部位破壞傷害 +40% · 加速扶起倒地隊友',  partBreakMult: 1.4, bonuses: { crit: 4 } },
+  { job: 4, icon: '🪷', name: '氣勁治癒光環', desc: '全隊每秒回血 +2 · 攻速 +6% 穩健續航',  partBreakMult: 1.1, bonuses: { regen: 2, atkSpd: 6 } },
 ];
 
 export function getClassTeamRole(jobId = 0) {

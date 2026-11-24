@@ -54,6 +54,19 @@ export const CLASSES = [
     ],
     bag: ['coc', 'echo', 'leech'],
   },
+  {
+    id: 4, key: 'monk', name: '禪燈武僧', icon: '🥋', weapon: 'staff',
+    summary: '攻速 +18% · 生命 +20 · 每秒回血 +2',
+    desc: '手持禪杖與氣勁連打的雲遊行者，兼具靈動身法與團隊治癒氣場。',
+    bonuses: { atkSpd: 18, maxHp: 20, regen: 2 },
+    starter: [
+      { id: 'sakura', x: 1, y: 1, rot: 0 },
+      { id: 'echo', x: 1, y: 3, rot: 0 },
+      { id: 'leech', x: 3, y: 1, rot: 0 },
+      { id: 'whirl', x: 2, y: 2, rot: 0 },
+    ],
+    bag: ['quakeg', 'haste', 'area'],
+  },
 ];
 
 export const ACTIVE_GEMS = {

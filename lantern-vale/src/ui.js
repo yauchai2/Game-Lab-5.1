@@ -415,7 +415,12 @@ export class UI {
     const section = (title, key, list) => `<h3>${title}</h3><div class="cos-grid">${list.map(c =>
       `<button type="button" class="cos-btn ${p.cosmetics[key] === c.id ? 'on' : ''}" data-ckey="${key}" data-cid="${c.id}"><div style="font-size:22px">${c.icon}</div><div>${c.name}</div></button>`
     ).join('')}</div>`;
-    root.innerHTML = section('🎩 帽子與頭飾', 'hat', COSMETICS.hats) + section('🎒 背飾與羽翼', 'back', COSMETICS.backs) + section('✨ 提燈與武器光效', 'aura', COSMETICS.auras);
+    root.innerHTML = `<div style="margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:8px 10px;background:rgba(255,216,90,.16);border:2px solid #c99228;border-radius:8px">
+      <span style="font-size:13px;font-weight:800;color:#5a3822">✨ 自由混搭 36 組可愛立體服飾、髮型、瞳色與武器</span>
+      <button type="button" class="btn small" id="btnOpen3DWardrobe" style="background:#5a78b8">🪞 開啟 3D 木屋換裝工坊</button>
+    </div>` + section('🎩 帽子與頭飾', 'hat', COSMETICS.hats) + section('🎒 背飾與羽翼', 'back', COSMETICS.backs) + section('✨ 提燈與武器光效', 'aura', COSMETICS.auras);
+    const w3d = $('btnOpen3DWardrobe');
+    if (w3d) w3d.onclick = () => { this.toggleInv(game); game.ui.openWardrobe3D?.(); };
     root.querySelectorAll('.cos-btn').forEach(b => {
       b.onclick = () => {
         p.cosmetics[b.dataset.ckey] = b.dataset.cid;

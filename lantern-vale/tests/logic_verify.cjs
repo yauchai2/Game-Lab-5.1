@@ -143,9 +143,9 @@ const createGuild = require('../server/guild.cjs');
   assert.equal(w2After.coins, 2, 'Buyer pays 10 guild coins (12 - 10)');
   assert.equal(w2After.amber, 2, 'Buyer receives amber');
 
-  // 7. Class system & 6x6 Skill Puzzle mechanics
+  // 7. Class system (5 classes incl. Phase C Monk) & 6x6 Skill Puzzle mechanics
   const puzzle = await import(src('puzzle.js'));
-  assert.equal(puzzle.CLASSES.length, 4, 'Four distinct original classes defined');
+  assert.equal(puzzle.CLASSES.length, 5, 'Five distinct original classes defined (incl. Monk)');
   assert.equal(puzzle.unlockedCount(1), 16, 'Lv.1 unlocks 16 center puzzle cells');
   assert.equal(puzzle.unlockedCount(30), 36, 'Lv.30 unlocks full 6x6 (36) cells');
   const rot1 = puzzle.rotateCells([[0, 0], [1, 0], [2, 0]], 1);
@@ -177,7 +177,7 @@ const createGuild = require('../server/guild.cjs');
   assert.equal(alive.dayInfo(0.80).phase, 'dusk');
   assert.equal(alive.dayInfo(0.92).isNight, true, 'Night phase sets isNight=true');
   assert.ok(Math.abs(alive.dayInfo(0.75).sunMult - alive.dayInfo(0.74).sunMult) < 0.1, 'Day/Night lighting transitions smoothly');
-  assert.equal(Object.values(alive.SECOND_CLASSES).flat().length, 8, 'Eight 2nd-tier classes defined');
+  assert.equal(Object.values(alive.SECOND_CLASSES).flat().length, 10, 'Ten 2nd-tier classes defined (5 classes x 2)');
   assert.equal(Object.keys(alive.FIELD_NPCS).length, 12, 'All 12 wild fields have unique NPCs & quests');
   for (const id of ['meteor', 'nova', 'prism', 'phantom', 'sakura', 'thunder', 'quakeg']) {
     assert.ok(puzzle.ACTIVE_GEMS[id], `Flashy creative skill ${id} registered in puzzle gems`);
@@ -860,5 +860,20 @@ const createGuild = require('../server/guild.cjs');
   const sampleNear = stressGrid.queryNearby(0, 0, 1);
   assert.ok(sampleNear.length < 40, '30m AOI spatial grid culls >80% of 200 players on 360m map');
 
-  console.log('ALL 36 LOGIC, FUZZ-QA-36, MMO-M10-PORTALS-CRAFT-KILLSWITCH, MMO-M9-SAFETY-KILLSWITCH, MMO-M8-ROLES-FEAST-GPU, MMO-M7-SOUL-AWAKEN-GPU-FIX, MMO-M6-SPIRE-MENTOR-LIGHTHOUSE, MMO-M5-FERRY-REVIEW, MMO-M4-OVERHAUL, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
+  // 37. Phase C1–C5: Modular Cute Fantasy Character Rig, 5th Class Monk, v1->v2 Look Migration & Character GLB Assets on Disk
+  const rigMod = await import(src('char_rig.js'));
+  assert.equal(rigMod.JOB_ARCHETYPES.length, 5, 'Five character animation archetypes defined');
+  assert.equal(rigMod.CHAR_CATALOG.classPresets.length, 5, 'Five class presets defined');
+  const migrated = rigMod.normalizeCharacterLook({ job: 2, skin: 1, hair: 3, style: 2 });
+  assert.equal(migrated.version, 2, 'Legacy v1 look cleanly migrates to v2 modular look');
+  assert.equal(migrated.body, 'mage_01', 'Mage v1 look defaults to Mage body outfit');
+  assert.equal(rigMod.resolveWeaponMeshes('auto', 'staff', 4).id, 'monk_01', 'Monk class auto-resolves to Monk staff');
+  const charDir = path.join(__dirname, '..', 'game', 'assets', 'char');
+  for (const fn of ['adventurer_base.glb', 'anim_fighter.glb', 'anim_archer.glb', 'anim_mage.glb', 'anim_necromancer.glb', 'anim_monk.glb']) {
+    const fp = path.join(charDir, fn);
+    assert.ok(fs.existsSync(fp) && fs.statSync(fp).size > 50000, `Character asset exists & valid: ${fn}`);
+  }
+  assert.ok(fs.readdirSync(path.join(charDir, 'tex')).length >= 17, 'All 17 character variant textures present on disk');
+
+  console.log('ALL 37 LOGIC, CHAR-REWORK-C1-C5, FUZZ-QA-36, MMO-M10-PORTALS-CRAFT-KILLSWITCH, MMO-M9-SAFETY-KILLSWITCH, MMO-M8-ROLES-FEAST-GPU, MMO-M7-SOUL-AWAKEN-GPU-FIX, MMO-M6-SPIRE-MENTOR-LIGHTHOUSE, MMO-M5-FERRY-REVIEW, MMO-M4-OVERHAUL, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
 })();

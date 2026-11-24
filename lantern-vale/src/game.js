@@ -23,6 +23,7 @@ import { Meta } from './meta.js';
 import { buildPanels } from './panels.js';
 const EMOTES = ['嗨～', '♥', '哈哈', 'zZ'];
 import { HOODS } from './characters.js';
+import { createModularHero, CHAR_CATALOG, normalizeCharacterLook } from './char_rig.js';
 import { makeItem, itemLines, itemScore, RARITY, SLOTS, rollBoons, BOONS, tierInfo, corruptItem } from './loot.js';
 import { activeMountDef, buildMountMesh } from './mounts.js';
 import { rollSoulDrop, activeSouls, soulTier } from './souls.js';
@@ -256,11 +257,20 @@ export class Game {
 
   // ---------------- player ----------------
   makePlayer() {
+    if (this.player?.heroRig) this.player.heroRig.dispose();
     const m = buildPlayer(...HOODS[this.hoodIdx], undefined, this.character);
     m.root.scale.setScalar(1.25);
     this.scene.add(m.root);
+    const look = normalizeCharacterLook(this.character);
+    const heroRig = createModularHero(look, {
+      scale: 0.62,
+      weapon: this.meta?.p?.weapon || 'staff',
+      initialState: 'idle',
+      onReady: () => { m.body.visible = false; },
+    });
+    m.root.add(heroRig.root);
     const p = {
-      m, pos: new V3(), vel: new V3(), facing: 0, hp: 100, mana: 50, equip: { staff: null, cloak: null, charm: null },
+      m, heroRig, combatT: 0, pos: new V3(), vel: new V3(), facing: 0, hp: 100, mana: 50, equip: { staff: null, cloak: null, charm: null },
       boons: [], skills: { slam: false, wisp: false }, cds: { atk: 0, bolt: 0, roll: 0, slam: 0, wisp: 0 }, skillCds: [0, 0, 0, 0], hotbar: [],
       roll: 0, rollDir: new V3(), iframes: 0, flask: { charges: 1, max: 1, prog: 0 }, healOver: 0,
       statuses: { poison: 0, freeze: 0, chill: 0, burn: 0, shock: 0, overload: 0 }, statusTick: 0, castCombo: 0, castComboT: 0, prevVx: 0, prevVz: 0,
@@ -296,6 +306,7 @@ export class Game {
     p.hotbar = computeBoard(pz.presets[pz.activePreset] || [], pz.partyGem?.id || null);
     showWeapon(p.m, profile.weapon);
     applyCosmetics(p.m, profile.cosmetics);
+    this.applyCharacterLook();
     const attackName={staff:'杖',bow:'弓',blades:'刃',shield:'盾'}[profile.weapon] || '杖';
     const attackSlot=document.getElementById('sk-lmb');
     if (attackSlot) { const ic = attackSlot.querySelector('.ic'); if (ic) ic.textContent = attackName; attackSlot.title = attackName + '擊'; }
@@ -378,6 +389,10 @@ export class Game {
     for (const cf of st.campfires || []) this.spawnCampfireAt(cf.x, cf.y, cf.z);
     for (const idx of st.hiddenSpots || []) if (this.spots[idx]?.mesh) this.spots[idx].mesh.visible = false;
     return true;
+  }
+  applyCharacterLook() {
+    const p = this.player;
+    if (p?.heroRig) p.heroRig.setLook(this.character, this.meta?.p?.weapon || 'staff');
   }
   enterField(id, fromDir = 'south') {
     if (!FIELDS[id]) return;
@@ -1897,7 +1912,12 @@ export class Game {
     if (s.kind === 'ferry_harbor') { this.sailTo('harbor'); return true; }
     if (s.kind === 'ferry_town') { this.sailTo('town'); return true; }
     if (s.kind === 'open_stash') { this.audio.sfx('ui'); this.ui.openInvTab?.(this, 'stash'); return true; }
-    if (s.kind === 'open_cosmetics') { this.audio.sfx('ui'); this.ui.openInvTab?.(this, 'cosmetics'); return true; }
+    if (s.kind === 'open_cosmetics') {
+      this.audio.sfx('ui');
+      if (this.ui.openWardrobe3D) this.ui.openWardrobe3D();
+      else this.ui.openInvTab?.(this, 'cosmetics');
+      return true;
+    }
     if (s.kind.startsWith('goto_field_')) {
       const fid = +s.kind.replace('goto_field_', '');
       this.state = 'transition'; this.audio.sfx('warp'); this.ui.wipe(() => this.enterField(fid)); return true;
@@ -2130,14 +2150,23 @@ export class Game {
   addRemote(id, name, col, archetype = 'villager') {
     const hood = HOODS[col % HOODS.length]; const m = buildNPC(archetype, hood[0], hood[1], 0xf0d070);
     m.root.scale.setScalar(1.25); this.scene.add(m.root);
+    const jobIdx = Math.abs(col || 0) % CHAR_CATALOG.classPresets.length;
+    const npcLook = { ...CHAR_CATALOG.classPresets[jobIdx], hairStyle: Math.abs((col || 0) * 3) % 5, skinTone: Math.abs(col || 0) % 3, eyeColor: Math.abs((col || 0) * 2) % 4 };
+    const heroRig = createModularHero(npcLook, {
+      scale: 0.62,
+      initialState: 'idle',
+      onReady: () => { m.body.visible = false; },
+    });
+    m.root.add(heroRig.root);
     const tag = document.createElement('div'); tag.className = 'ptag'; tag.textContent = name;
     const bub = document.createElement('div'); bub.className = 'pbub';
     document.getElementById('tags').append(tag, bub);
-    const r = { id, name, col, m, tag, bub, x: 0, y: 0, z: 0, f: 0, tx: 0, ty: 0, tz: 0, tf: 0, a: 0, walkT: 0, say: 0, init: false };
+    const r = { id, name, col, m, heroRig, tag, bub, x: 0, y: 0, z: 0, f: 0, tx: 0, ty: 0, tz: 0, tf: 0, a: 0, walkT: 0, say: 0, init: false };
     this.remotes.set(id, r); return r;
   }
   removeRemote(id) {
     const r = this.remotes.get(id); if (!r) return;
+    r.heroRig?.dispose?.();
     this.scene.remove(r.m.root);
     // 自我審查修正：遠端玩家離線時釋放其幾何體與材質，防止多人進出城鎮累積 GPU 記憶體洩漏
     r.m.root.traverse?.(o => {
@@ -2213,6 +2242,10 @@ export class Game {
       const m = r.m;
       m.root.position.set(r.x, r.y, r.z); m.root.rotation.y = r.f;
       if (r.a === 1) r.walkT += dt * 11;
+      if (r.heroRig?.ready) {
+        r.heroRig.play(r.a === 1 ? 'walk' : 'idle');
+        r.heroRig.update(dt);
+      }
       const sw = Math.sin(r.walkT), moving = r.a === 1;
       m.legL.position.z = moving ? sw * 0.12 : 0; m.legR.position.z = moving ? -sw * 0.12 : 0;
       m.body.position.y = moving ? Math.abs(sw) * 0.06 : r.a === 2 ? 0.1 : r.a === 4 ? 0.3 : 0;
@@ -3144,6 +3177,27 @@ export class Game {
       m.body.rotation.y = lerp(m.body.rotation.y, 0, 0.2); m.body.position.z = lerp(m.body.position.z, 0, 0.2);
     }
     if (m.aura?.visible) m.aura.rotation.z += dt * 1.4;
+    // Phase C5：驅動 Modular Cute Fantasy 真實骨骼動畫狀態機
+    if (p.heroRig?.ready) {
+      if (p.swingT > 0) p.combatT = 5.0;
+      else if (p.combatT > 0) p.combatT = Math.max(0, p.combatT - dt);
+      if (this.state === 'dead') {
+        p.heroRig.play('death', { once: true });
+      } else if (this.gatherActive) {
+        p.heroRig.play('gather');
+      } else if (p.swingT > 0.14) {
+        p.heroRig.play(moving ? 'runAttack' : 'attack', { once: true, speed: 1.25 });
+      } else if (p.air) {
+        p.heroRig.play(p.vy > 1.5 ? 'jump' : 'fall');
+      } else if (moving) {
+        p.heroRig.play(p.sprinting ? 'run' : 'walk', { speed: p.sprinting ? 1.2 : 1.05 });
+      } else {
+        p.heroRig.play(p.combatT > 0 ? 'combatIdle' : 'idle');
+      }
+      p.heroRig.root.rotation.x = p.roll > 0 ? (1 - p.roll / 0.3) * Math.PI * 2 : p.gliding ? 0.38 : 0;
+      p.heroRig.root.position.y = p.sitting ? -0.16 : 0;
+      p.heroRig.update(dt);
+    }
     // 人物被遮擋時顯示暖金透視剪影（X-Ray silhouette）
     if (m.xray) {
       let occluded = false;
