@@ -22,6 +22,19 @@ export const BAG_RECIPES = [
     label: '🐚 海風回城螺 + 🍺 楓糖蘋果酒',
     out: { kind: 'consumable', tier: 3, shape: 'diamond', hw: 20, hh: 22, icon: '🧿', name: '星潮過載護符', desc: '立即回復 70% 法力並觸發 8 秒「魔力過載」沸騰狀態！', color: '#7ae8ff', r: 20, mana: 0.7, overload: 8 },
   },
+  // Phase M8B：溫馨共製盛宴物理配方（可於背包或營火旁碰撞合成高階共享料理）
+  {
+    id: 'feast_cocktail',
+    match: (a, b) => (a.icon === '🍹' && b.icon === '🍯') || (a.icon === '🍯' && b.icon === '🍹'),
+    label: '🍹 微醺莓果特調 + 🍯 陳年蜂王蜜箱',
+    out: { kind: 'consumable', tier: 4, shape: 'crate', hw: 24, hh: 22, icon: '🍗', name: '燈谷星火盛宴盒', desc: '回復 100% 生命與法力、淨化全異常並觸發 10 秒魔力過載！', color: '#ff9a40', r: 23, heal: 1, mana: 1, cure: true, overload: 10 },
+  },
+  {
+    id: 'star_brew',
+    match: (a, b) => (a.icon === '🐚' && b.icon === '🍯') || (a.icon === '🍯' && b.icon === '🐚'),
+    label: '🐚 海風回城螺 + 🍯 陳年蜂王蜜箱',
+    out: { kind: 'consumable', tier: 4, shape: 'flask', hw: 18, hh: 25, icon: '🍵', name: '星潮暖心熱湯', desc: '回復 90% 生命與法力、淨化異常並提振 6 秒星火過載！', color: '#6ee8c8', r: 21, heal: 0.9, mana: 0.9, cure: true, overload: 6 },
+  },
 ];
 
 export function findRecipe(a, b) {

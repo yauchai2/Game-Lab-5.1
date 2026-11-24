@@ -20,7 +20,7 @@ import { DENSITY_TIERS, LEAGUE_MECHANICS, ensureAtlas, setAtlasDensity, toggleAt
 import { TIDE_PHASES, ULTIMATES, MICRO_BUFFS, lootMultForTide, castUltimate, cycleUltimate } from './tide.js';
 import { canCorruptGear, CORRUPT_UNLOCK_LV, nextMilestone } from './progression.js';
 import { applyHudIcons } from './icons.js';
-import { computeCozyMvps, getWeeklySpireInfo, contributeLighthouse, getLighthouseTitle } from './mmo_protocol.js';
+import { computeCozyMvps, getWeeklySpireInfo, contributeLighthouse, getLighthouseTitle, getClassTeamRole } from './mmo_protocol.js';
 
 const $ = id => document.getElementById(id);
 const v3 = new THREE.Vector3();
@@ -80,7 +80,13 @@ export class UI {
     const mntBtn = $('sk-mount'); if (mntBtn) mntBtn.onclick = () => game.toggleMount?.();
     const tuBtn = $('btnTideUlt'); if (tuBtn) tuBtn.onclick = () => castUltimate(game);
     const tcBtn = $('btnTideCycle'); if (tcBtn) tcBtn.onclick = () => cycleUltimate(game);
-    const dayBtn = $('dayInfo'); if (dayBtn) dayBtn.onclick = () => { game.dayTime = ((game.dayTime || 0) + 0.25) % 1; const d = dayInfo(game.dayTime); game.ui.toast(`時間推進至 ${d.icon} ${d.label}`, '#ffe9a0'); };
+    const dayBtn = $('dayInfo'); if (dayBtn) dayBtn.onclick = () => {
+      if (game.net?.ok && !game.photoMode) {
+        game.ui.toast('🌐 線上模式採全服統一晝夜時鐘（開啟 P 拍照模式可本地預覽光影）', '#ffe08a');
+        return;
+      }
+      game.dayTime = ((game.dayTime || 0) + 0.25) % 1; const d = dayInfo(game.dayTime); game.ui.toast(`時間推進至 ${d.icon} ${d.label}`, '#ffe9a0');
+    };
     for (let i = 0; i < 4; i++) { const el = $('sk-s' + i); if (el) el.onclick = () => { if (!game.player.hotbar?.[i]) { game.audio.sfx('ui'); this.openPuzzle?.(); } else game.castHotbar(i); }; }
     // 點擊彈窗外部深色遮罩即可快速關閉
     [['inv', () => this.invOpen && this.toggleInv(game)], ['puzzleM', () => this.puzzleOpen && this.closePuzzle?.()], ['panelM', () => this.panelOpen && this.closePanel?.()], ['settings', () => this.setOpen && this.closeSettings?.()], ['codexModal', () => this.codexOpen && this.closeCodex?.()]].forEach(([mid, fn]) => {
@@ -819,6 +825,7 @@ export class UI {
       ['職業', sc2 ? `${cls.icon} ${cls.name} → ${sc2.icon} ${sc2.name}` : `${cls.icon} ${cls.name}`],
       ['公會', progress.guildName || '未加入（可至公會大廳創立）'],
       ['職業被動', cls.summary],
+      ['團隊光環', `${getClassTeamRole(cls.id).icon} ${getClassTeamRole(cls.id).name}（${getClassTeamRole(cls.id).desc}）`],
       ['等級 / 經驗', progress.level === 30 ? '30 · 滿級' : progress.level + ' · ' + progress.xp + '/' + (progress.level * 40)],
       ...(nextMilestone(progress.level) ? [['下一里程碑', `Lv.${nextMilestone(progress.level).lv} · ${nextMilestone(progress.level).title}`]] : []),
       ['金幣 / 鑰石', progress.coins + ' / ' + progress.keys],

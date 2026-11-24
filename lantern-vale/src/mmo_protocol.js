@@ -230,3 +230,15 @@ export function contributeLighthouse(profile, kind, qty = 2) {
   const title = getLighthouseTitle(profile.lighthousePts);
   return { ok: true, ptsGain, totalPts: profile.lighthousePts, title };
 }
+
+// Phase M8A：四大職業多人團隊軟分工光環（保留單刷體驗，多人場景凸顯獨特團隊價值）
+export const CLASS_TEAM_ROLES = [
+  { job: 0, icon: '🛡️', name: '守護壁壘光環', desc: '全隊減傷 +6% · 嘲諷吸引仇恨保護隊友', partBreakMult: 1.0, bonuses: { armor: 6 } },
+  { job: 1, icon: '🍃', name: '順風破甲光環', desc: '全隊移速 +8% · 攻速 +8% · 破甲標記', partBreakMult: 1.0, bonuses: { moveSpd: 8, atkSpd: 8 } },
+  { job: 2, icon: '✨', name: '星陣共鳴光環', desc: '全隊回魔 +25% · 元素連攜爆發核心',    partBreakMult: 1.0, bonuses: { manaRegen: 25 } },
+  { job: 3, icon: '✂️', name: '精準破位專精', desc: '部位破壞傷害 +40% · 加速扶起倒地隊友',  partBreakMult: 1.4, bonuses: { crit: 4 } },
+];
+
+export function getClassTeamRole(jobId = 0) {
+  return CLASS_TEAM_ROLES[jobId] || CLASS_TEAM_ROLES[0];
+}

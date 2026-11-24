@@ -16,7 +16,7 @@ import { BIOMES, mulberry32, clamp, lerp, angleLerp, rand, pick } from './util.j
 import { buildTownScenery, buildGuildKiosk, buildAwakenAltar, buildWardrobe, buildSheep, TOWN_LAYOUT, buildCottage } from './town.js';
 import { loadSettings, applySettings, buildSettingsUI, DIFFICULTY_MODES } from './settings.js';
 import { getFieldDanger } from './progression.js';
-import { pickHotspots, getFieldHotspot, checkTriggerIcd, foldExcessProjectiles, getFerrySchedule, FERRY_BUFF_MS, getWeeklySpireInfo, mentorDamageScale } from './mmo_protocol.js';
+import { pickHotspots, getFieldHotspot, checkTriggerIcd, foldExcessProjectiles, getFerrySchedule, FERRY_BUFF_MS, getWeeklySpireInfo, mentorDamageScale, getClassTeamRole } from './mmo_protocol.js';
 import { showWeapon, applyCosmetics, buildPlayer, buildNPC, buildSlime, buildThorn, buildBoar, buildMoth, buildSkyRay, buildGolem, buildStag, buildArch, buildHouse, buildFountain, buildBoard, buildStall } from './models.js';
 import { Net } from './net.js';
 import { Meta } from './meta.js';
@@ -841,7 +841,8 @@ export class Game {
       const hx = opts.hitPos ? opts.hitPos.x : p.pos.x, hz = opts.hitPos ? opts.hitPos.z : p.pos.z;
       const part = resolveHitPart(e, hx, hz);
       if (part) {
-        const pr = damagePart(e, part, dmg);
+        const role = getClassTeamRole(this.character?.job ?? 0);
+        const pr = damagePart(e, part, Math.round(dmg * (role.partBreakMult || 1)));
         if (pr.broken) {
           if (this.runStats) this.runStats.partsBroken++;
           if (e.m.parts?.[pr.part.id]) e.m.parts[pr.part.id].visible = false;
@@ -3009,7 +3010,11 @@ export class Game {
           this.heal(p.stats.maxHp * 0.035, true);
         }
       }
-      if (gz.life <= 0) this.scene.remove(gz.mesh);
+      if (gz.life <= 0) {
+        this.scene.remove(gz.mesh);
+        gz.mesh.geometry?.dispose?.();
+        gz.mesh.material?.dispose?.();
+      }
     }
     this.groundZones = (this.groundZones || []).filter(gz => gz.life > 0);
     // 城鎮可踢飛滾動 3D 物理物件（海灘球與酒桶）

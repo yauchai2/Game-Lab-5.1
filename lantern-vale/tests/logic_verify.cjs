@@ -814,5 +814,15 @@ const createGuild = require('../server/guild.cjs');
   assert.equal(souls.soulTier(awkProf, 'boar').tier, 5, '18 duplicate shards reach Tier 5 max awakening');
   assert.equal(souls.soulTier(awkProf, 'boar').mult, 2.2, 'Tier 5 soul scales passive bonuses by 2.2x');
 
-  console.log('ALL 32 LOGIC, MMO-M7-SOUL-AWAKEN-GPU-FIX, MMO-M6-SPIRE-MENTOR-LIGHTHOUSE, MMO-M5-FERRY-REVIEW, MMO-M4-OVERHAUL, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
+  // 33. Phase M8: Class Soft-Role Team Auras (Assassin +40% Part Break) & Cozy Feast Physics Bag Recipes
+  assert.equal(mmoProto.getClassTeamRole(3).partBreakMult, 1.4, 'Assassin has +40% Part Break specialization');
+  assert.equal(mmoProto.getClassTeamRole(0).bonuses.armor, 6, 'Warden team aura grants armor');
+  const pbMod = await import(src('physbag.js'));
+  assert.ok(pbMod.BAG_RECIPES.length >= 5, 'Physics bag has >= 5 collision synthesis recipes including Cozy Feast dishes');
+  const feastHit = pbMod.findRecipe({ uid: 'a', icon: '🍹' }, { uid: 'b', icon: '🍯' });
+  assert.equal(feastHit?.recipe?.id, 'feast_cocktail', 'Berry Cider + Honey Box fuses into Lantern Feast Box');
+  const soupHit = pbMod.findRecipe({ uid: 'a', icon: '🐚' }, { uid: 'b', icon: '🍯' });
+  assert.equal(soupHit?.recipe?.id, 'star_brew', 'Conch + Honey Box fuses into Star-Tide Warm Soup');
+
+  console.log('ALL 33 LOGIC, MMO-M8-ROLES-FEAST-GPU, MMO-M7-SOUL-AWAKEN-GPU-FIX, MMO-M6-SPIRE-MENTOR-LIGHTHOUSE, MMO-M5-FERRY-REVIEW, MMO-M4-OVERHAUL, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
 })();
