@@ -178,10 +178,23 @@ export function applyRekindle(state) {
 }
 
 // ---------------- 3D runtime director ----------------
+const XP_GEM_GEO = new THREE.OctahedronGeometry(0.18, 0);
+function dropTideObj(g, obj) {
+  if (!obj) return;
+  g.scene?.remove?.(obj);
+  obj.traverse?.(o => {
+    if (o.geometry && o.geometry !== XP_GEM_GEO && !o.userData?.sharedGeo) o.geometry.dispose?.();
+    if (o.material && !o.userData?.sharedMat) {
+      if (Array.isArray(o.material)) o.material.forEach(m => m.dispose?.());
+      else o.material.dispose?.();
+    }
+  });
+}
+
 function clearLullCamp(g) {
   const td = g.tide;
   if (!td) return;
-  if (td.lullCamp) { g.scene.remove(td.lullCamp); td.lullCamp = null; }
+  if (td.lullCamp) { dropTideObj(g, td.lullCamp); td.lullCamp = null; }
   if (td.lullSpot) {
     const idx = g.spots.indexOf(td.lullSpot);
     if (idx >= 0) g.spots.splice(idx, 1);
@@ -192,10 +205,10 @@ function clearLullCamp(g) {
 export function resetTide(g) {
   if (g.tide) {
     clearLullCamp(g);
-    for (const gem of g.tide.xpGems || []) g.scene.remove(gem.mesh);
-    for (const st of g.tide.storms || []) g.scene.remove(st.group);
-    for (const h of g.tide.hounds || []) g.scene.remove(h.mesh);
-    for (const s of g.tide.suns || []) g.scene.remove(s.mesh);
+    for (const gem of g.tide.xpGems || []) dropTideObj(g, gem.mesh);
+    for (const st of g.tide.storms || []) dropTideObj(g, st.group);
+    for (const h of g.tide.hounds || []) dropTideObj(g, h.mesh);
+    for (const s of g.tide.suns || []) dropTideObj(g, s.mesh);
   }
   g.tide = createTideState();
 }
@@ -215,11 +228,11 @@ export function spawnXpGems(g, x, z, count = 2) {
   for (let i = 0; i < count; i++) {
     if (g.tide.xpGems.length >= 65) {
       const old = g.tide.xpGems.shift();
-      g.scene.remove(old.mesh);
+      dropTideObj(g, old.mesh);
     }
     const col = cols[(Math.random() * cols.length) | 0];
     const mesh = new THREE.Mesh(
-      new THREE.OctahedronGeometry(0.18, 0),
+      XP_GEM_GEO,
       new THREE.MeshBasicMaterial({ color: col }),
     );
     const a = Math.random() * Math.PI * 2;
@@ -573,7 +586,7 @@ export function tickTide(g, dt) {
     gem.mesh.position.set(gem.x, gem.y + Math.sin(g.time * 6 + gem.x) * 0.06, gem.z);
     if (dist < 0.95) {
       gem.taken = true;
-      g.scene.remove(gem.mesh);
+      dropTideObj(g, gem.mesh);
       g.audio.sfx('xpGem');
       g.meta.p.coins = (g.meta.p.coins || 0) + 1;
       g.meta.p.xp = (g.meta.p.xp || 0) + gem.xp;
@@ -585,7 +598,7 @@ export function tickTide(g, dt) {
       }
     } else if (gem.life <= 0) {
       gem.taken = true;
-      g.scene.remove(gem.mesh);
+      dropTideObj(g, gem.mesh);
     }
   }
   td.xpGems = td.xpGems.filter(gem => !gem.taken);
@@ -633,7 +646,7 @@ export function tickTide(g, dt) {
       g.applyElementAt(p.pos.x, p.pos.z, 'shock', 5.5);
       g.puffs.burst(p.pos.x, p.y + 0.8, p.pos.z, 24, { c: [0x7ae8ff, 0xffe87a, 0xffffff], s: 0.26, speed: 7.5, up: 5, life: 0.65 });
       g.ui.dmgNum(p.pos.x, p.y + 2.6, p.pos.z, '⚡ ZAP!', 'comic');
-      g.scene.remove(st.group);
+      dropTideObj(g, st.group);
     }
   }
   td.storms = (td.storms || []).filter(st => st.life > 0);
@@ -653,7 +666,7 @@ export function tickTide(g, dt) {
         g.hitEnemy(e, g.rollDamage(4.0, true), h.dx * 11, h.dz * 11, { stun: 1.8, hitstop: 0.03, isTrigger: true });
       }
     }
-    if (h.life <= 0) g.scene.remove(h.mesh);
+    if (h.life <= 0) dropTideObj(g, h.mesh);
   }
   td.hounds = td.hounds.filter(h => h.life > 0);
 
@@ -669,7 +682,7 @@ export function tickTide(g, dt) {
       s.wave2 = true;
       g.shockRing(s.x, s.z, 14.5, g.rollDamage(2.6, true), 0xffcf4a, 0.9, { isTrigger: true });
     }
-    if (s.t >= s.max) g.scene.remove(s.mesh);
+    if (s.t >= s.max) dropTideObj(g, s.mesh);
   }
   td.suns = td.suns.filter(s => s.t < s.max);
 

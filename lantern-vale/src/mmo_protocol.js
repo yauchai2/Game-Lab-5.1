@@ -44,9 +44,13 @@ export function refillLanternOil(profile, bonusSec = OIL_QUEST_REFILL, dayKey) {
  * 允許冰湖滑冰、滑沙、低重力與翻滾的寬鬆前端預測，但攔截加速外掛／瞬移
  */
 export function validateMoveDelta(prev, next, dtSec, ctx = {}) {
-  const dt = Math.max(0.05, Math.min(2.0, dtSec || 0.1));
-  const dx = (next.x || 0) - (prev.x || 0);
-  const dz = (next.z || 0) - (prev.z || 0);
+  const px = Number(prev?.x ?? 0), pz = Number(prev?.z ?? 0);
+  if (!Number.isFinite(next?.x) || !Number.isFinite(next?.z) || !Number.isFinite(px) || !Number.isFinite(pz)) {
+    return { ok: false, dist: Infinity, allowedDist: 0, violation: 10, clamped: { x: Number.isFinite(px) ? px : 0, z: Number.isFinite(pz) ? pz : 0 } };
+  }
+  const dt = Math.max(0.05, Math.min(2.0, Number.isFinite(dtSec) && dtSec > 0 ? dtSec : 0.1));
+  const dx = next.x - px;
+  const dz = next.z - pz;
   const dist = Math.hypot(dx, dz);
 
   let maxSpeed = 8.2; // 基礎移動 + 疾步上限

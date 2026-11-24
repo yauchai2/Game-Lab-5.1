@@ -845,5 +845,20 @@ const createGuild = require('../server/guild.cjs');
   const killedApMock = { autopilot: apMod.createAutopilotState(), features: { autopilot: false }, ui: { toast() {} } };
   assert.equal(apMod.toggleAutopilot(killedApMock, 'full'), false, 'Autopilot blocked when Live-Ops kill switch is active');
 
-  console.log('ALL 35 LOGIC, MMO-M10-PORTALS-CRAFT-KILLSWITCH, MMO-M9-SAFETY-KILLSWITCH, MMO-M8-ROLES-FEAST-GPU, MMO-M7-SOUL-AWAKEN-GPU-FIX, MMO-M6-SPIRE-MENTOR-LIGHTHOUSE, MMO-M5-FERRY-REVIEW, MMO-M4-OVERHAUL, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
+  // 36. Automated Fuzz & Integrity QA: NaN Anti-Cheat Rejection, 20-Field Blueprint Integrity & 200-Player AOI Stress
+  const nanMove = mmoProto.validateMoveDelta({ x: 0, z: 0 }, { x: NaN, z: Infinity }, 0.1);
+  assert.equal(nanMove.ok, false, 'validateMoveDelta rejects NaN/Infinity coordinates');
+  assert.equal(nanMove.violation, 10, 'Malformed coordinate receives max violation score');
+  const zeroDt = mmoProto.validateMoveDelta({ x: 0, z: 0 }, { x: 0.5, z: 0 }, 0);
+  assert.equal(zeroDt.ok, true, 'validateMoveDelta handles dt=0 safely without NaN');
+  for (let fid = 1; fid <= 20; fid++) {
+    assert.ok(frontier.FIELDS[fid] && bpMod.FIELD_BLUEPRINTS[fid], `Field & Blueprint #${fid} present`);
+    assert.ok((bpMod.FIELD_BLUEPRINTS[fid].checkpoints || []).length >= 2, `Field #${fid} has >= 2 checkpoints`);
+  }
+  const stressGrid = new zoneEng.SpatialGrid(30);
+  for (let i = 0; i < 200; i++) stressGrid.insert({ id: i, x: (i * 37) % 360 - 180, z: (i * 53) % 360 - 180 });
+  const sampleNear = stressGrid.queryNearby(0, 0, 1);
+  assert.ok(sampleNear.length < 40, '30m AOI spatial grid culls >80% of 200 players on 360m map');
+
+  console.log('ALL 36 LOGIC, FUZZ-QA-36, MMO-M10-PORTALS-CRAFT-KILLSWITCH, MMO-M9-SAFETY-KILLSWITCH, MMO-M8-ROLES-FEAST-GPU, MMO-M7-SOUL-AWAKEN-GPU-FIX, MMO-M6-SPIRE-MENTOR-LIGHTHOUSE, MMO-M5-FERRY-REVIEW, MMO-M4-OVERHAUL, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
 })();

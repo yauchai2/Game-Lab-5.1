@@ -1285,7 +1285,7 @@ export class Game {
       this.shake = 0.45; p.swing = 1; p.swingT = 0.28;
     } else if (id === 'wisp') {
       this.audio.sfx('wisp');
-      for (const w of p.wisps) this.scene.remove(w.mesh); p.wisps = [];
+      for (const w of p.wisps) { this.scene.remove(w.mesh); disposeObj3D(w.mesh); } p.wisps = [];
       const n = 3 + mod.multi + (this.has('swarm') ? 3 : 0) + (p.specials.has('moreWisps') ? 3 : 0);
       for (let i = 0; i < n; i++) {
         const mesh = new THREE.Mesh(new THREE.OctahedronGeometry(0.12, 0), new THREE.MeshBasicMaterial({ color: mod.fire ? 0xff9a4a : 0xfff27a }));
@@ -1514,7 +1514,7 @@ export class Game {
     const p = this.player; if (!p.skills.wisp || p.cds.wisp > 0) return;
     this.audio.sfx('wisp');
     p.cds.wisp = 12 * (1 - p.stats.cdr / 100);
-    for (const w of p.wisps) this.scene.remove(w.mesh);
+    for (const w of p.wisps) { this.scene.remove(w.mesh); disposeObj3D(w.mesh); }
     p.wisps = [];
     const n = 3 + (this.has('swarm') ? 3 : 0) + (p.specials.has('moreWisps') ? 3 : 0);
     for (let i = 0; i < n; i++) {
@@ -1936,7 +1936,7 @@ export class Game {
   exitInterior() {
     if (!this.interior) return;
     this.audio.sfx('door');
-    this.scene.remove(this.interior.group); this.interior = null;
+    this.scene.remove(this.interior.group); disposeObj3D(this.interior.group); this.interior = null;
     if (this.world.group) this.world.group.visible = true;
     if (this.townGroup) this.townGroup.visible = true;
     for (const x of this.exits) x.g.visible = true;
@@ -2410,7 +2410,7 @@ export class Game {
             }
           }
         });
-        if (p.wispT <= 0) { for (const w of p.wisps) this.scene.remove(w.mesh); p.wisps = []; }
+        if (p.wispT <= 0) { for (const w of p.wisps) { this.scene.remove(w.mesh); disposeObj3D(w.mesh); } p.wisps = []; }
       }
       if (this.field) { tickField(this, dt); tickTide(this, dt); }
       tickSkyFeatures(this, dt);
@@ -2426,7 +2426,7 @@ export class Game {
             this.fireProj({ x: pr.x, y: pr.y - 0.5, z: pr.z }, d, { speed: 19, mult: 0.9 * pr.dmgMul, color: 0xffe07a, size: 0.14, chain: 1 + (pr.chain || 0), slow: pr.slow, leech: pr.leech, life: 0.9 });
           }
         }
-        if (pr.life <= 0) this.scene.remove(pr.mesh);
+        if (pr.life <= 0) { this.scene.remove(pr.mesh); disposeObj3D(pr.mesh); }
       }
       this.prisms = this.prisms.filter(pr => pr.life > 0);
       // waves
