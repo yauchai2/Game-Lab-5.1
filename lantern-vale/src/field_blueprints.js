@@ -164,6 +164,18 @@ export function buildBlueprintGrid(def) {
     safePts.push([x, y, minDist]);
     placed++;
   }
+  // Phase R0 (G2)：保證任何 Boss／秘境 POI 皆不會埋在實心 [WALL]（自動鑿出可步行林間廣場）
+  for (const poi of def.pois || []) {
+    const px = Math.round(poi.x * (BP_W - 1)), py = Math.round(poi.y * (BP_H - 1));
+    if (g[idx(px, py)] === 5) {
+      for (let dy = -9; dy <= 9; dy++) for (let dx = -9; dx <= 9; dx++) {
+        if (dx * dx + dy * dy <= 81) {
+          const nx = px + dx, ny = py + dy;
+          if (nx >= 2 && nx < BP_W - 2 && ny >= 2 && ny < BP_H - 2 && g[idx(nx, ny)] === 5) g[idx(nx, ny)] = 2;
+        }
+      }
+    }
+  }
   return g;
 }
 
@@ -858,7 +870,7 @@ export const FIELD_BLUEPRINTS = {
       { x: 0.24, y: 0.25, k: 'secret', landmark: 'maple_onsen', t: '♨ 三疊秋楓溫泉' },
       { x: 0.16, y: 0.74, k: 'secret', landmark: 'sheep_barn', t: '🐑 風車穀倉牧場' },
       { x: 0.66, y: 0.48, k: 'boss', landmark: 'forge_plaza', t: '👑 巨像鍛造廣場' },
-      { x: 0.76, y: 0.74, k: 'secret', landmark: 'lava_channel', t: '🔥 熔渠遺產碑' },
+      { x: 0.74, y: 0.66, k: 'secret', landmark: 'lava_channel', t: '🔥 熔渠遺產碑' },
     ],
   },
 
@@ -1097,7 +1109,7 @@ export const FIELD_BLUEPRINTS = {
     pois: [
       { x: 0.14, y: 0.82, k: 'exit', dir: 'south', t: '西門←幽霧哥德墓園' },
       { x: 0.50, y: 0.16, k: 'dungeon', dir: 'north', t: '⛩ 古堡血月殿' },
-      { x: 0.50, y: 0.22, k: 'boss', landmark: 'gothic_keep', t: '👑 古堡暗黑騎士長' },
+      { x: 0.50, y: 0.28, k: 'boss', landmark: 'gothic_keep', t: '👑 古堡暗黑騎士長' },
     ],
   },
 

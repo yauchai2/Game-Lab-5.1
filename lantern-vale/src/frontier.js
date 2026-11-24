@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { BIOMES, mulberry32 } from './util.js';
 import { toonMat, part } from './world.js';
-import { attachLandmarkGlb } from './assets.js';
+import { attachLandmarkGlb, attachPalmovPoi } from './assets.js';
 import { FIELD_BLUEPRINTS, uvToWorld } from './field_blueprints.js';
 import { makeItem, serializeItem, deserializeItem } from './loot.js';
 import { ALL_GEMS, addGemToBag } from './puzzle.js';
@@ -37,6 +37,30 @@ export const FIELDS = [
   { name: '星際白銀前哨站', level: 27, biome: 8, size: 340, beast: 'golem', dungeon: '星艦核心反應爐', fog: 0xa8c8e8, status: 'shock', layer: 'sky', realmRule: 'overcharge' },
   { name: '異星蜂巢裂谷', level: 30, biome: 9, size: 360, beast: 'moth', dungeon: '異星母巢核心', fog: 0x9864b4, status: 'shock', layer: 'sky', realmRule: 'crystal_burst' },
 ];
+
+// Phase v6：20 張野外地圖專屬巨型 Boss（2.2–2.8× 體型＋生態光環）
+export const FIELD_BOSS_SPEC = {
+  1:  { name: '🌻 晨光花靈王',   modelKey: 'boss_sunflora',         scale: 1.45, tint: 0xfff8dc, emissive: 0x5c4a1e, aura: 0xffe066 },
+  2:  { name: '🐺 幽林巨狼王',   modelKey: 'werewolf',              scale: 1.85, tint: 0xd0e6c8, emissive: 0x2a4e36, aura: 0x56d884 },
+  3:  { name: '🦀 沉船巨蟹王',   modelKey: 'crab_monster',          scale: 1.90, tint: 0xffd0c0, emissive: 0x5c2e24, aura: 0xff7852 },
+  4:  { name: '❄️ 寒霜巨像王',   modelKey: 'golem_ice',             scale: 1.95, tint: 0xd8f4ff, emissive: 0x2c6896, aura: 0x72e4ff },
+  5:  { name: '🐉 熾炎熔岩巨龍', modelKey: 'boss_dragon_inferno',   scale: 1.65, tint: 0xffe4cc, emissive: 0x8c2e14, aura: 0xff6228 },
+  6:  { name: '🌳 磐岩古樹巨像', modelKey: 'golem_earth',           scale: 1.95, tint: 0xd6f0cc, emissive: 0x36623c, aura: 0x72e082 },
+  7:  { name: '✨ 星穹風暴法王', modelKey: 'boss_wind_mage',        scale: 1.55, tint: 0xfff2c8, emissive: 0x6c5824, aura: 0xffdf70 },
+  8:  { name: '🐚 潮汐寄居蟹王', modelKey: 'boss_hermit_king',      scale: 1.60, tint: 0xfff0dc, emissive: 0x3c5268, aura: 0x52d4f0 },
+  9:  { name: '👁️ 雷鳴獨眼巨魔', modelKey: 'beholder',              scale: 1.95, tint: 0xc8ecff, emissive: 0x285c8c, aura: 0x48c8ff },
+  10: { name: '👹 緋櫻惡鬼法師', modelKey: 'boss_evil_mage',        scale: 1.55, tint: 0xffd4e4, emissive: 0x782848, aura: 0xff82b4 },
+  11: { name: '🌪️ 蒼穹疾風魔導', modelKey: 'boss_wind_mage',        scale: 1.60, tint: 0xd8f6ff, emissive: 0x286894, aura: 0x62d8ff },
+  12: { name: '🔥 鍛爐炎岩巨像', modelKey: 'golem_fire',            scale: 1.95, tint: 0xffd2b4, emissive: 0x843218, aura: 0xff7838 },
+  13: { name: '🪱 沙暴巨蟲母皇', modelKey: 'boss_queen_worm',       scale: 1.65, tint: 0xffe6b8, emissive: 0x6e4820, aura: 0xf4c258 },
+  14: { name: '🦂 黃金聖蠍王',   modelKey: 'scorpion_king',         scale: 1.95, tint: 0xffe4a0, emissive: 0x78521c, aura: 0xffd24a },
+  15: { name: '🐍 叢林娜迦女王', modelKey: 'boss_snake_naga',       scale: 1.60, tint: 0xd6f6c4, emissive: 0x2e6434, aura: 0x6ee478 },
+  16: { name: '💀 冥霧死神王',   modelKey: 'boss_grim_reaper',      scale: 1.65, tint: 0xdcc8ff, emissive: 0x543488, aura: 0xa66eff },
+  17: { name: '⚔️ 血月黑騎士長', modelKey: 'black_knight',          scale: 1.95, tint: 0xe6d4ff, emissive: 0x6c2e54, aura: 0xff4c78 },
+  18: { name: '🐙 深淵暗影魔龍', modelKey: 'boss_dragon_nightfall', scale: 1.65, tint: 0x98f2ff, emissive: 0x1e6c88, aura: 0x42e4ff },
+  19: { name: '😈 軌道熾焰魔將', modelKey: 'flying_demon',          scale: 1.90, tint: 0xd8f0ff, emissive: 0x3072b4, aura: 0x58c4ff },
+  20: { name: '🐉 異星暮光龍皇', modelKey: 'boss_dragon_nightfall', scale: 1.85, tint: 0xf4b4ff, emissive: 0x7e2ca4, aura: 0xe068ff },
+};
 export const progressDefaults = {
   level: 1, xp: 0, coins: 15, keys: 1, goods: { wood: 0, ore: 0, fish: 0 }, graves: {}, timers: {},
   gear: {}, species: {}, home: 0, mealUntil: 0, weapon: 'staff', gem: false, sales: [],
@@ -167,6 +191,12 @@ function buildBlueprintLandmarks(g, bp) {
     attachLandmarkGlb(holder, key, fallbackObj, opts);
     return holder;
   };
+  const placePalmov = (key, x, z, opts = {}, obstR = 0) => {
+    const holder = new THREE.Group();
+    place(holder, x, z, obstR);
+    attachPalmovPoi(holder, key, null, opts);
+    return holder;
+  };
 
   for (const poi of bp.pois || []) {
     const pos = uvToWorld(poi.x, poi.y, half);
@@ -176,99 +206,41 @@ function buildBlueprintLandmarks(g, bp) {
     }
     if (!poi.landmark) continue;
     if (poi.landmark === 'teapot_hill') {
-      // #01 東北高丘：巨型溫暖陶瓷茶壺屋＋紅白蘑菇群＋4167 巨石陣環繞前庭
-      const teapot = new THREE.Mesh(mergeGeometries([
-        part(new THREE.SphereGeometry(4.2, 12, 8), 0xf3e4c8, 0, 3.2, 0),
-        part(new THREE.CylinderGeometry(2.6, 3.2, 0.8, 10), 0xd85a42, 0, 6.9, 0),
-        part(new THREE.SphereGeometry(0.75, 8, 6), 0xffd268, 0, 7.6, 0),
-        part(new THREE.CylinderGeometry(0.55, 0.95, 3.6, 7), 0xf3e4c8, 4.3, 3.6, 0, 0, 0, -0.75),
-        part(new THREE.TorusGeometry(1.9, 0.42, 6, 12, Math.PI), 0xd85a42, -3.9, 3.4, 0, 0, 0, Math.PI / 2),
-        part(new THREE.BoxGeometry(1.5, 2.2, 0.4), 0x7c4c30, 0, 1.1, 3.85),
-        part(new THREE.CylinderGeometry(0.45, 0.65, 2.2, 6), 0xfff0d4, -5.8, 1.1, 3.2),
-        part(new THREE.SphereGeometry(1.65, 9, 5, 0, Math.PI * 2, 0, Math.PI / 2), 0xe24a3c, -5.8, 2.1, 3.2),
-        part(new THREE.CylinderGeometry(0.32, 0.45, 1.5, 6), 0xfff0d4, 5.2, 0.75, 2.8),
-        part(new THREE.SphereGeometry(1.15, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2), 0xe86248, 5.2, 1.45, 2.8),
-      ]), toonMat({ vertexColors: true }));
-      teapot.castShadow = true; teapot.receiveShadow = true;
-      place(teapot, pos.x, pos.z, 4.3);
-      placeGlb('stonehenge', pos.x - 11.2, pos.z + 6.5, null, { scale: 1.0, rotY: 0.35, yOffset: -0.15 }, 2.2);
-      placeGlb('stonehenge', pos.x + 10.8, pos.z + 7.2, null, { scale: 0.95, rotY: -0.45, yOffset: -0.15 }, 2.0);
+      // #01 東北高丘：Palmov 真茶壺森林小屋＋蘑菇群（取代舊版幾何球拼裝茶壺）
+      placePalmov('teapot_hill', pos.x, pos.z, { scale: 1.0, rotY: 0.25, yOffset: -0.25 }, 4.2);
+    } else if (poi.landmark === 'waterfall_chest') {
+      // #01 西北秘境：Palmov 森林瀑布崖
+      placePalmov('forest_waterfall', pos.x, pos.z, { scale: 0.95, rotY: 0.4, yOffset: -0.25 }, 3.5);
     } else if (poi.landmark === 'cable_summit') {
-      // #04 西北雪峰站：4137 雪頂瞭望纜車塔＋雪山木屋站＋橘白滑雪旗門
-      const fallbackStation = new THREE.Mesh(mergeGeometries([
-        part(new THREE.BoxGeometry(5.6, 3.4, 4.2), 0x8f5d3c, 0, 1.7, 0),
-        part(new THREE.ConeGeometry(4.4, 2.3, 4), 0xf2f7fc, 0, 4.4, 0, 0, Math.PI / 4, 0),
-      ]), toonMat({ vertexColors: true }));
-      placeGlb('snow_tower', pos.x, pos.z, fallbackStation, { scale: 1.05, rotY: 0.35, yOffset: -0.15 }, 2.8);
-      placeGlb('snow_house', pos.x - 7.0, pos.z + 3.2, null, { scale: 1.05, rotY: 0.6, yOffset: -0.15 }, 2.6);
-      // 橘白滑雪道出發旗門
-      const gate = new THREE.Mesh(mergeGeometries([
-        part(new THREE.CylinderGeometry(0.12, 0.12, 3.0, 5), 0xff6a38, -3.5, 1.5, 0),
-        part(new THREE.CylinderGeometry(0.12, 0.12, 3.0, 5), 0xff6a38, 3.5, 1.5, 0),
-        part(new THREE.BoxGeometry(7.3, 0.65, 0.14), 0xff6a38, 0, 2.7, 0),
-      ]), toonMat({ vertexColors: true }));
-      gate.castShadow = true;
-      place(gate, pos.x + 5.2, pos.z + 5.4, 0);
+      // #04 西北雪峰站：Palmov 滑雪纜車站
+      placePalmov('ski_resort', pos.x, pos.z, { scale: 1.0, rotY: 0.35, yOffset: -0.25, emissive: 0x344252, emissiveIntensity: 0.28 }, 4.0);
     } else if (poi.landmark === 'ice_spires') {
-      // #04 東北：4130 清透淡冰藍晶尖塔群環繞寒霜冰窟
-      const offsets = [[-6.5, -2.5, 1.2, 0.3], [6.5, -2.0, 1.1, 1.4], [-5.0, 4.5, 0.85, 2.2], [5.2, 4.2, 0.95, -0.8]];
-      for (const [ox, oz, sc, ry] of offsets) {
-        const fb = new THREE.Mesh(new THREE.ConeGeometry(1.4 * sc, 6.2 * sc, 5), toonMat({ color: 0x9ceeff }));
-        fb.position.y = 3.1 * sc;
-        placeGlb('ice_crystal', pos.x + ox, pos.z + oz, fb, { scale: sc, rotY: ry, yOffset: -0.2, flatTint: 0xa4ecff, emissive: 0x3b8ec4, emissiveIntensity: 0.42 }, 1.5);
-      }
+      // #04 東北：Palmov 藍冰晶山峰群
+      placePalmov('crystal_mountain', pos.x, pos.z, { scale: 1.0, rotY: 0.2, yOffset: -0.25, emissive: 0x2c4e68, emissiveIntensity: 0.32 }, 4.0);
     } else if (poi.landmark === 'snow_cabin') {
-      // #04 西側裂谷雪屋（4137 雪地木屋實模）
-      const fb = new THREE.Mesh(mergeGeometries([
-        part(new THREE.BoxGeometry(3.8, 2.4, 3.2), 0x9b6b46, 0, 1.2, 0),
-        part(new THREE.ConeGeometry(3.1, 1.9, 4), 0xf4f9ff, 0, 3.2, 0, 0, Math.PI / 4, 0),
-      ]), toonMat({ vertexColors: true }));
-      placeGlb('snow_house', pos.x, pos.z, fb, { scale: 1.05, rotY: 0.45, yOffset: -0.15 }, 2.6);
+      // #04 西側裂谷雪屋：Palmov 河畔雪屋木橋
+      placePalmov('river_winter', pos.x, pos.z, { scale: 0.95, rotY: 0.45, yOffset: -0.25, emissive: 0x344252, emissiveIntensity: 0.26 }, 3.5);
     } else if (poi.landmark === 'cliff_lighthouse') {
-      // #07 東側巨崖：4379 浮空島燈塔＋守塔海島木屋（明亮日光 Pixel-Toon）
-      const fbTower = new THREE.Mesh(mergeGeometries([
-        part(new THREE.CylinderGeometry(1.3, 2.1, 3.2, 10), 0xfff4e2, 0, 1.6, 0),
-        part(new THREE.CylinderGeometry(1.15, 1.3, 2.6, 10), 0xdc4438, 0, 4.5, 0),
-        part(new THREE.CylinderGeometry(1.0, 1.15, 2.6, 10), 0xfff4e2, 0, 7.1, 0),
-        part(new THREE.ConeGeometry(1.35, 1.5, 10), 0xdc4438, 0, 9.4, 0),
-      ]), toonMat({ vertexColors: true }));
-      placeGlb('lighthouse', pos.x, pos.z, fbTower, { scale: 1.05, rotY: -0.4, yOffset: -0.2, emissive: 0x5c5246, emissiveIntensity: 0.48 }, 2.6);
-      placeGlb('island_house', pos.x - 7.0, pos.z + 4.4, null, { scale: 1.0, rotY: 0.55, yOffset: -0.15, emissive: 0x564c40, emissiveIntensity: 0.46 }, 2.6);
+      // #07 東側巨崖：Palmov 三層飛瀑燈塔巨崖（已實查非 three level island）
+      placePalmov('cliff_lighthouse', pos.x, pos.z, { scale: 1.05, rotY: -0.35, yOffset: -0.25 }, 4.0);
     } else if (poi.landmark === 'star_aqueduct') {
-      // #07 北端星穹斷柱水道：4167 巨石陣門柱
-      placeGlb('stonehenge', pos.x - 6.0, pos.z + 2.5, null, { scale: 1.1, rotY: 0.2, yOffset: -0.15 }, 2.0);
-      placeGlb('stonehenge', pos.x + 6.0, pos.z + 2.5, null, { scale: 1.1, rotY: -0.2, yOffset: -0.15 }, 2.0);
+      // #07 北端星穹斷柱水道：Palmov 古羅馬列柱遺址
+      placePalmov('roman_ruins', pos.x, pos.z, { scale: 1.0, rotY: 0.2, yOffset: -0.25 }, 3.6);
     } else if (poi.landmark === 'birch_cabin') {
-      // #02 西南：白樺封板廢屋（4379 森林木屋）
-      placeGlb('forest_cabin', pos.x, pos.z, null, { scale: 1.1, rotY: 0.4, yOffset: -0.15, emissive: 0x3a3428, emissiveIntensity: 0.36 }, 2.8);
-      placeGlb('giant_shroom', pos.x + 5.8, pos.z + 2.5, null, { scale: 0.9, rotY: 0.8, yOffset: -0.1 }, 1.2);
+      // #02 西南：Palmov 白樺荒野廢屋（已剔除現代破轎車）
+      placePalmov('abandoned_house', pos.x, pos.z, { scale: 1.0, rotY: 0.35, yOffset: -0.25 }, 3.2);
     } else if (poi.landmark === 'canopy_vault') {
-      // #02 東北樹冠吊橋秘庫
-      placeGlb('windmill', pos.x, pos.z, null, { scale: 0.92, rotY: -0.3, yOffset: -0.2 }, 2.6);
-      placeGlb('stonehenge', pos.x - 6.5, pos.z + 4.5, null, { scale: 0.85, rotY: 0.5, yOffset: -0.15 }, 1.8);
+      // #02 東北樹冠秘境：Palmov 森林瀑布崖（拔除原先錯放的農莊風車）
+      placePalmov('forest_waterfall', pos.x, pos.z, { scale: 0.92, rotY: -0.3, yOffset: -0.25 }, 3.2);
     } else if (poi.landmark === 'forest_tomb') {
-      // #02 東南古墓毒霧凹地
-      placeGlb('stonehenge', pos.x - 6.8, pos.z - 2.0, null, { scale: 1.05, rotY: 0.2, yOffset: -0.15 }, 2.0);
-      placeGlb('stonehenge', pos.x + 6.8, pos.z - 2.0, null, { scale: 1.05, rotY: -0.2, yOffset: -0.15 }, 2.0);
-      placeGlb('giant_shroom', pos.x, pos.z + 6.2, null, { scale: 1.15, rotY: 1.2, yOffset: -0.1, tint: 0x9ef0b8, emissive: 0x206844, emissiveIntensity: 0.42 }, 1.4);
+      // #02 東南古墓凹地：Palmov 哥德古墓石堂（已清除 [WALL] 鑿平）
+      placePalmov('cemetery_church', pos.x, pos.z, { scale: 0.80, rotY: 0.2, yOffset: -0.25 }, 3.5);
     } else if (poi.landmark === 'kraken_wreck') {
-      // #03 中央：海怪觸手沉船礁（4379 海盜船＋4 條赤紅巨型章魚觸手實體弧牆）
-      placeGlb('pirate_boat', pos.x, pos.z, null, { scale: 1.35, rotY: 0.65, yOffset: -0.1, emissive: 0x423026, emissiveIntensity: 0.36 }, 2.8);
-      const tentParts = [];
-      for (let t = 0; t < 4; t++) {
-        const a = t * 1.57 + 0.45;
-        tentParts.push(
-          part(new THREE.TorusGeometry(3.2, 0.58, 6, 12, Math.PI * 0.85), 0xd84438, Math.cos(a) * 6.5, 1.4, Math.sin(a) * 6.5, 0.25, a, 0),
-          part(new THREE.ConeGeometry(0.62, 3.6, 6), 0xe85a48, Math.cos(a) * 8.4, 3.6, Math.sin(a) * 8.4, 0.3, a, -0.2),
-        );
-      }
-      const tents = new THREE.Mesh(mergeGeometries(tentParts), toonMat({ vertexColors: true }));
-      tents.castShadow = true;
-      place(tents, pos.x, pos.z, 0);
+      // #03 中央：Palmov 真海怪巨型觸手纏繞沉船（取代舊版 Torus 拼裝觸手）
+      placePalmov('kraken_wreck', pos.x, pos.z, { scale: 1.05, rotY: 0.35, yOffset: -0.25 }, 4.2);
     } else if (poi.landmark === 'stilt_village') {
-      // #03 東側：高腳吊橋木屋村
-      placeGlb('beach_house', pos.x, pos.z, null, { scale: 1.05, rotY: -0.45, yOffset: -0.15, emissive: 0x3a342a, emissiveIntensity: 0.36 }, 2.8);
-      placeGlb('giant_shroom', pos.x - 6.2, pos.z + 3.8, null, { scale: 1.0, rotY: 0.3, yOffset: -0.1 }, 1.2);
+      // #03 東側：Palmov 真高腳吊橋木屋漁村（取代孤屋）
+      placePalmov('stilt_village', pos.x, pos.z, { scale: 1.0, rotY: -0.45, yOffset: -0.25 }, 3.8);
     } else if (poi.landmark === 'shroom_grove') {
       // #03 北礁螢光巨菇群
       placeGlb('giant_shroom', pos.x, pos.z, null, { scale: 1.35, rotY: 0.2, yOffset: -0.1, tint: 0xa4f4e0, emissive: 0x26786a, emissiveIntensity: 0.42 }, 1.6);
@@ -283,41 +255,25 @@ function buildBlueprintLandmarks(g, bp) {
         placeGlb('red_crystal', pos.x + ox, pos.z + oz, null, { scale: 1.0, rotY: ry, yOffset: -0.2, tint: 0xffc4a2, emissive: 0x9e2810, emissiveIntensity: 0.42 }, 1.4);
       }
     } else if (poi.landmark === 'mine_trestle') {
-      // #05 西崖：礦車棧橋站
-      placeGlb('mine_cart', pos.x, pos.z, null, { scale: 1.45, rotY: 0.25, yOffset: -0.05 }, 1.6);
-      placeGlb('mine_cart', pos.x + 3.8, pos.z + 2.6, null, { scale: 1.4, rotY: 0.3, yOffset: -0.05 }, 1.6);
-      placeGlb('forge_furnace', pos.x - 5.5, pos.z - 2.2, null, { scale: 1.1, rotY: 0.6, yOffset: -0.15, emissive: 0x5c2414, emissiveIntensity: 0.42 }, 2.2);
+      // #05 西崖：Palmov 礦坑木棧橋礦道
+      placePalmov('coal_mine', pos.x, pos.z, { scale: 1.0, rotY: 0.3, yOffset: -0.25, emissive: 0x422a1e, emissiveIntensity: 0.28 }, 3.8);
     } else if (poi.landmark === 'redrock_oasis') {
-      // #05 東南：紅岩瀑布綠洲（4379 棕櫚椰子樹群）
-      placeGlb('coconut_tree', pos.x - 4.2, pos.z - 2.2, null, { scale: 1.15, rotY: 0.4, yOffset: -0.15, emissive: 0x364228, emissiveIntensity: 0.34 }, 1.0);
-      placeGlb('coconut_tree', pos.x + 4.8, pos.z - 1.5, null, { scale: 1.05, rotY: 2.1, yOffset: -0.15, emissive: 0x364228, emissiveIntensity: 0.34 }, 1.0);
-      placeGlb('coconut_tree', pos.x + 1.2, pos.z + 4.8, null, { scale: 0.95, rotY: -1.0, yOffset: -0.15, emissive: 0x364228, emissiveIntensity: 0.34 }, 1.0);
+      // #05 東南：Palmov 紅岩瀑布綠洲
+      placePalmov('redrock_oasis', pos.x, pos.z, { scale: 1.0, rotY: -0.35, yOffset: -0.25, emissive: 0x3e2c22, emissiveIntensity: 0.26 }, 3.5);
     } else if (poi.landmark === 'ancient_pagoda') {
-      // #06 西北：五重古塔峰
-      placeGlb('windmill', pos.x, pos.z, null, { scale: 1.25, rotY: 0.2, yOffset: -0.2 }, 3.2);
-      placeGlb('stonehenge', pos.x - 7.5, pos.z + 5.0, null, { scale: 1.0, rotY: 0.5, yOffset: -0.15 }, 2.0);
+      // #06 西北：Palmov 真東方五重古塔寺廟（拔除原先錯放的農莊風車）
+      placePalmov('ancient_pagoda', pos.x, pos.z, { scale: 1.05, rotY: 0.2, yOffset: -0.25 }, 4.0);
     } else if (poi.landmark === 'spirit_terrace') {
-      // #06 東坡：三疊螢光靈泉梯田
-      placeGlb('giant_shroom', pos.x - 4.5, pos.z - 2.0, null, { scale: 1.35, rotY: 0.3, yOffset: -0.1, tint: 0x9cf8e4, emissive: 0x268276, emissiveIntensity: 0.48 }, 1.5);
-      placeGlb('giant_shroom', pos.x + 5.2, pos.z + 2.5, null, { scale: 1.15, rotY: 1.8, yOffset: -0.1, tint: 0x9cf8e4, emissive: 0x268276, emissiveIntensity: 0.48 }, 1.4);
+      // #06 東坡：Palmov 三疊露天溫泉石池
+      placePalmov('hot_springs', pos.x, pos.z, { scale: 0.95, rotY: 0.4, yOffset: -0.25 }, 3.2);
     } else if (poi.landmark === 'world_tree_core') {
-      // #06 中央：盤根神樹核（宏偉世界巨樹＋古石陣）
-      const wTree = new THREE.Mesh(mergeGeometries([
-        part(new THREE.CylinderGeometry(2.4, 3.8, 12.5, 8), 0x623e28, 0, 6.2, 0),
-        part(new THREE.IcosahedronGeometry(7.6, 1), 0x458858, 0, 14.2, 0),
-        part(new THREE.IcosahedronGeometry(5.5, 1), 0x6cb868, 4.2, 12.2, 2.2),
-        part(new THREE.IcosahedronGeometry(5.0, 1), 0x58a25a, -4.0, 12.6, -2.0),
-      ]), toonMat({ vertexColors: true }));
-      wTree.castShadow = true;
-      place(wTree, pos.x, pos.z, 3.8);
-      placeGlb('stonehenge', pos.x - 9.0, pos.z + 5.5, null, { scale: 1.05, rotY: 0.4, yOffset: -0.15 }, 2.0);
+      // #06 中央：Palmov 古木森山林核（取代舊版正二十面體巨樹）
+      placePalmov('mountain_forest', pos.x, pos.z, { scale: 1.05, rotY: 0.25, yOffset: -0.25 }, 3.8);
     } else if (poi.landmark === 'forest_camp') {
       placeGlb('forest_cabin', pos.x, pos.z, null, { scale: 1.05, rotY: -0.4, yOffset: -0.15, emissive: 0x3a3428, emissiveIntensity: 0.35 }, 2.6);
     } else if (poi.landmark === 'pirate_fort') {
-      // #08 西側：擱淺海盜帆船崖堡（4379 海盜帆船＋瞭望燈塔＋椰子樹）
-      placeGlb('lighthouse', pos.x, pos.z, null, { scale: 1.0, rotY: 0.3, yOffset: -0.2, emissive: 0x4a4236, emissiveIntensity: 0.42 }, 2.6);
-      placeGlb('pirate_boat', pos.x - 6.5, pos.z + 5.8, null, { scale: 1.45, rotY: 0.55, yOffset: -0.1, emissive: 0x44362a, emissiveIntensity: 0.38 }, 2.8);
-      placeGlb('coconut_tree', pos.x + 5.5, pos.z + 4.2, null, { scale: 1.1, rotY: -0.6, yOffset: -0.15, emissive: 0x38462c, emissiveIntensity: 0.36 }, 1.0);
+      // #08 西側：Palmov 擱淺海盜帆船崖堡（山崖瞭望台＋木梯帆船）
+      placePalmov('mountain_ship', pos.x, pos.z, { scale: 1.05, rotY: 0.4, yOffset: -0.25 }, 4.2);
     } else if (poi.landmark === 'coconut_beach') {
       // #08 東南：椰林釣魚金沙灘
       placeGlb('beach_house', pos.x, pos.z, null, { scale: 1.05, rotY: -0.5, yOffset: -0.15, emissive: 0x443c32, emissiveIntensity: 0.38 }, 2.8);
@@ -326,41 +282,35 @@ function buildBlueprintLandmarks(g, bp) {
     } else if (poi.landmark === 'coral_reef') {
       placeGlb('pirate_boat', pos.x, pos.z, null, { scale: 1.2, rotY: -0.8, yOffset: -0.1, emissive: 0x44362a, emissiveIntensity: 0.38 }, 2.4);
     } else if (poi.landmark === 'tesla_tower') {
-      // #09 西北：水沒變電巨塔（燈塔塔體＋電光晶柱）
-      placeGlb('lighthouse', pos.x, pos.z - 3.5, null, { scale: 1.15, rotY: 0.1, yOffset: -0.2, tint: 0xb8e6ff, emissive: 0x26547a, emissiveIntensity: 0.45 }, 2.6);
-      placeGlb('ice_crystal', pos.x - 5.5, pos.z + 2.5, null, { scale: 1.05, rotY: 0.4, yOffset: -0.15, flatTint: 0x62e2ff, emissive: 0x2896d8, emissiveIntensity: 0.55 }, 1.4);
-      placeGlb('ice_crystal', pos.x + 5.5, pos.z + 2.5, null, { scale: 1.05, rotY: -0.4, yOffset: -0.15, flatTint: 0x62e2ff, emissive: 0x2896d8, emissiveIntensity: 0.55 }, 1.4);
-    } else if (poi.landmark === 'stilt_plaza' || poi.landmark === 'market_pier') {
-      // #09 水上高腳港屋群
-      placeGlb('beach_house', pos.x, pos.z, null, { scale: 1.05, rotY: -0.45, yOffset: -0.15, emissive: 0x3c444e, emissiveIntensity: 0.38 }, 2.8);
-      placeGlb('island_house', pos.x + 7.2, pos.z - 3.5, null, { scale: 0.95, rotY: 0.55, yOffset: -0.15, emissive: 0x3c444e, emissiveIntensity: 0.38 }, 2.4);
+      // #09 西北：Palmov 海港紅白燈塔碼頭＋電光晶柱
+      placePalmov('lighthouse_pier', pos.x, pos.z, { scale: 1.0, rotY: 0.2, yOffset: -0.25, tint: 0xc8ebff, emissive: 0x265272, emissiveIntensity: 0.36 }, 3.6);
+      placeGlb('ice_crystal', pos.x - 7.5, pos.z + 4.5, null, { scale: 1.05, rotY: 0.4, yOffset: -0.15, flatTint: 0x62e2ff, emissive: 0x2896d8, emissiveIntensity: 0.55 }, 1.4);
+      placeGlb('ice_crystal', pos.x + 7.5, pos.z + 4.5, null, { scale: 1.05, rotY: -0.4, yOffset: -0.15, flatTint: 0x62e2ff, emissive: 0x2896d8, emissiveIntensity: 0.55 }, 1.4);
+    } else if (poi.landmark === 'stilt_plaza') {
+      // #09 中央：Palmov 彩頂海港商棧碼頭（已清除 [WALL] 鑿平，並剔除微小物）
+      placePalmov('trade_port', pos.x, pos.z, { scale: 1.0, rotY: -0.3, yOffset: -0.25, emissive: 0x2e3e4c, emissiveIntensity: 0.30 }, 4.0);
+    } else if (poi.landmark === 'market_pier') {
+      // #09 東南：Palmov 海港黑帆木樓市集（已剔除微小物）
+      placePalmov('pirate_seaport', pos.x, pos.z, { scale: 1.0, rotY: 0.45, yOffset: -0.25, emissive: 0x2e3e4c, emissiveIntensity: 0.30 }, 3.8);
     } else if (poi.landmark === 'clock_roof') {
       placeGlb('snow_tower', pos.x, pos.z, null, { scale: 1.05, rotY: 0.3, yOffset: -0.15, tint: 0xc8dce8, emissive: 0x2e465c, emissiveIntensity: 0.38 }, 2.6);
     } else if (poi.landmark === 'sakura_shrine') {
-      // #10 西北：巨櫻山頂水宮（4379 朱紅鳥居＋粉嫩春櫻樹群）
-      placeGlb('torii_gate', pos.x, pos.z + 5.2, null, { scale: 1.2, rotY: 0, yOffset: -0.15, tint: 0xffc8c0, emissive: 0x7c2620, emissiveIntensity: 0.46 }, 0);
-      placeGlb('sakura_tree', pos.x - 6.8, pos.z + 1.5, null, { scale: 1.25, rotY: 0.4, yOffset: -0.15, flatTint: 0xffb8da, emissive: 0xc4588a, emissiveIntensity: 0.52 }, 1.4);
-      placeGlb('sakura_tree', pos.x + 6.8, pos.z + 1.5, null, { scale: 1.2, rotY: -0.5, yOffset: -0.15, flatTint: 0xffcce6, emissive: 0xc86492, emissiveIntensity: 0.52 }, 1.4);
+      // #10 西北：Palmov 和風藍瓦天守閣水宮（拔除舊版熱帶木屋）
+      placePalmov('imperial_palace', pos.x, pos.z, { scale: 1.05, rotY: 0.25, yOffset: -0.25 }, 4.2);
     } else if (poi.landmark === 'sakura_bridge') {
-      // #10 中央：朱紅橋頭鳥居與粉嫩櫻花樹
-      placeGlb('torii_gate', pos.x - 6.5, pos.z + 3.2, null, { scale: 1.05, rotY: 0.25, yOffset: -0.15, tint: 0xffc8c0, emissive: 0x7c2620, emissiveIntensity: 0.46 }, 0);
-      placeGlb('sakura_tree', pos.x + 6.5, pos.z - 2.8, null, { scale: 1.15, rotY: 1.1, yOffset: -0.15, flatTint: 0xffb8da, emissive: 0xc4588a, emissiveIntensity: 0.52 }, 1.4);
+      // #10 中央：Palmov 雙鳥居大弧朱紅橋與櫻花亭
+      placePalmov('sakura_bridge', pos.x, pos.z, { scale: 1.0, rotY: 0.2, yOffset: -0.25 }, 3.5);
     } else if (poi.landmark === 'sea_torii_island') {
-      // #10 西南：海上鳥居孤島
-      placeGlb('torii_gate', pos.x, pos.z + 3.5, null, { scale: 1.15, rotY: 0.4, yOffset: -0.15, tint: 0xffc8c0, emissive: 0x7c2620, emissiveIntensity: 0.46 }, 0);
-      placeGlb('island_house', pos.x, pos.z - 2.5, null, { scale: 1.0, rotY: 0.2, yOffset: -0.15, emissive: 0x52423c, emissiveIntensity: 0.42 }, 2.5);
-      placeGlb('sakura_tree', pos.x - 5.2, pos.z - 1.0, null, { scale: 1.1, rotY: 0.8, yOffset: -0.15, flatTint: 0xffc4e0, emissive: 0xc4588a, emissiveIntensity: 0.52 }, 1.3);
+      // #10 西南：Palmov 海上紅塔鳥居孤島（japanes island，非冬季雪景）
+      placePalmov('sea_torii_island', pos.x, pos.z, { scale: 1.0, rotY: 0.35, yOffset: -0.25 }, 3.5);
     } else if (poi.landmark === 'tea_house') {
-      // #10 東北：九曲竹林茶屋
-      placeGlb('island_house', pos.x, pos.z, null, { scale: 1.0, rotY: -0.45, yOffset: -0.15, emissive: 0x52463e, emissiveIntensity: 0.42 }, 2.5);
-      placeGlb('sakura_tree', pos.x + 5.8, pos.z + 2.4, null, { scale: 1.1, rotY: 0.3, yOffset: -0.15, flatTint: 0xffb8da, emissive: 0xc4588a, emissiveIntensity: 0.52 }, 1.3);
+      // #10 東北：Palmov 竹林和風茶亭庭園
+      placePalmov('bamboo_tea', pos.x, pos.z, { scale: 1.0, rotY: -0.4, yOffset: -0.25 }, 3.5);
     } else if (poi.landmark === 'canyon_train') {
-      // #11 西段：峽谷蒸汽火車棧橋（礦車列車＋斜嵌碧藍巨環）
-      placeGlb('mine_cart', pos.x - 3.5, pos.z, null, { scale: 1.65, rotY: 0.5, yOffset: -0.05 }, 1.8);
-      placeGlb('mine_cart', pos.x + 0.5, pos.z - 2.0, null, { scale: 1.6, rotY: 0.5, yOffset: -0.05 }, 1.8);
-      placeGlb('mine_cart', pos.x + 4.5, pos.z - 4.0, null, { scale: 1.55, rotY: 0.5, yOffset: -0.05 }, 1.8);
+      // #11 西段：Palmov 峽谷蒸汽火車木棧橋（取代 3 台散放礦車）
+      placePalmov('canyon_train', pos.x, pos.z, { scale: 1.05, rotY: 0.35, yOffset: -0.25 }, 3.8);
     } else if (poi.landmark === 'mega_sky_ring') {
-      // #11 中段：標誌性斜嵌碧藍加速巨環
+      // #11 中段：保留標誌性卡比風斜嵌碧藍加速巨環
       const ring = new THREE.Mesh(new THREE.TorusGeometry(10.5, 1.35, 8, 24, Math.PI), toonMat({ color: 0x58c8f8, emissive: 0x1e6ca8, emissiveIntensity: 0.35 }));
       ring.rotation.y = 0.25; ring.castShadow = true;
       place(ring, pos.x, pos.z, 0);
@@ -369,7 +319,8 @@ function buildBlueprintLandmarks(g, bp) {
       placeGlb('snow_tower', pos.x - 5.5, pos.z + 2.5, null, { scale: 1.05, rotY: 0.35, yOffset: -0.15 }, 2.6);
       placeGlb('ice_crystal', pos.x + 6.0, pos.z + 2.2, null, { scale: 1.15, rotY: -0.3, yOffset: -0.15, flatTint: 0xa4ecff, emissive: 0x3b8ec4, emissiveIntensity: 0.42 }, 1.5);
     } else if (poi.landmark === 'alpine_camp') {
-      placeGlb('forest_cabin', pos.x, pos.z, null, { scale: 1.0, rotY: -0.5, yOffset: -0.15, emissive: 0x3c362c, emissiveIntensity: 0.36 }, 2.6);
+      // #11 東南：Palmov 高山秋林帳篷營地
+      placePalmov('alpine_camp', pos.x, pos.z, { scale: 1.0, rotY: -0.4, yOffset: -0.25 }, 3.5);
     } else if (poi.landmark === 'maple_foundry') {
       // #12 東北：紅楓鍛造爐高台（4137 秋楓鐵匠工坊＋4130 鍛造熔爐＋火紅晶簇）
       placeGlb('blacksmith', pos.x - 6.2, pos.z + 3.2, null, { scale: 1.1, rotY: 0.4, yOffset: -0.15, emissive: 0x483024, emissiveIntensity: 0.36 }, 3.0);
@@ -379,7 +330,7 @@ function buildBlueprintLandmarks(g, bp) {
       placeGlb('blacksmith', pos.x - 8.5, pos.z - 3.5, null, { scale: 1.15, rotY: 0.35, yOffset: -0.15, emissive: 0x583c2c, emissiveIntensity: 0.44 }, 3.0);
       placeGlb('red_crystal', pos.x + 8.0, pos.z - 2.8, null, { scale: 1.1, rotY: -0.5, yOffset: -0.15, tint: 0xffc6a8, emissive: 0x9e2c14, emissiveIntensity: 0.44 }, 1.6);
     } else if (poi.landmark === 'sheep_barn') {
-      // #12 西南：風車穀倉綿羊牧場（旋轉風車塔＋秋楓農舍）
+      // #12 西南：保留旋轉風車塔＋Palmov 豐收紅穀倉牧場（已剔除綠色 SUV）
       const millRig = new THREE.Group();
       const millY = g.world.gh(pos.x, pos.z);
       millRig.position.set(pos.x, millY, pos.z);
@@ -392,11 +343,10 @@ function buildBlueprintLandmarks(g, bp) {
       millRig.add(bladeHub);
       attachLandmarkGlb(bladeHub, 'windmill_blades', null, { scale: 1.0 });
       g.spinners.push({ obj: bladeHub, axis: 'z', speed: -0.5 });
-      placeGlb('cottage', pos.x + 8.5, pos.z + 4.5, null, { scale: 1.05, rotY: -0.6, yOffset: -0.15 }, 2.8);
+      placePalmov('autumn_harvest', pos.x + 11.5, pos.z + 5.5, { scale: 0.95, rotY: -0.5, yOffset: -0.25 }, 3.8);
     } else if (poi.landmark === 'maple_onsen') {
-      // #12 西北：三疊秋楓露天溫泉
-      placeGlb('forest_cabin', pos.x - 6.0, pos.z - 3.2, null, { scale: 1.0, rotY: 0.5, yOffset: -0.15, emissive: 0x463428, emissiveIntensity: 0.36 }, 2.6);
-      placeGlb('sakura_tree', pos.x + 5.8, pos.z - 2.0, null, { scale: 1.15, rotY: 0.6, yOffset: -0.15, tint: 0xff9248, emissive: 0x622e18, emissiveIntensity: 0.40 }, 1.3);
+      // #12 西北：Palmov 三疊秋楓露天溫泉石池
+      placePalmov('hot_springs', pos.x, pos.z, { scale: 1.0, rotY: 0.35, yOffset: -0.25 }, 3.5);
     }
   }
 
@@ -451,10 +401,12 @@ function buildBlueprintLandmarks(g, bp) {
     placeGlb('island_house', dockPos.x, dockPos.z, null, { scale: 0.95, rotY: -0.5, yOffset: -0.15, emissive: 0x463e34, emissiveIntensity: 0.40 }, 2.5);
     placeGlb('stonehenge', dockPos.x - 6.8, dockPos.z - 3.0, null, { scale: 0.85, rotY: 0.5, yOffset: -0.15 }, 1.8);
   } else if (bp.id === 8) {
-    // #08 南岸椰林迎賓金沙灘
+    // #08 南岸椰林迎賓金沙灘 ＋ 北岸海蝕石拱門（Palmov mountain arch）
     const startP = uvToWorld(0.46, 0.80, half);
     placeGlb('beach_house', startP.x + 6.5, startP.z - 2.0, null, { scale: 0.95, rotY: -0.45, yOffset: -0.15, emissive: 0x443c32, emissiveIntensity: 0.38 }, 2.6);
     placeGlb('coconut_tree', startP.x - 5.5, startP.z - 3.5, null, { scale: 1.15, rotY: 0.6, yOffset: -0.15, emissive: 0x38462c, emissiveIntensity: 0.36 }, 1.0);
+    const archP = uvToWorld(0.75, 0.22, half);
+    placePalmov('mountain_arch', archP.x, archP.z, { scale: 1.0, rotY: 0.15, yOffset: -0.25 }, 3.0);
   } else if (bp.id === 10) {
     // #10 東南落櫻南堤起點：朱紅迎賓鳥居＋粉嫩櫻花樹
     const startP = uvToWorld(0.80, 0.78, half);
@@ -462,10 +414,12 @@ function buildBlueprintLandmarks(g, bp) {
     placeGlb('sakura_tree', startP.x - 6.0, startP.z - 2.0, null, { scale: 1.15, rotY: 0.3, yOffset: -0.15, flatTint: 0xffb8da, emissive: 0xc4588a, emissiveIntensity: 0.52 }, 1.3);
     placeGlb('sakura_tree', startP.x + 5.8, startP.z - 3.0, null, { scale: 1.05, rotY: 1.6, yOffset: -0.15, flatTint: 0xffcce6, emissive: 0xc86492, emissiveIntensity: 0.52 }, 1.3);
   } else if (bp.id === 13) {
-    // #13 黃金風沙原：綠洲民居、方尖碑與紅砂石棺（4351 POLY - Egypt）
+    // #13 黃金風沙原：既有 4351 埃及遺跡 ＋ 西北綠洲（desert islands）＋ 東北阿拉伯沙城（arab castle）
     const pOasis = uvToWorld(0.28, 0.34, half);
-    placeGlb('egypt_house', pOasis.x - 6.5, pOasis.z - 4.0, null, { scale: 1.15, rotY: 0.5, yOffset: -0.15, tint: 0xffe4b8, emissive: 0x624628, emissiveIntensity: 0.38 }, 2.6);
-    placeGlb('egypt_obelisk', pOasis.x + 7.0, pOasis.z - 5.5, null, { scale: 1.1, rotY: -0.3, yOffset: -0.15, tint: 0xf6cf92, emissive: 0x5c4224, emissiveIntensity: 0.36 }, 1.6);
+    placePalmov('desert_oasis', pOasis.x, pOasis.z, { scale: 0.95, rotY: 0.3, yOffset: -0.25 }, 3.2);
+    placeGlb('egypt_obelisk', pOasis.x + 9.0, pOasis.z - 5.5, null, { scale: 1.1, rotY: -0.3, yOffset: -0.15, tint: 0xf6cf92, emissive: 0x5c4224, emissiveIntensity: 0.36 }, 1.6);
+    const pCast = uvToWorld(0.78, 0.30, half);
+    placePalmov('arab_castle', pCast.x, pCast.z, { scale: 1.0, rotY: -0.4, yOffset: -0.25 }, 4.2);
     const pStart = uvToWorld(0.22, 0.78, half);
     placeGlb('egypt_obelisk', pStart.x - 6.5, pStart.z - 6.0, null, { scale: 1.05, rotY: 0.4, yOffset: -0.15, tint: 0xf4cc8c, emissive: 0x5c4224, emissiveIntensity: 0.38 }, 1.5);
     placeGlb('egypt_house', pStart.x + 8.0, pStart.z - 5.0, null, { scale: 1.05, rotY: -0.7, yOffset: -0.15, tint: 0xffe6bc, emissive: 0x604426, emissiveIntensity: 0.38 }, 2.4);
@@ -482,25 +436,25 @@ function buildBlueprintLandmarks(g, bp) {
     placeGlb('egypt_sphinx', pSouth.x - 8.5, pSouth.z - 7.5, null, { scale: 1.05, rotY: 0.75, yOffset: -0.15, tint: 0xf6d08e, emissive: 0x624824, emissiveIntensity: 0.38 }, 2.8);
     placeGlb('egypt_sarcophagus', pSouth.x + 6.5, pSouth.z - 4.5, null, { scale: 1.25, rotY: -0.5, yOffset: -0.1, tint: 0xffd87c, emissive: 0x6e4c1e, emissiveIntensity: 0.44 }, 1.5);
   } else if (bp.id === 15) {
-    // #15 失落藤蔓神廟：古神廟石牆、石像、石柱與空中石磚棧道（4352 Jungle ＋ 4118 Lost Lands）
+    // #15 失落藤蔓神廟：古神廟石牆、石像、石柱、棧道 ＋ Palmov 瀑布熱帶神廟（tropical ruins）
     const pMid = uvToWorld(0.50, 0.52, half);
     placeGlb('jungle_ruin_wall', pMid.x, pMid.z - 6.0, null, { scale: 1.15, rotY: 0.15, yOffset: -0.2, tint: 0xc8c0a6, emissive: 0x3a4830, emissiveIntensity: 0.38 }, 3.0);
     placeGlb('jungle_statue', pMid.x - 7.5, pMid.z - 3.5, null, { scale: 1.1, rotY: 0.5, yOffset: -0.15, tint: 0xd0c6aa, emissive: 0x3e4c32, emissiveIntensity: 0.40 }, 1.8);
     placeGlb('jungle_pillar', pMid.x + 7.5, pMid.z - 3.0, null, { scale: 1.1, rotY: -0.3, yOffset: -0.15, tint: 0xcac2a8, emissive: 0x3c4830, emissiveIntensity: 0.38 }, 1.4);
+    placePalmov('tropical_ruins', pMid.x + 11.5, pMid.z - 10.5, { scale: 0.95, rotY: -0.35, yOffset: -0.25 }, 3.8);
     const pStart = uvToWorld(0.20, 0.80, half);
     placeGlb('jungle_statue', pStart.x - 6.0, pStart.z - 5.5, null, { scale: 1.05, rotY: 0.6, yOffset: -0.15, tint: 0xd0c6aa, emissive: 0x3e4c32, emissiveIntensity: 0.40 }, 1.6);
     placeGlb('jungle_ruin_wall', pStart.x + 7.5, pStart.z - 7.5, null, { scale: 0.95, rotY: -0.5, yOffset: -0.2, tint: 0xc8c0a6, emissive: 0x3a4830, emissiveIntensity: 0.38 }, 2.6);
     placeGlb('lost_stonewalk', pStart.x - 1.5, pStart.z - 8.5, null, { scale: 0.55, rotY: 0.4, yOffset: -0.25, tint: 0xd8cca8, emissive: 0x443c2c, emissiveIntensity: 0.34 }, 0);
   } else if (bp.id === 16 || bp.id === 17) {
-    // #16 幽霧哥德墓園 ＆ #17 深淵哥德古堡：暗紫哥德鐘樓、巨型骷髏祭壇、紫晶柱與燃燒火炬
+    // #16 幽霧哥德墓園 ＆ #17 深淵哥德古堡：Palmov 真哥德教堂鬼屋墓園（拔除染紫主城鐘樓）＋骷髏祭壇＋紫晶柱
     const pStart = uvToWorld(bp.id === 16 ? 0.22 : 0.16, bp.id === 16 ? 0.78 : 0.80, half);
-    placeGlb('bell_tower', pStart.x - 7.5, pStart.z - 7.0, null, { scale: 1.15, rotY: 0.5, yOffset: -0.2, flatTint: 0x5c547c, emissive: 0x362a5c, emissiveIntensity: 0.48 }, 2.6);
     placeGlb('cave_skull', pStart.x + 8.5, pStart.z - 8.5, null, { scale: 1.1, rotY: -0.6, yOffset: -0.15, flatTint: 0x6a628c, emissive: 0x463274, emissiveIntensity: 0.50 }, 2.8);
     placeGlb('purple_crystal', pStart.x + 5.5, pStart.z - 3.5, null, { scale: 0.95, rotY: 0.4, yOffset: -0.1, flatTint: 0xb872ff, emissive: 0x7c38d8, emissiveIntensity: 0.62 }, 1.2);
     placeGlb('fire_torch', pStart.x - 3.8, pStart.z - 4.2, null, { scale: 1.15, rotY: 0, yOffset: -0.1, emissive: 0xff8c38, emissiveIntensity: 0.65 }, 0.5);
-    const pBoss = uvToWorld(0.50, bp.id === 16 ? 0.50 : 0.20, half);
-    placeGlb('bell_tower', pBoss.x, pBoss.z - 7.5, null, { scale: 1.35, rotY: 0, yOffset: -0.2, flatTint: 0x544c72, emissive: 0x3c2c66, emissiveIntensity: 0.52 }, 3.0);
-    placeGlb('stonehenge', pBoss.x - 8.0, pBoss.z - 3.0, null, { scale: 1.05, rotY: 0.3, yOffset: -0.15, flatTint: 0x625a82, emissive: 0x382858, emissiveIntensity: 0.46 }, 2.2);
+    const pBoss = uvToWorld(0.50, bp.id === 16 ? 0.50 : 0.28, half);
+    placePalmov('cemetery_church', pBoss.x, pBoss.z - 7.5, { scale: bp.id === 17 ? 1.05 : 0.95, rotY: 0.15, yOffset: -0.25, tint: 0xc2b8dc, emissive: 0x382a5c, emissiveIntensity: 0.38 }, 4.0);
+    placeGlb('stonehenge', pBoss.x - 10.5, pBoss.z - 2.0, null, { scale: 1.05, rotY: 0.3, yOffset: -0.15, flatTint: 0x625a82, emissive: 0x382858, emissiveIntensity: 0.46 }, 2.2);
   } else if (bp.id === 18) {
     // #18 深海螢光沉淵：飄浮巨型深海烏賊、發光巨型海菇與亞特蘭提斯海殿（4123 Alien Planets Vol2）
     const pStart = uvToWorld(0.22, 0.76, half);
@@ -511,20 +465,24 @@ function buildBlueprintLandmarks(g, bp) {
     placeGlb('depth_tower', pMid.x, pMid.z - 6.5, null, { scale: 1.25, rotY: 0.4, yOffset: -0.15, emissive: 0x2c7890, emissiveIntensity: 0.52 }, 2.6);
     placeGlb('alien_squid', pMid.x - 7.5, pMid.z - 4.0, null, { scale: 1.1, rotY: -0.5, yOffset: 2.2, emissive: 0x7a429c, emissiveIntensity: 0.58 }, 0);
   } else if (bp.id === 19) {
-    // #19 星際白銀前哨站：星艦登陸平台、太空飛艇與量子反應爐（4123 Alien Planets Vol2）
+    // #19 星際白銀前哨站：既有 4123 星艦平台／飛艇／反應爐 ＋ 西北角 Palmov 火箭發射台（space shuttle launch）
     const pStart = uvToWorld(0.22, 0.76, half);
     placeGlb('scifi_platform', pStart.x - 7.5, pStart.z - 7.0, null, { scale: 1.1, rotY: 0.4, yOffset: -0.15, tint: 0xdff6ff, emissive: 0x2c6c98, emissiveIntensity: 0.50 }, 2.8);
     placeGlb('sky_flyer', pStart.x + 6.5, pStart.z - 6.5, null, { scale: 1.15, rotY: -0.7, yOffset: 1.6, tint: 0xeaf8ff, emissive: 0x3888c4, emissiveIntensity: 0.54 }, 2.0);
     placeGlb('scifi_reactor', pStart.x + 0.5, pStart.z - 12.0, null, { scale: 1.1, rotY: 0, yOffset: -0.15, tint: 0xd4f0ff, emissive: 0x3084b8, emissiveIntensity: 0.52 }, 2.6);
+    const pShuttle = uvToWorld(0.22, 0.34, half);
+    placePalmov('space_shuttle', pShuttle.x, pShuttle.z, { scale: 1.0, rotY: 0.4, yOffset: -0.25, tint: 0xdff6ff, emissive: 0x2c6c98, emissiveIntensity: 0.38 }, 4.0);
     const pMid = uvToWorld(0.50, 0.50, half);
     placeGlb('scifi_reactor', pMid.x, pMid.z - 6.5, null, { scale: 1.35, rotY: 0.3, yOffset: -0.15, tint: 0xdcf4ff, emissive: 0x3894cc, emissiveIntensity: 0.56 }, 3.2);
     placeGlb('sky_flyer', pMid.x - 9.0, pMid.z - 3.0, null, { scale: 1.1, rotY: 0.9, yOffset: 2.8, tint: 0xf0faff, emissive: 0x4298d4, emissiveIntensity: 0.56 }, 0);
   } else if (bp.id === 20) {
-    // #20 異星蜂巢裂谷：巨型紫紅異星塔、共鳴結晶群與墜落太空飛艇（4123 ＋ 4384 Polyworks）
+    // #20 異星蜂巢裂谷：既有 4123/4384 異星母巢塔／紫晶／飛艇 ＋ 西環 Palmov 外星異星菌群（fantastic planet）
     const pStart = uvToWorld(0.50, 0.82, half);
     placeGlb('alien_hive_tower', pStart.x - 7.5, pStart.z - 8.5, null, { scale: 1.15, rotY: 0.4, yOffset: -0.15, tint: 0xf4b8ff, emissive: 0x7c2c9c, emissiveIntensity: 0.56 }, 2.6);
     placeGlb('purple_crystal', pStart.x + 6.5, pStart.z - 5.0, null, { scale: 1.15, rotY: -0.4, yOffset: -0.1, flatTint: 0xe068ff, emissive: 0x9c32d8, emissiveIntensity: 0.65 }, 1.5);
     placeGlb('sky_flyer', pStart.x + 9.0, pStart.z - 10.0, null, { scale: 1.05, rotY: 1.2, yOffset: 0.6, tint: 0xf0c8ff, emissive: 0x6a3288, emissiveIntensity: 0.50 }, 2.2);
+    const pAlien = uvToWorld(0.18, 0.44, half);
+    placePalmov('fantastic_planet', pAlien.x, pAlien.z, { scale: 1.0, rotY: 0.3, yOffset: -0.25, tint: 0xf4c4ff, emissive: 0x7c2c9c, emissiveIntensity: 0.42 }, 3.8);
     const pMid = uvToWorld(0.50, 0.50, half);
     placeGlb('alien_hive_tower', pMid.x, pMid.z - 6.5, null, { scale: 1.4, rotY: 0, yOffset: -0.15, tint: 0xffc0ff, emissive: 0x8e34b0, emissiveIntensity: 0.60 }, 3.2);
     placeGlb('purple_crystal', pMid.x - 8.0, pMid.z - 3.5, null, { scale: 1.25, rotY: 0.8, yOffset: -0.1, flatTint: 0x6ef0ff, emissive: 0x3098c8, emissiveIntensity: 0.62 }, 1.6);
@@ -646,7 +604,7 @@ export function tickField(g, dt) {
     e.statusAffinity = f.status || 'poison';
     const rankScale=1+(e.level-f.level)*.08;
     e.hp=Math.ceil(e.hp*rankScale);e.maxHp=e.hp;e.dmg*=rankScale;
-    if (legendary) g.ui.bossBar(true, f.name + '守護獸');
+    if (legendary) g.ui.bossBar(true, FIELD_BOSS_SPEC[g.field]?.name || (f.name + '守護獸'));
   });
   for (const spot of g.spots) if (GOODS[spot.kind]) spot.mesh.visible = !(g.meta.p.timers[g.field + ':' + spot.kind] > now);
   // 自動解鎖靠近的藍光傳送檢查點並寫入存檔

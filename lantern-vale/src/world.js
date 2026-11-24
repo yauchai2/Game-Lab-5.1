@@ -953,7 +953,7 @@ export class World {
     this.paths = paths;
     if (bp) this.buildBlueprintBridges(bp);
     this.buildShoreBuoys(r, opts.town ? 6 : 10);
-    if (!opts.town && !opts.raid && (opts.size || 60) >= 120) this.buildScenicLandmarks(P, r, spawn, exits, paths);
+    if (!opts.town && !opts.raid && !opts.blueprint && (opts.size || 60) >= 120) this.buildScenicLandmarks(P, r, spawn, exits, paths);
     return { spawn, exits };
   }
 
@@ -1050,8 +1050,13 @@ export class World {
       return grp;
     };
     const scScale = this.half >= 160 ? 2 : 1;
-    // 1. 巨樹（Colossal Ancient Trees，帶板根、雙層巨冠與暖色吊燈）
-    for (let i = 0; i < 4 * scScale; i++) {
+    // Phase R0 (G1)：嚴格生態系白名單！絕不在雪原／火山／沙漠／哥德墓園／深海／星際太空站亂灑海灘遮陽傘與草地假瀑布！
+    const bk = P.key || 'meadow';
+    const isCozyNature = bk === 'meadow' || bk === 'forest' || bk === 'autumn' || bk === 'sakura';
+    const isBeachOrMeadow = bk === 'meadow' || bk === 'coral';
+    const isAlienOrTech = bk === 'space' || bk === 'hive' || bk === 'gothic' || bk === 'abyss' || bk === 'desert' || bk === 'ember';
+    // 1. 巨樹（僅限溫帶自然生態系，絕不進沙漠／火山／深海／太空站）
+    if (!isAlienOrTech) for (let i = 0; i < 4 * scScale; i++) {
       const pt = placeSpot(16); if (!pt) continue;
       const g = new THREE.Group();
       const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 1.15, 5.8, 7), toonMat({ color: P.trunk }));
@@ -1088,8 +1093,8 @@ export class World {
       }
       addLandmark(g, pt.x, pt.z, 2.3, true);
     }
-    // 3. 遺跡八角水池與斷柱聖壇（致敬參考圖：八角石池、清澈水心與四根苔蘚斷柱）
-    for (let i = 0; i < 2 * scScale; i++) {
+    // 3. 遺跡八角水池與斷柱聖壇（僅限溫帶／森林／秋楓）
+    if (isCozyNature) for (let i = 0; i < 2 * scScale; i++) {
       const pt = placeSpot(20); if (!pt) continue;
       const g = new THREE.Group();
       const basin = new THREE.Mesh(new THREE.CylinderGeometry(3.6, 3.9, 0.75, 8), toonMat({ color: 0xc8c2b4 }));
@@ -1109,8 +1114,8 @@ export class World {
       }
       addLandmark(g, pt.x, pt.z, 3.6, true);
     }
-    // 4. 山谷木造瞭望塔（Cozy Wooden Lookout Watchtower）
-    for (let i = 0; i < 2; i++) {
+    // 4. 山谷木造瞭望塔（僅限自然生態系）
+    if (isCozyNature) for (let i = 0; i < 2; i++) {
       const pt = placeSpot(22); if (!pt) continue;
       const g = new THREE.Group();
       for (const [lx, lz] of [[-1.1, -1.1], [1.1, -1.1], [-1.1, 1.1], [1.1, 1.1]]) {
@@ -1125,9 +1130,9 @@ export class World {
       beacon.position.y = 4.4; g.add(beacon);
       addLandmark(g, pt.x, pt.z, 1.65, true);
     }
-    // 5. A Short Hike 風格林間野餐休憩點＆沙灘遮陽傘（木桌、遮陽傘、營火與圓木椅）
+    // 5. A Short Hike 風格野餐遮陽傘（僅限晨光草原與珊瑚海灣！徹底禁止出現於雪原／火山／哥德／星際！）
     const umbCols = [0xff5e78, 0x3fa7d6, 0xffc857, 0x6fd08c];
-    for (let i = 0; i < 3 * scScale; i++) {
+    if (isBeachOrMeadow) for (let i = 0; i < 3 * scScale; i++) {
       const pt = placeSpot(14); if (!pt) continue;
       const g = new THREE.Group();
       const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.4, 5), toonMat({ color: 0xf0e6d2 }));
@@ -1147,8 +1152,8 @@ export class World {
       rail.position.set(0, 0.62, -1.8); g.add(rail);
       addLandmark(g, pt.x, pt.z, 1.3, false);
     }
-    // 6. 溫暖林間石圈營火、圓木椅與木路牌（致敬 A Short Hike 營地）
-    for (let i = 0; i < 3 * scScale; i++) {
+    // 6. 溫暖林間石圈營火（僅限自然／雪原／沙漠，不進深海與星際）
+    if (bk !== 'space' && bk !== 'hive' && bk !== 'abyss' && bk !== 'gothic') for (let i = 0; i < 3 * scScale; i++) {
       const pt = placeSpot(15); if (!pt) continue;
       const g = new THREE.Group();
       for (let s = 0; s < 7; s++) {
@@ -1168,8 +1173,8 @@ export class World {
       board.position.set(-1.7, 1.12, -1.06); board.rotation.y = 0.25; g.add(board);
       addLandmark(g, pt.x, pt.z, 1.1, false);
     }
-    // 7. 飛瀑岩池與跨溪木板橋（致敬 A Short Hike 瀑布橋）
-    for (let i = 0; i < 2; i++) {
+    // 7. 飛瀑岩池與跨溪木板橋（僅限溫帶草原／森林，絕不進雪原／火山／沙漠／太空）
+    if (isCozyNature) for (let i = 0; i < 2; i++) {
       const pt = placeSpot(22); if (!pt) continue;
       const g = new THREE.Group();
       const cliff = new THREE.Mesh(new THREE.BoxGeometry(4.4, 4.6, 2.4), toonMat({ color: P.rock }));
@@ -1184,8 +1189,8 @@ export class World {
       bridge.position.set(0, 0.28, 1.4); bridge.rotation.y = Math.PI / 2; bridge.castShadow = true; g.add(bridge);
       addLandmark(g, pt.x, pt.z, 2.4, true);
     }
-    // 8. 雙巨柱石階清泉遺跡（致敬 Pin on Vibe 參考圖：層疊石階、雙高柱、湛藍倒影池與漂浮白蓮）
-    for (let i = 0; i < 2 * scScale; i++) {
+    // 8. 雙巨柱石階清泉遺跡（僅限溫帶草原／森林）
+    if (isCozyNature) for (let i = 0; i < 2 * scScale; i++) {
       const pt = placeSpot(24); if (!pt) continue;
       const g = new THREE.Group();
       const step1 = new THREE.Mesh(new THREE.BoxGeometry(6.8, 0.36, 5.4), toonMat({ color: 0xd6d0c4 }));

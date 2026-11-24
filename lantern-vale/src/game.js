@@ -1,6 +1,6 @@
 import { Weather } from './weather.js';
 import { bindGuild, updateRaid } from './guild.js';
-import { FIELDS, fieldBiome, awardKill, setupField, tickField, useFieldSpot, leaveGrave, rememberGear, restoreGear } from './frontier.js';
+import { FIELDS, FIELD_BOSS_SPEC, fieldBiome, awardKill, setupField, tickField, useFieldSpot, leaveGrave, rememberGear, restoreGear } from './frontier.js';
 import { FIELD_BLUEPRINTS } from './field_blueprints.js';
 import { getTerrainEffect, updateFieldTerrainFx, updateRealmRule } from './terrain_fx.js';
 import { buildDungeonScenery } from './dungeon_scene.js';
@@ -695,8 +695,16 @@ export class Game {
     const s = elite ? 1.35 : 1;
     m.root.scale.setScalar(s);
     this.scene.add(m.root);
-    // v6 全 12 張野外地圖生態專屬低面 3D 怪物實模（依地圖與精英／守護獸自動分配）
-    if (this.field) {
+    // v6 全 20 張野外地圖生態專屬低面 3D 怪物實模 ＋ 專屬巨型 Boss（FIELD_BOSS_SPEC）
+    const bossSpec = (this.field && type === 'stag') ? FIELD_BOSS_SPEC[this.field] : null;
+    if (bossSpec) {
+      attachMonsterGlb(m, bossSpec.modelKey, {
+        scale: bossSpec.scale,
+        tint: bossSpec.tint,
+        emissive: bossSpec.emissive,
+        emissiveIntensity: 0.42,
+      });
+    } else if (this.field) {
       const isBossOrElite = elite || type === 'stag';
       const MAP_MON = {
         1:  () => (type === 'slime' && (isBossOrElite || Math.random() < 0.6)) ? ['plant_chewer', { scale: 1.05, emissive: 0x362e1e, emissiveIntensity: 0.30 }] : null,
@@ -743,7 +751,22 @@ export class Game {
     };
     e.maxHp = e.hp;
     initParts(e);
-    if (type === 'stag') { e.phase = 1; e.cd = 2; this.boss = e; this.ui.bossBar(true, '古樹鹿王 · 歐爾德'); }
+    if (type === 'stag') {
+      e.phase = 1; e.cd = 2; this.boss = e;
+      if (bossSpec) {
+        e.r *= 1.35;
+        e.bossName = bossSpec.name;
+        this.ui.bossBar(true, bossSpec.name);
+        const auraRing = new THREE.Mesh(
+          new THREE.RingGeometry(1.55, 2.05, 24),
+          new THREE.MeshBasicMaterial({ color: bossSpec.aura, transparent: true, opacity: 0.72, side: THREE.DoubleSide, depthWrite: false }),
+        );
+        auraRing.rotation.x = -Math.PI / 2; auraRing.position.y = 0.08; auraRing.userData.noNormal = true;
+        m.root.add(auraRing);
+      } else {
+        this.ui.bossBar(true, '古樹鹿王 · 歐爾德');
+      }
+    }
     if (elite) {
       if (type !== 'stag') {
         e.eliteMod = pick(this.rng, ELITE_MODS);

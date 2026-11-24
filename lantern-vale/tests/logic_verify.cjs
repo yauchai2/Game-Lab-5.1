@@ -533,7 +533,7 @@ const createGuild = require('../server/guild.cjs');
   assert.equal(Object.keys(p2bAssets.LANDMARK_FILES).length, 49, '49 landmark GLBs registered (20 fields + 2 towns + dungeons)');
   const dunMod = await import(src('dungeon_scene.js'));
   assert.equal(typeof dunMod.buildDungeonScenery, 'function', 'Dungeon scenery builder exported');
-  assert.equal(Object.keys(p2bAssets.MONSTER_FILES).length, 13, '13 monster GLBs registered');
+  assert.equal(Object.keys(p2bAssets.MONSTER_FILES).length, 22, '22 monster GLBs registered (13 base + 9 giant field bosses)');
   for (const rel of [...Object.values(p2bAssets.LANDMARK_FILES), ...Object.values(p2bAssets.MONSTER_FILES)]) {
     const full = path.join(gameDir, rel);
     assert.ok(fsMod.existsSync(full) && fsMod.statSync(full).size > 2000, `GLB asset exists and non-empty: ${rel}`);
@@ -914,5 +914,26 @@ const createGuild = require('../server/guild.cjs');
   assert.ok(charPageSrc.includes('buildMountainShipStage') && charPageSrc.includes('creator_mountain_ship.glb'), 'Location mountain ship 3D stage wired');
   assert.ok(charPageSrc.includes('heroPins3d') && htmlSrc.includes('id="heroPins3d"'), '3D projected foot pins wired in Character Theater');
 
-  console.log('ALL 41 LOGIC, DIORAMA-D1-D4, VFX-SKILL-REWORK-V1-V6, UI-UNIFIED-U4B, CHAR-C6-TOON-ANIM, CHAR-REWORK-C1-C5, FUZZ-QA-36, MMO-M10-PORTALS-CRAFT-KILLSWITCH, MMO-M9-SAFETY-KILLSWITCH, MMO-M8-ROLES-FEAST-GPU, MMO-M7-SOUL-AWAKEN-GPU-FIX, MMO-M6-SPIRE-MENTOR-LIGHTHOUSE, MMO-M5-FERRY-REVIEW, MMO-M4-OVERHAUL, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
+  // 42. Phase v6: 20 Field Maps Reasonable Palmov POI Overhaul, 33 Verified POIs, 20 Giant Field Bosses & Zero-WALL POI Guarantee
+  const bpV6 = await import('../src/field_blueprints.js');
+  assert.equal(Object.keys(p2bAssets.PALMOV_POIS).length, 33, 'All 33 verified Palmov POI GLBs registered');
+  for (const [k, rel] of Object.entries(p2bAssets.PALMOV_POIS)) {
+    const fp = path.join(__dirname, '..', 'game', rel);
+    assert.ok(fs.existsSync(fp) && fs.statSync(fp).size > 5000, `Palmov POI GLB exists & valid: ${k} (${rel})`);
+  }
+  assert.equal(Object.keys(frontier.FIELD_BOSS_SPEC).length, 20, 'FIELD_BOSS_SPEC covers all 20 field maps');
+  for (let fid = 1; fid <= 20; fid++) {
+    const spec = frontier.FIELD_BOSS_SPEC[fid];
+    assert.ok(spec && spec.name && p2bAssets.MONSTER_FILES[spec.modelKey], `Field #${fid} giant boss model registered: ${spec?.modelKey}`);
+    const bp = bpV6.FIELD_BLUEPRINTS[fid];
+    const grid = bpV6.getBlueprintGrid(fid);
+    for (const poi of bp.pois || []) {
+      const gx = Math.max(0, Math.min(bpV6.BP_W - 1, Math.round(poi.x * (bpV6.BP_W - 1))));
+      const gy = Math.max(0, Math.min(bpV6.BP_H - 1, Math.round(poi.y * (bpV6.BP_H - 1))));
+      const cell = grid[gy * bpV6.BP_W + gx];
+      assert.notEqual(cell, 5, `Field #${fid} POI "${poi.name}" (${poi.x},${poi.y}) must NOT be buried in WALL`);
+    }
+  }
+
+  console.log('ALL 42 LOGIC, V6-FIELD-POI-BOSS, DIORAMA-D1-D4, VFX-SKILL-REWORK-V1-V6, UI-UNIFIED-U4B, CHAR-C6-TOON-ANIM, CHAR-REWORK-C1-C5, FUZZ-QA-36, MMO-M10-PORTALS-CRAFT-KILLSWITCH, MMO-M9-SAFETY-KILLSWITCH, MMO-M8-ROLES-FEAST-GPU, MMO-M7-SOUL-AWAKEN-GPU-FIX, MMO-M6-SPIRE-MENTOR-LIGHTHOUSE, MMO-M5-FERRY-REVIEW, MMO-M4-OVERHAUL, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
 })();

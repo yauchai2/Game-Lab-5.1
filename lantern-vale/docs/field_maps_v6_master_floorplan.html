@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>《燈谷行 Lantern Vale》20 張野外地圖 · v6 精細美術平面圖集（Palmov 場景精準配對版）</title>
+<style>
+  :root {
+    --bg: #1b1714; --panel: #26201b; --card: #2f2721; --ink: #f7ebd4; --muted: #b8a890;
+    --gold: #ffcf4a; --accent: #e8734a; --teal: #4ec5d8; --green: #72c45e; --purple: #b882f2;
+    --border: #4a3c31;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "PingFang TC","Noto Sans TC",system-ui,sans-serif; background: var(--bg); color: var(--ink); line-height: 1.55; }
+  header { padding: 20px 28px 16px; border-bottom: 2px solid var(--border); background: #221c18; position: sticky; top: 0; z-index: 20; }
+  header h1 { margin: 0 0 6px; font-size: 22px; color: var(--gold); letter-spacing: .04em; }
+  header p { margin: 0; font-size: 13px; color: var(--muted); }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; align-items: center; }
+  .toolbar button {
+    background: var(--card); color: var(--ink); border: 1px solid var(--border); padding: 6px 12px;
+    font-size: 12.5px; cursor: pointer; font-weight: 600; transition: .12s;
+  }
+  .toolbar button:hover { border-color: var(--gold); color: var(--gold); }
+  .toolbar button.on { background: var(--gold); color: #241a12; border-color: var(--gold); }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; padding: 10px 28px; background: #201a16; border-bottom: 1px solid var(--border); font-size: 12px; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .dot { width: 11px; height: 11px; display: inline-block; border: 1px solid rgba(255,255,255,.45); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(390px, 1fr)); gap: 18px; padding: 22px 28px 48px; }
+  .mcard {
+    background: var(--card); border: 1px solid var(--border); display: flex; flex-direction: column;
+    cursor: pointer; transition: transform .12s, border-color .12s;
+  }
+  .mcard:hover { transform: translateY(-2px); border-color: var(--gold); }
+  .mhead { padding: 11px 14px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .mhead b { font-size: 15px; color: var(--ink); }
+  .tag { font-size: 11px; padding: 2px 7px; background: #3c3128; color: var(--gold); border: 1px solid #5c4a3c; white-space: nowrap; }
+  .tag.sky { color: #8ee4ff; } .tag.abyss { color: #d0a2ff; }
+  .mcan-wrap { position: relative; background: #161c22; aspect-ratio: 16 / 10; overflow: hidden; }
+  .mcan-wrap canvas { width: 100%; height: 100%; display: block; }
+  .mbody { padding: 11px 14px 14px; font-size: 12.5px; color: var(--muted); display: flex; flex-direction: column; gap: 7px; }
+  .poi-list { display: flex; flex-direction: column; gap: 4px; margin-top: 2px; }
+  .poi-row { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; padding: 3px 6px; background: rgba(0,0,0,.22); border-left: 3px solid var(--gold); }
+  .poi-row.water { border-left-color: var(--teal); }
+  .poi-row.boss { border-left-color: var(--accent); }
+  .poi-row.dungeon { border-left-color: var(--purple); }
+  .poi-row code { color: #ffdca8; font-size: 11px; font-family: ui-monospace, monospace; }
+  .vista-note { font-size: 11.8px; color: #c9d8b8; background: rgba(114,196,94,.08); padding: 5px 8px; border: 1px dashed rgba(114,196,94,.3); }
+  /* Modal */
+  #modal { position: fixed; inset: 0; background: rgba(12,10,8,.84); display: none; align-items: center; justify-content: center; z-index: 50; padding: 20px; }
+  #modal.open { display: flex; }
+  .mbox { background: var(--panel); border: 2px solid var(--gold); max-width: 1120px; width: 100%; max-height: 92vh; overflow: auto; display: grid; grid-template-columns: 1.35fr 1fr; }
+  @media (max-width: 900px) { .mbox { grid-template-columns: 1fr; } }
+  .mleft { padding: 16px; background: #14191e; display: flex; flex-direction: column; gap: 10px; }
+  .mleft canvas { width: 100%; aspect-ratio: 4 / 3; display: block; border: 1px solid var(--border); }
+  .mright { padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; }
+  .mright h2 { margin: 0; color: var(--gold); font-size: 20px; }
+  .close-btn { align-self: flex-end; background: var(--accent); color: #fff; border: 0; padding: 5px 14px; cursor: pointer; font-weight: 700; }
+  .spec-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .spec-table th, .spec-table td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .spec-table th { color: var(--gold); font-weight: 600; }
+</style>
+</head>
+<body>
+<header>
+  <h1>《燈谷行 Lantern Vale》20 張野外地圖 · v6 精細美術平面圖集（Palmov 場景精準配對版）</h1>
+  <p>在既有 v5 拓撲平面圖基礎上，逐張精細規劃地形分區、視線引導、禁建淨空區（Spawn / 窄橋 / 戰鬥動線）與每個 POI 精準對應的 <code>Low Poly Locations Ultimate Pack</code> 實景套裝與擺放條件（陸地 / 高崖 / 淺灘 / 水域）。點擊任一張卡片可展開全螢幕工程細節。</p>
+  <div class="toolbar" id="filters">
+    <button class="on" data-f="all">全部 20 張</button>
+    <button data-f="open">① 大空曠原野 (5)</button>
+    <button data-f="linear">② 狹長線性走廊 (4)</button>
+    <button data-f="ring">③ 大環形競技場 (4)</button>
+    <button data-f="hybrid">④ 開闊＋跳島混合 (3)</button>
+    <button data-f="maze">⑤ 立體迷宮秘境 (4)</button>
+  </div>
+</header>
+<div class="legend">
+  <span><i class="dot" style="background:#5db660"></i>可步行平原／林地</span>
+  <span><i class="dot" style="background:#8a7d6c"></i>高台／山崖（背景地標區）</span>
+  <span><i class="dot" style="background:#3da9d8"></i>淺溪／海灣／雲海／熔岩壕</span>
+  <span><i class="dot" style="background:#ffcf4a;border-radius:50%"></i>Palmov 景觀套裝精準佔地（含半徑與朝向）</span>
+  <span><i class="dot" style="background:#56d8ff;border-radius:50%"></i>藍光傳送檢查點 (CP)</span>
+  <span><i class="dot" style="background:#e8734a;border-radius:50%"></i>Boss 王區奇觀</span>
+  <span><i class="dot" style="background:#b882f2;border-radius:50%"></i>副本入口 (⛩)</span>
+  <span><i class="dot" style="background:rgba(255,255,255,.15);border:1px dashed #fff"></i>出生點 18m 禁建淨空圈</span>
+</div>
+<main class="grid" id="grid"></main>
+
+<div id="modal">
+  <div class="mbox">
+    <div class="mleft">
+      <canvas id="bigCan" width="840" height="630"></canvas>
+      <div id="bigVista" class="vista-note"></div>
+    </div>
+    <div class="mright">
+      <button class="close-btn" id="closeModal">✕ 關閉</button>
+      <h2 id="mTitle"></h2>
+      <div id="mMeta" style="font-size:12.5px;color:var(--muted)"></div>
+      <table class="spec-table">
+        <thead><tr><th>座標 (u,v)</th><th>POI 角色</th><th>Palmov 精準套裝</th><th>地形條件＆縮放</th></tr></thead>
+        <tbody id="mRows"></tbody>
+      </table>
+      <div id="mRules" style="font-size:12px;color:#e6d5b8;background:#201a16;padding:10px;border:1px solid var(--border)"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const MAPS = [
+  {
+    id: 1, name: '晨光草原', lv: 1, family: 'open', layer: 'surface', size: '540×540',
+    colors: { sea: '#3ca8d8', shallow: '#69c9e8', land: '#7bc45c', high: '#92cc6c', road: '#d4b37a' },
+    spawn: [0.50, 0.84], cps: [[0.50,0.82],[0.24,0.58],[0.76,0.55],[0.50,0.22]],
+    waterShape: 'creek_diag', vista: '卡比式三層遠景：南側開闊草原與溪流木橋（前景）→ 中央起伏綠丘（中景）→ 東北巨型茶壺丘與西北瀑布崖（遠景剪影）。出生點周圍 18m 完全淨空不堆雜物！',
+    rules: '① 僅在東北高丘 (0.84,0.27) 放置整組茶壺童話丘，嚴禁靠近出生點；② 中央溪流處以木橋精準對齊既有橋段；③ 其餘 70% 平原保持清爽草地與稀疏風吹樹，方便 Lv.1 騎乘與熟悉操作。',
+    pois: [
+      { u:0.84, v:0.27, k:'secret', r:0.09, name:'🫖 巨型茶壺丘', asset:'Autumn / tea house autumn forest', cond:'東北草丘高台 (平整底座)', scale:'span 24m, ry -0.4' },
+      { u:0.16, v:0.31, k:'secret', r:0.09, name:'💎 西北瀑布崖', asset:'Nature / forest waterfall', cond:'西北崖壁銜接溪源', scale:'span 22m, ry +0.6' },
+      { u:0.46, v:0.54, k:'prop',   r:0.07, name:'🌉 溪畔木橋與農舍', asset:'Nature / bridge over river (僅取橋與岸屋)', cond:'跨越中央清溪', scale:'對齊溪流軸線' },
+      { u:0.50, v:0.16, k:'dungeon',r:0.08, name:'⛩ 草原洞窟', asset:'Nature / mountain forest (洞口岩群)', cond:'北端山坡', scale:'span 18m' },
+    ]
+  },
+  {
+    id: 2, name: '低語森林', lv: 5, family: 'maze', layer: 'surface', size: '580×580',
+    colors: { sea: '#2c6862', shallow: '#4e8a72', land: '#55844c', high: '#416b3e', road: '#9c8660' },
+    spawn: [0.50, 0.86], cps: [[0.50,0.84],[0.20,0.60],[0.80,0.45],[0.50,0.18]],
+    waterShape: 'bog_pockets', vista: '高密度迷宮林道：白樺廢屋藏於西南林角，東側古墓與樹冠秘庫以燈籠步道引導，絕不在窄道口塞大建築卡住玩家。',
+    rules: '① 迷宮通道寬度維持 ≥7m；② 白樺廢屋與營地只放在死胡同袋狀空地（Pocket Clearing）；③ 樹冠秘庫搭配高木台與吊橋。',
+    pois: [
+      { u:0.15, v:0.80, k:'secret', r:0.08, name:'🏚 白樺封板廢屋', asset:'Autumn / abandoned house', cond:'西南林間袋狀空地', scale:'span 18m, ry +0.5' },
+      { u:0.30, v:0.46, k:'prop',   r:0.08, name:'⛺ 白樺林營地', asset:'Nature / camping birch forest', cond:'西中開闊林間', scale:'span 20m' },
+      { u:0.80, v:0.70, k:'boss',   r:0.10, name:'👑 古墓守護獸', asset:'Autumn / houses autumn forest (古林石壇)', cond:'東南圓形林間廣場', scale:'span 22m' },
+      { u:0.86, v:0.23, k:'secret', r:0.08, name:'💎 樹冠吊橋秘庫', asset:'Nature / forest waterfall', cond:'東北高地瀑布林', scale:'span 18m' },
+    ]
+  },
+  {
+    id: 3, name: '霧潮沼澤', lv: 10, family: 'maze', layer: 'surface', size: '540×540',
+    colors: { sea: '#2b6b78', shallow: '#5298a4', land: '#638064', high: '#4b6352', road: '#8f8166' },
+    spawn: [0.18, 0.82], cps: [[0.20,0.80],[0.52,0.78],[0.80,0.52],[0.26,0.22]],
+    waterShape: 'bay_center', vista: '中央淺海灣由巨大橘紅海怪觸手纏繞斷裂沉船坐鎮（水陸原生契合！），東側淺灘立起高腳吊橋漁村，西岸巫覡島呼應迷霧氛圍。',
+    rules: '① `sea monster attack` 必須放在中央水域 (0.50,0.54) 且保留原淺灘礁石，絕不放旱地；② `fishing Island` 高腳屋群貼合東側淺水灣 (0.84,0.34)。',
+    pois: [
+      { u:0.50, v:0.54, k:'boss',   r:0.11, name:'🐙 海怪觸手沉船', asset:'Sea / sea monster attack', cond:'中央淺海灣水域原生貼合', scale:'span 26m, ry -0.3' },
+      { u:0.84, v:0.34, k:'secret', r:0.09, name:'🏘 高腳吊橋村', asset:'Island / fishing Island', cond:'東側淺灘棧橋區', scale:'span 22m, ry -0.8' },
+      { u:0.24, v:0.46, k:'prop',   r:0.08, name:'🗿 巫覡迷霧島', asset:'Island / shamanic island', cond:'西岸濕地小丘', scale:'span 18m' },
+      { u:0.70, v:0.19, k:'dungeon',r:0.08, name:'⛩ 沼澤遺跡', asset:'Sea / secret Island', cond:'北礁岩洞入口', scale:'span 19m' },
+    ]
+  },
+  {
+    id: 4, name: '霜冬雪原', lv: 15, family: 'linear', layer: 'surface', size: '620×620',
+    colors: { sea: '#4e8cb8', shallow: '#8acae8', land: '#dce8f4', high: '#f2f7fc', road: '#a8b8cc' },
+    spawn: [0.18, 0.86], cps: [[0.20,0.84],[0.24,0.52],[0.54,0.44],[0.82,0.24]],
+    waterShape: 'ice_river', vista: '450m 狹長滑雪大走廊：從西南雪國村莊出發 → 經過河畔雪屋木橋 → 仰望西北纜車滑雪山頂 → 直衝東北藍冰水晶巨山與寒霜冰窟！',
+    rules: '① 中央冰河保留滑冰加速度通道，建築嚴格沿河岸兩側退縮；② `ski resort` 貼齊西北高坡，纜車方向順坡向下。',
+    pois: [
+      { u:0.85, v:0.20, k:'dungeon',r:0.11, name:'⛩ 藍冰尖塔·冰窟', asset:'Winter / crystal mountain', cond:'東北終點高崖', scale:'span 26m, ry -0.5' },
+      { u:0.21, v:0.22, k:'secret', r:0.10, name:'🚡 纜車滑雪山頂', asset:'Winter / ski resort', cond:'西北雪坡高台', scale:'span 24m, ry +0.4' },
+      { u:0.15, v:0.52, k:'secret', r:0.08, name:'🏔 裂谷雪屋橋', asset:'Winter / river winter house', cond:'西側冰河木橋岸邊', scale:'span 19m' },
+      { u:0.56, v:0.68, k:'prop',   r:0.09, name:'🏘 雪國冬村廣場', asset:'Winter / winter town', cond:'南中開闊雪原', scale:'span 22m' },
+    ]
+  },
+  {
+    id: 5, name: '燼煙火岩區', lv: 20, family: 'ring', layer: 'surface', size: '580×580',
+    colors: { sea: '#5a241c', shallow: '#e85d28', land: '#8c563e', high: '#6b3e2e', road: '#52382e' },
+    spawn: [0.50, 0.86], cps: [[0.50,0.84],[0.18,0.52],[0.84,0.52],[0.50,0.18]],
+    waterShape: 'lava_ring', vista: '大環形熔岩競技場：外環寬敞暢通清怪，西崖架起高空礦車木棧橋，東南藏有紅岩瀑布綠洲，中央獨立火山島迎接 Boss 戰。',
+    rules: '① 西崖 `coal mine` 與峽谷橋對齊外環岩壁，鐵軌朝向熔岩谷；② 東南 `waterfall desert` 營造冷暖反差打卡秘境。',
+    pois: [
+      { u:0.18, v:0.32, k:'secret', r:0.10, name:'⛏ 西崖礦車棧橋', asset:'Western / coal mine', cond:'西側火山崖壁', scale:'span 24m, ry +0.6' },
+      { u:0.84, v:0.78, k:'secret', r:0.09, name:'🌴 紅岩瀑布綠洲', asset:'Western / waterfall desert', cond:'東南峽谷岩壁', scale:'span 21m, ry -0.5' },
+      { u:0.51, v:0.53, k:'boss',   r:0.10, name:'⚔ 中央熔岩演武島', asset:'Western / indian reservation canyon (岩環台)', cond:'中央熔岩環島', scale:'span 22m' },
+      { u:0.82, v:0.18, k:'dungeon',r:0.09, name:'⛩ 燼岩熔爐', asset:'Western / bridge over water gorge', cond:'東北熔岩峽口', scale:'span 20m' },
+    ]
+  },
+  {
+    id: 6, name: '古樹林', lv: 25, family: 'ring', layer: 'surface', size: '660×660',
+    colors: { sea: '#2c5c52', shallow: '#52b8a4', land: '#477252', high: '#365840', road: '#8c7656' },
+    spawn: [0.50, 0.88], cps: [[0.50,0.86],[0.18,0.54],[0.84,0.54],[0.50,0.18]],
+    waterShape: 'ring_stream', vista: '莊嚴神聖的環形巨木聖域：西北峰矗立五重黑瓦古塔，東側展開三疊蒸氣靈泉梯田，中央世界樹核由古林環抱。',
+    rules: '① `old palace forest` 五重古塔座落西北高台，保留完整庭院石階；② `autumn hot springs` 貼合東側靈泉淺灘。',
+    pois: [
+      { u:0.18, v:0.28, k:'secret', r:0.10, name:'🏯 五重古塔峰', asset:'Japanese / old palace forest', cond:'西北林崖高台', scale:'span 24m, ry +0.4' },
+      { u:0.86, v:0.50, k:'secret', r:0.09, name:'♨ 三疊靈泉梯田', asset:'Autumn / autumn hot springs', cond:'東側靈泉緩坡', scale:'span 21m, ry -0.6' },
+      { u:0.52, v:0.52, k:'boss',   r:0.10, name:'👑 世界樹核守護獸', asset:'Nature / mountain forest (巨木環心)', cond:'中央聖樹島', scale:'span 23m' },
+      { u:0.78, v:0.84, k:'prop',   r:0.08, name:'⛺ 林間探索營地', asset:'Western / indian reservation forest', cond:'東南河畔空地', scale:'span 18m' },
+    ]
+  },
+  {
+    id: 7, name: '浮空遺跡群', lv: 12, family: 'hybrid', layer: 'sky', size: '560×560',
+    colors: { sea: '#6cc8f0', shallow: '#b8ecff', land: '#7bc87a', high: '#9ee08e', road: '#e0d6b8' },
+    spawn: [0.22, 0.82], cps: [[0.24,0.80],[0.52,0.56],[0.74,0.54],[0.54,0.22]],
+    waterShape: 'sky_islands', vista: '雲海浮島跳躍奇觀：東側聳立三層飛瀑燈塔巨崖，北側古石柱水道通往星穹古塔，氣流滑翔串聯各座孤島。',
+    rules: '① `three level island` 直接置於東側高崖浮島，呈現飛瀑傾瀉雲海奇觀；② `ancient artifacts` 作為北側星穹祭壇前導石環。',
+    pois: [
+      { u:0.74, v:0.56, k:'secret', r:0.10, name:'🗼 飛瀑燈塔巨崖', asset:'Island / three level island', cond:'東側雲海巨島', scale:'span 24m, ry -0.5' },
+      { u:0.54, v:0.17, k:'dungeon',r:0.09, name:'⛩ 斷柱水道·星穹塔', asset:'Desert / roman ruins (高台石柱殿)', cond:'北端雲端聖台', scale:'span 22m' },
+      { u:0.30, v:0.42, k:'prop',   r:0.08, name:'🪨 古代巨石環', asset:'Sea / ancient artifacts', cond:'西中浮島平台', scale:'span 18m' },
+      { u:0.90, v:0.33, k:'secret', r:0.07, name:'💎 最東飛瀑孤柱', asset:'Island / waterfall island', cond:'東北孤島', scale:'span 16m' },
+    ]
+  },
+  {
+    id: 8, name: '珊瑚潮汐灣', lv: 18, family: 'open', layer: 'abyss', size: '560×560',
+    colors: { sea: '#2ca6d8', shallow: '#64d8e8', land: '#efd58e', high: '#94cc68', road: '#e2c278' },
+    spawn: [0.50, 0.86], cps: [[0.50,0.84],[0.24,0.56],[0.78,0.62],[0.50,0.20]],
+    waterShape: 'crescent_bay', vista: '熱帶航海黃金海灣：西灣矗立經典沉船瞭望崖堡，北礁拱起天然海蝕石門，東灘鋪開椰林沙灘與釣魚漁港。',
+    rules: '① `mountain ship` 置於西灣水陸交界處，與選角頁夢幻呼應；② `mountain arch` 跨於北礁海灣作為地標拱門。',
+    pois: [
+      { u:0.24, v:0.43, k:'secret', r:0.10, name:'🏴‍☠️ 帆船瞭望崖堡', asset:'Island / mountain ship', cond:'西灣沙灘與淺海交界', scale:'span 24m, ry -0.6' },
+      { u:0.50, v:0.20, k:'dungeon',r:0.10, name:'⛩ 潮汐海蝕石門', asset:'Sea / mountain arch', cond:'北岸海灣拱門', scale:'span 23m' },
+      { u:0.78, v:0.68, k:'secret', r:0.09, name:'⛱ 椰林釣魚灘', asset:'Nature / beach', cond:'東側金黃沙灘', scale:'span 20m' },
+      { u:0.16, v:0.19, k:'secret', r:0.08, name:'💎 骷髏秘寶礁', asset:'Island / treasure Island', cond:'西北淺礁島', scale:'span 18m' },
+    ]
+  },
+  {
+    id: 9, name: '沉沒電光都', lv: 24, family: 'hybrid', layer: 'abyss', size: '580×580',
+    colors: { sea: '#3a6f8f', shallow: '#66aac4', land: '#6e9eb0', high: '#8ab4c4', road: '#9bb4be' },
+    spawn: [0.18, 0.84], cps: [[0.20,0.82],[0.48,0.56],[0.80,0.68],[0.22,0.22]],
+    waterShape: 'flooded_grid', vista: '半沉於淺海的水上商港群：東南為彩色屋頂水上商港市集，中央高台為守護獸廣場，西北由紅白巨型燈塔碼頭領航。',
+    rules: '① `trade port` 與 `pirate seaport` 木棧道直接銜接淺水運河；② `lighthouse pier` 作為西北變電巨塔前導地標。',
+    pois: [
+      { u:0.84, v:0.72, k:'secret', r:0.10, name:'⛺ 水上商港市集', asset:'Sea / trade port', cond:'東南淺水碼頭區', scale:'span 24m, ry -0.7' },
+      { u:0.17, v:0.18, k:'dungeon',r:0.10, name:'⛩ 紅白燈塔變電港', asset:'Sea / lighthouse pier', cond:'西北深水角', scale:'span 23m' },
+      { u:0.66, v:0.54, k:'boss',   r:0.09, name:'👑 海港天台守護獸', asset:'Sea / pirate seaport', cond:'中央高台碼頭', scale:'span 22m' },
+      { u:0.56, v:0.28, k:'secret', r:0.08, name:'💎 瀑拱秘境島', asset:'Sea / mysterious place', cond:'北中海灣', scale:'span 19m' },
+    ]
+  },
+  {
+    id: 10, name: '櫻花水都', lv: 14, family: 'linear', layer: 'sky', size: '580×580',
+    colors: { sea: '#4ca6d8', shallow: '#84d4f0', land: '#8cc868', high: '#f2a8c8', road: '#e8d4b0' },
+    spawn: [0.82, 0.84], cps: [[0.80,0.82],[0.52,0.56],[0.74,0.30],[0.22,0.24]],
+    waterShape: 's_river', vista: '最夢幻的東方水鄉 S 型走廊：中央大弧朱紅橋橫跨錦鯉河，西南海上孤島矗立紅塔鳥居，東北為九曲竹林茶屋，西北終點直達天守櫻花水宮！',
+    rules: '① 精選 Japanese Locations 最美 4 組：湖橋 (`japanese lake`)、天守宮 (`imperial palace`)、海上紅塔 (`sacred islands`)、竹林庭園 (`japanese sanctuary park`)；② 絕不放入現代火車站。',
+    pois: [
+      { u:0.19, v:0.22, k:'dungeon',r:0.11, name:'⛩ 櫻花天守水宮', asset:'Japanese / imperial palace', cond:'西北護城河高台', scale:'span 26m, ry +0.4' },
+      { u:0.50, v:0.53, k:'boss',   r:0.10, name:'🌉 大弧朱紅橋戰場', asset:'Japanese / autumn japan (朱紅拱橋與雙鳥居)', cond:'跨越中央錦鯉溪', scale:'span 24m' },
+      { u:0.18, v:0.74, k:'secret', r:0.09, name:'🏯 海上鳥居孤島', asset:'Japanese / sacred islands', cond:'西南海域孤島', scale:'span 20m' },
+      { u:0.75, v:0.26, k:'secret', r:0.09, name:'🎋 九曲竹林茶屋', asset:'Japanese / japanese sanctuary park', cond:'東北池畔竹林', scale:'span 21m' },
+    ]
+  },
+  {
+    id: 11, name: '蒼穹巨環谷', lv: 22, family: 'linear', layer: 'sky', size: '620×620',
+    colors: { sea: '#5ec4ee', shallow: '#9ce2ff', land: '#74c668', high: '#a8dc84', road: '#dec894' },
+    spawn: [0.16, 0.82], cps: [[0.18,0.80],[0.30,0.46],[0.58,0.38],[0.82,0.22]],
+    waterShape: 'alpine_creek', vista: '致敬卡比開闊山谷：西側峽谷木橋跨越深溪，中央熱氣球群升空呼應斜嵌巨環，東南雪峰湖畔露營地與東北天環聖殿遙相呼應。',
+    rules: '① `air balloons` 熱氣球群與中央空曠草坡結合，拉高縱向景深；② `autumn mountain camping` 銀白雪峰作為東南遠景靠山。',
+    pois: [
+      { u:0.56, v:0.34, k:'boss',   r:0.10, name:'🌀 巨環熱氣球谷', asset:'Nature / air balloons', cond:'中央開闊草谷', scale:'span 24m' },
+      { u:0.28, v:0.42, k:'secret', r:0.09, name:'🚂 峽谷蒸汽火車橋', asset:'Western / bridge over water gorge', cond:'西側深谷溪流', scale:'span 22m' },
+      { u:0.82, v:0.72, k:'secret', r:0.10, name:'⛺ 雪峰湖畔露營', asset:'Autumn / autumn mountain camping', cond:'東南湖岸高峰', scale:'span 23m' },
+      { u:0.85, v:0.19, k:'dungeon',r:0.09, name:'⛩ 雪峰·天環聖殿', asset:'Island / waterfall island', cond:'東北瀑布聖崖', scale:'span 21m' },
+    ]
+  },
+  {
+    id: 12, name: '紅楓工坊谷', lv: 28, family: 'open', layer: 'surface', size: '640×640',
+    colors: { sea: '#428ca8', shallow: '#76c2d4', land: '#c88c42', high: '#d96e38', road: '#a8764c' },
+    spawn: [0.50, 0.86], cps: [[0.50,0.84],[0.20,0.68],[0.26,0.28],[0.80,0.24]],
+    waterShape: 'onsen_pools', vista: '暖色滿溢的秋日豐收高原：西南是紅穀倉與白風車牧場，西北是三疊石池秋楓溫泉，中央為秋林木屋湖畔廣場。',
+    rules: '① `autumn harvest` 完整農莊穀倉與風車放西南平原；② `autumn hot springs` 放西北石泉區；③ `houses autumn forest` 放東中湖畔。',
+    pois: [
+      { u:0.16, v:0.74, k:'secret', r:0.10, name:'🐑 風車穀倉牧場', asset:'Autumn / autumn harvest', cond:'西南開闊秋原', scale:'span 24m, ry +0.4' },
+      { u:0.24, v:0.25, k:'secret', r:0.10, name:'♨ 三疊秋楓溫泉', asset:'Autumn / autumn hot springs', cond:'西北溫泉緩坡', scale:'span 23m' },
+      { u:0.66, v:0.48, k:'boss',   r:0.10, name:'👑 楓林湖畔廣場', asset:'Autumn / houses autumn forest', cond:'東中湖畔廣場', scale:'span 23m' },
+      { u:0.84, v:0.20, k:'dungeon',r:0.09, name:'⛩ 紅楓鍛造爐', asset:'Autumn / autumn atmosphere forest', cond:'東北紅楓溪源', scale:'span 20m' },
+    ]
+  },
+  {
+    id: 13, name: '黃金風沙原', lv: 18, family: 'open', layer: 'surface', size: '580×580',
+    colors: { sea: '#3ca2c8', shallow: '#6cd0dc', land: '#e6c47a', high: '#d4a259', road: '#c49654' },
+    spawn: [0.50, 0.86], cps: [[0.50,0.84],[0.26,0.40],[0.78,0.42],[0.50,0.18]],
+    waterShape: 'oasis_pond', vista: '遼闊流沙滑行沙海：西北翡翠棕櫚綠洲村落、東北紫色圓頂阿拉伯古堡、西端沙丘燈塔形成三大遠距視覺錨點！',
+    rules: '① 保持中央 60% 沙海空曠供 `sand_surf` 高速滑沙；② 三座沙漠地標呈三角形分佈於外緣高丘。',
+    pois: [
+      { u:0.28, v:0.34, k:'secret', r:0.10, name:'🌴 翡翠棕櫚綠洲', asset:'Desert / city desert', cond:'西北綠洲方尖碑村', scale:'span 23m' },
+      { u:0.78, v:0.32, k:'boss',   r:0.11, name:'🕌 紫頂風沙古堡', asset:'Desert / arab castle', cond:'東北沙丘高地', scale:'span 25m, ry -0.5' },
+      { u:0.16, v:0.68, k:'prop',   r:0.08, name:'🗼 沙海指引燈塔', asset:'Desert / lighthouse desert', cond:'西南高沙岩丘', scale:'span 19m' },
+      { u:0.50, v:0.16, k:'dungeon',r:0.09, name:'⛩ 風沙神龕', asset:'Desert / farming desert', cond:'北端綠洲驛站', scale:'span 20m' },
+    ]
+  },
+  {
+    id: 14, name: '太陽金字塔聖殿', lv: 26, family: 'ring', layer: 'surface', size: '620×620',
+    colors: { sea: '#3a98c0', shallow: '#5cc4d8', land: '#e0b868', high: '#c99348', road: '#b88642' },
+    spawn: [0.50, 0.88], cps: [[0.50,0.86],[0.18,0.52],[0.82,0.52],[0.50,0.18]],
+    waterShape: 'nile_canal', vista: '莊嚴神聖的金字塔環形聖域：中央雙金字塔與人面獅身像面朝尼羅河渠，西側神殿廣場與東側紅頂羅馬柱殿左右護法！',
+    rules: '① `desert pyramids` 居中坐鎮 (0.50,0.48)，人面獅身面向南側主道；② 環形外道寬敞暢通，不阻斷繞行。',
+    pois: [
+      { u:0.50, v:0.48, k:'boss',   r:0.12, name:'👑 太陽雙金字塔', asset:'Desert / desert pyramids', cond:'中央聖域高台', scale:'span 28m, ry 0' },
+      { u:0.20, v:0.36, k:'secret', r:0.09, name:'🏛 太陽神廟祭台', asset:'Desert / temple deserts', cond:'西側石階台地', scale:'span 21m' },
+      { u:0.80, v:0.36, k:'secret', r:0.09, name:'🏛 紅頂羅馬神殿', asset:'Desert / roman ruins', cond:'東側高丘', scale:'span 21m' },
+      { u:0.50, v:0.16, k:'dungeon',r:0.08, name:'⛩ 法老秘陵', asset:'Desert / settlement desert', cond:'北端岩山營地', scale:'span 19m' },
+    ]
+  },
+  {
+    id: 15, name: '失落藤蔓神廟', lv: 16, family: 'maze', layer: 'surface', size: '580×580',
+    colors: { sea: '#2c8a98', shallow: '#54c4cc', land: '#5ca24e', high: '#488240', road: '#b89c68' },
+    spawn: [0.50, 0.86], cps: [[0.50,0.84],[0.20,0.52],[0.82,0.48],[0.50,0.18]],
+    waterShape: 'jungle_river', vista: '熱帶叢林飛瀑遺跡：中央跨越瀑布的巨石熱帶神廟，東側林間石山與西側熱帶小島群交織出藤蔓飛躍動線。',
+    rules: '① `tropical ruins` 瀑布正面朝南對齊叢林溪河；② 迷宮石牆外圍留足藤蔓跳躍落點。',
+    pois: [
+      { u:0.50, v:0.52, k:'boss',   r:0.11, name:'👑 叢林瀑布神廟', asset:'Desert / tropical ruins', cond:'中央瀑布河谷', scale:'span 25m, ry -0.2' },
+      { u:0.82, v:0.32, k:'secret', r:0.09, name:'🗿 秘林巨石島', asset:'Island / stone island', cond:'東北叢林高丘', scale:'span 20m' },
+      { u:0.20, v:0.36, k:'secret', r:0.09, name:'💎 棕櫚沙洲群', asset:'Desert / desert islands', cond:'西側河灣淺洲', scale:'span 20m' },
+      { u:0.50, v:0.16, k:'dungeon',r:0.08, name:'⛩ 古藤地宮', asset:'Island / adventure island', cond:'北端秘林高崖', scale:'span 19m' },
+    ]
+  },
+  {
+    id: 16, name: '幽霧哥德墓園', lv: 22, family: 'maze', layer: 'abyss', size: '560×560',
+    colors: { sea: '#2a2438', shallow: '#463d5c', land: '#544d68', high: '#3e3852', road: '#6d657c' },
+    spawn: [0.50, 0.86], cps: [[0.50,0.84],[0.22,0.50],[0.78,0.50],[0.50,0.18]],
+    waterShape: 'mist_moat', vista: '提燈驅霧的哥德萬聖墓園：中央為教堂＋雙層鬼屋＋橘葉枯樹圍欄墓園，西側傾頹荒屋與提燈路徑營造濃厚萬聖節童話氛圍。',
+    rules: '① `cemetery haunted house` 擁有完整教堂、鬼屋、鐵圍欄與橘葉枯樹，置於中央廣場並留出南北入口缺口；② 搭配提燈暖光形成強烈明暗對比。',
+    pois: [
+      { u:0.50, v:0.50, k:'boss',   r:0.12, name:'👑 哥德教堂與鬼屋', asset:'Autumn / cemetery haunted house', cond:'中央墓園核心', scale:'span 26m, ry 0' },
+      { u:0.20, v:0.34, k:'secret', r:0.09, name:'🏚 枯林荒廢木屋', asset:'Autumn / abandoned house', cond:'西北枯木林', scale:'span 19m' },
+      { u:0.80, v:0.68, k:'prop',   r:0.08, name:'⛲ 幽霧秋園石池', asset:'Autumn / autumn park', cond:'東南石造庭園', scale:'span 19m' },
+      { u:0.50, v:0.16, k:'dungeon',r:0.08, name:'⛩ 亡靈地下墓穴', asset:'Sea / secret Island (暗岩洞窟)', cond:'北端暗岩崖口', scale:'span 18m' },
+    ]
+  },
+  {
+    id: 17, name: '深淵哥德古堡', lv: 28, family: 'linear', layer: 'abyss', size: '620×620',
+    colors: { sea: '#241e34', shallow: '#3d3456', land: '#4a4262', high: '#342e48', road: '#645c76' },
+    spawn: [0.50, 0.88], cps: [[0.50,0.86],[0.50,0.62],[0.50,0.38],[0.50,0.18]],
+    waterShape: 'chasm_sides', vista: '步步登高的線性血月古堡長道：從南門庭園一路北上，穿越峽谷長橋與荒林哨站，直抵北端高崖古堡王座！',
+    rules: '① 嚴格遵守線性縱軸對稱感，高堡置於北端 (0.50,0.22) 形成壓迫剪影；② 中段峽谷橋無阻礙。',
+    pois: [
+      { u:0.50, v:0.22, k:'boss',   r:0.11, name:'👑 血月古堡王座', asset:'Autumn / cemetery haunted house', cond:'北端高崖主堡', scale:'span 26m, ry 0' },
+      { u:0.50, v:0.54, k:'prop',   r:0.09, name:'🌉 深淵峽谷斷橋', asset:'Western / bridge over water gorge', cond:'中段裂谷通道', scale:'span 21m' },
+      { u:0.24, v:0.68, k:'secret', r:0.08, name:'🏚 守墓人廢屋', asset:'Autumn / abandoned house', cond:'西南側崖', scale:'span 18m' },
+      { u:0.78, v:0.34, k:'secret', r:0.08, name:'🗿 血月石崖洞', asset:'Sea / secret Island', cond:'東北側崖', scale:'span 19m' },
+    ]
+  },
+  {
+    id: 18, name: '深海螢光沉淵', lv: 24, family: 'hybrid', layer: 'abyss', size: '580×580',
+    colors: { sea: '#1e6e88', shallow: '#42b8cc', land: '#3b889c', high: '#58b4c4', road: '#72cbd8' },
+    spawn: [0.20, 0.84], cps: [[0.22,0.82],[0.54,0.64],[0.80,0.34],[0.24,0.22]],
+    waterShape: 'abyss_islands', vista: '低重力深海奇觀：中央巨蛸觸手沉船與螢光藍晶山峰交映，東北海灣佇立海盜船骸與石拱秘境。',
+    rules: '① `sea monster attack` 與 `crystal mountain`（螢光藍晶）完美契合深海螢光主題；② 島間留足低重力跳躍跨度。',
+    pois: [
+      { u:0.54, v:0.62, k:'boss',   r:0.11, name:'👑 深淵螢光巨蛸', asset:'Sea / sea monster attack', cond:'中央深淵水域', scale:'span 25m' },
+      { u:0.24, v:0.22, k:'dungeon',r:0.10, name:'⛩ 亞特蘭提斯晶殿', asset:'Winter / crystal mountain', cond:'西北螢光晶峰', scale:'span 24m' },
+      { u:0.80, v:0.34, k:'secret', r:0.09, name:'⚓ 沉沒船骸礁', asset:'Sea / ship Island', cond:'東北沉船淺礁', scale:'span 21m' },
+      { u:0.78, v:0.76, k:'secret', r:0.08, name:'🪨 海蝕石拱門', asset:'Sea / mountain arch', cond:'東南深海拱門', scale:'span 20m' },
+    ]
+  },
+  {
+    id: 19, name: '星際白銀前哨站', lv: 27, family: 'open', layer: 'sky', size: '600×600',
+    colors: { sea: '#324868', shallow: '#5c8ec4', land: '#9cb4cc', high: '#c8d8e8', road: '#7894b2' },
+    spawn: [0.50, 0.86], cps: [[0.50,0.84],[0.20,0.50],[0.80,0.50],[0.50,0.18]],
+    waterShape: 'energy_grid', vista: '潔白科幻星港基地：中央軌道太空站核心，西側火箭發射台、東側星艦停機坪、北側未來星際農場，開闊視野盡覽科幻奇觀！',
+    rules: '① 專為本圖啟用 Low Poly Space 白銀科幻系列，絕不混入木屋或傳統樹木；② 保持寬闊停機坪動線供高速戰鬥。',
+    pois: [
+      { u:0.50, v:0.50, k:'boss',   r:0.11, name:'👑 軌道太空核心站', asset:'Space / space station', cond:'中央星港廣場', scale:'span 26m' },
+      { u:0.20, v:0.34, k:'secret', r:0.10, name:'🚀 太空梭發射台', asset:'Space / space shuttle launch', cond:'西北發射區', scale:'span 22m' },
+      { u:0.80, v:0.34, k:'secret', r:0.10, name:'🛸 星艦停機坪', asset:'Space / spaceships station', cond:'東北停機坪', scale:'span 22m' },
+      { u:0.50, v:0.16, k:'dungeon',r:0.09, name:'⛩ 星艦核心反應爐', asset:'Space / futuristics station', cond:'北端核心站', scale:'span 21m' },
+    ]
+  },
+  {
+    id: 20, name: '異星蜂巢裂谷', lv: 30, family: 'ring', layer: 'sky', size: '640×640',
+    colors: { sea: '#3d2252', shallow: '#8446b4', land: '#765094', high: '#9a68ba', road: '#5c3c76' },
+    spawn: [0.50, 0.88], cps: [[0.50,0.86],[0.18,0.52],[0.82,0.52],[0.50,0.18]],
+    waterShape: 'acid_ring', vista: 'Lv.30 終局異星裂谷：中央奇幻外星菌晶主巢、西側墜毀飛碟殘骸、東側巨型外星隕石坑、北端火星殖民前哨！',
+    rules: '① 全圖選用 `Space` 外星異域套裝（奇幻星球／飛碟墜毀／隕石坑／火星基地）；② 環形外道留足 12m 寬度迎戰終局高密度魔物。',
+    pois: [
+      { u:0.50, v:0.50, k:'boss',   r:0.12, name:'👑 異星奇幻母巢', asset:'Space / fantastic planet', cond:'中央裂谷核心', scale:'span 27m' },
+      { u:0.18, v:0.38, k:'secret', r:0.10, name:'🛸 墜毀飛碟殘骸', asset:'Space / ufo crash', cond:'西側外環盆地', scale:'span 22m' },
+      { u:0.82, v:0.38, k:'secret', r:0.10, name:'☄️ 外星巨隕石坑', asset:'Space / planet craters', cond:'東側外環隕坑', scale:'span 22m' },
+      { u:0.50, v:0.16, k:'dungeon',r:0.09, name:'⛩ 異星母巢核心', asset:'Space / colonization mars', cond:'北端紅岩基地', scale:'span 21m' },
+    ]
+  }
+];
+
+function drawMap(canvas, m, detailed = false) {
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const c = m.colors;
+
+  // 1. Base ocean/void
+  ctx.fillStyle = c.sea;
+  ctx.fillRect(0, 0, W, H);
+
+  // 2. Island silhouette by topology family
+  ctx.save();
+  ctx.fillStyle = c.land;
+  ctx.beginPath();
+  if (m.family === 'open') {
+    ctx.ellipse(W*0.5, H*0.52, W*0.43, H*0.42, 0, 0, Math.PI*2);
+  } else if (m.family === 'linear') {
+    ctx.moveTo(W*0.12, H*0.88);
+    ctx.bezierCurveTo(W*0.08, H*0.42, W*0.38, H*0.12, W*0.88, H*0.14);
+    ctx.bezierCurveTo(W*0.92, H*0.55, W*0.62, H*0.92, W*0.12, H*0.88);
+  } else if (m.family === 'ring') {
+    ctx.ellipse(W*0.5, H*0.52, W*0.44, H*0.42, 0, 0, Math.PI*2);
+  } else if (m.family === 'hybrid') {
+    ctx.ellipse(W*0.26, H*0.76, W*0.18, H*0.16, 0, 0, Math.PI*2);
+    ctx.moveTo(W*0.74, H*0.54); ctx.ellipse(W*0.56, H*0.52, W*0.26, H*0.24, 0, 0, Math.PI*2);
+    ctx.moveTo(W*0.64, H*0.20); ctx.ellipse(W*0.52, H*0.20, W*0.22, H*0.12, 0, 0, Math.PI*2);
+  } else { // maze
+    ctx.roundRect ? ctx.roundRect(W*0.09, H*0.10, W*0.82, H*0.80, 26) : ctx.rect(W*0.09, H*0.10, W*0.82, H*0.80);
+  }
+  ctx.fill();
+
+  // 3. Water / lava / cloud feature
+  ctx.fillStyle = c.shallow;
+  ctx.beginPath();
+  if (m.family === 'ring') {
+    ctx.ellipse(W*0.5, H*0.52, W*0.24, H*0.23, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = c.high;
+    ctx.beginPath(); ctx.ellipse(W*0.5, H*0.52, W*0.13, H*0.13, 0, 0, Math.PI*2); ctx.fill();
+  } else if (m.waterShape === 'bay_center') {
+    ctx.ellipse(W*0.52, H*0.54, W*0.18, H*0.16, 0.2, 0, Math.PI*2); ctx.fill();
+  } else if (m.waterShape === 's_river' || m.waterShape === 'creek_diag' || m.waterShape === 'ice_river') {
+    ctx.strokeStyle = c.shallow; ctx.lineWidth = detailed ? 22 : 12; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(W*0.14, H*0.22); ctx.bezierCurveTo(W*0.35, H*0.55, W*0.65, H*0.42, W*0.86, H*0.78); ctx.stroke();
+  }
+
+  // 4. Main sightline / travel road connecting checkpoints
+  ctx.strokeStyle = c.road;
+  ctx.lineWidth = detailed ? 7 : 4;
+  ctx.setLineDash([8, 6]);
+  ctx.beginPath();
+  m.cps.forEach(([u, v], i) => { if (i === 0) ctx.moveTo(u*W, v*H); else ctx.lineTo(u*W, v*H); });
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 5. Spawn 18m Exclusion Zone
+  const [su, sv] = m.spawn;
+  ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath(); ctx.arc(su*W, sv*H, W*0.075, 0, Math.PI*2); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath(); ctx.arc(su*W, sv*H, detailed ? 6 : 4, 0, Math.PI*2); ctx.fill();
+  ctx.font = detailed ? 'bold 12px sans-serif' : 'bold 10px sans-serif';
+  ctx.fillText('出生淨空區', su*W + 8, sv*H + 4);
+
+  // 6. Checkpoints
+  m.cps.forEach(([u, v], idx) => {
+    ctx.fillStyle = '#56d8ff';
+    ctx.beginPath(); ctx.arc(u*W, v*H, detailed ? 6 : 4, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#122634'; ctx.lineWidth = 1.5; ctx.stroke();
+    if (detailed) { ctx.fillStyle = '#d8f8ff'; ctx.fillText(`CP${idx+1}`, u*W + 8, v*H - 6); }
+  });
+
+  // 7. Palmov POI Footprints (exact radius & color)
+  m.pois.forEach(p => {
+    const px = p.u * W, py = p.v * H, pr = p.r * W;
+    const col = p.k === 'boss' ? '#e8734a' : p.k === 'dungeon' ? '#b882f2' : p.k === 'prop' ? '#4ec5d8' : '#ffcf4a';
+    ctx.fillStyle = col + '38';
+    ctx.strokeStyle = col;
+    ctx.lineWidth = detailed ? 2.5 : 1.8;
+    ctx.beginPath(); ctx.arc(px, py, pr, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.arc(px, py, detailed ? 5 : 3.5, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#fff9eb';
+    ctx.font = detailed ? 'bold 12px sans-serif' : 'bold 10.5px sans-serif';
+    const tx = px > W * 0.72 ? px - pr - 64 : px + 7;
+    ctx.fillText(p.name, Math.max(6, Math.min(W - 95, tx)), Math.max(14, py - 5));
+    if (detailed) {
+      ctx.fillStyle = '#ffdca8';
+      ctx.font = '10.5px ui-monospace, monospace';
+      ctx.fillText(p.asset.split('/')[1]?.trim() || p.asset, Math.max(6, Math.min(W - 110, tx)), Math.max(26, py + 9));
+    }
+  });
+  ctx.restore();
+}
+
+const grid = document.getElementById('grid');
+const famNames = { open:'① 大空曠原野', linear:'② 狹長線性', ring:'③ 大環形', hybrid:'④ 開闊＋跳島', maze:'⑤ 立體迷宮' };
+
+function renderCards(filter = 'all') {
+  grid.innerHTML = '';
+  MAPS.filter(m => filter === 'all' || m.family === filter).forEach(m => {
+    const el = document.createElement('article');
+    el.className = 'mcard';
+    el.innerHTML = `
+      <div class="mhead">
+        <b>#${String(m.id).padStart(2,'0')} ${m.name} <small style="color:var(--muted);font-weight:400">Lv.${m.lv}</small></b>
+        <span class="tag ${m.layer}">${famNames[m.family]} · ${m.size}</span>
+      </div>
+      <div class="mcan-wrap"><canvas width="480" height="300"></canvas></div>
+      <div class="mbody">
+        <div class="vista-note">${m.vista}</div>
+        <div class="poi-list">
+          ${m.pois.map(p => `<div class="poi-row ${p.k}"><span>${p.name} <small>(${p.u.toFixed(2)},${p.v.toFixed(2)})</small></span><code>${p.asset}</code></div>`).join('')}
+        </div>
+      </div>`;
+    grid.appendChild(el);
+    drawMap(el.querySelector('canvas'), m, false);
+    el.onclick = () => openModal(m);
+  });
+}
+
+const modal = document.getElementById('modal');
+function openModal(m) {
+  document.getElementById('mTitle').textContent = `#${String(m.id).padStart(2,'0')} ${m.name}（Lv.${m.lv} · ${famNames[m.family]}）`;
+  document.getElementById('mMeta').textContent = `地圖尺寸：${m.size} ｜ 圖層：${m.layer} ｜ 出生點：(${m.spawn[0]}, ${m.spawn[1]}) 含 18m 禁建淨空圈`;
+  document.getElementById('bigVista').textContent = '🎬 視線與景深構圖：' + m.vista;
+  document.getElementById('mRules').innerHTML = '<b>📐 本圖施工與擺放鐵則：</b><br>' + m.rules;
+  document.getElementById('mRows').innerHTML = m.pois.map(p => `
+    <tr>
+      <td><code>(${p.u.toFixed(2)}, ${p.v.toFixed(2)})</code></td>
+      <td><b>${p.name}</b></td>
+      <td><code>${p.asset}</code></td>
+      <td>${p.cond}<br><small style="color:var(--muted)">${p.scale}</small></td>
+    </tr>`).join('');
+  drawMap(document.getElementById('bigCan'), m, true);
+  modal.classList.add('open');
+}
+document.getElementById('closeModal').onclick = () => modal.classList.remove('open');
+modal.onclick = e => { if (e.target === modal) modal.classList.remove('open'); };
+
+document.querySelectorAll('#filters button').forEach(b => {
+  b.onclick = () => {
+    document.querySelectorAll('#filters button').forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+    renderCards(b.dataset.f);
+  };
+});
+renderCards('all');
+</script>
+</body>
+</html>

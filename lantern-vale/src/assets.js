@@ -181,6 +181,43 @@ export const LANDMARK_FILES = {
   purple_crystal:   'assets/landmarks/purple_crystal.glb',
 };
 
+// Phase v6：33 套實查核對、已去底板／去現代汽車／去微小物之 Low Poly Locations 野外地標
+export const PALMOV_POIS = {
+  teapot_hill:      'assets/palmov_poi/teapot_hill.glb',
+  forest_waterfall: 'assets/palmov_poi/forest_waterfall.glb',
+  abandoned_house:  'assets/palmov_poi/abandoned_house.glb',
+  cemetery_church:  'assets/palmov_poi/cemetery_church.glb',
+  kraken_wreck:     'assets/palmov_poi/kraken_wreck.glb',
+  stilt_village:    'assets/palmov_poi/stilt_village.glb',
+  ski_resort:       'assets/palmov_poi/ski_resort.glb',
+  crystal_mountain: 'assets/palmov_poi/crystal_mountain.glb',
+  river_winter:     'assets/palmov_poi/river_winter.glb',
+  coal_mine:        'assets/palmov_poi/coal_mine.glb',
+  redrock_oasis:    'assets/palmov_poi/redrock_oasis.glb',
+  ancient_pagoda:   'assets/palmov_poi/ancient_pagoda.glb',
+  hot_springs:      'assets/palmov_poi/hot_springs.glb',
+  mountain_forest:  'assets/palmov_poi/mountain_forest.glb',
+  cliff_lighthouse: 'assets/palmov_poi/cliff_lighthouse.glb',
+  roman_ruins:      'assets/palmov_poi/roman_ruins.glb',
+  mountain_ship:    'assets/palmov_poi/mountain_ship.glb',
+  mountain_arch:    'assets/palmov_poi/mountain_arch.glb',
+  trade_port:       'assets/palmov_poi/trade_port.glb',
+  pirate_seaport:   'assets/palmov_poi/pirate_seaport.glb',
+  lighthouse_pier:  'assets/palmov_poi/lighthouse_pier.glb',
+  imperial_palace:  'assets/palmov_poi/imperial_palace.glb',
+  sakura_bridge:    'assets/palmov_poi/sakura_bridge.glb',
+  sea_torii_island: 'assets/palmov_poi/sea_torii_island.glb',
+  bamboo_tea:       'assets/palmov_poi/bamboo_tea.glb',
+  canyon_train:     'assets/palmov_poi/canyon_train.glb',
+  alpine_camp:      'assets/palmov_poi/alpine_camp.glb',
+  autumn_harvest:   'assets/palmov_poi/autumn_harvest.glb',
+  desert_oasis:     'assets/palmov_poi/desert_oasis.glb',
+  arab_castle:      'assets/palmov_poi/arab_castle.glb',
+  tropical_ruins:   'assets/palmov_poi/tropical_ruins.glb',
+  space_shuttle:    'assets/palmov_poi/space_shuttle.glb',
+  fantastic_planet: 'assets/palmov_poi/fantastic_planet.glb',
+};
+
 export const MONSTER_FILES = {
   plant_chewer:  'assets/monsters/plant_chewer.glb',
   golem_ice:     'assets/monsters/golem_ice.glb',
@@ -195,6 +232,16 @@ export const MONSTER_FILES = {
   werewolf:      'assets/monsters/werewolf.glb',
   black_knight:  'assets/monsters/black_knight.glb',
   specter:       'assets/monsters/specter.glb',
+  // Phase v6：9 隻專屬巨型野外 Boss 3D 實模
+  boss_sunflora:         'assets/monsters/boss_sunflora.glb',
+  boss_dragon_inferno:   'assets/monsters/boss_dragon_inferno.glb',
+  boss_hermit_king:      'assets/monsters/boss_hermit_king.glb',
+  boss_evil_mage:        'assets/monsters/boss_evil_mage.glb',
+  boss_wind_mage:        'assets/monsters/boss_wind_mage.glb',
+  boss_queen_worm:       'assets/monsters/boss_queen_worm.glb',
+  boss_snake_naga:       'assets/monsters/boss_snake_naga.glb',
+  boss_grim_reaper:      'assets/monsters/boss_grim_reaper.glb',
+  boss_dragon_nightfall: 'assets/monsters/boss_dragon_nightfall.glb',
 };
 
 const _glbCache = new Map();
@@ -267,6 +314,26 @@ export function attachLandmarkGlb(holder, key, fallbackObj, opts = {}) {
     if (!scene || !holder.parent) return;
     if (fallbackObj) holder.remove(fallbackObj);
     const { root } = bakePixelToonScene(scene, opts);
+    if (opts.scale) root.scale.setScalar(opts.scale);
+    if (opts.rotY) root.rotation.y = opts.rotY;
+    if (opts.yOffset) root.position.y = opts.yOffset;
+    holder.add(root);
+  });
+  return holder;
+}
+
+export function attachPalmovPoi(holder, key, fallbackObj, opts = {}) {
+  if (fallbackObj) holder.add(fallbackObj);
+  const url = PALMOV_POIS[key];
+  if (!url) return holder;
+  loadGlbAsset(url).then(scene => {
+    if (!scene || !holder.parent) return;
+    if (fallbackObj) holder.remove(fallbackObj);
+    const { root } = bakePixelToonScene(scene, {
+      emissive: 0x342e26,
+      emissiveIntensity: 0.26,
+      ...opts,
+    });
     if (opts.scale) root.scale.setScalar(opts.scale);
     if (opts.rotY) root.rotation.y = opts.rotY;
     if (opts.yOffset) root.position.y = opts.yOffset;

@@ -695,8 +695,21 @@ export function bindCharacters(game) {
       titleEl.classList.add('hide');
       $('hud')?.classList.remove('hide');
       setTimeout(() => {
-        game.dayTime = 0.36;
-        if (pv === 'field' || pv === 'vfx_demo') { game.enterTown?.(); game.enterField?.(1); }
+        game.dayTime = 0.50;
+        if (pv === 'field' || pv === 'vfx_demo') {
+          const fid = +(qs.get('fid') || 1);
+          game.enterTown?.(); game.enterField?.(fid);
+          const posQ = qs.get('pos');
+          if (posQ && game.player && game.world) {
+            const [pu, pv2] = posQ.split(',').map(Number);
+            if (Number.isFinite(pu) && Number.isFinite(pv2)) {
+              const wx = (pu - 0.5) * game.world.half * 2, wz = (pv2 - 0.5) * game.world.half * 2;
+              game.player.pos.set(wx, 0, wz); game.player.y = game.world.gh(wx, wz);
+              game.player.iframes = 999;
+              game.camPos?.set?.(wx, 0, wz);
+            }
+          }
+        }
         else game.enterTown?.();
         game.fade = 0;
         if (game.camZoom) game.camZoom = 0.85;
