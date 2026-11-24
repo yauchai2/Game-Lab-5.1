@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { part, toonMat, windMat, pondMat } from './world.js';
-import { attachLandmarkGlb, attachPalmovProp } from './assets.js';
+import { attachLandmarkGlb } from './assets.js';
 
 const M = (parts, opts = {}) => { const m = new THREE.Mesh(mergeGeometries(parts), opts.wind ? windMat({ vertexColors: true }, opts.wind) : toonMat({ vertexColors: true, ...opts })); m.castShadow = true; m.receiveShadow = true; return m; };
 const B = (w, h, d, c, x, y, z, rx = 0, ry = 0, rz = 0) => part(new THREE.BoxGeometry(w, h, d), c, x, y, z, rx, ry, rz);
@@ -273,67 +273,63 @@ export function buildTownScenery({ gh, rng }) {
   lane(-10.5, 0, -10.5, 6.5); lane(10.5, 0, 10.5, -5.5); lane(0, 14, 5, 14);
   g.add(M(stones));
 
-  const placePalmov = (key, fb, x, z, ry = 0, obs = 0, opts = {}) => {
+  const placeGlb = (key, fb, x, z, ry = 0, obs = 0, opts = {}) => {
     const holder = new THREE.Group();
     if (fb?.userData?.chimney) holder.userData.chimney = fb.userData.chimney;
     place(holder, x, z, ry, obs);
-    attachPalmovProp(holder, key, fb, { yOffset: -0.05, ...opts });
+    attachLandmarkGlb(holder, key, fb, { emissive: 0x3c342a, emissiveIntensity: 0.34, yOffset: -0.1, ...opts });
     return holder;
   };
-  // ---- 北：冒險者台地（Palmov 雙層木造公會大廳＋西北風車地標） ----
-  placePalmov('farm_barn', buildGuildHall(), L.guild[0], L.guild[1], PX, 0, { scale: 1.05 }); boxObs(L.guild[0], L.guild[1], 4.8, 6.0);
-  placePalmov('farm_windmill', null, -18.5, -15.5, 0.45, 2.4, { scale: 1.0 });
+  // ---- 北：冒險者台地（4137 公會鐘樓大廳） ----
+  placeGlb('bell_tower', buildGuildHall(), L.guild[0], L.guild[1], PX, 0, { scale: 1.05 }); boxObs(L.guild[0], L.guild[1], 4.8, 6.0);
   place(banner(0xe0553c), -3.0, -17.2, 0, 0.3); place(banner(0xe0553c), 4.0, -17.2, Math.PI, 0.3);
   // ---- 東北：祭壇石台 ----
   place(altarStage(), L.altar[0], L.altar[1], 0, 0);
   for (const [x, z] of [[-1.8, -1.8], [1.8, -1.8], [-1.8, 1.8], [1.8, 1.8]]) obstacles.push({ x: L.altar[0] + x, z: L.altar[1] + z, r: 0.35, h: 0 });
-  // ---- 西：生活區（Palmov 溫馨雙層酒館＋古石水井） ----
-  placePalmov('village_house_4', buildTavern(), L.tavern[0], L.tavern[1], PX, 0, { scale: 1.05 }); boxObs(L.tavern[0], L.tavern[1], 4.6, 6.4);
+  // ---- 西：生活區（4137 奇幻酒館主屋＋古石水井） ----
+  placeGlb('cottage_b', buildTavern(), L.tavern[0], L.tavern[1], PX, 0, { scale: 1.25 }); boxObs(L.tavern[0], L.tavern[1], 4.6, 6.4);
   place(buildTable(0xe0553c), -10.2, -8.6, 0, 1.0); place(buildTable(0x58a0e0), -10.2, -2.6, 0, 1.0);
-  placePalmov('well', well(), L.well[0], L.well[1], 0, 1.1, { scale: 1.0 });
+  placeGlb('town_well', well(), L.well[0], L.well[1], 0, 1.1, { scale: 1.0 });
   const bed = (x, z, w, d) => { const p = [B(w, 0.22, d, 0xb0a89a, x, 0.11, z), B(w - 0.3, 0.26, d - 0.3, 0x6a8f3a, x, 0.13, z)]; for (let k = 0; k < 30; k++) p.push(part(new THREE.IcosahedronGeometry(0.08 + r() * 0.05, 0), [0xfff1f4, 0xffffff, 0xffe27a, 0xffb3c9][(r() * 4) | 0], x + (r() - .5) * (w - 0.6), 0.34, z + (r() - .5) * (d - 0.6))); const m = M(p); m.position.y = gh(x, z); g.add(m); boxObs(x, z, w, d); };
   bed(-14.6, 10.6, 3.2, 1.4); bed(-4.2, 10, 1.6, 3.2); bed(4.2, 10, 1.6, 3.2);
-  placePalmov('village_fence', picketFence(4.4), -14.2, 3.4, 0, 0, { scale: 1.1 }); boxObs(-14.2, 3.4, 4.4, 0.3);
-  // ---- 東：工匠街（Palmov 鍛造木屋＋三座彩色市集帳篷攤販） ----
-  placePalmov('wooden_house_2', buildCottage(0xe0553c, 0xf6ebd0, 4.2, 3.4, 1), 16.8, -5.5, -PX, 0, { scale: 1.05 }); boxObs(16.8, -5.5, 3.6, 4.4);
-  [[11.6, 4.6, 'food_tent_1', 0xe0553c], [14.8, 4.6, 'food_tent_2', 0x58a0e0]].forEach(([x, z, pk, c]) => placePalmov(pk, stall(c), x, z, Math.PI, 1.4, { scale: 0.72 }));
-  placePalmov('barrel', crates(), 16.6, 3.2, 0.4, 0.9, { scale: 1.15 });
-  placePalmov('box', null, 17.4, 2.5, 0.9, 0.6, { scale: 1.05 });
-  // ---- 民宅：街道兩端與邊緣，統一 Palmov 低面村落木屋群 ----
+  place(picketFence(4.4), -14.2, 3.4, 0, 0); boxObs(-14.2, 3.4, 4.4, 0.3);
+  // ---- 東：工匠街（4137 正牌鐵匠工坊主屋） ----
+  placeGlb('town_blacksmith', buildCottage(0xe0553c, 0xf6ebd0, 4.2, 3.4, 1), 16.8, -5.5, -PX, 0, { scale: 1.05 }); boxObs(16.8, -5.5, 3.6, 4.4);
+  [[11.6, 4.6, 0xe0553c], [14.8, 4.6, 0x58a0e0]].forEach(([x, z, c]) => place(stall(c), x, z, Math.PI, 1.4));
+  place(crates(), 16.6, 3.2, 0.4, 0.9);
+  // ---- 民宅：街道兩端與邊緣，多元 4137 低面木屋群 ----
   const homes = [
-    [-19, 0, PX, 0xffb840, 3.6, 3.2, 2, 'village_house_1'],
-    [19, 0, -PX, 0x58a0e0, 3.6, 3.2, 2, 'village_house_2'],
-    [15.5, -12, -PX, 0xe0553c, 3.6, 3.0, 2, 'village_house_3'],
-    [13, 10.5, -PX, 0x5aae60, 3.4, 3.0, 1, 'farm_house'],
-    [-15.5, -12.5, PX, 0x5aae60, 3.2, 2.8, 1, 'village_house_5'],
+    [-19, 0, PX, 0xffb840, 3.6, 3.2, 2, 'cottage_c'],
+    [19, 0, -PX, 0x58a0e0, 3.6, 3.2, 2, 'cottage_b'],
+    [15.5, -12, -PX, 0xe0553c, 3.6, 3.0, 2, 'cottage'],
+    [13, 10.5, -PX, 0x5aae60, 3.4, 3.0, 1, 'forest_cabin'],
+    [-15.5, -12.5, PX, 0x5aae60, 3.2, 2.8, 1, 'cottage'],
   ];
-  homes.forEach(([x, z, ry, roof, w, d, fl, pk]) => {
-    placePalmov(pk, buildCottage(roof, 0xf6ebd0, w, d, fl), x, z, ry, 0, { scale: fl > 1 ? 1.0 : 0.95 });
+  homes.forEach(([x, z, ry, roof, w, d, fl, glbKey]) => {
+    placeGlb(glbKey, buildCottage(roof, 0xf6ebd0, w, d, fl), x, z, ry, 0, { scale: fl > 1 ? 1.05 : 0.95 });
     boxObs(x, z, d + 0.4, w + 0.4);
   });
-  // ---- 南：碼頭區（Palmov 漁市帳篷＋木屋＋海岸燈塔與停泊木船） ----
-  placePalmov('food_tent_3', fishStall(), 5.2, 15.4, Math.PI, 1.3, { scale: 0.92 });
-  placePalmov('wooden_house_1', null, 9.2, 16.2, -0.5, 2.4, { scale: 0.92 });
-  placePalmov('ship_dock', null, -9.2, 23.2, 0.45, 0, { scale: 0.95, yOffset: -0.45 });
-  placePalmov('fishing_boat', null, 9.5, 23.0, -0.55, 0, { scale: 1.0, yOffset: -0.35 });
-  placePalmov('box', crates(), -3.6, 17.2, 0.2, 0.9, { scale: 1.1 });
-  placePalmov('barrel', null, -4.6, 16.5, 0.6, 0.6, { scale: 1.1 });
-  placePalmov('lighthouse', lighthouse(), L.lighthouse[0], L.lighthouse[1], -0.4, 2.2, { scale: 0.95 });
+  // ---- 南：碼頭區（4137 漁夫小屋＋4379 海岸燈塔與停泊帆船） ----
+  place(fishStall(), 5.2, 15.4, Math.PI, 1.3);
+  placeGlb('fishing_hut', null, 8.8, 16.5, -0.5, 2.4, { scale: 0.95 });
+  placeGlb('pirate_boat', null, -8.5, 22.8, 0.4, 0, { scale: 0.9, yOffset: -0.25, emissive: 0x48382c, emissiveIntensity: 0.38 });
+  place(crates(), -3.6, 17.2, 0.2, 0.9); place(fishingNet(), -5.6, 15.2, 0.3, 0.6);
+  placeGlb('lighthouse', lighthouse(), L.lighthouse[0], L.lighthouse[1], -0.4, 2.2, { scale: 0.85, emissive: 0x5c5246, emissiveIntensity: 0.48 });
   // ---- 西南：牧場 ----
   place(fenceRing(3.4), L.pasture[0], L.pasture[1], 0, 0);
   for (let i = 0; i < 22; i++) { if (i === 5 || i === 6) continue; const a = i / 22 * 6.283; obstacles.push({ x: L.pasture[0] + Math.cos(a) * 3.4, z: L.pasture[1] + Math.sin(a) * 3.4, r: 0.3, h: 0 }); }
-  // ---- 街燈：沿主街與橫街，統一 Palmov 復古路燈 ----
-  [[-2.7, -11], [2.7, -11], [-2.7, -16], [2.7, -16], [-2.7, 11], [2.7, 11], [-2.7, 16.5], [2.7, 16.5], [-11.5, -2.2], [-11.5, 2.2], [11.5, -2.2], [11.5, 2.2]].forEach(([x, z]) => placePalmov('lamppost', lampPost(), x, z, x < 0 ? Math.PI / 2 : -Math.PI / 2, 0.25, { scale: 1.0 }));
-  // ---- 廣場：Palmov 木長椅、布告欄、倉庫、花盆 ----
+  // ---- 街燈：沿主街與橫街，兩側對稱 ----
+  [[-2.7, -11], [2.7, -11], [-2.7, -16], [2.7, -16], [-2.7, 11], [2.7, 11], [-2.7, 16.5], [2.7, 16.5], [-11.5, -2.2], [-11.5, 2.2], [11.5, -2.2], [11.5, 2.2]].forEach(([x, z]) => place(lampPost(), x, z, 0, 0.25));
+  // ---- 廣場：長椅、布告欄、倉庫、花盆 ----
   const spots = [];
-  [[-5.6, 3.4], [5.6, 3.4], [-3.4, 5.6], [3.4, 5.6]].forEach(([x, z]) => { const ry = faceCenter(x, z); placePalmov('bench', bench(), x, z, ry, 0.65, { scale: 0.46 }); spots.push({ x, z, kind: 'sit', label: '坐下休憩（回復生命與法力）', top: 1.5, facing: ry }); });
+  [[-5.6, 3.4], [5.6, 3.4], [-3.4, 5.6], [3.4, 5.6]].forEach(([x, z]) => { const ry = faceCenter(x, z); place(bench(), x, z, ry, 0.65); spots.push({ x, z, kind: 'sit', label: '坐下休憩（回復生命與法力）', top: 1.5, facing: ry }); });
   [[-6.6, -2.4], [6.6, -2.4]].forEach(([x, z], i) => place(planter(0, 0, i ? [0xffd45a, 0xff8fb0] : [0xff8fb0, 0xffffff]), x, z, 0, 0.5));
   spots.push({ x: L.well[0], z: L.well[1], kind: 'well_drink', label: '汲取甘泉（補滿蜜藥瓶）', top: 2.3 });
   spots.push({ x: 0, z: -1, kind: 'fountain_wish', label: '許願噴泉（投 1 金幣獲得祝福）', top: 2.3 });
-  // ---- 植被：統一 Palmov 綠樹／秋楓／冷杉／櫻花樹 ----
-  [[-20.5, -6], [-21, 6], [20.5, -7], [21, 6.5], [-17.5, 10.5], [17.5, 12.5], [-8, -17.5], [8.5, -18], [-12.5, -16.5], [13, -16.5], [-19, 13]].forEach(([x, z], i) => placePalmov(i % 3 === 0 ? 'tree_autumn' : 'tree_green', roundTree(1.0), x, z, i * 1.1, 0.6, { scale: 0.92 + (i % 3) * 0.1 }));
-  [[-5.5, -20.5], [5.5, -20.5], [-10, -20], [10.5, -20], [-15, -18.5], [16, -18.5], [-22, -1], [22.5, 0.5]].forEach(([x, z], i) => placePalmov('tree_pine', cypress(1.3), x, z, i * 0.8, 0.45, { scale: 0.95 + (i % 3) * 0.1 }));
-  placePalmov('tree_sakura', blossom(), -17.5, -8.5, 0.4, 0.6, { scale: 1.0 }); placePalmov('tree_sakura', blossom(0xf7b0cf), 9.5, 13.5, 1.8, 0.6, { scale: 1.0 });
+  // ---- 植被：只在外圍與岩壁上（圓潤闊葉樹為主，柏樹當背景，2 棵櫻花點綴） ----
+  [[-20.5, -6], [-21, 6], [20.5, -7], [21, 6.5], [-17.5, 10.5], [17.5, 12.5], [-8, -17.5], [8.5, -18], [-12.5, -16.5], [13, -16.5], [-19, 13]].forEach(([x, z], i) => place(roundTree(1.0 + (i % 3) * 0.15), x, z, i, 0.6));
+  [[-5.5, -20.5], [5.5, -20.5], [-10, -20], [10.5, -20], [-15, -18.5], [16, -18.5], [-22, -1], [22.5, 0.5]].forEach(([x, z], i) => place(cypress(1.3 + (i % 3) * 0.25), x, z, 0, 0.45));
+  place(blossom(), -17.5, -8.5, 0, 0.6); place(blossom(0xf7b0cf), 9.5, 13.5, 0, 0.6);
   const spot = (o, x, z, ry, kind, label, rr = 1.1) => { place(o, x, z, ry, rr); spots.push({ x, z, kind, label, top: o.userData.top, o }); };
   spot(buildBoard(), L.board[0], L.board[1], faceCenter(L.board[0], L.board[1]), 'quest', '任務布告欄', 1.2);
   spot(buildForge(), L.forge[0], L.forge[1], -PX, 'forge', '鐵匠鋪', 1.5);

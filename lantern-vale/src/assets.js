@@ -392,10 +392,8 @@ export function preloadNatureAssets(onReady) {
   // Node.js 測試環境或本機 file:// 開啟時自動採用內建程序化幾何體，避免 CORS 報錯
   if (typeof window === 'undefined' || window.location?.protocol === 'file:') return;
 
-  // 預載 Phase W1–W2 主城 Palmov 統一低多邊形道具與最常用怪物實模，進入主城即刻無縫呈現
-  for (const k of ['fountain', 'well', 'farm_barn', 'village_house_1', 'village_house_2', 'village_house_3', 'village_house_4', 'village_house_5', 'wooden_house_1', 'wooden_house_2', 'farm_house', 'farm_windmill', 'lighthouse', 'food_tent_1', 'food_tent_2', 'food_tent_3', 'lamppost', 'bench', 'ship_dock', 'fishing_boat', 'tree_green', 'tree_autumn', 'tree_pine', 'tree_sakura']) {
-    if (PALMOV_PROPS[k]) loadGlbAsset(PALMOV_PROPS[k]);
-  }
+  // 預載主城原版低面實模（總計 < 250KB）與最常用怪物實模，進入主城即刻無縫呈現
+  for (const k of ['bell_tower', 'town_well', 'fishing_hut', 'town_blacksmith', 'cottage', 'cottage_b', 'cottage_c']) loadGlbAsset(LANDMARK_FILES[k]);
   for (const k of ['plant_chewer', 'golem_ice', 'golem_fire', 'beholder']) loadGlbAsset(MONSTER_FILES[k]);
 
   const loader = new GLTFLoader();

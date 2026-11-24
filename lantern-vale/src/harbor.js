@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { part, toonMat } from './world.js';
-import { attachLandmarkGlb, attachPalmovProp } from './assets.js';
+import { attachLandmarkGlb } from './assets.js';
 import { buildHouse, buildStall } from './models.js';
 import { mulberry32 } from './util.js';
 
@@ -118,56 +118,51 @@ export function buildHarborTown(g) {
     return holder;
   };
 
-  const placePalmov = (key, fb, x, z, ry = 0, opts = {}) => {
-    const holder = new THREE.Group();
-    holder.position.set(x, 0, z);
-    holder.rotation.y = ry;
-    grp.add(holder);
-    attachPalmovProp(holder, key, fb, { yOffset: -0.05, ...opts });
-    return holder;
-  };
-
-  // 海港燈塔（Palmov 統一低多邊形海港燈塔）
-  placePalmov('lighthouse', null, -9.5, -5.5, -0.35, { scale: 1.0 });
+  // 海港燈塔（4379 實模海港燈塔）
+  const lh = new THREE.Mesh(mergeGeometries([
+    part(new THREE.CylinderGeometry(1.1, 1.5, 2.2, 10), 0xfff5e0, 0, 1.1, 0),
+    part(new THREE.CylinderGeometry(0.95, 1.1, 1.8, 10), 0xd94f42, 0, 3.1, 0),
+    part(new THREE.CylinderGeometry(0.85, 0.95, 1.8, 10), 0xfff5e0, 0, 4.9, 0),
+    part(new THREE.ConeGeometry(1.05, 1.1, 8), 0xd94f42, 0, 6.4, 0),
+  ]), toonMat({ vertexColors: true }));
+  lh.castShadow = true;
+  placeGlb('lighthouse', lh, -9.5, -5.5, -0.35, { scale: 0.88, emissive: 0x5c5246, emissiveIntensity: 0.48 });
   obs.push({ x: -9.5, z: -5.5, r: 1.8, h: 0 });
 
-  // 海濱倉庫、海鷗造型工坊與漁市帳篷（全套 Palmov 統一海港建築群）
-  placePalmov('wooden_house_2', buildHouse(0x4b7ea8, 0xf4e8ce, 3.8, 3.0), 8.5, -4.5, -0.4, { scale: 1.0 });
+  // 海濱倉庫（4379 高腳度假木屋）、海鷗造型工坊（4379 海島屋）與漁港小屋（4137）
+  const warehouse = buildHouse(0x4b7ea8, 0xf4e8ce, 3.8, 3.0);
+  placeGlb('beach_house', warehouse, 8.5, -4.5, -0.4, { scale: 0.95 });
   addBox(8.5, -4.5, 2.0, 1.6);
 
-  placePalmov('village_house_2', buildHouse(0xe0785a, 0xfff2dc, 3.2, 2.8), -8.5, 4.0, 0.45, { scale: 0.95 });
+  const tailor = buildHouse(0xe0785a, 0xfff2dc, 3.2, 2.8);
+  placeGlb('island_house', tailor, -8.5, 4.0, 0.45, { scale: 0.95 });
   addBox(-8.5, 4.0, 1.7, 1.5);
 
-  placePalmov('food_tent_1', buildStall(0x3ca6b8), 7.5, 4.5, -0.4, { scale: 0.72 });
+  const fishStall = buildStall(0x3ca6b8);
+  fishStall.position.set(7.5, 0, 4.5); fishStall.rotation.y = -0.4; grp.add(fishStall);
   addBox(7.5, 4.5, 1.3, 0.8);
-  placePalmov('wooden_house_1', null, 11.8, 5.8, -0.65, { scale: 0.95 });
+  placeGlb('fishing_hut', null, 11.8, 5.8, -0.65, { scale: 0.95 });
   addBox(11.8, 5.8, 2.0, 1.8);
 
-  // 港灣路燈、長椅、營火與停泊帆船／漁船
-  [[-3.2, 12.0], [3.2, 12.0], [-4.5, 1.5], [4.5, 1.5]].forEach(([lx, lz]) => {
-    placePalmov('lamppost', null, lx, lz, lx < 0 ? Math.PI / 2 : -Math.PI / 2, { scale: 1.0 });
-    obs.push({ x: lx, z: lz, r: 0.25, h: 0 });
-  });
-  placePalmov('bonfire', null, 0, 2.2, 0, { scale: 0.95 });
-  obs.push({ x: 0, z: 2.2, r: 0.7, h: 0 });
-  placePalmov('bench', null, -2.5, 3.8, 0.6, { scale: 0.46 });
-  placePalmov('bench', null, 2.5, 3.8, -0.6, { scale: 0.46 });
-
-  // 熱帶椰子樹與停泊近海的 Palmov 帆船／漁船
+  // 熱帶椰子樹與停泊近海的港灣帆船
   [[-13.5, 8.5, 0.3], [-4.5, 12.2, 1.4], [12.5, 11.8, -0.8], [14.0, -2.5, 2.1]].forEach(([cx, cz, ry]) => {
     placeGlb('coconut_tree', null, cx, cz, ry, { scale: 1.05, emissive: 0x38482c, emissiveIntensity: 0.38 });
     obs.push({ x: cx, z: cz, r: 0.7, h: 0 });
   });
-  placePalmov('ship_dock', null, -8.8, 22.0, 0.5, { scale: 0.98, yOffset: -0.45 });
-  placePalmov('fishing_boat', null, 9.5, 21.0, -0.7, { scale: 1.05, yOffset: -0.35 });
+  placeGlb('pirate_boat', null, -8.2, 22.0, 0.5, { scale: 1.05, yOffset: -0.25 });
+  placeGlb('pirate_boat', null, 9.5, 21.0, -0.7, { scale: 0.95, yOffset: -0.25 });
 
-  // 海濱彩色帳篷與木桶貨箱
-  [[-3.8, 6.8, 'camp_tent_red'], [4.2, 6.8, 'camp_tent_blue'], [10.5, 8.5, 'camp_tent_yellow']].forEach(([ux, uz, tk]) => {
-    placePalmov(tk, null, ux, uz, ux < 0 ? 0.4 : -0.4, { scale: 0.95 });
-    obs.push({ x: ux, z: uz, r: 0.9, h: 0 });
+  // A Short Hike 風格彩色沙灘遮陽傘與野餐桌
+  const umbrellaCols = [0xf26457, 0x3fa7d6, 0xf6c244];
+  [[-3.8, 6.2], [4.2, 6.6], [10.5, 8.5]].forEach(([ux, uz], i) => {
+    const umb = new THREE.Mesh(mergeGeometries([
+      part(new THREE.CylinderGeometry(0.06, 0.06, 2.2, 6), 0x8a5a3b, 0, 1.1, 0),
+      part(new THREE.ConeGeometry(1.35, 0.55, 8), umbrellaCols[i % 3], 0, 2.2, 0),
+    ]), toonMat({ vertexColors: true }));
+    umb.position.set(ux, 0, uz); umb.castShadow = true;
+    grp.add(umb);
+    obs.push({ x: ux, z: uz, r: 0.45, h: 0 });
   });
-  placePalmov('barrel', null, 5.2, 3.4, 0.3, { scale: 1.1 });
-  placePalmov('box', null, 6.0, 2.8, 0.8, { scale: 1.0 });
 
   const spots = [
     { kind: 'ferry_town', label: '登船返航燈谷鎮（碼頭啟航）', x: 0, z: 26.2, top: 2.8 },
