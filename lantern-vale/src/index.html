@@ -607,215 +607,193 @@ body.photo-mode #hud > *:not(#photoBadge){opacity:0!important;pointer-events:non
 #pcard .pc-xp{box-shadow:0 0 0 2px #3b2a2a;background:rgba(59,42,42,.55)}
 
 /* ==========================================================================
-   Phase U4：全遊戲統一風格（暖木羊皮紙冒險手帳 · Warm Wood & Cream Parchment）
-   對齊角色選擇頁／木屋換裝間：圓潤手感、核桃木邊框、奶油紙卡、清晰柔順字體
+   Phase U4b：全遊戲統一「A Short Hike 溫馨像素風」UI 系統
+   涵蓋：角色選擇頁、木屋換裝間、遊戲內 HUD、背包、技能拼圖、世界星圖、設定與百科
+   特色：階梯像素硬框（--box / --boxsh）、奶油紙底、深棕暖木條、一點像素標題字體
    ========================================================================== */
 :root{
-  --ui-wood:#5c3a24; --ui-wood-dark:#3b2a2a; --ui-wood-soft:#8a6446;
-  --ui-cream:#fff8e8; --ui-parchment:#f7e7c4; --ui-card:#fffaf0; --ui-card-b:#d4bc94;
-  --ui-cta:#e06a3b; --ui-ok:#72be44; --ui-alt:#5b72b5; --ui-gold:#ffd85a;
-  --ui-sh:0 4px 0 #3b2a2a, 0 8px 18px rgba(43,24,14,.22);
-  --ui-sh-sm:0 3px 0 #3b2a2a;
+  --ui-wood:#5a3826; --ui-wood-dark:#3b2a2a; --ui-wood-soft:#7a5a46;
+  --ui-cream:#fff8e4; --ui-parchment:#f1dfb8; --ui-card:#fffdf4; --ui-card-b:#7a5a46;
+  --ui-cta:#e8734a; --ui-ok:#58a858; --ui-alt:#5872a8; --ui-gold:#ffcf4a;
+  --px:3px;
+  --box: 0 calc(-1*var(--px)) 0 0 var(--ui-wood-dark), 0 var(--px) 0 0 var(--ui-wood-dark), calc(-1*var(--px)) 0 0 0 var(--ui-wood-dark), var(--px) 0 0 0 var(--ui-wood-dark);
+  --boxsh: var(--box), 0 calc(2*var(--px)) 0 0 #2b1d33, calc(-1*var(--px)) var(--px) 0 0 #2b1d33, var(--px) var(--px) 0 0 #2b1d33;
 }
-html,body{image-rendering:auto;-webkit-font-smoothing:antialiased;font-smooth:auto;color:var(--ui-wood-dark)}
+html,body{image-rendering:auto;-webkit-font-smoothing:antialiased;color:var(--ui-wood-dark)}
 #view,#regionMapCanvas,#pcFeather,.pc-bar canvas{image-rendering:pixelated}
 
-/* 統一按鈕與關閉鈕 */
-.btn{
-  background:var(--ui-cta)!important;color:#fffdf6!important;
-  border:2.5px solid var(--ui-wood-dark)!important;border-radius:12px!important;
-  box-shadow:var(--ui-sh-sm)!important;font-weight:800;
-  text-shadow:0 1px 0 rgba(59,42,42,.55);margin:0!important;
-  transition:transform .12s ease,box-shadow .12s ease,filter .12s ease;
+/* 一點像素風標題與數值字體（保持繁體正文清晰可讀，標題／徽章／數字帶像素韻味） */
+#title h1,.sb-tape,.du-head h2,.cr-pill,.hero-pin-btn,.modal h2,.cx-title,#worldMap h2,.setp h3,#inv h3,.pzp h3,#pcard .pc-name,#pcard .pc-num,#pcard .pc-por b,#boss .name,.sb-st-val{
+  font-family:var(--font-pixel)!important;letter-spacing:.04em;
 }
-.btn:hover{transform:translateY(-2px);box-shadow:0 5px 0 var(--ui-wood-dark)!important;filter:brightness(1.04)}
-.btn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--ui-wood-dark)!important}
-.btn.small{font-size:13.5px!important;padding:6px 14px!important;border-radius:10px!important}
-.btn.small.on{background:var(--ui-ok)!important;color:#fff!important}
-#btnOpenDressup{background:var(--ui-alt)!important;color:#fffdf6!important}
+
+/* 全面去圓角軟陰影，統一階梯像素硬框 */
+.panel,.cx-box,#worldMap,.setp,.pzp{
+  background:var(--ui-cream)!important;color:var(--ui-wood-dark)!important;
+  border:0!important;border-radius:0!important;box-shadow:var(--boxsh)!important;
+  margin:var(--px)!important;
+}
+#worldMap{margin:auto!important;padding:12px 16px!important}
+.modal{background:rgba(36,24,38,.62);backdrop-filter:none}
+.modal h2{color:var(--ui-cream);text-shadow:0 3px 0 var(--ui-wood-dark),3px 0 0 var(--ui-wood-dark),-3px 0 0 var(--ui-wood-dark),0 -3px 0 var(--ui-wood-dark)}
+#worldMap::backdrop{background:rgba(36,24,38,.62)}
+
+/* 統一像素階梯按鈕 */
+.btn,.modal-x,.map-close,.cr-ov-btn,.du-foot button{
+  border:0!important;border-radius:0!important;box-shadow:var(--boxsh)!important;
+  font-weight:700;cursor:pointer;transition:transform .08s steps(2);
+}
+.btn{background:var(--ui-cta)!important;color:#fff8e4!important;text-shadow:0 2px 0 var(--ui-wood-dark);margin:var(--px)!important}
+.btn:hover{transform:translateY(-2px);filter:brightness(1.06)}
+.btn:active{transform:translateY(2px)}
+.btn.small{font-size:13.5px!important;padding:5px 12px!important}
+.btn.small.on{background:var(--ui-ok)!important;color:#fff8e4!important}
+#btnOpenDressup,.du-btn-fav{background:var(--ui-alt)!important;color:#fff8e4!important;text-shadow:0 2px 0 var(--ui-wood-dark)}
+.du-btn-rnd{background:var(--ui-gold)!important;color:var(--ui-wood-dark)!important;text-shadow:none!important}
+.du-btn-save{background:var(--ui-ok)!important;color:#fff8e4!important;text-shadow:0 2px 0 #264d26!important}
+.modal-x,.map-close{background:var(--ui-parchment)!important;color:var(--ui-wood-dark)!important;box-shadow:var(--box)!important}
+.modal-x:hover,.map-close:hover{background:#d9543a!important;color:#fff8e4!important}
 .pz-presets .btn.small:not(.on),.pz-tab-row .btn.small:not(.on),.pz-flt-row .btn.small:not(.on),.pz-tools .btn.small:not(#pzAuto){
-  background:var(--ui-cream)!important;color:var(--ui-wood-dark)!important;text-shadow:none!important;border-color:var(--ui-wood-soft)!important;
+  background:var(--ui-parchment)!important;color:var(--ui-wood-dark)!important;text-shadow:none!important;box-shadow:var(--box)!important;
 }
 .pz-presets .btn.small:not(.on):hover,.pz-tab-row .btn.small:not(.on):hover,.pz-flt-row .btn.small:not(.on):hover,.pz-tools .btn.small:not(#pzAuto):hover{
-  background:#fff2c8!important;border-color:var(--ui-wood)!important;
+  background:var(--ui-gold)!important;
 }
-.pitem b,.eq-mini b{text-shadow:none!important;font-weight:900;color:var(--ui-wood-dark)}
-.cr-top-right .btn.small{background:var(--ui-cream)!important;color:var(--ui-wood-dark)!important;text-shadow:none!important;border-color:var(--ui-wood)!important}
-.cr-top-right .btn.small:hover{background:var(--ui-gold)!important}
-.modal-x,.map-close{
-  border:2.5px solid var(--ui-wood)!important;border-radius:10px!important;
-  background:var(--ui-cream)!important;color:var(--ui-wood-dark)!important;
-  box-shadow:0 2px 0 var(--ui-wood-dark)!important;font-weight:900;
-}
-.modal-x:hover,.map-close:hover{background:#e05a46!important;color:#fff!important}
 
-/* 統一所有視窗面板：冒險手帳暖木雙層框 */
-.panel,.cx-box,#worldMap,.setp,.pzp{
+/* 統一所有頁籤列（背包／設定／百科／地圖／換裝間） */
+.inv-tabs button,.stabs button,.cx-tab,.map-layer-btn,.scales button,.du-tab{
   background:var(--ui-parchment)!important;color:var(--ui-wood-dark)!important;
-  border:4px solid var(--ui-wood)!important;border-radius:16px!important;
-  box-shadow:0 8px 0 var(--ui-wood-dark),inset 0 0 0 3px var(--ui-cream),0 16px 32px rgba(36,20,10,.34)!important;
-  margin:0!important;
+  border:0!important;border-radius:0!important;box-shadow:var(--box)!important;
+  margin:3px!important;font-weight:700;cursor:pointer;
 }
-#worldMap{margin:auto!important}
-.modal{background:rgba(42,28,20,.56);backdrop-filter:blur(4px)}
-.modal h2{color:var(--ui-cream);text-shadow:0 3px 0 var(--ui-wood-dark),0 6px 16px rgba(0,0,0,.35)}
-#worldMap::backdrop{background:rgba(42,28,20,.58);backdrop-filter:blur(4px)}
-
-/* 統一頁籤列（背包／設定／百科／地圖分層） */
-.inv-tabs button,.stabs button,.cx-tab,.map-layer-btn,.scales button{
-  background:#efe2c6!important;color:var(--ui-wood)!important;
-  border:2px solid var(--ui-card-b)!important;border-radius:10px!important;
-  box-shadow:0 2px 0 rgba(59,42,42,.22)!important;font-weight:800;margin:0!important;
-  transition:transform .12s,background .12s,border-color .12s;
-}
-.inv-tabs button:hover,.stabs button:hover,.cx-tab:hover,.map-layer-btn:hover{background:#fff4d4!important;border-color:var(--ui-wood-soft)!important}
-.inv-tabs button.on,.stabs button.on,.cx-tab.on,.map-layer-btn.on,.scales button.on{
-  background:var(--ui-gold)!important;color:var(--ui-wood-dark)!important;
-  border-color:var(--ui-wood)!important;box-shadow:0 2px 0 var(--ui-wood-dark)!important;
-  transform:translateY(-1px);
+.inv-tabs button.on,.stabs button.on,.cx-tab.on,.map-layer-btn.on,.scales button.on,.du-tab.on{
+  background:var(--ui-gold)!important;color:var(--ui-wood-dark)!important;transform:translateY(-2px);
 }
 
-/* 統一內部卡片（道具、天賦、坐騎、百科、拼圖寶石、外觀） */
-.card,.soul-card,.atlas-card,.cx-card,.cx-log-card,.cx-donate,.mount-card,.eq-mini,.pz-gem,.cos-btn,.pitem,.slot,.heir{
-  background:var(--ui-card)!important;color:var(--ui-wood-dark)!important;
-  border:2px solid var(--ui-card-b)!important;border-radius:12px!important;
-  box-shadow:0 3px 0 rgba(59,42,42,.18)!important;
-}
-.card{border:3px solid var(--ui-wood)!important;border-radius:16px!important;box-shadow:0 6px 0 var(--ui-wood-dark)!important}
-.card:hover{outline:3px solid var(--ui-gold);outline-offset:2px;background:#fffdf6!important}
-.card:hover:before{display:none}
-.bicon{border:2.5px solid var(--ui-wood)!important;border-radius:50%!important;box-shadow:0 3px 0 rgba(59,42,42,.3)!important}
-.soul-card.on,.atlas-card.on,.mount-card.on,.pz-gem.on,.cos-btn.on{
-  border-color:#5ca842!important;background:#f4ffe8!important;
-  outline:2px solid rgba(92,168,66,.35)!important;
-}
-.atlas-bar{background:var(--ui-wood)!important;color:var(--ui-cream)!important;border-radius:10px!important}
-.pz-grid{background:var(--ui-wood)!important;border:3px solid var(--ui-wood-dark)!important;border-radius:12px!important;box-shadow:inset 0 2px 6px rgba(0,0,0,.25)!important;padding:8px!important}
-.pz-cell{border-radius:6px!important}
-.pz-info{background:var(--ui-cream)!important;border:2px solid var(--ui-card-b)!important;border-left:4px solid var(--ui-cta)!important;border-radius:10px!important}
-.pz-shop-item{background:var(--ui-card)!important;border:2px solid var(--ui-card-b)!important;border-radius:10px!important;padding:8px 10px!important}
-.pz-mini{background:var(--ui-wood)!important;border-radius:5px!important}
-.phys-cv{border:3px solid var(--ui-wood)!important;border-radius:12px!important}
-.slotname{background:var(--ui-wood)!important;color:var(--ui-cream)!important;border-radius:8px!important}
-.chip{background:#efe2ff!important;border:2px solid var(--ui-wood-soft)!important;border-radius:999px!important;box-shadow:none!important}
-.cx-ic{background:var(--ui-parchment)!important;border:1.5px solid var(--ui-card-b);border-radius:10px!important}
-#cxSearch,.map-search,#chatIn{
-  background:var(--ui-card)!important;color:var(--ui-wood-dark)!important;
-  border:2px solid var(--ui-wood-soft)!important;border-radius:10px!important;box-shadow:none!important;
-}
-.srow:hover{background:rgba(255,216,90,.28);border-radius:8px}
-.arr.wide{background:var(--ui-cream)!important;border:2px solid var(--ui-card-b)!important;border-radius:8px!important;box-shadow:0 2px 0 rgba(59,42,42,.2)!important}
-.kb{background:var(--ui-wood)!important;color:var(--ui-cream)!important;border-radius:6px!important;padding:1px 8px!important}
-
-/* 統一遊戲內 HUD：暖木框＋奶油羊皮紙風格（不再是深暗色塊） */
-#topbar,#fieldCompass,#fieldTarget,.mute,#photoBadge{
-  background:rgba(255,248,232,.94)!important;color:var(--ui-wood-dark)!important;
-  border:2.5px solid var(--ui-wood)!important;border-radius:12px!important;
-  box-shadow:var(--ui-sh-sm)!important;font-weight:800;
-}
-#topbar{padding:5px 14px!important;gap:10px!important}
-#topbar #coinInfo{color:#b86e00!important}#topbar #shardInfo{color:#8a4eb8!important}#topbar #killInfo{color:#c84b2c!important}
-#dayInfo{background:var(--ui-parchment)!important;color:var(--ui-wood)!important;border:1.5px solid var(--ui-card-b)!important;border-radius:8px!important;padding:1px 8px!important;font-weight:800}
-#mealInfo{background:#e2f6d8!important;color:#2e6a24!important;border:1.5px solid #72be44;border-radius:8px!important}
-.mute{padding:5px 12px!important;font-size:13.5px!important;margin:0!important}
-.mute:hover{background:var(--ui-gold)!important;transform:translateY(-1px)}
-#fieldTarget{border-left:4px solid var(--ui-cta)!important;font-size:13px!important;padding:5px 10px!important}
-#menuPop{padding:8px!important;gap:6px!important;width:168px!important}
-#menuPop button{
-  background:var(--ui-card)!important;color:var(--ui-wood-dark)!important;
-  border:2px solid var(--ui-card-b)!important;border-radius:10px!important;
-  font-weight:800;padding:7px 10px!important;transition:background .12s,border-color .12s;
-}
-#menuPop button:hover{background:var(--ui-gold)!important;border-color:var(--ui-wood)!important}
-#menuPop #btnDonate{background:#ffe8ef!important;color:#a82442!important;border-color:#e4a2b4!important}
-
-/* 右側巡遊／潮汐／小地圖 HUD：統一為暖木奶油卡 */
-#tideHud,#autoHud,#regionMap,#recallBar,#gatherMini{
-  background:rgba(255,248,232,.95)!important;color:var(--ui-wood-dark)!important;
-  border:3px solid var(--ui-wood)!important;border-radius:14px!important;
-  box-shadow:0 5px 0 var(--ui-wood-dark),0 10px 20px rgba(43,24,14,.2)!important;
-}
-#tideHud .td-head,#autoHud .ap-head{color:var(--ui-wood)!important}
-#tideHud .td-track,#recallBar .rtrack{background:#e6d5b4!important;border:2px solid var(--ui-wood)!important;border-radius:999px!important}
-#tideHud .td-ult-btn,#tideHud .td-cyc-btn,#autoHud .ap-btn{
-  background:var(--ui-card)!important;color:var(--ui-wood-dark)!important;
-  border:2px solid var(--ui-wood-soft)!important;border-radius:9px!important;
-  box-shadow:0 2px 0 rgba(59,42,42,.25)!important;
-}
-#tideHud .td-ult-btn.ready{background:var(--ui-cta)!important;color:#fff!important;border-color:var(--ui-wood-dark)!important}
-#tideHud .td-b{background:#fff2c8!important;color:var(--ui-wood)!important;border:1.5px solid var(--ui-wood-soft)!important;border-radius:6px!important}
-#autoHud .ap-stats{color:var(--ui-wood)!important}
-#autoHud .ap-spark{background:#fff2c8!important;color:#a84818!important;border:1.5px solid #d9a04a!important;border-radius:8px!important}
-#autoHud .ap-btn.on{background:var(--ui-gold)!important;border-color:var(--ui-wood)!important;color:var(--ui-wood-dark)!important}
-#autoHud .ap-btn.stop{background:#d94a38!important;color:#fff!important;border-color:var(--ui-wood-dark)!important}
-#regionMapCanvas{border:2.5px solid var(--ui-wood)!important;border-radius:10px!important}
-#comboBadge{border:3px solid var(--ui-wood-dark)!important;border-radius:14px!important;box-shadow:0 4px 0 var(--ui-wood-dark)!important}
-
-/* 左下旅人血魔狀態卡與底部快捷鍵列：暖木奶油卡化 */
-#pcard{
-  background:rgba(255,248,232,.92)!important;border:3px solid var(--ui-wood)!important;
-  border-radius:16px!important;box-shadow:0 5px 0 var(--ui-wood-dark),0 10px 20px rgba(43,24,14,.22)!important;
-  padding:8px 14px 10px 10px!important;
-}
-#pcard .pc-por{
-  background:var(--ui-parchment)!important;border:2.5px solid var(--ui-wood)!important;
-  border-radius:12px!important;box-shadow:0 2px 0 var(--ui-wood-dark)!important;
-  color:var(--ui-wood-dark)!important;text-shadow:none!important;margin:0!important;
-}
-#pcard .pc-por b{
-  background:var(--ui-cta)!important;color:#fff!important;
-  border:2px solid var(--ui-wood-dark)!important;border-radius:8px!important;
-  box-shadow:none!important;right:-8px!important;bottom:-8px!important;
-}
-#pcard .pc-name,#pcard .pc-num{color:var(--ui-wood-dark)!important;text-shadow:none!important;font-family:var(--font-ui)!important;font-weight:900}
-#pcard .pc-ic{text-shadow:none!important}
-#pcard .pc-bar{
-  border:2.5px solid var(--ui-wood-dark)!important;border-radius:8px!important;
-  box-shadow:inset 0 2px 3px rgba(0,0,0,.22)!important;margin:0!important;overflow:hidden;
-}
-#pcard .pc-xp{border-radius:999px!important;box-shadow:0 0 0 2px var(--ui-wood)!important;background:#e6d5b4!important;margin:4px 0 0 22px!important}
-#skills{gap:7px!important;padding:8px 10px!important;background:rgba(255,248,232,.9)!important;border:3px solid var(--ui-wood)!important;border-radius:16px!important;box-shadow:0 5px 0 var(--ui-wood-dark),0 10px 20px rgba(43,24,14,.2)!important}
-.sk{
-  background:var(--ui-card)!important;border:2.5px solid var(--ui-wood-soft)!important;
-  border-radius:12px!important;box-shadow:0 3px 0 rgba(59,42,42,.35)!important;margin:0!important;
-}
-.sk:hover{border-color:var(--ui-cta)!important;background:#fff4d4!important;outline:none!important}
-.sk.util{background:var(--ui-parchment)!important}
-.sk.pz-open{background:var(--ui-alt)!important;color:#fff!important;border-color:var(--ui-wood-dark)!important}
-.sk.pz-open .k,.sk.pz-open .sname{color:#fff8e4!important}
-.sk .cnt,.sk .sup{background:var(--ui-wood)!important;color:var(--ui-gold)!important;border-radius:6px!important;padding:1px 4px!important}
-.st-pill{border:2px solid var(--ui-wood-dark)!important;border-radius:999px!important;box-shadow:0 2px 0 rgba(59,42,42,.35)!important}
-
-/* 提示氣泡、Toast、裝備詳情與 Boss 條 */
-.toast{
-  background:rgba(255,248,232,.96)!important;color:var(--ui-wood-dark)!important;
-  border:2.5px solid var(--ui-wood)!important;border-radius:12px!important;
-  box-shadow:0 4px 0 var(--ui-wood-dark)!important;font-weight:800;padding:6px 14px!important;
-}
-#tip,.tip2{
-  background:rgba(255,248,232,.98)!important;color:var(--ui-wood-dark)!important;
-  border:3px solid var(--ui-wood)!important;border-radius:14px!important;
-  box-shadow:0 6px 0 var(--ui-wood-dark),0 12px 24px rgba(43,24,14,.28)!important;
-}
-#tip .ibase,#tip .hint{color:var(--ui-wood-soft)!important}#tip .sep{background:var(--ui-wood-soft)!important}
-.exitHint,.pbub{
+/* 統一角色選擇頁（Stage 1 浮島＋冒險手帳）與木屋換裝間（Stage 2）為 A Short Hike 像素框 */
+.cr-slot-sel{
   background:var(--ui-cream)!important;color:var(--ui-wood-dark)!important;
-  border:2.5px solid var(--ui-wood)!important;border-radius:12px!important;
-  box-shadow:0 4px 0 var(--ui-wood-dark)!important;font-weight:800;
+  border:0!important;border-radius:0!important;box-shadow:var(--boxsh)!important;
+  padding:5px 10px!important;font-weight:700;
 }
-.exitHint:after{display:none}
-#hoverBadge{
-  background:rgba(255,248,232,.96)!important;color:var(--ui-wood-dark)!important;
-  border:2px solid var(--ui-wood)!important;border-radius:10px!important;
-  box-shadow:0 3px 0 var(--ui-wood-dark)!important;font-weight:800;
+.cr-top-right .btn.small{background:var(--ui-wood)!important;color:var(--ui-cream)!important;text-shadow:none!important}
+.cr-top-right .btn.small:hover{background:var(--ui-cta)!important}
+.hero-pin-btn{
+  width:30px;height:30px;border:0!important;border-radius:0!important;
+  background:var(--ui-wood)!important;color:var(--ui-cream)!important;
+  box-shadow:var(--boxsh)!important;font-size:13px!important;
 }
-#boss{
-  background:rgba(255,248,232,.95)!important;border:3px solid var(--ui-wood)!important;
-  border-radius:16px!important;box-shadow:0 5px 0 var(--ui-wood-dark)!important;padding:8px 14px!important;
+.hero-pin-btn.on,.hero-pin-btn:hover{background:var(--ui-gold)!important;color:var(--ui-wood-dark)!important;transform:translateY(-2px)!important}
+.cr-pill{
+  border:0!important;border-radius:0!important;background:var(--ui-wood)!important;
+  color:var(--ui-cream)!important;box-shadow:var(--boxsh)!important;backdrop-filter:none!important;
+  padding:6px 14px!important;font-size:15px!important;
 }
-#boss .bar{border:2.5px solid var(--ui-wood-dark)!important;border-radius:999px!important;box-shadow:none!important;margin:4px 0 0!important;overflow:hidden}
-#chatLog.open{background:rgba(255,248,232,.92)!important;color:var(--ui-wood-dark)!important;border:2.5px solid var(--ui-wood)!important;border-radius:12px!important;padding:8px 10px!important;text-shadow:none!important}
-#chatLog.open .cl b{color:var(--ui-cta)!important}
+.cr-ov-btn{background:var(--ui-cream)!important;color:var(--ui-wood-dark)!important;padding:5px 12px!important}
+.cr-hint{border-radius:0!important;background:rgba(59,42,42,.82)!important;color:var(--ui-cream)!important;padding:3px 10px!important;box-shadow:0 2px 0 #2b1d33}
+.cr-book,.du-panel{
+  background:var(--ui-cream)!important;color:var(--ui-wood-dark)!important;
+  border:0!important;border-radius:0!important;box-shadow:var(--boxsh)!important;
+  backdrop-filter:none!important;
+}
+.sb-tape{
+  background:var(--ui-gold)!important;color:var(--ui-wood-dark)!important;
+  border:0!important;border-radius:0!important;box-shadow:var(--box)!important;
+  transform:none!important;padding:5px 18px!important;font-size:18px!important;
+}
+.sb-tape:before,.sb-tape:after{display:none}
+.sb-stat,.sb-slot,.sb-note,.du-card,.du-sw-row,.card,.soul-card,.atlas-card,.cx-card,.cx-log-card,.cx-donate,.mount-card,.eq-mini,.pz-gem,.cos-btn,.pitem,.slot,.heir{
+  background:var(--ui-card)!important;color:var(--ui-wood-dark)!important;
+  border:2px solid var(--ui-wood-dark)!important;border-radius:0!important;
+  box-shadow:3px 3px 0 rgba(43,29,51,.32)!important;
+}
+.sb-slot{background:var(--ui-parchment)!important}
+.sb-slot.on,.du-card.on,.soul-card.on,.atlas-card.on,.mount-card.on,.pz-gem.on,.cos-btn.on{
+  background:#fff2b8!important;border-color:var(--ui-wood-dark)!important;
+  outline:3px solid var(--ui-cta)!important;outline-offset:-3px;
+}
+.sb-gic,.cx-ic,.slotname,.pz-mini{border-radius:0!important}
+.sb-note{background:var(--ui-parchment)!important;border-style:dashed!important}
+.sb-inputs input,#cxSearch,.map-search,#chatIn{
+  background:#fffdf4!important;color:var(--ui-wood-dark)!important;
+  border:2px solid var(--ui-wood-dark)!important;border-radius:0!important;
+  box-shadow:inset 2px 2px 0 rgba(59,42,42,.15)!important;
+}
+.sb-ctas .btn{border:0!important;border-radius:0!important;box-shadow:var(--boxsh)!important;font-size:15px!important;padding:9px 8px!important}
+.du-tabs{gap:4px!important}
+.du-rot-bar button{
+  border:0!important;border-radius:0!important;background:var(--ui-cream)!important;
+  color:var(--ui-wood-dark)!important;box-shadow:var(--boxsh)!important;
+}
+.du-rot-bar button:hover{background:var(--ui-gold)!important}
+.du-chk{
+  border-radius:0!important;background:var(--ui-ok)!important;border:2px solid var(--ui-wood-dark)!important;
+  box-shadow:2px 2px 0 #2b1d33!important;top:-4px!important;right:-4px!important;
+}
+.du-dot{border-radius:0!important;border:2px solid var(--ui-wood-dark)!important}
+.du-dot.on{outline:2px solid var(--ui-gold)!important}
+.pitem b,.eq-mini b{text-shadow:none!important;font-weight:900;color:var(--ui-wood-dark)}
+
+/* 統一遊戲內 HUD：經典 A Short Hike 深棕暖木膠囊＋奶油像素技能格 */
+#topbar,#fieldCompass,#fieldTarget,.mute,#photoBadge{
+  background:var(--ui-wood)!important;color:var(--ui-cream)!important;
+  border:0!important;border-radius:0!important;box-shadow:var(--boxsh)!important;
+  margin:var(--px)!important;
+}
+#topbar{padding:5px 12px!important;gap:10px!important}
+#topbar #coinInfo{color:var(--ui-gold)!important}#topbar #shardInfo{color:#ffe07a!important}#topbar #killInfo{color:#ffa83a!important}
+#dayInfo{background:var(--ui-wood-dark)!important;color:var(--ui-gold)!important;border-radius:0!important;padding:1px 7px!important}
+#mealInfo{background:#3c6e47!important;color:#eaffdc!important;border-radius:0!important}
+.mute{padding:4px 10px!important;font-size:13.5px!important}
+.mute:hover{background:var(--ui-cta)!important;color:#fff8e4!important}
+#fieldTarget{border-left:4px solid var(--ui-gold)!important;padding:4px 10px!important}
+#menuPop{padding:6px!important;gap:4px!important;width:162px!important}
+#menuPop button{
+  background:var(--ui-parchment)!important;color:var(--ui-wood-dark)!important;
+  border:2px solid var(--ui-wood-dark)!important;border-radius:0!important;box-shadow:none!important;
+  font-weight:700;padding:6px 10px!important;
+}
+#menuPop button:hover{background:var(--ui-gold)!important}
+#menuPop #btnDonate{background:#ffe4ec!important;color:#a82442!important}
+
+/* 右側巡遊／潮汐／小地圖 HUD：統一深棕像素框＋奶油字 */
+#tideHud,#autoHud,#regionMap,#recallBar,#gatherMini{
+  border:0!important;border-radius:0!important;box-shadow:var(--boxsh)!important;margin:var(--px)!important;
+}
+#tideHud,#autoHud{background:rgba(59,42,42,.94)!important;color:var(--ui-cream)!important}
+#tideHud .td-track,#recallBar .rtrack{border-radius:0!important;border:2px solid #2b1812!important}
+#tideHud .td-ult-btn,#tideHud .td-cyc-btn,#autoHud .ap-btn{border-radius:0!important;border:2px solid #2b1812!important}
+#tideHud .td-b,#autoHud .ap-spark{border-radius:0!important}
+#regionMap,#recallBar,#gatherMini{background:var(--ui-cream)!important;color:var(--ui-wood-dark)!important}
+#regionMapCanvas{border:3px solid var(--ui-wood-dark)!important;border-radius:0!important}
+#comboBadge{border-radius:0!important;border:0!important;box-shadow:var(--boxsh)!important}
+
+/* 左下旅人血魔狀態卡與底部技能欄：純粹 A Short Hike 像素無底框＋硬陰影 */
+#pcard,#skills{background:transparent!important;border:0!important;box-shadow:none!important}
+#pcard .pc-por{background:rgba(59,42,42,.72)!important;border:0!important;border-radius:0!important;box-shadow:var(--boxsh)!important;color:var(--ui-cream)!important}
+#pcard .pc-por b{background:var(--ui-wood)!important;color:var(--ui-gold)!important;border:0!important;border-radius:0!important;box-shadow:var(--box)!important}
+#pcard .pc-name,#pcard .pc-num{color:#fff8e4!important;text-shadow:2px 0 0 #3b2a2a,-2px 0 0 #3b2a2a,0 2px 0 #3b2a2a,0 -2px 0 #3b2a2a,0 3px 0 #2b1d33!important}
+#pcard .pc-bar{border:0!important;border-radius:0!important;box-shadow:var(--boxsh)!important;background:#3b2a2a!important}
+#pcard .pc-xp{border-radius:0!important;box-shadow:0 0 0 2px #3b2a2a!important}
+.sk{background:var(--ui-cream)!important;border:0!important;border-radius:0!important;box-shadow:var(--boxsh)!important;margin:var(--px)!important}
+.sk:hover{background:var(--ui-gold)!important;outline:none!important}
+.sk.util{background:var(--ui-parchment)!important}
+.sk.pz-open{background:var(--ui-wood)!important;color:var(--ui-gold)!important}
+.sk .cnt,.sk .sup{border-radius:0!important;background:var(--ui-wood)!important;color:var(--ui-gold)!important}
+.st-pill{border-radius:0!important;border:2px solid var(--ui-wood-dark)!important;box-shadow:2px 2px 0 #2b1d33!important}
+
+/* 對話氣泡、Toast、Boss條與拼圖棋盤 */
+.toast{background:var(--ui-wood)!important;color:var(--ui-cream)!important;border:0!important;border-radius:0!important;box-shadow:var(--boxsh)!important}
+#tip,.tip2{background:var(--ui-wood)!important;color:var(--ui-cream)!important;border:0!important;border-radius:0!important;box-shadow:var(--boxsh)!important}
+#tip .ibase,#tip .hint{color:#e8cfa8!important}#tip .sep{background:var(--ui-cream)!important}
+.exitHint,.pbub{background:var(--ui-cream)!important;color:var(--ui-wood-dark)!important;border:0!important;border-radius:0!important;box-shadow:var(--boxsh)!important}
+#hoverBadge{background:var(--ui-wood-dark)!important;color:var(--ui-cream)!important;border:2px solid var(--ui-gold)!important;border-radius:0!important;box-shadow:3px 3px 0 #2b1d33!important}
+#boss{background:var(--ui-cream)!important;border:0!important;border-radius:0!important;box-shadow:var(--boxsh)!important}
+#boss .bar{border:0!important;border-radius:0!important;box-shadow:var(--box)!important}
+.pz-grid{background:var(--ui-wood-dark)!important;border:0!important;border-radius:0!important;box-shadow:var(--boxsh)!important}
+.pz-cell,.pz-info,.pz-shop-item,.atlas,.atlas button,.map-badge,.map-cp-btn,.map-leg-item,.chip,.corrupt-bar,.pz-party-slot,.arr.wide,.kb{border-radius:0!important}
+.atlas button{box-shadow:2px 2px 0 rgba(59,42,42,.45)!important}
+.card:hover:before{display:block}
 </style>
 </head>
 <body>

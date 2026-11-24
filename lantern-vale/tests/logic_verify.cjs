@@ -884,12 +884,12 @@ const createGuild = require('../server/guild.cjs');
   assert.ok(gameSrc.includes("'runBack'") && gameSrc.includes("'runL'") && gameSrc.includes("'runR'"), 'Directional combat strafe animations wired');
   assert.ok(modelsSrc.includes('root.add(xray)'), 'X-Ray occlusion silhouette attached to root so it works with modular heroRig');
 
-  // 39. Phase U4: Unified Warm Wood & Cream Parchment UI Design Token System across Title, HUD & All Modals
+  // 39. Phase U4b: Unified A Short Hike Pixel-Cozy UI System across Character Theater, HUD & All Modals
   const htmlSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
-  for (const tok of ['--ui-wood:', '--ui-cream:', '--ui-parchment:', '--ui-card:', '--ui-cta:', '--ui-ok:', '--ui-alt:']) {
-    assert.ok(htmlSrc.includes(tok), `Unified UI design token present: ${tok}`);
+  for (const tok of ['--ui-wood:', '--ui-cream:', '--ui-parchment:', '--ui-card:', '--ui-cta:', '--ui-ok:', '--ui-alt:', '--boxsh:']) {
+    assert.ok(htmlSrc.includes(tok), `Unified A Short Hike UI token present: ${tok}`);
   }
-  assert.ok(htmlSrc.includes('Phase U4：全遊戲統一風格'), 'Phase U4 unified style block present in index.html');
+  assert.ok(htmlSrc.includes('Phase U4b：全遊戲統一「A Short Hike 溫馨像素風」'), 'Phase U4b A Short Hike unified style block present in index.html');
 
   console.log('ALL 39 LOGIC, UI-UNIFIED-U4, CHAR-C6-TOON-ANIM, CHAR-REWORK-C1-C5, FUZZ-QA-36, MMO-M10-PORTALS-CRAFT-KILLSWITCH, MMO-M9-SAFETY-KILLSWITCH, MMO-M8-ROLES-FEAST-GPU, MMO-M7-SOUL-AWAKEN-GPU-FIX, MMO-M6-SPIRE-MENTOR-LIGHTHOUSE, MMO-M5-FERRY-REVIEW, MMO-M4-OVERHAUL, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
 })();
