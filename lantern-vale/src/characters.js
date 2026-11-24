@@ -643,7 +643,7 @@ export function bindCharacters(game) {
     } else if (pv === 'dressup') {
       focusHero(qJob ?? 2, false); enterDressup();
       camCurPos.copy(camGoalPos); camCurTarget.copy(camGoalTarget); camCurFov = camGoalFov;
-    } else if (pv === 'town' || pv === 'field') {
+    } else if (pv === 'town' || pv === 'field' || pv === 'inv' || pv === 'puzzle' || pv === 'map') {
       const targetJob = qJob ?? (pv === 'town' ? 4 : 0);
       selectedJob = targetJob;
       activeSlotLook = normalizeCharacterLook(CHAR_CATALOG.classPresets[targetJob], targetJob);
@@ -653,10 +653,13 @@ export function bindCharacters(game) {
       $('hud')?.classList.remove('hide');
       setTimeout(() => {
         game.dayTime = 0.36;
-        if (pv === 'town') game.enterTown?.();
-        else { game.enterTown?.(); game.enterField?.(1); }
+        if (pv === 'field') { game.enterTown?.(); game.enterField?.(1); }
+        else game.enterTown?.();
         game.fade = 0;
         if (game.camZoom) game.camZoom = 0.85;
+        if (pv === 'inv') setTimeout(() => game.ui?.toggleInv?.(game), 140);
+        else if (pv === 'puzzle') setTimeout(() => game.ui?.openPuzzle?.(game), 140);
+        else if (pv === 'map') setTimeout(() => game.ui?.openMap?.(), 140);
       }, 60);
     }
   } catch {}
