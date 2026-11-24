@@ -181,7 +181,7 @@ export const LANDMARK_FILES = {
   purple_crystal:   'assets/landmarks/purple_crystal.glb',
 };
 
-// Phase v6b：19 套經高清原畫（HD）覆核、100% 著地、無陸地船隻、無懸空橋、無違合日式寺廟之 Low Poly Locations 野外地標
+// Phase v6c：17 套經全圖 1280×720 原畫高清（HD）逐點覆核、100% 著地直立、零陸地船隻、零懸空橋、零違合日式寺廟之 Palmov 野外地標
 export const PALMOV_POIS = {
   teapot_hill:      'assets/palmov_poi/teapot_hill.glb',
   forest_waterfall: 'assets/palmov_poi/forest_waterfall.glb',
@@ -190,7 +190,6 @@ export const PALMOV_POIS = {
   kraken_wreck:     'assets/palmov_poi/kraken_wreck.glb',
   ski_resort:       'assets/palmov_poi/ski_resort.glb',
   crystal_mountain: 'assets/palmov_poi/crystal_mountain.glb',
-  coal_mine:        'assets/palmov_poi/coal_mine.glb',
   redrock_oasis:    'assets/palmov_poi/redrock_oasis.glb',
   hot_springs:      'assets/palmov_poi/hot_springs.glb',
   mountain_forest:  'assets/palmov_poi/mountain_forest.glb',
@@ -200,7 +199,6 @@ export const PALMOV_POIS = {
   autumn_harvest:   'assets/palmov_poi/autumn_harvest.glb',
   arab_castle:      'assets/palmov_poi/arab_castle.glb',
   tropical_ruins:   'assets/palmov_poi/tropical_ruins.glb',
-  space_shuttle:    'assets/palmov_poi/space_shuttle.glb',
   fantastic_planet: 'assets/palmov_poi/fantastic_planet.glb',
 };
 
@@ -336,6 +334,7 @@ export function attachMonsterGlb(modelObj, key, opts = {}) {
     while (modelObj.body.children.length) modelObj.body.remove(modelObj.body.children[0]);
     const { root, mat } = bakePixelToonScene(scene, { emissive: 0x201c18, emissiveIntensity: 0.18, ...opts });
     if (opts.scale) root.scale.setScalar(opts.scale);
+    if (opts.rotX) root.rotation.x = opts.rotX;
     if (opts.rotY) root.rotation.y = opts.rotY;
     if (opts.yOffset) root.position.y = opts.yOffset;
     modelObj.body.add(root);

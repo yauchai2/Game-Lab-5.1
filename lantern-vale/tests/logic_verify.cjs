@@ -918,7 +918,7 @@ const createGuild = require('../server/guild.cjs');
   const bpV6 = await import('../src/field_blueprints.js');
   const settingsSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'settings.js'), 'utf8');
   assert.ok(settingsSrc.includes('關閉（高清）') && settingsSrc.includes("key === 'pixel' ? 1 : 0"), 'Settings supports disabling low-res pixelation (pixel = 1 HD mode)');
-  assert.equal(Object.keys(p2bAssets.PALMOV_POIS).length, 19, 'All 19 grounded HD-verified Palmov POI GLBs registered');
+  assert.equal(Object.keys(p2bAssets.PALMOV_POIS).length, 17, 'All 17 grounded HD-verified Palmov POI GLBs registered');
   for (const [k, rel] of Object.entries(p2bAssets.PALMOV_POIS)) {
     const fp = path.join(__dirname, '..', 'game', rel);
     assert.ok(fs.existsSync(fp) && fs.statSync(fp).size > 5000, `Palmov POI GLB exists & valid: ${k} (${rel})`);

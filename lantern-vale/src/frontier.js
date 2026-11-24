@@ -46,11 +46,11 @@ export const FIELD_BOSS_SPEC = {
   4:  { name: '❄️ 寒霜巨像王',   modelKey: 'golem_ice',             scale: 1.95, tint: 0xd8f4ff, emissive: 0x2c6896, aura: 0x72e4ff },
   5:  { name: '🐉 熾炎熔岩巨龍', modelKey: 'boss_dragon_inferno',   scale: 1.65, tint: 0xffe4cc, emissive: 0x8c2e14, aura: 0xff6228 },
   6:  { name: '🌳 磐岩古樹巨像', modelKey: 'golem_earth',           scale: 1.95, tint: 0xd6f0cc, emissive: 0x36623c, aura: 0x72e082 },
-  7:  { name: '✨ 星穹風暴法王', modelKey: 'boss_wind_mage',        scale: 1.55, tint: 0xfff2c8, emissive: 0x6c5824, aura: 0xffdf70 },
+  7:  { name: '✨ 星穹風暴法王', modelKey: 'boss_wind_mage',        scale: 0.78, tint: 0xfff2c8, emissive: 0x6c5824, aura: 0xffdf70, rotX: -Math.PI / 2, yOffset: 2.1 },
   8:  { name: '🐚 潮汐寄居蟹王', modelKey: 'boss_hermit_king',      scale: 1.60, tint: 0xfff0dc, emissive: 0x3c5268, aura: 0x52d4f0 },
   9:  { name: '👁️ 雷鳴獨眼巨魔', modelKey: 'beholder',              scale: 1.95, tint: 0xc8ecff, emissive: 0x285c8c, aura: 0x48c8ff },
   10: { name: '👹 緋櫻惡鬼法師', modelKey: 'boss_evil_mage',        scale: 1.55, tint: 0xffd4e4, emissive: 0x782848, aura: 0xff82b4 },
-  11: { name: '🌪️ 蒼穹疾風魔導', modelKey: 'boss_wind_mage',        scale: 1.60, tint: 0xd8f6ff, emissive: 0x286894, aura: 0x62d8ff },
+  11: { name: '🌪️ 蒼穹疾風魔導', modelKey: 'boss_wind_mage',        scale: 0.80, tint: 0xd8f6ff, emissive: 0x286894, aura: 0x62d8ff, rotX: -Math.PI / 2, yOffset: 2.1 },
   12: { name: '🔥 鍛爐炎岩巨像', modelKey: 'golem_fire',            scale: 1.95, tint: 0xffd2b4, emissive: 0x843218, aura: 0xff7838 },
   13: { name: '🪱 沙暴巨蟲母皇', modelKey: 'boss_queen_worm',       scale: 1.65, tint: 0xffe6b8, emissive: 0x6e4820, aura: 0xf4c258 },
   14: { name: '🦂 黃金聖蠍王',   modelKey: 'scorpion_king',         scale: 1.95, tint: 0xffe4a0, emissive: 0x78521c, aura: 0xffd24a },
@@ -225,8 +225,8 @@ function buildBlueprintLandmarks(g, bp) {
       placeGlb('lighthouse', pos.x, pos.z, null, { scale: 1.08, rotY: -0.4, yOffset: -0.2, emissive: 0x5c5246, emissiveIntensity: 0.45 }, 2.6);
       placeGlb('island_house', pos.x - 7.0, pos.z + 4.4, null, { scale: 1.0, rotY: 0.55, yOffset: -0.15, emissive: 0x564c40, emissiveIntensity: 0.42 }, 2.6);
     } else if (poi.landmark === 'star_aqueduct') {
-      // #07 北端星穹斷柱水道：Palmov 古羅馬列柱遺址
-      placePalmov('roman_ruins', pos.x, pos.z, { scale: 1.0, rotY: 0.2, yOffset: -0.25 }, 3.6);
+      // #07 北端星穹斷柱水道：Palmov 古羅馬列柱遺址（偏移避開副本洞口 cave_arch，零穿模重疊）
+      placePalmov('roman_ruins', pos.x - 10.5, pos.z + 7.5, { scale: 0.85, rotY: 0.25, yOffset: -0.25 }, 3.2);
     } else if (poi.landmark === 'birch_cabin') {
       // #02 西南：Palmov 白樺荒野廢屋（已剔除現代破轎車）
       placePalmov('abandoned_house', pos.x, pos.z, { scale: 1.0, rotY: 0.35, yOffset: -0.25 }, 3.2);
@@ -258,8 +258,11 @@ function buildBlueprintLandmarks(g, bp) {
         placeGlb('red_crystal', pos.x + ox, pos.z + oz, null, { scale: 1.0, rotY: ry, yOffset: -0.2, tint: 0xffc4a2, emissive: 0x9e2810, emissiveIntensity: 0.42 }, 1.4);
       }
     } else if (poi.landmark === 'mine_trestle') {
-      // #05 西崖：Palmov 礦坑木棧橋礦道
-      placePalmov('coal_mine', pos.x, pos.z, { scale: 1.0, rotY: 0.3, yOffset: -0.25, emissive: 0x422a1e, emissiveIntensity: 0.28 }, 3.8);
+      // #05 西崖：著地鍛造熔爐＋礦車列＋火紅晶簇（撤除過大中空灰岩外殼 coal_mine）
+      placeGlb('forge_furnace', pos.x + 2.5, pos.z - 1.5, null, { scale: 1.15, rotY: 0.5, yOffset: -0.15, emissive: 0x622614, emissiveIntensity: 0.44 }, 2.2);
+      placeGlb('mine_cart', pos.x + 6.5, pos.z + 1.5, null, { scale: 1.4, rotY: 0.3, yOffset: -0.05 }, 1.5);
+      placeGlb('mine_cart', pos.x + 9.5, pos.z + 3.5, null, { scale: 1.35, rotY: 0.35, yOffset: -0.05 }, 1.5);
+      placeGlb('red_crystal', pos.x + 3.5, pos.z + 4.8, null, { scale: 1.1, rotY: -0.4, yOffset: -0.15, tint: 0xffc6a8, emissive: 0xa42a12, emissiveIntensity: 0.44 }, 1.4);
     } else if (poi.landmark === 'redrock_oasis') {
       // #05 東南：Palmov 紅岩瀑布綠洲
       placePalmov('redrock_oasis', pos.x, pos.z, { scale: 1.0, rotY: -0.35, yOffset: -0.25, emissive: 0x3e2c22, emissiveIntensity: 0.26 }, 3.5);
@@ -329,8 +332,8 @@ function buildBlueprintLandmarks(g, bp) {
       placeGlb('snow_tower', pos.x - 5.5, pos.z + 2.5, null, { scale: 1.05, rotY: 0.35, yOffset: -0.15 }, 2.6);
       placeGlb('ice_crystal', pos.x + 6.0, pos.z + 2.2, null, { scale: 1.15, rotY: -0.3, yOffset: -0.15, flatTint: 0xa4ecff, emissive: 0x3b8ec4, emissiveIntensity: 0.42 }, 1.5);
     } else if (poi.landmark === 'alpine_camp') {
-      // #11 東南：Palmov 高山秋林帳篷營地
-      placePalmov('alpine_camp', pos.x, pos.z, { scale: 1.0, rotY: -0.4, yOffset: -0.25 }, 3.5);
+      // #11 東南：Palmov 高山秋林帳篷營地（微調往草地高坡，避免帳篷踩水）
+      placePalmov('alpine_camp', pos.x - 3.5, pos.z - 4.0, { scale: 0.88, rotY: -0.4, yOffset: -0.25 }, 3.2);
     } else if (poi.landmark === 'maple_foundry') {
       // #12 東北：紅楓鍛造爐高台（4137 秋楓鐵匠工坊＋4130 鍛造熔爐＋火紅晶簇）
       placeGlb('blacksmith', pos.x - 6.2, pos.z + 3.2, null, { scale: 1.1, rotY: 0.4, yOffset: -0.15, emissive: 0x483024, emissiveIntensity: 0.36 }, 3.0);
@@ -425,8 +428,8 @@ function buildBlueprintLandmarks(g, bp) {
     const pOasis = uvToWorld(0.28, 0.34, half);
     placeGlb('egypt_house', pOasis.x - 6.5, pOasis.z - 4.0, null, { scale: 1.15, rotY: 0.5, yOffset: -0.15, tint: 0xffe4b8, emissive: 0x624628, emissiveIntensity: 0.38 }, 2.6);
     placeGlb('egypt_obelisk', pOasis.x + 7.0, pOasis.z - 5.5, null, { scale: 1.1, rotY: -0.3, yOffset: -0.15, tint: 0xf6cf92, emissive: 0x5c4224, emissiveIntensity: 0.36 }, 1.6);
-    const pCast = uvToWorld(0.78, 0.30, half);
-    placePalmov('arab_castle', pCast.x, pCast.z, { scale: 1.0, rotY: -0.4, yOffset: -0.25 }, 4.2);
+    const pCast = uvToWorld(0.76, 0.65, half);
+    placePalmov('arab_castle', pCast.x, pCast.z, { scale: 0.95, rotY: -0.4, yOffset: -0.25 }, 4.2);
     const pStart = uvToWorld(0.22, 0.78, half);
     placeGlb('egypt_obelisk', pStart.x - 6.5, pStart.z - 6.0, null, { scale: 1.05, rotY: 0.4, yOffset: -0.15, tint: 0xf4cc8c, emissive: 0x5c4224, emissiveIntensity: 0.38 }, 1.5);
     placeGlb('egypt_house', pStart.x + 8.0, pStart.z - 5.0, null, { scale: 1.05, rotY: -0.7, yOffset: -0.15, tint: 0xffe6bc, emissive: 0x604426, emissiveIntensity: 0.38 }, 2.4);
@@ -477,8 +480,9 @@ function buildBlueprintLandmarks(g, bp) {
     placeGlb('scifi_platform', pStart.x - 7.5, pStart.z - 7.0, null, { scale: 1.1, rotY: 0.4, yOffset: -0.15, tint: 0xdff6ff, emissive: 0x2c6c98, emissiveIntensity: 0.50 }, 2.8);
     placeGlb('sky_flyer', pStart.x + 6.5, pStart.z - 6.5, null, { scale: 1.15, rotY: -0.7, yOffset: 1.6, tint: 0xeaf8ff, emissive: 0x3888c4, emissiveIntensity: 0.54 }, 2.0);
     placeGlb('scifi_reactor', pStart.x + 0.5, pStart.z - 12.0, null, { scale: 1.1, rotY: 0, yOffset: -0.15, tint: 0xd4f0ff, emissive: 0x3084b8, emissiveIntensity: 0.52 }, 2.6);
-    const pShuttle = uvToWorld(0.22, 0.34, half);
-    placePalmov('space_shuttle', pShuttle.x, pShuttle.z, { scale: 1.0, rotY: 0.4, yOffset: -0.25, tint: 0xdff6ff, emissive: 0x2c6c98, emissiveIntensity: 0.38 }, 4.0);
+    const pOutpost = uvToWorld(0.76, 0.28, half);
+    placeGlb('scifi_platform', pOutpost.x, pOutpost.z, null, { scale: 1.25, rotY: 0.3, yOffset: -0.15, tint: 0xdff6ff, emissive: 0x2c6c98, emissiveIntensity: 0.50 }, 3.0);
+    placeGlb('sky_flyer', pOutpost.x + 6.5, pOutpost.z - 2.0, null, { scale: 1.15, rotY: -0.6, yOffset: 2.0, tint: 0xeaf8ff, emissive: 0x3888c4, emissiveIntensity: 0.54 }, 0);
     const pMid = uvToWorld(0.50, 0.50, half);
     placeGlb('scifi_reactor', pMid.x, pMid.z - 6.5, null, { scale: 1.35, rotY: 0.3, yOffset: -0.15, tint: 0xdcf4ff, emissive: 0x3894cc, emissiveIntensity: 0.56 }, 3.2);
     placeGlb('sky_flyer', pMid.x - 9.0, pMid.z - 3.0, null, { scale: 1.1, rotY: 0.9, yOffset: 2.8, tint: 0xf0faff, emissive: 0x4298d4, emissiveIntensity: 0.56 }, 0);

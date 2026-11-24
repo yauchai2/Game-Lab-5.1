@@ -703,6 +703,8 @@ export class Game {
         tint: bossSpec.tint,
         emissive: bossSpec.emissive,
         emissiveIntensity: 0.42,
+        rotX: bossSpec.rotX || 0,
+        yOffset: bossSpec.yOffset || 0,
       });
     } else if (this.field) {
       const isBossOrElite = elite || type === 'stag';
