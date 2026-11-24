@@ -106,3 +106,16 @@ export function computeAtlasSummary(atlasInput) {
     dangerLabel: danger >= 7 ? '☠️ 毀滅印鈔機' : danger >= 4 ? '🔥 高壓刷寶' : danger >= 2 ? '⚡ 進階挑戰' : '🌿 輕鬆探索',
   };
 }
+
+// Phase M10A：異界秘石鑄造成本（標準 0 詞綴免費，高密度＋賽季疊加消耗金幣與星砂作為終局經濟回收槽）
+export function atlasCraftCost(atlasInput) {
+  const a = atlasInput || { density: 'normal', mechanics: [] };
+  const mechCnt = (a.mechanics || []).length;
+  const densTier = a.density === 'abyss' ? 2 : a.density === 'swarm' ? 1 : 0;
+  if (densTier === 0 && mechCnt === 0) return { coins: 0, shards: 0, isFree: true };
+  return {
+    coins: densTier * 15 + mechCnt * 12,
+    shards: densTier * 8 + mechCnt * 6,
+    isFree: false,
+  };
+}

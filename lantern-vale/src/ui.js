@@ -16,11 +16,11 @@ import * as THREE from 'three';
 import { RARITY, SLOTS, itemLines, itemScore, BOONS, deserializeItem, tierInfo, CORRUPT_COST, corruptItem } from './loot.js';
 import { mountStatuses } from './mounts.js';
 import { MONSTER_SOULS, SOUL_SLOTS, ensureSouls, equipSoul, unequipSoul, soulTier } from './souls.js';
-import { DENSITY_TIERS, LEAGUE_MECHANICS, ensureAtlas, setAtlasDensity, toggleAtlasMechanic, computeAtlasSummary } from './atlas.js';
+import { DENSITY_TIERS, LEAGUE_MECHANICS, ensureAtlas, setAtlasDensity, toggleAtlasMechanic, computeAtlasSummary, atlasCraftCost } from './atlas.js';
 import { TIDE_PHASES, ULTIMATES, MICRO_BUFFS, lootMultForTide, castUltimate, cycleUltimate } from './tide.js';
 import { canCorruptGear, CORRUPT_UNLOCK_LV, nextMilestone } from './progression.js';
 import { applyHudIcons } from './icons.js';
-import { computeCozyMvps, getWeeklySpireInfo, contributeLighthouse, getLighthouseTitle, getClassTeamRole } from './mmo_protocol.js';
+import { computeCozyMvps, getWeeklySpireInfo, contributeLighthouse, getLighthouseTitle, getClassTeamRole, isFeatureEnabled } from './mmo_protocol.js';
 
 const $ = id => document.getElementById(id);
 const v3 = new THREE.Vector3();
@@ -323,9 +323,12 @@ export class UI {
         <button type="button" class="btn small" data-lh="fish" ${(p.goods?.fish || 0) >= 2 ? '' : 'disabled'}>🐟 捐魚×2</button>
       </div>
     </div>`;
+    const cost = atlasCraftCost(a);
+    const canAffordAtlas = game.dev?.on || cost.isFree || ((p.coins || 0) >= cost.coins && (p.shards || 0) >= cost.shards);
+    const costLabel = cost.isFree ? '免費入場 · 6 門' : `🪙${cost.coins} ✦${cost.shards} · 6 門`;
     const summaryBar = `<div class="atlas-bar">
       <div><b>${sum.dangerLabel}</b> · 密度 <b>×${sum.densityMult}</b> · 星砂 <b>×${sum.shardMult}</b> · 掉寶 <b>+${Math.round(sum.lootBonus * 100)}%</b> · 靈魂掉率 <b>×${sum.soulDropMult}</b></div>
-      <button type="button" class="btn small" id="btnRunAtlas" style="background:#e8734a">⛩ 立即開啟客製副本</button>
+      <button type="button" class="btn small" id="btnRunAtlas" style="background:#e8734a" ${canAffordAtlas ? '' : 'disabled'}>⛩ 鑄造秘石開啟（${costLabel}）</button>
     </div>`;
     const densCards = DENSITY_TIERS.map(d => `<div class="atlas-card ${a.density === d.id ? 'on' : ''}">
       <div><b>${d.icon} ${d.name}</b> <small>（密度 ×${d.densityMult}）</small></div>
@@ -350,9 +353,18 @@ export class UI {
       if (mb) card.onclick = () => { toggleAtlasMechanic(game.meta.p, mb.dataset.atlasMech); game.meta.save(); game.audio.sfx('ui'); this.renderAtlas(game); };
     });
     const runBtn = $('btnRunAtlas');
-    if (runBtn) runBtn.onclick = () => { this.toggleInv(game); game.state = 'transition'; game.audio.sfx('warp'); this.wipe(() => game.startRun()); };
+    if (runBtn) runBtn.onclick = () => {
+      if (!cost.isFree && !game.dev?.on) {
+        if ((p.coins || 0) < cost.coins || (p.shards || 0) < cost.shards) { this.toast('金幣或星砂不足以鑄造此異界秘石', '#ff9a8a'); return; }
+        p.coins -= cost.coins; p.shards -= cost.shards; game.meta.save();
+      }
+      this.toggleInv(game); game.state = 'transition'; game.audio.sfx('warp'); this.wipe(() => game.startRun());
+    };
     const spireBtn = $('btnRunSpire');
-    if (spireBtn) spireBtn.onclick = () => { this.toggleInv(game); game.state = 'transition'; game.audio.sfx('warp'); this.wipe(() => game.startRun({ weeklySeed: ws.seed })); };
+    if (spireBtn) spireBtn.onclick = () => {
+      if (!isFeatureEnabled(game.features, 'weeklySpire')) { this.toast('⚠️ 伺服器維護中：每週星穹塔暫時關閉', '#ff9a8a'); return; }
+      this.toggleInv(game); game.state = 'transition'; game.audio.sfx('warp'); this.wipe(() => game.startRun({ weeklySeed: ws.seed }));
+    };
     const mBtn = $('btnMentor');
     if (mBtn) mBtn.onclick = () => {
       if (!mentorOk) return;

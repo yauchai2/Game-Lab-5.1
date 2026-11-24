@@ -438,6 +438,7 @@ export class Game {
       ? opts.weeklySeed
       : (this.party ? [...this.party].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % 1000000 : (Math.random() * 1e6) | 0) + (this.originField - 1) * 997;
     this.runStart = performance.now(); this.meta.runShards = 0; this.meta.p.runs++; this.meta.save(); this.runEnded = false;
+    this.portalsLeft = 6;
     this.runStats = { synergyProcs: 0, partsBroken: 0, campfires: 0, healsDone: 0, dmgMitigated: 0 };
     this.state = 'play';
     this.loadRoom(0, null);
@@ -998,6 +999,16 @@ export class Game {
   }
   die() {
     if (this.state !== 'play') return;
+    // Phase M10A：6 門制副本重整機制（副本內尚有星門時消耗 1 道星門就地滿血復活）
+    if (!this.field && this.depth >= 0 && (this.portalsLeft || 0) > 1) {
+      this.portalsLeft--;
+      const p = this.player;
+      p.hp = p.stats.maxHp; p.mana = p.stats.mana; p.iframes = 2.5;
+      this.audio.sfx('warp');
+      this.puffs.burst(p.pos.x, 0.7, p.pos.z, 18, { c: [0x62e8ff, 0xffd85a, 0xffffff], s: 0.18, speed: 4.5, life: 0.7 });
+      this.ui.toast(`🌀 消耗 1 道星門滿血重整！剩餘 ${this.portalsLeft}/6 道星門`, '#62e8ff');
+      return;
+    }
     this.state = 'dead'; if (!this.field) this.bankRun(1);
     const lost = leaveGrave(this); this.audio.sfx('dead'); this.audio.setMusic('title', 0);
     this.puffs.burst(this.player.pos.x, 0.5, this.player.pos.z, 20, { c: [0x2f8a7e, 0xd9543a, 0xffd36e], s: 0.2, speed: 4, life: 1 });

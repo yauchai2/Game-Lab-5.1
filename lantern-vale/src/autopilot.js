@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { getTerrainEffect } from './terrain_fx.js';
 import { teleportToCheckpoint } from './frontier.js';
+import { isFeatureEnabled, consumeLanternOil } from './mmo_protocol.js';
 
 export const AUTO_RATES = {
   xpMult: 0.30,
@@ -56,6 +57,10 @@ function removeGuideWisp(g) {
   const ap = g.autopilot;
   if (ap?.wispMesh) {
     g.scene?.remove?.(ap.wispMesh);
+    ap.wispMesh.traverse?.(o => {
+      if (o.geometry) o.geometry.dispose?.();
+      if (o.material) o.material.dispose?.();
+    });
     ap.wispMesh = null;
   }
 }
@@ -82,6 +87,10 @@ function ensureGuideWisp(g) {
 export function toggleAutopilot(g, nextMode = null, reason = 'toggle') {
   const ap = g.autopilot || (g.autopilot = createAutopilotState());
   const targetMode = nextMode ?? (ap.mode === 'off' ? 'full' : 'off');
+  if (targetMode !== 'off' && !isFeatureEnabled(g.features, 'autopilot')) {
+    g.ui?.toast?.('⚠️ 伺服器維護中：提燈巡遊暫時關閉', '#ff9a8a');
+    return false;
+  }
 
   if (targetMode !== 'off' && g.depth < 0 && !g.field) {
     g.ui?.toast?.('🏮 請前往野外或副本地城再開啟「提燈自動巡遊」！', '#ffe08a');
@@ -189,6 +198,15 @@ export function tickAutopilot(g, dt, manualMv) {
     }
   }
 
+  // 線上 MMO 模式下消耗每日提燈油量（單機離線模式維持無限制）
+  if (g.net?.ok && g.meta?.p) {
+    const rem = consumeLanternOil(g.meta.p, dt);
+    if (rem <= 0) {
+      g.ui?.toast?.('🛢️ 今日線上提燈油量已用罄！完成手動每日委託可補充 +30 分鐘', '#ffd85a');
+      toggleAutopilot(g, 'off', 'oil_empty');
+      return null;
+    }
+  }
   // 領航小星燈漂浮動畫
   ensureGuideWisp(g);
   if (ap.wispMesh) {
@@ -241,7 +259,7 @@ export function tickAutopilot(g, dt, manualMv) {
           g.meta.p.shards = (g.meta.p.shards || 0) + gain;
           ap.stats.shards += gain;
           g.meta.save?.();
-          g.scene?.remove?.(d.g);
+          if (g.disposeDrop) g.disposeDrop(d); else g.scene?.remove?.(d.g);
           g.drops.splice(i, 1);
           g.fx?.burst?.(p.pos.x, p.y + 0.9, p.pos.z, 6, { c: [0xc08cff, 0xffe480], s: 0.09, speed: 3, up: 2.5, life: 0.4 });
         } else {

@@ -836,5 +836,14 @@ const createGuild = require('../server/guild.cjs');
   assert.equal(mmoProto.isFeatureEnabled(mmoProto.DEFAULT_FEATURE_FLAGS, 'market'), true);
   assert.equal(mmoProto.isFeatureEnabled({ market: false }, 'market'), false, 'Live-Ops kill switch halts feature immediately');
 
-  console.log('ALL 34 LOGIC, MMO-M9-SAFETY-KILLSWITCH, MMO-M8-ROLES-FEAST-GPU, MMO-M7-SOUL-AWAKEN-GPU-FIX, MMO-M6-SPIRE-MENTOR-LIGHTHOUSE, MMO-M5-FERRY-REVIEW, MMO-M4-OVERHAUL, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
+  // 35. Phase M10: Atlas Map Stone Crafting Cost & Live-Ops Autopilot Kill Switch Enforcement
+  assert.equal(atlas.atlasCraftCost({ density: 'normal', mechanics: [] }).isFree, true, 'Standard 0-mod Atlas run is free');
+  const heavyCost = atlas.atlasCraftCost({ density: 'abyss', mechanics: ['vaal_rift', 'twin_boss'] });
+  assert.equal(heavyCost.isFree, false, 'High-density stacked Atlas requires Map Stone crafting cost');
+  assert.equal(heavyCost.coins, 54, 'Abyss + 2 mechanics costs 54 coins (30 + 24)');
+  assert.equal(heavyCost.shards, 28, 'Abyss + 2 mechanics costs 28 shards (16 + 12)');
+  const killedApMock = { autopilot: apMod.createAutopilotState(), features: { autopilot: false }, ui: { toast() {} } };
+  assert.equal(apMod.toggleAutopilot(killedApMock, 'full'), false, 'Autopilot blocked when Live-Ops kill switch is active');
+
+  console.log('ALL 35 LOGIC, MMO-M10-PORTALS-CRAFT-KILLSWITCH, MMO-M9-SAFETY-KILLSWITCH, MMO-M8-ROLES-FEAST-GPU, MMO-M7-SOUL-AWAKEN-GPU-FIX, MMO-M6-SPIRE-MENTOR-LIGHTHOUSE, MMO-M5-FERRY-REVIEW, MMO-M4-OVERHAUL, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
 })();
