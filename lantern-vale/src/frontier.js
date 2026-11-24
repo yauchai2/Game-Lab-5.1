@@ -215,8 +215,8 @@ function buildBlueprintLandmarks(g, bp) {
       // #04 西北雪峰站：Palmov 滑雪纜車站
       placePalmov('ski_resort', pos.x, pos.z, { scale: 1.0, rotY: 0.35, yOffset: -0.25, emissive: 0x344252, emissiveIntensity: 0.28 }, 4.0);
     } else if (poi.landmark === 'ice_spires') {
-      // #04 東北：Palmov 藍冰晶山峰群
-      placePalmov('crystal_mountain', pos.x, pos.z, { scale: 1.0, rotY: 0.2, yOffset: -0.25, emissive: 0x2c4e68, emissiveIntensity: 0.32 }, 4.0);
+      // #04 東北：Palmov 藍冰晶山峰群（偏移避開副本洞口 cave_arch，零封口穿模）
+      placePalmov('crystal_mountain', pos.x - 11.5, pos.z + 5.0, { scale: 0.85, rotY: 0.25, yOffset: -0.25, emissive: 0x2c4e68, emissiveIntensity: 0.34 }, 3.4);
     } else if (poi.landmark === 'snow_cabin') {
       // #04 西側裂谷雪屋：著地雪山木屋（不放陸地船隻與碼頭）
       placeGlb('snow_house', pos.x, pos.z, null, { scale: 1.08, rotY: 0.45, yOffset: -0.15 }, 2.6);
@@ -274,8 +274,8 @@ function buildBlueprintLandmarks(g, bp) {
       // #06 東坡：Palmov 天然三疊石泉池
       placePalmov('hot_springs', pos.x, pos.z, { scale: 0.95, rotY: 0.4, yOffset: -0.25 }, 3.2);
     } else if (poi.landmark === 'world_tree_core') {
-      // #06 中央：Palmov 古木森山林核
-      placePalmov('mountain_forest', pos.x, pos.z, { scale: 1.05, rotY: 0.25, yOffset: -0.25 }, 3.8);
+      // #06 中央：Palmov 古木森山林核（置於 Boss 戰場北側作為壯闊背景山峰，不埋沒 Boss 與檢查點）
+      placePalmov('mountain_forest', pos.x, pos.z - 13.5, { scale: 0.90, rotY: 0.25, yOffset: -0.25 }, 3.6);
     } else if (poi.landmark === 'forest_camp') {
       placeGlb('forest_cabin', pos.x, pos.z, null, { scale: 1.05, rotY: -0.4, yOffset: -0.15, emissive: 0x3a3428, emissiveIntensity: 0.35 }, 2.6);
     } else if (poi.landmark === 'pirate_fort') {
@@ -436,11 +436,11 @@ function buildBlueprintLandmarks(g, bp) {
     const pTower = uvToWorld(0.78, 0.68, half);
     placeGlb('egypt_sphinx', pTower.x, pTower.z - 4.5, null, { scale: 1.0, rotY: -0.8, yOffset: -0.15, tint: 0xf5cc88, emissive: 0x604624, emissiveIntensity: 0.36 }, 3.0);
   } else if (bp.id === 14) {
-    // #14 太陽金字塔聖殿：中央巨型金字塔、人面獅身像、雙側方尖碑與法老石棺（4351 POLY - Egypt）
+    // #14 太陽金字塔聖殿：主金字塔置於 Boss 祭壇北側（留出開闊儀式廣場，不吞沒黃金聖蠍王與玩家）
     const pMid = uvToWorld(0.50, 0.48, half);
-    placeGlb('egypt_pyramid', pMid.x, pMid.z - 6.0, null, { scale: 1.45, rotY: 0.0, yOffset: -0.25, tint: 0xf8d89c, emissive: 0x6a4e26, emissiveIntensity: 0.38 }, 6.5);
-    placeGlb('egypt_sphinx', pMid.x - 12.5, pMid.z + 6.5, null, { scale: 1.15, rotY: 0.6, yOffset: -0.15, tint: 0xf6d08e, emissive: 0x624824, emissiveIntensity: 0.38 }, 3.2);
-    placeGlb('egypt_obelisk', pMid.x + 12.0, pMid.z + 6.0, null, { scale: 1.15, rotY: -0.4, yOffset: -0.15, tint: 0xf8d698, emissive: 0x644a26, emissiveIntensity: 0.38 }, 1.6);
+    placeGlb('egypt_pyramid', pMid.x, pMid.z - 15.5, null, { scale: 1.25, rotY: 0.0, yOffset: -0.25, tint: 0xf8d89c, emissive: 0x6a4e26, emissiveIntensity: 0.38 }, 5.5);
+    placeGlb('egypt_sphinx', pMid.x - 12.5, pMid.z + 4.5, null, { scale: 1.15, rotY: 0.6, yOffset: -0.15, tint: 0xf6d08e, emissive: 0x624824, emissiveIntensity: 0.38 }, 3.2);
+    placeGlb('egypt_obelisk', pMid.x + 12.0, pMid.z + 4.0, null, { scale: 1.15, rotY: -0.4, yOffset: -0.15, tint: 0xf8d698, emissive: 0x644a26, emissiveIntensity: 0.38 }, 1.6);
     const pSouth = uvToWorld(0.50, 0.82, half);
     placeGlb('egypt_pyramid', pSouth.x + 11.5, pSouth.z - 12.5, null, { scale: 1.05, rotY: 0.2, yOffset: -0.2, tint: 0xf8d89c, emissive: 0x6a4e26, emissiveIntensity: 0.38 }, 4.5);
     placeGlb('egypt_sphinx', pSouth.x - 8.5, pSouth.z - 7.5, null, { scale: 1.05, rotY: 0.75, yOffset: -0.15, tint: 0xf6d08e, emissive: 0x624824, emissiveIntensity: 0.38 }, 2.8);
@@ -463,8 +463,8 @@ function buildBlueprintLandmarks(g, bp) {
     placeGlb('purple_crystal', pStart.x + 5.5, pStart.z - 3.5, null, { scale: 0.95, rotY: 0.4, yOffset: -0.1, flatTint: 0xb872ff, emissive: 0x7c38d8, emissiveIntensity: 0.62 }, 1.2);
     placeGlb('fire_torch', pStart.x - 3.8, pStart.z - 4.2, null, { scale: 1.15, rotY: 0, yOffset: -0.1, emissive: 0xff8c38, emissiveIntensity: 0.65 }, 0.5);
     const pBoss = uvToWorld(0.50, bp.id === 16 ? 0.50 : 0.28, half);
-    placePalmov('cemetery_church', pBoss.x, pBoss.z - 7.5, { scale: bp.id === 17 ? 1.05 : 0.95, rotY: 0.15, yOffset: -0.25, tint: 0xc2b8dc, emissive: 0x382a5c, emissiveIntensity: 0.38 }, 4.0);
-    placeGlb('stonehenge', pBoss.x - 10.5, pBoss.z - 2.0, null, { scale: 1.05, rotY: 0.3, yOffset: -0.15, flatTint: 0x625a82, emissive: 0x382858, emissiveIntensity: 0.46 }, 2.2);
+    placePalmov('cemetery_church', pBoss.x, pBoss.z - 12.5, { scale: bp.id === 17 ? 0.98 : 0.92, rotY: 0.15, yOffset: -0.25, tint: 0xd8d0f0, emissive: 0x584680, emissiveIntensity: 0.50 }, 3.8);
+    placeGlb('stonehenge', pBoss.x - 10.5, pBoss.z - 2.0, null, { scale: 1.05, rotY: 0.3, yOffset: -0.15, flatTint: 0x7c74a4, emissive: 0x4c3a74, emissiveIntensity: 0.52 }, 2.2);
   } else if (bp.id === 18) {
     // #18 深海螢光沉淵：飄浮巨型深海烏賊、發光巨型海菇與亞特蘭提斯海殿（4123 Alien Planets Vol2）
     const pStart = uvToWorld(0.22, 0.76, half);
