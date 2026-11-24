@@ -14,12 +14,13 @@ function read(id) { try { return JSON.parse(localStorage.getItem(id)); } catch {
 function clampIdx(value, count) { return Number.isInteger(value) && value >= 0 && value < count ? value : 0; }
 
 // Phase D5：5 位英雄於《Location mountain ship》沉船海島沙灘與草坡的站位（載入 GLB 後自動 Raycast 貼地！）
+// 衛士／法師／武僧自然循環播放 CombatIdle（生動呼吸＋雙手握緊武器不硬直）；弓手維持拉弓搭箭、影刃持骨刃微呼吸
 const ISLAND_SPOTS = [
-  { job: 0, x:  0.02, y: 0.24, z:  2.15, rotY:  0.12, camAng:  0.04, focusDist: 3.95, focusY: 0.84, en: 'Fighter',     pose: { state: 'combatIdle', t: 0.16, amp: 0.035 } },
-  { job: 1, x: -1.18, y: 0.24, z:  2.08, rotY:  0.34, camAng: -0.26, focusDist: 3.95, focusY: 0.84, en: 'Archer',      pose: { state: 'attack',     t: 0.42, amp: 0.022 } },
-  { job: 2, x:  0.62, y: 0.72, z:  0.88, rotY:  0.04, camAng:  0.06, focusDist: 4.10, focusY: 1.32, en: 'Mage',        pose: { state: 'combatIdle', t: 0.25, amp: 0.032 } },
-  { job: 3, x:  1.45, y: 0.24, z:  1.62, rotY: -0.32, camAng:  0.30, focusDist: 3.95, focusY: 0.84, en: 'Necromancer', pose: { state: 'cast',       t: 0.35, amp: 0.032 } },
-  { job: 4, x: -0.82, y: 0.62, z:  0.82, rotY:  0.18, camAng: -0.18, focusDist: 4.10, focusY: 1.22, en: 'Monk',        pose: { state: 'combatIdle', t: 0.20, amp: 0.032 } },
+  { job: 0, x:  0.02, y: 0.24, z:  2.15, rotY:  0.12, camAng:  0.04, focusDist: 3.95, focusY: 0.84, en: 'Fighter',     pose: null },
+  { job: 1, x: -1.18, y: 0.24, z:  2.08, rotY:  0.34, camAng: -0.26, focusDist: 3.95, focusY: 0.84, en: 'Archer',      pose: { state: 'attack', t: 0.42, amp: 0.006 } },
+  { job: 2, x:  0.62, y: 0.72, z:  0.88, rotY:  0.04, camAng:  0.06, focusDist: 4.10, focusY: 1.32, en: 'Mage',        pose: null },
+  { job: 3, x:  1.45, y: 0.24, z:  1.62, rotY: -0.32, camAng:  0.30, focusDist: 3.95, focusY: 0.84, en: 'Necromancer', pose: { state: 'cast',   t: 0.35, amp: 0.008 } },
+  { job: 4, x: -0.82, y: 0.62, z:  0.82, rotY:  0.18, camAng: -0.18, focusDist: 4.10, focusY: 1.22, en: 'Monk',        pose: null },
 ];
 
 // 載入 Low Poly Locations Ultimate Pack 的《Location mountain ship》實景 GLB＋延伸海洋底面
@@ -128,9 +129,9 @@ export function bindCharacters(game) {
     slotsSel.value = slot;
   }
 
-  // 高解析柔光抗鋸齒 3D 舞台（依使用者確認選項 A2）
-  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, preserveDrawingBuffer: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  // 統一 A Short Hike 像素渲染管線（關閉抗鋸齒＋依遊戲像素倍率縮放＋pixelated 清晰放大！）
+  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false, preserveDrawingBuffer: true });
+  renderer.setPixelRatio(1);
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -321,9 +322,7 @@ export function bindCharacters(game) {
     orbitVel = 0;
     syncHeroMeshes();
     if (triggerAnim) {
-      const h = islandHeroes[selectedJob]?.hero;
-      h?.play('buff', { once: true, force: true });
-      // Phase V5：選角聚焦時於英雄腳下綻放專屬 Piloto 3D 法陣與招牌迷你特效！
+      // Phase V5：選角聚焦時於英雄腳下綻放專屬 Piloto 3D 法陣與招牌迷你特效（不再播跳躍 Buff 導致彈跳或歸零硬直！）
       const th = CLASSES[selectedJob]?.auraTheme || 'holy';
       theaterVfx.spawnDecal(selectedJob === 4 || selectedJob === 0 ? 'holy_ring' : 'magic_circle', sp.x, sp.y, sp.z, { theme: th, scaleStart: 0.8, scaleEnd: 1.75, dur: 1.2, spinY: 1.8 });
       if (selectedJob === 4) theaterVfx.spawnSummon('lotus_burst', sp.x, sp.y, sp.z, 0, 1, { theme: 'lotus' });
@@ -735,14 +734,16 @@ export function bindCharacters(game) {
     requestAnimationFrame(loop);
   };
 
-  // 動畫與平滑運鏡迴圈
+  // 動畫與平滑運鏡迴圈（同步套用遊戲內像素倍率，讓選角頁與 A Short Hike 風格完全一致！）
   let lastT = performance.now();
   function resize() {
     const rect = canvas.getBoundingClientRect();
-    const w = Math.max(320, Math.round(rect.width)), h = Math.max(240, Math.round(rect.height));
-    if (canvas.width !== Math.round(w * renderer.getPixelRatio()) || canvas.height !== Math.round(h * renderer.getPixelRatio())) {
+    const pxScale = Math.max(2, Math.min(4, game.settings?.pixel || 3));
+    const w = Math.max(240, Math.round(rect.width / pxScale));
+    const h = Math.max(150, Math.round(rect.height / pxScale));
+    if (canvas.width !== w || canvas.height !== h) {
       renderer.setSize(w, h, false);
-      camera.aspect = w / h;
+      camera.aspect = rect.width / Math.max(1, rect.height);
       camera.updateProjectionMatrix();
     }
   }
@@ -758,7 +759,7 @@ export function bindCharacters(game) {
       // 輕柔微幅正面擺動（始終展示英雄可愛正面，玩家拖曳仍可自由 360° 旋轉）
       orbitYaw += orbitVel * dt;
       orbitVel *= Math.exp(-dt * 4);
-      islandStage.rotation.y = orbitYaw + Math.sin(now * 0.00055) * 0.16;
+      islandStage.rotation.y = orbitYaw + Math.sin(now * 0.00045) * 0.10;
       computeCameraGoal();
     } else if (stageMode === 'focus' && !drag) {
       orbitYaw += orbitVel * dt;
@@ -768,9 +769,10 @@ export function bindCharacters(game) {
     } else {
       islandStage.rotation.y = orbitYaw;
     }
-    islandGeo.position.y = Math.sin(now * 0.0014) * 0.03;
+    // 沉船島嶼保持穩固不動（移除上下彈跳，避免島面穿過角色雙腳）
+    islandGeo.position.y = 0;
     sparks.rotation.y += dt * 0.16;
-    selRing.scale.setScalar(1 + Math.sin(now * 0.005) * 0.06);
+    selRing.scale.setScalar(1 + Math.sin(now * 0.004) * 0.04);
 
     if (stageMode === 'dressup') {
       dressHero.root.rotation.y += (dressRotY - dressHero.root.rotation.y) * Math.min(1, dt * 10);

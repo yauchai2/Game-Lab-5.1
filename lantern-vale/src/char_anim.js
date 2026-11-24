@@ -2,17 +2,21 @@
 import * as THREE from 'three';
 
 const STATE_ALIASES = {
-  idle:       ['Idle', 'CombatIdle'],
+  // 持武角色預設皆以 CombatIdle 作為自然持武待機（避免未持武 Idle/A-Pose 造成武器垂直懸空於身旁）
+  idle:       ['CombatIdle', 'Idle'],
   combatIdle: ['CombatIdle', 'Idle'],
   walk:       ['Walk', 'Run'],
   run:        ['Run', 'Walk'],
+  runBack:    ['Run', 'Walk'],
+  runL:       ['Run', 'Walk'],
+  runR:       ['Run', 'Walk'],
   jump:       ['Jump', 'Fall', 'Falling'],
   fall:       ['Falling', 'Fall', 'Jump'],
   attack:     ['Attack', 'attack', 'SkillAttack'],
   runAttack:  ['RunAttack', 'Attack', 'attack'],
   skill:      ['SkillAttack', 'CastEnd', 'Attack', 'attack'],
   cast:       ['CastingLoop', 'CastLoop', 'Buff'],
-  buff:       ['Buff', 'SkillAttack', 'Idle'],
+  buff:       ['Buff', 'SkillAttack', 'CombatIdle'],
   block:      ['BlockingLoop', 'Blocking', 'CombatIdle'],
   gather:     ['Gathering', 'Attack', 'attack'],
   hit:        ['GetHit', 'CombatIdle'],
@@ -32,6 +36,8 @@ export class CharAnimator {
     this.lockTimer = 0;
     this.archetype = null;
     this._pose = null;
+    this._returnPose = null;
+    this._isOneShot = false;
     this._poseClock = 0;
   }
 
@@ -79,13 +85,15 @@ export class CharAnimator {
 
     if (isOneShot) {
       next.setLoop(THREE.LoopOnce, 1);
-      next.clampWhenFinished = state === 'death';
+      // 永遠 clampWhenFinished=true，避免播完瞬間歸零成硬直 A-Pose 與武器垂直懸空！
+      next.clampWhenFinished = true;
       next.reset();
       this.lockTimer = Math.max(0.18, (clip.duration / Math.max(0.4, speed)) * (opts.lockFrac ?? 0.72));
     } else {
       next.setLoop(THREE.LoopRepeat, Infinity);
       next.clampWhenFinished = false;
     }
+    this._isOneShot = isOneShot;
 
     if (this.curAction && this.curAction !== next) {
       next.enabled = true;
@@ -103,9 +111,9 @@ export class CharAnimator {
   }
 
   /**
-   * Phase D1：定格英雄招牌展示 Pose（精準定位動畫關鍵幀＋極微幅呼吸擺動，100% 還原參考影片拉弓／戒備架勢）
+   * Phase D1：定格英雄招牌展示 Pose（精準定位動畫關鍵幀＋極微幅呼吸擺動，不彈跳不歸零）
    */
-  setShowcasePose(state, normTime = 0.45, breatheAmp = 0.035) {
+  setShowcasePose(state, normTime = 0.45, breatheAmp = 0.008) {
     if (!this.clips.size) return false;
     const clip = this._resolveClip(state);
     if (!clip) return false;
@@ -126,20 +134,34 @@ export class CharAnimator {
     this.mixer.update(0);
     this.curAction = act;
     this.curState = state;
+    this._isOneShot = false;
     this._pose = { act, baseTime, amp: breatheAmp, dur: clip.duration };
+    this._returnPose = { state, normTime, breatheAmp };
     return true;
   }
 
   update(dt) {
     if (this._pose) {
       this._poseClock += dt;
-      const t = Math.max(0.005, Math.min(this._pose.dur - 0.01, this._pose.baseTime + Math.sin(this._poseClock * 2.1) * this._pose.amp));
+      const t = Math.max(0.005, Math.min(this._pose.dur - 0.01, this._pose.baseTime + Math.sin(this._poseClock * 1.8) * this._pose.amp));
       this._pose.act.time = t;
       this.mixer.update(0);
       return;
     }
     if (this.lockTimer > 0) this.lockTimer = Math.max(0, this.lockTimer - dt);
     this.mixer.update(dt);
+    // 單次動作（如攻擊／技能／歡呼）播畢後自動平滑接回展示 Pose 或自然持武待機，徹底杜絕硬直 A-Pose！
+    if (this._isOneShot && this.curState !== 'death' && this.curAction) {
+      const dur = this.curAction.getClip()?.duration || 0;
+      if (dur > 0 && this.curAction.time >= dur - 0.03) {
+        this._isOneShot = false;
+        if (this._returnPose) {
+          this.setShowcasePose(this._returnPose.state, this._returnPose.normTime, this._returnPose.breatheAmp);
+        } else {
+          this.play('combatIdle', { force: true, fade: 0.22 });
+        }
+      }
+    }
   }
 
   dispose() {

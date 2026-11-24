@@ -620,7 +620,7 @@ body.photo-mode #hud > *:not(#photoBadge){opacity:0!important;pointer-events:non
   --boxsh: var(--box), 0 calc(2*var(--px)) 0 0 #2b1d33, calc(-1*var(--px)) var(--px) 0 0 #2b1d33, var(--px) var(--px) 0 0 #2b1d33;
 }
 html,body{image-rendering:auto;-webkit-font-smoothing:antialiased;color:var(--ui-wood-dark)}
-#view,#regionMapCanvas,#pcFeather,.pc-bar canvas{image-rendering:pixelated}
+#view,#creatorCanvas,#regionMapCanvas,#pcFeather,.pc-bar canvas{image-rendering:pixelated;image-rendering:crisp-edges}
 
 /* 一點像素風標題與數值字體（保持繁體正文清晰可讀，標題／徽章／數字帶像素韻味） */
 #title h1,.sb-tape,.du-head h2,.cr-pill,.hero-pin-btn,.modal h2,.cx-title,#worldMap h2,.setp h3,#inv h3,.pzp h3,#pcard .pc-name,#pcard .pc-num,#pcard .pc-por b,#boss .name,.sb-st-val{
