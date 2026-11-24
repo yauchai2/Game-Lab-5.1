@@ -16,7 +16,7 @@ import { BIOMES, mulberry32, clamp, lerp, angleLerp, rand, pick } from './util.j
 import { buildTownScenery, buildGuildKiosk, buildAwakenAltar, buildWardrobe, buildSheep, TOWN_LAYOUT, buildCottage } from './town.js';
 import { loadSettings, applySettings, buildSettingsUI, DIFFICULTY_MODES } from './settings.js';
 import { getFieldDanger } from './progression.js';
-import { pickHotspots, getFieldHotspot } from './mmo_protocol.js';
+import { pickHotspots, getFieldHotspot, checkTriggerIcd, getFerrySchedule, FERRY_BUFF_MS } from './mmo_protocol.js';
 import { showWeapon, applyCosmetics, buildPlayer, buildNPC, buildSlime, buildThorn, buildBoar, buildMoth, buildSkyRay, buildGolem, buildStag, buildArch, buildHouse, buildFountain, buildBoard, buildStall } from './models.js';
 import { Net } from './net.js';
 import { Meta } from './meta.js';
@@ -304,6 +304,7 @@ export class Game {
     if (profile.weapon === 'shield') s.armor += 15;
     if (profile.gem) { s.addFire += 4; p.skills.slam = true; }
     if (profile.mealUntil > Date.now()) s.regen += Math.round(2 * (profile.mealBoost || 1));
+    if ((profile.ferryBuffUntil || 0) > Date.now()) s.moveSpd += 10;
     const specials = new Set();
     for (const it of Object.values(p.equip)) if (it) {
       for (const m of [it.corruptImplicit, it.implicit, ...it.mods]) if (m) s[m.k] = (s[m.k] || 0) + m.v;
@@ -798,17 +799,20 @@ export class Game {
     if (p.stats.lifeOnHit && !opts.isDoT) this.heal(p.stats.lifeOnHit, false);
     if (opts.leech && !opts.isDoT) this.heal(opts.leech, false);
     if (opts.hitstop) this.hitstop = Math.max(this.hitstop, opts.hitstop);
-    // 技能邏輯電路：命中觸發器 (CoH) 與暴擊觸發器 (CoC)，附防遞迴冷卻保護
-    if (!opts.isDoT && !opts.isTrigger && (this._triggerCd || 0) <= this.time) {
+    // 技能邏輯電路：命中觸發器 (CoH) 與暴擊觸發器 (CoC)，接通 Phase M4A 250ms 獨立 ICD 保護
+    if (!opts.isDoT && !opts.isTrigger) {
       const trigIds = [...(opts.triggerOnHit || []), ...(hit.crit ? (opts.triggerOnCrit || []) : [])];
       if (trigIds.length) {
-        this._triggerCd = this.time + (hit.crit && opts.triggerOnCrit?.length ? 0.45 : 0.65);
-        const prevAim = this.aim.clone();
-        this.aim.set(e.pos.x, e.pos.y, e.pos.z);
-        for (const tid of trigIds) {
-          this.execPuzzleSkill(tid, { multi: 0, echo: 0, area: 0, dmgMult: 0.72, fire: false, chain: 0, cdr: 0, frost: 0, leech: 0, shock: 0, split: false, orbit: false, triggerOnHit: [], triggerOnCrit: [] }, 0.72, true);
+        const nowMs = this.time * 1000;
+        const readyIds = trigIds.filter(tid => checkTriggerIcd(this.puzzleIcd, `${tid}:${hit.crit ? 'c' : 'h'}`, nowMs, hit.crit ? 250 : 350));
+        if (readyIds.length) {
+          const prevAim = this.aim.clone();
+          this.aim.set(e.pos.x, e.pos.y, e.pos.z);
+          for (const tid of readyIds) {
+            this.execPuzzleSkill(tid, { multi: 0, echo: 0, area: 0, dmgMult: 0.72, fire: false, chain: 0, cdr: 0, frost: 0, leech: 0, shock: 0, split: false, orbit: false, triggerOnHit: [], triggerOnCrit: [] }, 0.72, true);
+          }
+          this.aim.copy(prevAim);
         }
-        this.aim.copy(prevAim);
       }
     }
     // 部位破壞與精準掉落：依據命中方位集中傷害特定部位，斬斷後弱化招式並必掉專屬神裝
@@ -818,6 +822,7 @@ export class Game {
       if (part) {
         const pr = damagePart(e, part, dmg);
         if (pr.broken) {
+          if (this.runStats) this.runStats.partsBroken++;
           if (e.m.parts?.[pr.part.id]) e.m.parts[pr.part.id].visible = false;
           this.hitstop = Math.max(this.hitstop, 0.1);
           this.shake = Math.max(this.shake, 0.58);
@@ -1783,6 +1788,7 @@ export class Game {
         reacted = true;
       }
     }
+    if (reacted && this.runStats) this.runStats.synergyProcs++;
     return reacted;
   }
   tryInteract() {
@@ -2022,7 +2028,17 @@ export class Game {
   setupNet() {
     const n = this.net;
     n.on('status', s => { if (s.ok) this.identifyGuild(); else { this.wallet=null; this.exitRaid?.(); } this.ui.netStatus(s); if (!s.ok && this.depth === -1 && !this.bots.length && s.reason !== 'no-server') this.spawnBots(); });
-    n.on('welcome', m => { for (const h of m.history || []) this.ui.addChat(h.name, h.text, false, h.zone); this.ui.addChat('', `已連線，你的編號 #${m.id}`, true); });
+    n.on('welcome', m => {
+      if (m.hotspots) this.hotspots = m.hotspots;
+      for (const h of m.history || []) this.ui.addChat(h.name, h.text, false, h.zone);
+      this.ui.addChat('', `已連線，你的編號 #${m.id}`, true);
+    });
+    n.on('tide_sync', m => {
+      if (this.tide && typeof m.heat === 'number') {
+        this.tide.heat = m.heat;
+        this.tide.phase = m.phase ?? this.tide.phase;
+      }
+    });
     n.on('online', m => this.ui.setOnline(m.n));
     n.on('sys', m => this.ui.addChat('', m.text, true));
     n.on('chat', m => { this.ui.addChat(m.name, m.text, false, m.zone); this.audio.sfx('chat'); if (m.id === n.id) this.say('me', m.text); else if (this.remotes.has(m.id)) this.say(m.id, m.text); });
@@ -2051,7 +2067,30 @@ export class Game {
     const r = { id, name, col, m, tag, bub, x: 0, y: 0, z: 0, f: 0, tx: 0, ty: 0, tz: 0, tf: 0, a: 0, walkT: 0, say: 0, init: false };
     this.remotes.set(id, r); return r;
   }
-  removeRemote(id) { const r = this.remotes.get(id); if (!r) return; this.scene.remove(r.m.root); r.tag.remove(); r.bub.remove(); this.remotes.delete(id); }
+  removeRemote(id) {
+    const r = this.remotes.get(id); if (!r) return;
+    this.scene.remove(r.m.root);
+    // 自我審查修正：遠端玩家離線時釋放其幾何體與材質，防止多人進出城鎮累積 GPU 記憶體洩漏
+    r.m.root.traverse?.(o => {
+      if (o.geometry && !o.userData?.sharedGeo) o.geometry.dispose?.();
+      if (o.material && !o.userData?.sharedMat) {
+        if (Array.isArray(o.material)) o.material.forEach(m => m.dispose?.());
+        else o.material.dispose?.();
+      }
+    });
+    r.tag.remove(); r.bub.remove(); this.remotes.delete(id);
+  }
+  boardPublicFerry(fieldId = null) {
+    const sch = getFerrySchedule(Date.now(), this.hotspots);
+    const destId = fieldId || sch.destFieldId || 1;
+    if (!FIELDS[destId]) return;
+    this.meta.p.ferryBuffUntil = Date.now() + FERRY_BUFF_MS;
+    this.meta.save();
+    this.enterField(destId);
+    this.recalc();
+    this.audio.sfx('warp');
+    this.ui.toast(`⛵ 搭乘公共星舟抵達「${FIELDS[destId].name}」！獲得 15 分鐘「同舟共濟」移速 +10% · 經驗 +10%`, '#ffd85a');
+  }
   clearRemotes() { for (const id of [...this.remotes.keys()]) this.removeRemote(id); }
   say(id, text) {
     if (id === 'me') { this.mySay = { text, t: 4.5 }; return; }

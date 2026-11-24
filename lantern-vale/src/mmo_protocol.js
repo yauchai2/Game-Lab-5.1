@@ -160,3 +160,24 @@ export function computeCozyMvps(stats = {}) {
   if (!badges.length) badges.push({ icon: '🌿', title: '星燈探索者', detail: '平安完成本次燈谷探險' });
   return badges;
 }
+
+// Phase M5A：公共跨海星燈飛舟班表（每 5 分鐘一班，直達當期星圖熱點並賦予 15 分鐘「同舟共濟」增益）
+export const FERRY_INTERVAL_MS = 5 * 60 * 1000;
+export const FERRY_BUFF_MS = 15 * 60 * 1000;
+
+export function getFerrySchedule(nowMs = Date.now(), activeHotspots = null) {
+  const hsData = activeHotspots || pickHotspots(nowMs);
+  const slot = Math.floor(nowMs / FERRY_INTERVAL_MS);
+  const nextDepartMs = (slot + 1) * FERRY_INTERVAL_MS;
+  const departInSec = Math.max(0, Math.ceil((nextDepartMs - nowMs) / 1000));
+  const list = hsData.hotspots || [];
+  const dest = list[slot % Math.max(1, list.length)] || { fieldId: 1, kind: 'gold_tide', name: '🔥 餘燼金潮', bonus: '經驗＆掉寶 +40%' };
+  return {
+    slot,
+    destFieldId: dest.fieldId,
+    destHotspot: dest,
+    departInSec,
+    buffDurationMs: FERRY_BUFF_MS,
+    buffLabel: '⛵ 同舟共濟（移速 +10% · 經驗 +10%）',
+  };
+}

@@ -3,7 +3,7 @@ import { FIELDS, teleportToCheckpoint } from './frontier.js';
 import { FIELD_BLUEPRINTS } from './field_blueprints.js';
 import { FAMILY_META, getTerrainEffect, getRealmRule } from './terrain_fx.js';
 import { getFieldDanger } from './progression.js';
-import { pickHotspots, getFieldHotspot } from './mmo_protocol.js';
+import { pickHotspots, getFieldHotspot, getFerrySchedule } from './mmo_protocol.js';
 import { t } from './i18n.js';
 
 // Phase 4A（點子 1）：三層「星燈雲海浮島」航海星圖（表界 / 沉淵 / 星穹）
@@ -151,8 +151,15 @@ export function bindWorldMap(game) {
   const duel = document.createElement('button'); duel.className = 'btn small';
   const raid = document.createElement('button'); raid.className = 'btn small'; raid.textContent = '公會組隊副本';
   raid.onclick = () => game.net.send({ t: 'raidJoin', code: game.party });
+  const ferryBtn = document.createElement('button'); ferryBtn.className = 'btn small'; ferryBtn.style.background = '#c97828';
   const actions = document.createElement('div'); actions.className = 'map-actions';
-  actions.append(sailBtn, wpBtn, duel, raid); dialog.append(actions);
+  actions.append(sailBtn, ferryBtn, wpBtn, duel, raid); dialog.append(actions);
+
+  ferryBtn.onclick = () => {
+    const sch = getFerrySchedule(Date.now(), game.hotspots);
+    dialog.close();
+    game.boardPublicFerry?.(sch.destFieldId);
+  };
 
   sailBtn.onclick = () => {
     if (!selected) return;
@@ -388,6 +395,9 @@ export function bindWorldMap(game) {
     const inDungeon = game.depth >= 0 && !game.field;
     const hsData = game.hotspots || pickHotspots();
     const hsSummary = hsData.hotspots.map(h => `${h.kind === 'gold_tide' ? '🔥' : '🍗'}${FIELDS[h.fieldId]?.name || ''}`).join(' · ');
+    const fSch = getFerrySchedule(Date.now(), hsData);
+    const fMin = Math.floor(fSch.departInSec / 60), fSec = String(fSch.departInSec % 60).padStart(2, '0');
+    ferryBtn.textContent = `⛵ 公共星舟 → ${FIELDS[fSch.destFieldId]?.name || '熱點島'} (${fMin}:${fSec} · 同舟共濟 +10%)`;
     dialog.querySelector('.map-location').textContent =
       `📍 ${inDungeon ? `副本第 ${game.depth + 1} 層` : curReg.name} ｜ 🏮 星燈 ${litTotal}/${WORLD_REGIONS.length} ｜ 本期熱點：${hsSummary}`;
     renderAtlas();

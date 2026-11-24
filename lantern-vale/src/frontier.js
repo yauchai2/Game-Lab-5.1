@@ -58,7 +58,8 @@ export function awardKill(g, enemy) {
   const lvDiff = level - (p.level || 1);
   const upwardMul = (!autoOn && lvDiff >= 3 && lvDiff <= 5) ? 1.25 : 1;
   const hotspotMul = (!autoOn && g.field && g.hotspots && getFieldHotspot(g.field, g.hotspots)?.kind === 'gold_tide') ? 1.4 : 1;
-  const mult = (g.isNight ? 1.25 : 1) * (p.guildName ? 1.1 : 1) * (autoOn ? 0.30 : sparkMul) * upwardMul * hotspotMul;
+  const ferryMul = ((p.ferryBuffUntil || 0) > Date.now()) ? 1.1 : 1;
+  const mult = (g.isNight ? 1.25 : 1) * (p.guildName ? 1.1 : 1) * (autoOn ? 0.30 : sparkMul) * upwardMul * hotspotMul * ferryMul;
   const xpGain = Math.max(1, Math.round((10 + level * (enemy.elite ? 4 : 2)) * mult));
   const rawCoins = enemy.elite ? 5 : 2;
   const coinGain = autoOn ? (Math.random() < 0.30 ? Math.max(1, Math.round(rawCoins * 0.5)) : 0) : Math.round(rawCoins * sparkMul);

@@ -771,5 +771,18 @@ const createGuild = require('../server/guild.cjs');
   assert.ok(c1.msgs.some(m => m.t === 'raidStart' && m.portalsLeft === 6), 'Guild Raid starts with 6-Portal Co-op limit');
   assert.ok(c1.msgs.some(m => m.t === 'guildNotice' && Array.isArray(m.mvps) && m.mvps.length >= 1), 'Guild Raid victory awards Cozy MVP badges');
 
-  console.log('ALL 29 LOGIC, MMO-M4-OVERHAUL, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
+  // 30. Phase M5A: Public Cross-Sea Star-Lantern Ferry Schedule & 15-min Co-Voyage +10% XP Buff
+  const fSch = mmoProto.getFerrySchedule(1795450000000, clientHs);
+  assert.ok(fSch.destFieldId >= 1 && fSch.destFieldId <= 20, 'Public ferry targets a valid hotspot field');
+  assert.equal(fSch.buffDurationMs, 900000, 'Public ferry grants 15-minute Co-Voyage buff');
+  const ferryMock = {
+    field: 1, depth: 0, isNight: false,
+    meta: { p: { ...structuredClone(frontier.progressDefaults), level: 1, xp: 0, ferryBuffUntil: Date.now() + 600000 }, save() {} },
+    ui: { toast() {} }, recalc() {},
+  };
+  frontier.awardKill(ferryMock, { type: 'slime', level: 1, elite: false, spawnIndex: 0 });
+  // base = 10 + 1*2 = 12; * 1.10 = 13.2 -> 13
+  assert.equal(ferryMock.meta.p.xp, 13, 'Co-Voyage ferry buff grants +10% XP (12 -> 13)');
+
+  console.log('ALL 30 LOGIC, MMO-M5-FERRY-REVIEW, MMO-M4-OVERHAUL, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
 })();
