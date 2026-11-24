@@ -1266,12 +1266,13 @@ export class World {
     const mat = new THREE.ShaderMaterial({
       uniforms: {
         uShore: { value: tex }, uTime: { value: 0 }, uWater: { value: 1 },
+        uRain: { value: 0 }, uRipple: { value: new THREE.Vector4(0, 0, -99, 0) },
         uDeep: { value: new THREE.Vector3(...P.waterDeep) }, uShallow: { value: new THREE.Vector3(...P.waterShallow) },
         uLine: { value: new THREE.Vector3(...P.waterLine) }, uHalf: { value: this.half },
       },
       vertexShader: `varying vec3 vW; void main(){ vec4 w = modelMatrix*vec4(position,1.0); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }`,
       fragmentShader: `
-        uniform sampler2D uShore; uniform float uTime, uHalf, uWater; uniform vec3 uDeep, uShallow, uLine; varying vec3 vW;
+        uniform sampler2D uShore; uniform float uTime, uHalf, uWater, uRain; uniform vec4 uRipple; uniform vec3 uDeep, uShallow, uLine; varying vec3 vW;
         float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
         float noise(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);
           return mix(mix(hash(i),hash(i+vec2(1,0)),f.x), mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x), f.y); }
@@ -1281,13 +1282,24 @@ export class World {
         float vor(vec2 p, float t){ vec2 g=floor(p), f=fract(p); float d1=8.0, d2=8.0;
           for(int j=-1;j<=1;j++) for(int i=-1;i<=1;i++){ vec2 o=vec2(float(i),float(j)); vec2 r=h22(g+o); r=0.5+0.45*sin(t+6.2831*r); float d=length(o+r-f); if(d<d1){d2=d1;d1=d;} else if(d<d2){d2=d;} }
           return d2-d1; }
-        // sparse expanding ripple rings scattered over open water
-        float rings(vec2 p, float t){ vec2 g=floor(p), f=fract(p); float acc=0.0;
-          for(int j=-1;j<=1;j++) for(int i=-1;i<=1;i++){ vec2 o=vec2(float(i),float(j)); vec2 id=g+o; vec2 r=h22(id); float on=step(0.55,h22(id+3.7).x);
-            float ph=fract(t*0.22+r.x*3.0+h22(id+9.1).y); vec2 c=o+0.2+r*0.6; float dd=length(c-f); float rad=ph*1.15;
-            float ring=1.0-smoothstep(0.0,0.045,abs(dd-rad)); float ring2=1.0-smoothstep(0.0,0.035,abs(dd-rad*0.62));
-            acc+=on*(ring+ring2*0.7)*(1.0-ph)*(1.0-ph); }
+        // sparse raindrop ripple rings (ONLY shown during rain / storm)
+        float rainRings(vec2 p, float t){ vec2 g=floor(p), f=fract(p); float acc=0.0;
+          for(int j=-1;j<=1;j++) for(int i=-1;i<=1;i++){ vec2 o=vec2(float(i),float(j)); vec2 id=g+o; vec2 r=h22(id); float on=step(0.86,h22(id+3.7).x);
+            float ph=fract(t*0.28+r.x*3.0+h22(id+9.1).y); vec2 c=o+0.2+r*0.6; float dd=length(c-f); float rad=ph*0.95;
+            float ring=1.0-smoothstep(0.0,0.04,abs(dd-rad)); float ring2=1.0-smoothstep(0.0,0.03,abs(dd-rad*0.6));
+            acc+=on*(ring+ring2*0.6)*(1.0-ph)*(1.0-ph); }
           return clamp(acc,0.0,1.0); }
+        // localized interactive splash ripple (wading / jumping into water)
+        float splashRing(vec2 xz, vec4 rp, float t){
+          float age = t - rp.z;
+          if (age < 0.0 || age > 1.4 || rp.w <= 0.01) return 0.0;
+          float ph = age / 1.4;
+          float dd = length(xz - rp.xy);
+          float rad = 0.25 + ph * 2.1;
+          float r1 = 1.0 - smoothstep(0.0, 0.08, abs(dd - rad));
+          float r2 = 1.0 - smoothstep(0.0, 0.06, abs(dd - rad * 0.62));
+          return clamp((r1 + r2 * 0.65) * (1.0 - ph) * (1.0 - ph) * rp.w, 0.0, 1.0);
+        }
         void main(){
           vec2 uv = (vW.xz + uHalf) / (uHalf*2.0);
           float inside = step(0.0,uv.x)*step(uv.x,1.0)*step(0.0,uv.y)*step(uv.y,1.0);
@@ -1310,19 +1322,19 @@ export class World {
           float band2 = (1.0 - smoothstep(0.9, 1.05, d+wob)) * 0.35;
           col = mix(col, uShallow*1.15, band2);
           col = mix(col, vec3(1.0,0.99,0.95), clamp(rim + waveLine*0.85, 0.0, 1.0));
-          // shallow-water voronoi network + open-water ripple rings
+          // shallow-water voronoi network + conditional ripples (rain or water splash ONLY)
           float shallowT = (1.0 - smoothstep(0.7, 3.2, d)) * smoothstep(0.35, 0.8, d);
           float vl = 1.0 - smoothstep(0.03, 0.11, vor(vW.xz*0.55 + vec2(uTime*0.03, 0.0), uTime*0.5));
           col = mix(col, vec3(0.9,0.98,1.0), vl * shallowT * 0.55 * uWater);
-          float rg = rings(vW.xz*0.22, uTime) * smoothstep(1.2, 4.0, d);
-          col = mix(col, vec3(0.92,0.98,1.0), rg * 0.6 * uWater);
-          // sparkles + 參考圖風格：水平像素白色水光短線（—）
-          float sp = step(0.985, noise(vW.xz*3.0 + vec2(uTime*0.6,-uTime*0.4))) * depthT;
-          vec2 dashCell = vec2(floor(vW.x * 0.65 + sin(floor(vW.z * 2.2) + uTime * 0.55) * 0.35), floor(vW.z * 2.2));
-          vec2 dashUv = vec2(fract(vW.x * 0.65 + sin(floor(vW.z * 2.2) + uTime * 0.55) * 0.35), fract(vW.z * 2.2));
-          float dashOn = step(0.86, hash(dashCell)) * step(0.18, dashUv.x) * step(dashUv.x, 0.82) * step(0.38, dashUv.y) * step(dashUv.y, 0.62);
-          col = mix(col, vec3(0.98, 1.0, 1.0), clamp(dashOn * 0.72 * smoothstep(0.6, 2.0, d), 0.0, 0.8));
-          col += sp*0.35;
+          if (uRain > 0.01) {
+            float rg = rainRings(vW.xz*0.16, uTime) * smoothstep(1.2, 4.0, d);
+            col = mix(col, vec3(0.92,0.98,1.0), rg * 0.38 * uRain * uWater);
+          }
+          float sr = splashRing(vW.xz, uRipple, uTime);
+          if (sr > 0.005) col = mix(col, vec3(0.95,0.99,1.0), sr * 0.65 * uWater);
+          // gentle water sparkles (no straight horizontal dashes)
+          float sp = step(0.988, noise(vW.xz*3.0 + vec2(uTime*0.6,-uTime*0.4))) * depthT;
+          col += sp*0.28;
           gl_FragColor = vec4(col, 1.0);
         }`,
     });

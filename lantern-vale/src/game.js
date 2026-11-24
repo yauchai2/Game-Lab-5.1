@@ -3308,9 +3308,18 @@ export class Game {
       x.icon.position.y = 3.6 + Math.sin(this.time * 2) * 0.15; x.icon.rotation.y += dt * 1.5;
       x.icon.visible = x.on;
     }
-    // water & motes
-    if (this.world.waterMat) this.world.waterMat.uniforms.uTime.value = this.time;
-    windU.uTime.value = this.time; if (this.world.waterMat) this.world.waterMat.uniforms.uWater.value = this.settings.water ? 1 : 0;
+    // water & motes（僅下雨或玩家涉水踩踏時才出現圓形水波）
+    if (this.world.waterMat) {
+      const wu = this.world.waterMat.uniforms;
+      wu.uTime.value = this.time;
+      wu.uWater.value = this.settings.water ? 1 : 0;
+      if (wu.uRain) wu.uRain.value = this.weather?.isRaining ? 1 : 0;
+      if (wu.uRipple && p.y <= 0.14 && !p.air && (Math.hypot(p.vel.x, p.vel.z) > 0.6) && this.time - (this._lastSplashT || -9) > 0.85) {
+        this._lastSplashT = this.time;
+        wu.uRipple.value.set(p.pos.x, p.pos.z, this.time, 1.0);
+      }
+    }
+    windU.uTime.value = this.time;
     this.weather.update(this.time,dt,this.camPos,this.field===4 && this.worldEvent);
     // lantern flicker
     this.lampLight.position.set(p.pos.x, p.y + 1.6, p.pos.z);
