@@ -13,11 +13,11 @@ function clampIdx(value, count) { return Number.isInteger(value) && value >= 0 &
 
 // 浮空小島上 5 位英雄的站位（還原影片群像構圖：法師在中央苔石高台，弓手／戰士／術士／武僧環繞）
 const ISLAND_SPOTS = [
-  { job: 0, x: -0.78, y: 0.08, z:  0.88, rotY:  0.22, focusDist: 2.35, focusY: 0.72, en: 'Fighter' },
-  { job: 1, x: -1.18, y: 0.04, z: -0.25, rotY:  0.65, focusDist: 2.35, focusY: 0.72, en: 'Archer' },
-  { job: 2, x:  0.02, y: 0.56, z: -0.68, rotY:  0.02, focusDist: 2.45, focusY: 1.24, en: 'Mage' },
-  { job: 3, x:  0.96, y: 0.06, z:  0.68, rotY: -0.35, focusDist: 2.35, focusY: 0.72, en: 'Necromancer' },
-  { job: 4, x:  1.12, y: 0.14, z: -0.45, rotY: -0.68, focusDist: 2.35, focusY: 0.78, en: 'Monk' },
+  { job: 0, x: -0.78, y: 0.08, z:  0.88, rotY:  0.22, focusDist: 2.85, focusY: 0.56, en: 'Fighter' },
+  { job: 1, x: -1.18, y: 0.04, z: -0.25, rotY:  0.52, focusDist: 2.85, focusY: 0.56, en: 'Archer' },
+  { job: 2, x:  0.02, y: 0.56, z: -0.68, rotY:  0.02, focusDist: 2.95, focusY: 1.06, en: 'Mage' },
+  { job: 3, x:  0.96, y: 0.06, z:  0.68, rotY: -0.28, focusDist: 2.85, focusY: 0.56, en: 'Necromancer' },
+  { job: 4, x:  1.12, y: 0.14, z: -0.45, rotY: -0.52, focusDist: 2.85, focusY: 0.62, en: 'Monk' },
 ];
 
 function buildDioramaIsland() {
@@ -79,19 +79,40 @@ function buildDressupRug() {
   const grp = new THREE.Group();
   const rugOuter = new THREE.Mesh(
     new THREE.CylinderGeometry(1.18, 1.22, 0.06, 36),
-    new THREE.MeshStandardMaterial({ color: 0xe2989e, roughness: 0.95 })
+    new THREE.MeshStandardMaterial({ color: 0xe68894, roughness: 0.92 })
   );
   rugOuter.position.y = -0.02; rugOuter.receiveShadow = true; grp.add(rugOuter);
   const rugInner = new THREE.Mesh(
     new THREE.CylinderGeometry(0.86, 0.86, 0.07, 32),
-    new THREE.MeshStandardMaterial({ color: 0xfbe8c6, roughness: 0.95 })
+    new THREE.MeshStandardMaterial({ color: 0xfff0d4, roughness: 0.92 })
   );
   rugInner.position.y = -0.015; rugInner.receiveShadow = true; grp.add(rugInner);
   const floor = new THREE.Mesh(
     new THREE.CylinderGeometry(4.5, 4.5, 0.04, 32),
-    new THREE.MeshStandardMaterial({ color: 0xdca064, roughness: 0.88 })
+    new THREE.MeshStandardMaterial({ color: 0xc98a52, roughness: 0.88 })
   );
   floor.position.y = -0.06; floor.receiveShadow = true; grp.add(floor);
+  // 溫馨木屋立鏡與暖陽窗框裝飾（呼應參考圖 2！）
+  const mirrorFrame = new THREE.Mesh(
+    new THREE.BoxGeometry(0.92, 1.85, 0.08),
+    new THREE.MeshStandardMaterial({ color: 0xd97a82, roughness: 0.75 })
+  );
+  mirrorFrame.position.set(1.25, 0.92, -1.05); mirrorFrame.rotation.y = -0.35; grp.add(mirrorFrame);
+  const mirrorGlass = new THREE.Mesh(
+    new THREE.BoxGeometry(0.76, 1.66, 0.09),
+    new THREE.MeshStandardMaterial({ color: 0xffe8d2, roughness: 0.25, metalness: 0.15 })
+  );
+  mirrorGlass.position.set(1.25, 0.92, -1.04); mirrorGlass.rotation.y = -0.35; grp.add(mirrorGlass);
+  const lampPost = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.05, 0.08, 1.45, 8),
+    new THREE.MeshStandardMaterial({ color: 0x7c5034, roughness: 0.85 })
+  );
+  lampPost.position.set(-1.35, 0.72, -0.85); grp.add(lampPost);
+  const lampShade = new THREE.Mesh(
+    new THREE.ConeGeometry(0.28, 0.34, 10),
+    new THREE.MeshBasicMaterial({ color: 0xffe69a })
+  );
+  lampShade.position.set(-1.35, 1.52, -0.85); grp.add(lampShade);
   return grp;
 }
 
@@ -113,7 +134,7 @@ export function bindCharacters(game) {
   }
 
   // 高解析柔光抗鋸齒 3D 舞台（依使用者確認選項 A2）
-  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, preserveDrawingBuffer: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -200,38 +221,40 @@ export function bindCharacters(game) {
   let running = true;
   let inTownWardrobe = false;
 
-  // 平滑電影運鏡（Camera Dolly & Orbit）
-  let orbitYaw = 0.08, orbitVel = 0, dressRotY = 0;
-  const camCurPos = new THREE.Vector3(0.4, 2.35, 6.2);
-  const camCurTarget = new THREE.Vector3(0, 0.55, 0);
-  const camGoalPos = new THREE.Vector3(0.4, 2.35, 6.2);
-  const camGoalTarget = new THREE.Vector3(0, 0.55, 0);
-  let camCurFov = 34, camGoalFov = 34;
+  // 平滑電影運鏡（Camera Dolly & Orbit）— 將 3D 舞台居中於左側 64% 視覺區，角色正面朝向觀眾！
+  let orbitYaw = 0.0, orbitVel = 0, dressRotY = 0;
+  const camCurPos = new THREE.Vector3(0.95, 1.85, 6.20);
+  const camCurTarget = new THREE.Vector3(0.88, 0.42, 0);
+  const camGoalPos = new THREE.Vector3(0.95, 1.85, 6.20);
+  const camGoalTarget = new THREE.Vector3(0.88, 0.42, 0);
+  let camCurFov = 32, camGoalFov = 32;
 
   function computeCameraGoal() {
     if (stageMode === 'dressup') {
-      camGoalPos.set(0.0, 1.12, 3.65);
-      camGoalTarget.set(0.0, 0.74, 0.0);
-      camGoalFov = 31;
+      // 左側 58% 舞台居中，角色全身站於暖色圓地毯正中央（帽頂留有充裕空間）
+      camGoalPos.set(0.72, 1.08, 3.80);
+      camGoalTarget.set(0.72, 0.72, 0.0);
+      camGoalFov = 30;
       return;
     }
     if (stageMode === 'focus') {
       const sp = ISLAND_SPOTS[selectedJob] || ISLAND_SPOTS[0];
-      // 計算該英雄在目前旋轉後的世界座標與正面方向
       const cos = Math.cos(orbitYaw), sin = Math.sin(orbitYaw);
       const wx = sp.x * cos + sp.z * sin;
       const wz = -sp.x * sin + sp.z * cos;
       const worldRot = sp.rotY + orbitYaw;
       const fx = Math.sin(worldRot), fz = Math.cos(worldRot);
-      camGoalTarget.set(wx, sp.focusY, wz);
-      camGoalPos.set(wx + fx * sp.focusDist, sp.focusY + 0.42, wz + fz * sp.focusDist);
+      // 略向右偏移目標點，讓特寫英雄穩居畫面左側黃金構圖位
+      const rx = fz * 0.46, rz = -fx * 0.46;
+      camGoalTarget.set(wx + rx, sp.focusY, wz + rz);
+      camGoalPos.set(wx + rx + fx * sp.focusDist, sp.focusY + 0.34, wz + rz + fz * sp.focusDist);
       camGoalFov = 28;
       return;
     }
-    // Overview：全島 360° 英雄群像視角
-    camGoalTarget.set(0.0, 0.48, 0.0);
-    camGoalPos.set(0.0, 2.25, 6.35);
-    camGoalFov = 34;
+    // Overview：全島 5 英雄正面群像（居中於左側開闊天空，視野完整又清晰！）
+    camGoalTarget.set(0.88, 0.42, 0.0);
+    camGoalPos.set(0.95, 1.85, 6.20);
+    camGoalFov = 32;
   }
 
   function syncHeroMeshes() {
@@ -587,6 +610,17 @@ export function bindCharacters(game) {
   }
   if (slotsSel) slotsSel.onchange = selectSlot;
   selectSlot();
+  // 支援 ?preview=focus|dressup 快速預覽指定舞台狀態（立即定位鏡頭）
+  try {
+    const pv = new URLSearchParams(location.search).get('preview');
+    if (pv === 'focus') {
+      focusHero(1, false);
+      camCurPos.copy(camGoalPos); camCurTarget.copy(camGoalTarget); camCurFov = camGoalFov;
+    } else if (pv === 'dressup') {
+      focusHero(2, false); enterDressup();
+      camCurPos.copy(camGoalPos); camCurTarget.copy(camGoalTarget); camCurFov = camGoalFov;
+    }
+  } catch {}
 
   // 允許遊戲中城鎮「造型工坊」無縫重開同一套 3D 木屋換裝間！
   game.ui.openWardrobe3D = () => {
@@ -621,16 +655,20 @@ export function bindCharacters(game) {
     resize();
 
     if (stageMode === 'overview' && !drag) {
-      orbitYaw += (orbitVel + 0.14) * dt;
+      // 輕柔微幅正面擺動（始終展示英雄可愛正面，玩家拖曳仍可自由 360° 旋轉）
+      orbitYaw += orbitVel * dt;
       orbitVel *= Math.exp(-dt * 4);
+      islandStage.rotation.y = orbitYaw + Math.sin(now * 0.00055) * 0.16;
       computeCameraGoal();
     } else if (stageMode === 'focus' && !drag) {
       orbitYaw += orbitVel * dt;
       orbitVel *= Math.exp(-dt * 6);
+      islandStage.rotation.y = orbitYaw;
       computeCameraGoal();
+    } else {
+      islandStage.rotation.y = orbitYaw;
     }
-    islandStage.rotation.y = orbitYaw;
-    islandGeo.position.y = Math.sin(now * 0.0014) * 0.04;
+    islandGeo.position.y = Math.sin(now * 0.0014) * 0.03;
     sparks.rotation.y += dt * 0.16;
     selRing.scale.setScalar(1 + Math.sin(now * 0.005) * 0.06);
 

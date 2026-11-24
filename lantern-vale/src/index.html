@@ -459,13 +459,14 @@ body.holding-gem,body.holding-gem *{cursor:grabbing!important}
 #title.wardrobe-overlay{z-index:65}
 #creatorCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab;image-rendering:auto}
 #creatorCanvas:active{cursor:grabbing}
-.cr-top{position:absolute;top:14px;left:18px;right:18px;z-index:4;display:flex;align-items:center;justify-content:space-between;gap:12px;pointer-events:none}
+.cr-top{position:absolute;top:10px;left:18px;right:22px;z-index:8;display:flex;align-items:center;justify-content:space-between;gap:12px;pointer-events:none}
 .cr-top>*{pointer-events:auto}
 .cr-brand{display:flex;align-items:baseline;gap:10px}
 .cr-brand h1{margin:0;font-size:clamp(26px,3.2vw,42px);color:#fff8e4;text-shadow:0 4px 0 #3b2a2a,0 0 18px rgba(255,216,90,.45);letter-spacing:.08em}
 .cr-brand .en{margin:0;font-size:12px;letter-spacing:.32em;color:#ffe57a;text-shadow:0 2px 0 #3b2a2a}
 .cr-top-right{display:flex;align-items:center;gap:8px}
-.cr-slot-sel{font:inherit;font-size:13px;font-weight:700;padding:6px 10px;background:#fff8e4;color:#3b2a2a;border:3px solid #3b2a2a;border-radius:10px;box-shadow:0 3px 0 #3b2a2a;cursor:pointer}
+.cr-slot-sel{font:inherit;font-size:12.5px;font-weight:700;padding:4px 10px;background:#fff8e4;color:#3b2a2a;border:3px solid #3b2a2a;border-radius:10px;box-shadow:0 3px 0 #3b2a2a;cursor:pointer}
+.cr-top-right .btn.small{padding:4px 12px!important;font-size:13px!important;margin:0!important}
 /* 影片同款：底部 ◀ 職業名 ▶ 切換條＋編號點 */
 .cr-stage-bar{position:absolute;bottom:20px;left:32%;transform:translateX(-50%);z-index:5;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none}
 #title.mode-dressup .cr-stage-bar{display:none}
@@ -478,7 +479,7 @@ body.holding-gem,body.holding-gem *{cursor:grabbing!important}
 .cr-ov-btn{pointer-events:auto;padding:5px 14px;border-radius:999px;border:2px solid #3b2a2a;background:#fff8e4;color:#3b2a2a;font:inherit;font-size:12px;font-weight:800;cursor:pointer;box-shadow:0 3px 0 #3b2a2a}
 .cr-hint{font-size:11px;color:#2b3a3e;background:rgba(255,255,255,.55);padding:2px 10px;border-radius:999px;font-weight:700}
 /* Stage 1 右側：參考圖 1 冒險手帳卡片 */
-.cr-book{position:absolute;top:72px;right:22px;bottom:20px;width:min(380px,42vw);z-index:6;display:flex;flex-direction:column;gap:10px;
+.cr-book{position:absolute;top:66px;right:22px;bottom:18px;width:min(380px,40vw);z-index:6;display:flex;flex-direction:column;gap:9px;
   padding:16px 18px;background:#f7e7c4;border:4px solid #5c3a24;border-radius:14px;
   box-shadow:0 8px 0 #3b2a2a,inset 0 0 0 3px #fff8e4,0 14px 28px rgba(0,0,0,.28);overflow:auto}
 #title.mode-dressup .cr-book{display:none}

@@ -84,7 +84,7 @@ export const CHAR_CATALOG = {
     // 0: 守燈衛士 Fighter
     { job: 0, skinTone: 1, eyeColor: 1, hairStyle: 0, hairTint: 0, hat: 'fighter_01', body: 'fighter_01', cloak: 'none',        boots: 'fighter_01', gloves: 'fighter_01', weaponSkin: 'axe_01' },
     // 1: 林風遊俠 Archer
-    { job: 1, skinTone: 0, eyeColor: 0, hairStyle: 1, hairTint: 0, hat: 'none',       body: 'archer_01',  cloak: 'archer_full', boots: 'archer_01',  gloves: 'none',       weaponSkin: 'bow_01' },
+    { job: 1, skinTone: 0, eyeColor: 0, hairStyle: 0, hairTint: 5, hat: 'none',       body: 'archer_01',  cloak: 'archer_full', boots: 'archer_01',  gloves: 'none',       weaponSkin: 'bow_01' },
     // 2: 餘燼秘術師 Mage
     { job: 2, skinTone: 0, eyeColor: 0, hairStyle: 2, hairTint: 3, hat: 'mage_01',    body: 'mage_01',    cloak: 'mage_cloak',  boots: 'mage_01',    gloves: 'none',       weaponSkin: 'staff_01' },
     // 3: 影刃行者 Necromancer
@@ -133,15 +133,30 @@ function canLoadAssets() {
   return typeof window !== 'undefined' && typeof fetch !== 'undefined' && location.protocol !== 'file:';
 }
 
-function getTex(filename) {
-  if (!filename || typeof THREE === 'undefined') return null;
-  if (_texCache.has(filename)) return _texCache.get(filename);
-  const loader = new THREE.TextureLoader();
-  const tex = loader.load(`assets/char/tex/${filename}`);
-  tex.flipY = false;
-  tex.colorSpace = THREE.SRGBColorSpace;
-  _texCache.set(filename, tex);
-  return tex;
+const _texCallbacks = new Map();
+function applyTexAsync(mat, filename) {
+  if (!mat || !filename || typeof THREE === 'undefined') return;
+  if (_texCache.has(filename)) {
+    mat.map = _texCache.get(filename);
+    mat.needsUpdate = true;
+    return;
+  }
+  if (!_texCallbacks.has(filename)) {
+    _texCallbacks.set(filename, []);
+    const loader = new THREE.TextureLoader();
+    loader.load(`assets/char/tex/${filename}`, tex => {
+      tex.flipY = false;
+      tex.colorSpace = THREE.SRGBColorSpace;
+      _texCache.set(filename, tex);
+      const cbs = _texCallbacks.get(filename) || [];
+      _texCallbacks.delete(filename);
+      for (const fn of cbs) fn(tex);
+    });
+  }
+  _texCallbacks.get(filename).push(tex => {
+    mat.map = tex;
+    mat.needsUpdate = true;
+  });
 }
 
 export function loadBaseCharacter() {
@@ -218,34 +233,39 @@ export function applyModularLook(rigRoot, lookInput, equipWeapon = 'staff') {
 
   rigRoot.traverse(o => {
     if (!o.isMesh) return;
+    // Three.js GLTFLoader 會將多材質網格拆分為 skin_head_1 / skin_head_2（或掛於同名父節點下）
     const baseName = o.name.split('.')[0];
-    o.visible = visibleSet.has(o.name) || visibleSet.has(baseName);
+    const stripped = baseName.replace(/_\d+$/, '');
+    const parentName = (o.parent?.name || '').split('.')[0];
+    o.visible = visibleSet.has(o.name) || visibleSet.has(baseName) || visibleSet.has(stripped) || visibleSet.has(parentName);
     if (!o.visible) return;
 
     const mats = Array.isArray(o.material) ? o.material : [o.material];
     for (const m of mats) {
       if (!m) continue;
       const mn = (m.name || '').split('.')[0];
-      if (baseName.startsWith('hair_') || baseName === 'skin_brow') {
+      if (baseName.startsWith('hair_') || baseName === 'skin_brow' || parentName.startsWith('hair_')) {
         m.color.set(hairTintHex);
+        m.polygonOffset = true;
+        m.polygonOffsetFactor = -1;
       } else if (mn === 'Mat_skin_body_001') {
-        const tx = getTex(`skin_body_${skinSuf}.png`);
-        if (tx) { m.map = tx; m.needsUpdate = true; }
+        applyTexAsync(m, `skin_body_${skinSuf}.png`);
       } else if (mn === 'Mat_skin_face_001') {
-        const tx = getTex(`skin_face_${skinSuf}.png`);
-        if (tx) { m.map = tx; m.needsUpdate = true; }
+        applyTexAsync(m, `skin_face_${skinSuf}.png`);
       } else if (mn === 'Mat_skin_nose') {
-        const tx = getTex(`skin_nose_${skinSuf}.png`);
-        if (tx) { m.map = tx; m.needsUpdate = true; }
+        applyTexAsync(m, `skin_nose_${skinSuf}.png`);
       } else if (mn === 'Mat_skin_eyes') {
-        const tx = getTex(`skin_eyes_${eyeSuf}.png`);
-        if (tx) { m.map = tx; m.needsUpdate = true; }
+        // 眼睛為透明 RGBA 精靈圖，啟用 alphaTest 讓可愛雙眼完美貼合臉部！
+        m.transparent = true;
+        m.alphaTest = 0.25;
+        m.depthWrite = false;
+        m.polygonOffset = true;
+        m.polygonOffsetFactor = -2;
+        applyTexAsync(m, `skin_eyes_${eyeSuf}.png`);
       } else if (mn === 'Mat_outfit_mage_body_001' && bodyDef?.tex) {
-        const tx = getTex(bodyDef.tex);
-        if (tx) { m.map = tx; m.needsUpdate = true; }
+        applyTexAsync(m, bodyDef.tex);
       } else if (mn.startsWith('Mat_weapon_magestaff_001') && weaponDef?.tex) {
-        const tx = getTex(weaponDef.tex);
-        if (tx) { m.map = tx; m.needsUpdate = true; }
+        applyTexAsync(m, weaponDef.tex);
       }
     }
   });
