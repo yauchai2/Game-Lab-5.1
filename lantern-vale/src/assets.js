@@ -181,10 +181,9 @@ export const LANDMARK_FILES = {
   purple_crystal:   'assets/landmarks/purple_crystal.glb',
 };
 
-// Phase v6c：17 套經全圖 1280×720 原畫高清（HD）逐點覆核、100% 著地直立、零陸地船隻、零懸空橋、零違合日式寺廟之 Palmov 野外地標
+// Phase v6e：16 套經全圖四輪 1280×720 原畫高清（HD）逐點覆核、100% 著地直立、零浮空／零藍塊／零陸地船／零日式寺廟之 Palmov 野外地標
 export const PALMOV_POIS = {
   teapot_hill:      'assets/palmov_poi/teapot_hill.glb',
-  forest_waterfall: 'assets/palmov_poi/forest_waterfall.glb',
   abandoned_house:  'assets/palmov_poi/abandoned_house.glb',
   cemetery_church:  'assets/palmov_poi/cemetery_church.glb',
   kraken_wreck:     'assets/palmov_poi/kraken_wreck.glb',

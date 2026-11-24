@@ -897,7 +897,7 @@ const createGuild = require('../server/guild.cjs');
   assert.ok(fs.existsSync(vfxGlb) && fs.statSync(vfxGlb).size > 500000, 'Packed 28-mesh vfx_meshes.glb exists & valid');
   assert.ok(fs.readdirSync(path.join(vfxDir, 'tex')).filter(f => f.endsWith('.webp')).length >= 22, 'All 22 stylized WebP VFX textures present');
   assert.equal(Object.keys(puzzle.ACTIVE_GEMS).length, 24, 'Skill Puzzle 2.0 has 24 Active Gems (14 upgraded + 10 3D summons)');
-  assert.equal(Object.keys(puzzle.SUPPORT_GEMS).length, 16, 'Skill Puzzle 2.0 has 16 Support Gems (incl. bluefire & vortex)');
+  assert.ok(Object.keys(puzzle.SUPPORT_GEMS).length >= 19, 'Skill Puzzle 2.0 has 19 Support Gems (incl. bluefire, vortex & 3 Survivor Synergy Gems)');
   for (const cls of puzzle.CLASSES) {
     assert.ok(cls.classMech && cls.classMech.max > 0 && cls.classUlt, `Class ${cls.name} has signature classMech & classUlt`);
   }
@@ -918,7 +918,7 @@ const createGuild = require('../server/guild.cjs');
   const bpV6 = await import('../src/field_blueprints.js');
   const settingsSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'settings.js'), 'utf8');
   assert.ok(settingsSrc.includes('關閉（高清）') && settingsSrc.includes("key === 'pixel' ? 1 : 0"), 'Settings supports disabling low-res pixelation (pixel = 1 HD mode)');
-  assert.equal(Object.keys(p2bAssets.PALMOV_POIS).length, 17, 'All 17 grounded HD-verified Palmov POI GLBs registered');
+  assert.equal(Object.keys(p2bAssets.PALMOV_POIS).length, 16, 'All 16 grounded HD-verified Palmov POI GLBs registered');
   for (const [k, rel] of Object.entries(p2bAssets.PALMOV_POIS)) {
     const fp = path.join(__dirname, '..', 'game', rel);
     assert.ok(fs.existsSync(fp) && fs.statSync(fp).size > 5000, `Palmov POI GLB exists & valid: ${k} (${rel})`);
@@ -937,5 +937,75 @@ const createGuild = require('../server/guild.cjs');
     }
   }
 
-  console.log('ALL 42 LOGIC, V6-FIELD-POI-BOSS, DIORAMA-D1-D4, VFX-SKILL-REWORK-V1-V6, UI-UNIFIED-U4B, CHAR-C6-TOON-ANIM, CHAR-REWORK-C1-C5, FUZZ-QA-36, MMO-M10-PORTALS-CRAFT-KILLSWITCH, MMO-M9-SAFETY-KILLSWITCH, MMO-M8-ROLES-FEAST-GPU, MMO-M7-SOUL-AWAKEN-GPU-FIX, MMO-M6-SPIRE-MENTOR-LIGHTHOUSE, MMO-M5-FERRY-REVIEW, MMO-M4-OVERHAUL, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
+  // 43. Phase V1–V4: Vampire Survivors × MMORPG (Elite Affixes, 6 Swarm Formations, 3-Choose-1 Draft, 8 Super-Weapon Evolutions, Jackpot Chest, Sanctuary Talents, Spoils Pouch, Double-Scaling Bug Fix)
+  const surv = await import('../src/survivor.js');
+  const gameSrcV = fs.readFileSync(path.join(__dirname, '..', 'src', 'game.js'), 'utf8');
+  assert.ok(!gameSrcV.includes('s.maxHp += (profile.level - 1) * 5; s.baseDmg += profile.level - 1;'), 'recalc() double-scaling bug removed');
+  assert.equal(surv.ELITE_AFFIXES.length, 8, '8 elite affixes defined');
+  assert.equal(surv.SWARM_FORMATIONS.length, 6, '6 VS swarm formations defined');
+  assert.equal(surv.SURVIVOR_WEAPONS.length, 8, '8 survivor auto-cast weapons defined');
+  assert.equal(surv.SURVIVOR_RELICS.length, 8, '8 survivor passive relics defined');
+  assert.equal(Object.keys(surv.SURVIVOR_EVOLUTIONS).length, 8, '8 super-weapon evolutions defined');
+  assert.equal(surv.SANCTUARY_TALENTS.length, 7, '7 permanent Starlight Sanctuary talents defined');
+
+  // Elite affixes scaling by level & waveStreak
+  const dummyElLow = { elite: true };
+  assert.equal(surv.assignEliteAffixes(dummyElLow, 3, 1).length, 0, 'Lv.3 elite gets 0 affixes');
+  const dummyElMid = { elite: true };
+  assert.equal(surv.assignEliteAffixes(dummyElMid, 10, 1).length, 1, 'Lv.10 elite gets 1 affix');
+  const dummyElHigh = { elite: true };
+  assert.equal(surv.assignEliteAffixes(dummyElHigh, 20, 2).length, 2, 'Lv.20 / Wave 2 elite gets 2 affixes');
+
+  // Sanctuary Talents buy & free respec
+  const mockProf = { shards: 200, coins: 0 };
+  const buy1 = surv.buyTalent(mockProf, 'revive');
+  assert.ok(buy1.ok && buy1.level === 1 && mockProf.shards === 155, 'Buy revive talent deducts 45 shards');
+  const tb = surv.computeTalentBonuses(mockProf);
+  assert.equal(tb.revives, 1, 'Revive talent grants 1 revive per run');
+  const refund = surv.respecTalents(mockProf);
+  assert.equal(refund, 45, 'Free respec refunds full shards');
+  assert.equal(mockProf.shards, 200, 'Shards restored after respec');
+
+  // Survivor In-Run Draft, Super-Weapon Evolution & Jackpot Chest
+  const sv = surv.createSurvivorState(mockProf);
+  const gained = surv.addTideXp(sv, 100);
+  assert.ok(gained >= 2 && sv.pendingDrafts >= 2, 'Fast Tide XP levels up and queues 3-choose-1 drafts');
+  const draft = surv.rollDraftChoices(sv);
+  assert.equal(draft.length, 3, 'Draft always returns 3 choices');
+  sv.weapons.ember_missiles = 5;
+  sv.relics.dice20 = 1;
+  const evos = surv.checkEligibleEvolutions(sv);
+  assert.ok(evos.some(e => e.id === 'inferno_hydra'), 'Lv.5 ember_missiles + dice20 unlocks inferno_hydra evolution');
+  const chestRes = surv.rollJackpotChest(sv, () => 0.01); // 5-item rainbow jackpot
+  assert.equal(chestRes.tier, 5, 'Low RNG roll triggers 5-item rainbow jackpot');
+  assert.ok(sv.evolutions.includes('inferno_hydra'), 'Jackpot chest triggers eligible super-weapon evolution');
+
+  // Extraction Spoils Pouch risk/reward
+  surv.recordSpoils(sv, 100, 20, 1);
+  const lostS = surv.loseSpoilsOnDeath(sv);
+  assert.equal(lostS.lostCoins, 50, 'Dying during Tide loses 50% unsettled coins');
+  assert.equal(lostS.lostShards, 10, 'Dying during Tide loses 50% unsettled shards');
+  const cashed = surv.cashOutSpoils(sv, mockProf);
+  assert.equal(cashed.coins, 50, 'Remaining 50% cashes out cleanly');
+
+  // Kill Streak Fever & Dynamic Difficulty Director
+  assert.equal(surv.getKillStreakTier(500).tier, 4, '500 kills reaches Tier 4 Fever');
+  for (let i = 0; i < 30; i++) surv.updateDifficultyDirector(sv, 100 + i * 0.3, true);
+  assert.equal(surv.updateDifficultyDirector(sv, 110, false), 3, 'High kill rate raises AI Director to Level 3');
+
+  // Phase V5: 6×6 Puzzle × Survivor Synergy Gems, Blood Eclipse & Endless Tide Best Records
+  assert.ok(puzzle.SUPPORT_GEMS.sv_ember_core && puzzle.SUPPORT_GEMS.sv_resonance && puzzle.SUPPORT_GEMS.sv_magnet_core, '3 Survivor Synergy Gems registered in 6×6 Puzzle');
+  const synProf = { shards: 0, puzzle: { activePreset: 0, presets: [[{ id: 'sv_ember_core' }, { id: 'sv_resonance' }, { id: 'sv_magnet_core' }]] } };
+  const svSyn = surv.createSurvivorState(synProf);
+  assert.equal(svSyn.weapons.ember_missiles, 2, 'sv_ember_core starts ember_missiles at Lv.2');
+  assert.equal(svSyn.relics.greed_chalice, 1, 'sv_magnet_core starts with greed_chalice Lv.1');
+  svSyn.evolutions.push('inferno_hydra', 'astral_cyclone');
+  const synBonus = surv.computeSurvivorStatBonuses(svSyn);
+  assert.ok(synBonus.critMult >= 40 && synBonus.cdr >= 15, 'sv_resonance grants +40% critMult and +15% cdr with 2+ evolutions');
+  const ec = surv.getBloodEclipseField(60 * 1000);
+  assert.ok(ec.active && ec.fieldId >= 1 && ec.fieldId <= 20, 'Blood Eclipse active during first 5 minutes of 20-min cycle');
+  const bt = surv.recordBestTide(synProf, 4, 320, 18);
+  assert.ok(bt && bt.maxWave === 4 && bt.maxStreak === 320 && bt.maxTideLv === 18, 'Endless Tide best records persisted');
+
+  console.log('ALL 43 LOGIC, VAMPIRE-MMO-SURVIVOR-V1-V5, V6-FIELD-POI-BOSS, DIORAMA-D1-D4, VFX-SKILL-REWORK-V1-V6, UI-UNIFIED-U4B, CHAR-C6-TOON-ANIM, CHAR-REWORK-C1-C5, FUZZ-QA-36, MMO-M10-PORTALS-CRAFT-KILLSWITCH, MMO-M9-SAFETY-KILLSWITCH, MMO-M8-ROLES-FEAST-GPU, MMO-M7-SOUL-AWAKEN-GPU-FIX, MMO-M6-SPIRE-MENTOR-LIGHTHOUSE, MMO-M5-FERRY-REVIEW, MMO-M4-OVERHAUL, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
 })();

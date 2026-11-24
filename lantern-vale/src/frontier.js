@@ -209,8 +209,9 @@ function buildBlueprintLandmarks(g, bp) {
       // #01 東北高丘：Palmov 真茶壺森林小屋＋蘑菇群（取代舊版幾何球拼裝茶壺）
       placePalmov('teapot_hill', pos.x, pos.z, { scale: 1.0, rotY: 0.25, yOffset: -0.25 }, 4.2);
     } else if (poi.landmark === 'waterfall_chest') {
-      // #01 西北秘境：Palmov 森林瀑布崖
-      placePalmov('forest_waterfall', pos.x, pos.z, { scale: 0.95, rotY: 0.4, yOffset: -0.25 }, 3.5);
+      // #01 西北秘境：遠古巨石陣與林間秘寶木屋（撤除缺岩壁之藍塊瀑布）
+      placeGlb('stonehenge', pos.x - 5.5, pos.z - 2.0, null, { scale: 1.0, rotY: 0.35, yOffset: -0.15 }, 2.0);
+      placeGlb('cottage', pos.x + 6.0, pos.z + 2.5, null, { scale: 0.95, rotY: -0.5, yOffset: -0.15 }, 2.6);
     } else if (poi.landmark === 'cable_summit') {
       // #04 西北雪峰站：Palmov 滑雪纜車站
       placePalmov('ski_resort', pos.x, pos.z, { scale: 1.0, rotY: 0.35, yOffset: -0.25, emissive: 0x344252, emissiveIntensity: 0.28 }, 4.0);
@@ -231,8 +232,10 @@ function buildBlueprintLandmarks(g, bp) {
       // #02 西南：Palmov 白樺荒野廢屋（已剔除現代破轎車）
       placePalmov('abandoned_house', pos.x, pos.z, { scale: 1.0, rotY: 0.35, yOffset: -0.25 }, 3.2);
     } else if (poi.landmark === 'canopy_vault') {
-      // #02 東北樹冠秘境：Palmov 森林瀑布崖（已剔除陸地帆船，拔除原先農莊風車）
-      placePalmov('forest_waterfall', pos.x, pos.z, { scale: 0.92, rotY: -0.3, yOffset: -0.25 }, 3.2);
+      // #02 東北樹冠秘境：林間秘庫木屋＋發光巨菇群（撤除缺岩壁藍塊瀑布與舊風車）
+      placeGlb('forest_cabin', pos.x, pos.z, null, { scale: 1.08, rotY: -0.35, yOffset: -0.15, emissive: 0x3a3428, emissiveIntensity: 0.36 }, 2.8);
+      placeGlb('giant_shroom', pos.x - 6.2, pos.z + 3.5, null, { scale: 1.15, rotY: 0.5, yOffset: -0.1, tint: 0x9ef0b8, emissive: 0x206844, emissiveIntensity: 0.42 }, 1.4);
+      placeGlb('giant_shroom', pos.x + 6.0, pos.z + 2.8, null, { scale: 0.95, rotY: 1.8, yOffset: -0.1, tint: 0x9ef0b8, emissive: 0x206844, emissiveIntensity: 0.42 }, 1.2);
     } else if (poi.landmark === 'forest_tomb') {
       // #02 東南古墓凹地：Palmov 哥德古墓石堂（已清除 [WALL] 鑿平）
       placePalmov('cemetery_church', pos.x, pos.z, { scale: 0.80, rotY: 0.2, yOffset: -0.25 }, 3.5);
@@ -267,9 +270,10 @@ function buildBlueprintLandmarks(g, bp) {
       // #05 東南：Palmov 紅岩瀑布綠洲
       placePalmov('redrock_oasis', pos.x, pos.z, { scale: 1.0, rotY: -0.35, yOffset: -0.25, emissive: 0x3e2c22, emissiveIntensity: 0.26 }, 3.5);
     } else if (poi.landmark === 'ancient_pagoda') {
-      // #06 西北：遠古巨石林瀑布秘境（絕不放違合日式寺廟！）
-      placePalmov('forest_waterfall', pos.x, pos.z, { scale: 1.0, rotY: 0.25, yOffset: -0.25 }, 3.5);
-      placeGlb('stonehenge', pos.x - 8.5, pos.z + 5.5, null, { scale: 1.05, rotY: 0.5, yOffset: -0.15 }, 2.0);
+      // #06 西北：遠古巨石聖壇與螢光巨菇林（無違合日式寺廟、無缺壁藍塊）
+      placeGlb('stonehenge', pos.x - 6.0, pos.z - 2.0, null, { scale: 1.15, rotY: 0.35, yOffset: -0.15 }, 2.2);
+      placeGlb('stonehenge', pos.x + 6.5, pos.z + 2.5, null, { scale: 1.05, rotY: -0.45, yOffset: -0.15 }, 2.0);
+      placeGlb('giant_shroom', pos.x, pos.z + 5.8, null, { scale: 1.25, rotY: 1.1, yOffset: -0.1, tint: 0x9cf8e4, emissive: 0x268276, emissiveIntensity: 0.46 }, 1.5);
     } else if (poi.landmark === 'spirit_terrace') {
       // #06 東坡：Palmov 天然三疊石泉池
       placePalmov('hot_springs', pos.x, pos.z, { scale: 0.95, rotY: 0.4, yOffset: -0.25 }, 3.2);
@@ -290,10 +294,10 @@ function buildBlueprintLandmarks(g, bp) {
       placeGlb('coconut_tree', pos.x - 3.5, pos.z - 2.0, null, { scale: 1.15, rotY: 0.6, yOffset: -0.15, emissive: 0x38462c, emissiveIntensity: 0.36 }, 1.0);
       placeGlb('beach_house', pos.x + 3.5, pos.z + 1.5, null, { scale: 0.95, rotY: -0.6, yOffset: -0.15, emissive: 0x443c32, emissiveIntensity: 0.38 }, 2.4);
     } else if (poi.landmark === 'tesla_tower') {
-      // #09 西北：水沒變電巨塔（著地燈塔＋電光晶柱，絕不放陸地船隻與碼頭）
-      placeGlb('lighthouse', pos.x, pos.z - 3.5, null, { scale: 1.15, rotY: 0.1, yOffset: -0.2, tint: 0xb8e6ff, emissive: 0x26547a, emissiveIntensity: 0.45 }, 2.6);
-      placeGlb('ice_crystal', pos.x - 6.2, pos.z + 3.0, null, { scale: 1.05, rotY: 0.4, yOffset: -0.15, flatTint: 0x62e2ff, emissive: 0x2896d8, emissiveIntensity: 0.55 }, 1.4);
-      placeGlb('ice_crystal', pos.x + 6.2, pos.z + 3.0, null, { scale: 1.05, rotY: -0.4, yOffset: -0.15, flatTint: 0x62e2ff, emissive: 0x2896d8, emissiveIntensity: 0.55 }, 1.4);
+      // #09 西北：水沒變電巨塔（燈塔往西側偏移避開副本岩洞 cave_arch，零穿模重疊）
+      placeGlb('lighthouse', pos.x - 9.0, pos.z + 1.5, null, { scale: 1.12, rotY: 0.25, yOffset: -0.2, tint: 0xb8e6ff, emissive: 0x26547a, emissiveIntensity: 0.45 }, 2.6);
+      placeGlb('ice_crystal', pos.x - 5.5, pos.z + 5.0, null, { scale: 1.0, rotY: 0.4, yOffset: -0.15, flatTint: 0x62e2ff, emissive: 0x2896d8, emissiveIntensity: 0.55 }, 1.4);
+      placeGlb('ice_crystal', pos.x + 6.5, pos.z + 3.5, null, { scale: 1.0, rotY: -0.4, yOffset: -0.15, flatTint: 0x62e2ff, emissive: 0x2896d8, emissiveIntensity: 0.55 }, 1.4);
     } else if (poi.landmark === 'stilt_plaza' || poi.landmark === 'market_pier') {
       // #09 著地海灣電光屋舍廣場（徹底移除陸地大帆船與懸空木碼頭）
       placeGlb('island_house', pos.x - 4.5, pos.z - 2.5, null, { scale: 1.05, rotY: -0.45, yOffset: -0.15, tint: 0xd0e8f8, emissive: 0x2c465c, emissiveIntensity: 0.38 }, 2.6);
@@ -301,9 +305,9 @@ function buildBlueprintLandmarks(g, bp) {
     } else if (poi.landmark === 'clock_roof') {
       placeGlb('snow_tower', pos.x, pos.z, null, { scale: 1.05, rotY: 0.3, yOffset: -0.15, tint: 0xc8dce8, emissive: 0x2e465c, emissiveIntensity: 0.38 }, 2.6);
     } else if (poi.landmark === 'sakura_shrine') {
-      // #10 西北：奇幻花林瀑布林園（絕不放違合日式城堡／寺廟！）
-      placePalmov('forest_waterfall', pos.x, pos.z, { scale: 1.0, rotY: 0.3, yOffset: -0.25 }, 3.5);
-      placeGlb('sakura_tree', pos.x - 7.5, pos.z + 3.5, null, { scale: 1.25, rotY: 0.4, yOffset: -0.15, flatTint: 0xffb8da, emissive: 0xc4588a, emissiveIntensity: 0.52 }, 1.4);
+      // #10 西北：奇幻粉櫻林園與湖畔木屋（偏移避開副本岩洞，無違合日式城堡、無缺壁藍塊）
+      placeGlb('island_house', pos.x - 8.5, pos.z + 2.5, null, { scale: 1.0, rotY: 0.5, yOffset: -0.15, emissive: 0x52463e, emissiveIntensity: 0.42 }, 2.5);
+      placeGlb('sakura_tree', pos.x - 6.0, pos.z + 7.5, null, { scale: 1.25, rotY: 0.4, yOffset: -0.15, flatTint: 0xffb8da, emissive: 0xc4588a, emissiveIntensity: 0.52 }, 1.4);
       placeGlb('sakura_tree', pos.x + 7.5, pos.z + 3.5, null, { scale: 1.2, rotY: -0.5, yOffset: -0.15, flatTint: 0xffcce6, emissive: 0xc86492, emissiveIntensity: 0.52 }, 1.4);
     } else if (poi.landmark === 'sakura_bridge') {
       // #10 中央：花林水岸木屋與粉櫻樹群（無日式寺廟／鳥居圍牆）
