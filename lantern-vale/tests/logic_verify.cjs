@@ -800,5 +800,19 @@ const createGuild = require('../server/guild.cjs');
   assert.equal(lhRes2.title, '🏮 星燈開拓者', 'Reaching 10+ light points unlocks Pioneer title');
   assert.equal(lhProf.shards, 12, 'Lighthouse donation rewards matching star shards');
 
-  console.log('ALL 31 LOGIC, MMO-M6-SPIRE-MENTOR-LIGHTHOUSE, MMO-M5-FERRY-REVIEW, MMO-M4-OVERHAUL, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
+  // 32. Phase M7: Monster Soul 5-Tier Awakening Progression
+  const awkProf = {};
+  const firstDrop = souls.grantSoul(awkProf, 'boar');
+  assert.equal(firstDrop.isNew, true);
+  assert.equal(souls.soulTier(awkProf, 'boar').tier, 1, 'Initial soul starts at Tier 1');
+  souls.grantSoul(awkProf, 'boar');
+  const t2Drop = souls.grantSoul(awkProf, 'boar'); // 2 duplicate shards -> Tier 2
+  assert.equal(t2Drop.awakened, true, '2 duplicate soul shards awaken soul to Tier 2');
+  assert.equal(souls.soulTier(awkProf, 'boar').tier, 2);
+  assert.equal(souls.soulTier(awkProf, 'boar').mult, 1.25, 'Tier 2 soul scales passive bonuses by 1.25x');
+  for (let i = 0; i < 16; i++) souls.grantSoul(awkProf, 'boar'); // 18 shards -> Tier 5 max
+  assert.equal(souls.soulTier(awkProf, 'boar').tier, 5, '18 duplicate shards reach Tier 5 max awakening');
+  assert.equal(souls.soulTier(awkProf, 'boar').mult, 2.2, 'Tier 5 soul scales passive bonuses by 2.2x');
+
+  console.log('ALL 32 LOGIC, MMO-M7-SOUL-AWAKEN-GPU-FIX, MMO-M6-SPIRE-MENTOR-LIGHTHOUSE, MMO-M5-FERRY-REVIEW, MMO-M4-OVERHAUL, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
 })();

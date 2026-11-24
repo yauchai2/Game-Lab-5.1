@@ -15,7 +15,7 @@ import { t } from './i18n.js';
 import * as THREE from 'three';
 import { RARITY, SLOTS, itemLines, itemScore, BOONS, deserializeItem, tierInfo, CORRUPT_COST, corruptItem } from './loot.js';
 import { mountStatuses } from './mounts.js';
-import { MONSTER_SOULS, SOUL_SLOTS, ensureSouls, equipSoul, unequipSoul } from './souls.js';
+import { MONSTER_SOULS, SOUL_SLOTS, ensureSouls, equipSoul, unequipSoul, soulTier } from './souls.js';
 import { DENSITY_TIERS, LEAGUE_MECHANICS, ensureAtlas, setAtlasDensity, toggleAtlasMechanic, computeAtlasSummary } from './atlas.js';
 import { TIDE_PHASES, ULTIMATES, MICRO_BUFFS, lootMultForTide, castUltimate, cycleUltimate } from './tide.js';
 import { canCorruptGear, CORRUPT_UNLOCK_LV, nextMilestone } from './progression.js';
@@ -273,8 +273,10 @@ export class UI {
     const cards = Object.values(MONSTER_SOULS).map(def => {
       const owned = s.owned.includes(def.id);
       const isEq = s.equipped[def.slot] === def.id;
+      const st = owned ? soulTier(game.meta.p, def.id) : null;
+      const starLine = st ? `<span style="color:#d9921c;font-weight:900">${'★'.repeat(st.tier)}${'☆'.repeat(5 - st.tier)}</span> <small style="opacity:.75">${st.nextNeed ? `碎片 ${st.shards}/${st.nextNeed}` : '滿階覺醒 ×2.2'}</small>` : '';
       return `<div class="soul-card ${isEq ? 'on' : ''} ${owned ? '' : 'locked'}">
-        <div style="display:flex;align-items:center;gap:8px"><span style="font-size:26px">${def.icon}</span><div><b>${def.name}</b><div style="font-size:11px;color:#7a5a46">${SOUL_SLOTS[def.slot].icon} ${SOUL_SLOTS[def.slot].name}</div></div></div>
+        <div style="display:flex;align-items:center;gap:8px"><span style="font-size:26px">${def.icon}</span><div><b>${def.name}</b><div style="font-size:11px;color:#7a5a46">${SOUL_SLOTS[def.slot].icon} ${SOUL_SLOTS[def.slot].name} ${starLine}</div></div></div>
         <div style="font-size:12px;color:#5a3826"><b>${def.title}</b>：${def.desc}</div>
         <div>${isEq ? '<span style="color:#7a4ac0;font-weight:900">✔ 鑲嵌生效中</span>' : owned ? `<button type="button" class="btn small" data-equip-soul="${def.id}">鑲嵌至${SOUL_SLOTS[def.slot].name}</button>` : '<span style="font-size:12px;opacity:.7">🔒 擊敗對應魔物吸收取得</span>'}</div>
       </div>`;

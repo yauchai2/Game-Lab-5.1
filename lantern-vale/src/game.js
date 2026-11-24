@@ -25,7 +25,7 @@ const EMOTES = ['嗨～', '♥', '哈哈', 'zZ'];
 import { HOODS } from './characters.js';
 import { makeItem, itemLines, itemScore, RARITY, SLOTS, rollBoons, BOONS, tierInfo, corruptItem } from './loot.js';
 import { activeMountDef, buildMountMesh } from './mounts.js';
-import { rollSoulDrop, activeSouls } from './souls.js';
+import { rollSoulDrop, activeSouls, soulTier } from './souls.js';
 import { ensureAtlas, computeAtlasSummary } from './atlas.js';
 import { initParts, resolveHitPart, damagePart, partStatusText } from './parts.js';
 import { SURFACE_DEFS, resolveSurfaceReaction, inferElement } from './elements.js';
@@ -312,7 +312,16 @@ export class Game {
     }
     p.souls = activeSouls(profile);
     for (const soulDef of Object.values(p.souls)) {
-      for (const [k, v] of Object.entries(soulDef.bonuses || {})) s[k] = (s[k] || 0) + v;
+      const mult = soulTier(profile, soulDef.id).mult || 1;
+      for (const [k, v] of Object.entries(soulDef.bonuses || {})) s[k] = (s[k] || 0) + Math.round(v * mult);
+    }
+    // Phase M7A：每週星穹塔四大主題實戰效果
+    if (this.isWeeklySpire && !this.field) {
+      const wId = getWeeklySpireInfo().theme.id;
+      if (wId === 'sakura') { s.moveSpd += 18; s.atkSpd += 20; }
+      else if (wId === 'ember') { s.dmgPct += 25; }
+      else if (wId === 'low_grav') { s.crit += 20; }
+      else if (wId === 'storm') { s.cdr += 15; }
     }
     const B = id => p.boons.filter(b => b === id).length;
     s.maxHp += 30 * B('thick');
@@ -320,7 +329,9 @@ export class Game {
     s.moveSpd += 12 * B('swift'); s.atkSpd += 12 * B('swift');
     s.crit += 8 * B('sharp'); s.critMult += 30 * B('sharp');
     if (B('glass')) { s.dmgPct += 40; s.maxHp = Math.round(s.maxHp * 0.85); }
-    p.flask.max = 3 + B('flask');
+    // 自我審查修正：保留 Lv.1(1瓶) → Lv.5(2瓶) → Lv.14(3瓶) 循序藥瓶上限，不再被硬覆蓋回 3
+    p.flask.max = baseFlaskMax + B('flask');
+    p.flask.charges = Math.min(p.flask.charges, p.flask.max);
     s.cdr = Math.min(60, s.cdr);
     s.armor = Math.min(60, s.armor);
     p.stats = s; p.specials = specials;
@@ -901,6 +912,9 @@ export class Game {
     if (soulRes?.granted && soulRes.isNew) {
       this.meta.save(); this.audio.sfx('classup');
       this.ui.toast(`👻 吸收新靈魂：${soulRes.def.icon} ${soulRes.def.name}！（按 I → 怪物靈魂 鑲嵌）`, '#d8a8ff');
+    } else if (soulRes?.awakened) {
+      this.meta.save(); this.audio.sfx('classup');
+      this.ui.toast(`⭐ 靈魂覺醒！${soulRes.def.icon} ${soulRes.def.name} 升至 ${'★'.repeat(soulRes.tier)}（第 ${soulRes.tier} 階）`, '#ffd85a');
     }
     p.flask.prog += (e.elite ? 1 : 0.25) * (this.meta.has('fortune') ? 0.5 : 1);
     while (p.flask.prog >= 1 && p.flask.charges < p.flask.max) { p.flask.prog -= 1; p.flask.charges++; }
@@ -1446,7 +1460,10 @@ export class Game {
         const proj = dx * p.rollDir.x + dz * p.rollDir.z;
         const perp = Math.abs(dx * p.rollDir.z - dz * p.rollDir.x);
         if (proj >= -0.6 && proj <= 4.6 && perp <= e.r + 1.15) {
-          this.hitEnemy(e, this.rollDamage(2.2), p.rollDir.x * 8, p.rollDir.z * 8, { stun: 1.2, hitstop: 0.04, isTrigger: true });
+          // 自我審查修正（MMO 防亂飛）：對精英與 Boss 改為原地暈眩＋破甲，不將王撞出隊友法陣
+          const isHeavy = e.elite || e.legendary || e.type === 'stag';
+          if (isHeavy) e.vuln = Math.max(e.vuln || 0, 3.5);
+          this.hitEnemy(e, this.rollDamage(2.2), isHeavy ? 0 : p.rollDir.x * 8, isHeavy ? 0 : p.rollDir.z * 8, { stun: isHeavy ? 1.4 : 1.2, hitstop: 0.04, isTrigger: true });
         }
       }
       this.fx.burst(p.pos.x, p.y + 0.4, p.pos.z, 12, { c: [0xd87a4a, 0xffe480], s: 0.13, speed: 5, up: 2, life: 0.4 });
@@ -2857,6 +2874,7 @@ export class Game {
       if (!pr.wave && !pr.orbit && this.world.groundY(pr.mesh.position.x, pr.mesh.position.z) > pr.mesh.position.y - 0.05) pr.life = 0;
       if (pr.life <= 0) {
         this.scene.remove(pr.mesh);
+        pr.mesh.geometry?.dispose?.(); pr.mesh.material?.dispose?.();
         if (pr.fire) this.fx.burst(pr.mesh.position.x, pr.mesh.position.y, pr.mesh.position.z, 5, { c: [0xffd27a, 0xff7a30], s: 0.08, speed: 3, up: 2, life: 0.3 });
       }
     }
@@ -2868,7 +2886,12 @@ export class Game {
         if (p.roll <= 0 && p.iframes <= 0) { this.hurtPlayer(pr.dmg, pr.mesh.position); pr.life = 0; }
       }
       if (this.world.groundY(pr.mesh.position.x, pr.mesh.position.z) > pr.mesh.position.y - 0.1) pr.life = 0; // hit cliffs
-      if (pr.life <= 0) { this.scene.remove(pr.mesh); this.fx.burst(pr.mesh.position.x, 0.6, pr.mesh.position.z, 4, { c: pr.mesh.material.color.getHex(), s: 0.08, speed: 2, life: 0.3 }); }
+      if (pr.life <= 0) {
+        this.scene.remove(pr.mesh);
+        const cHex = pr.mesh.material?.color?.getHex?.() ?? 0xffd27a;
+        pr.mesh.geometry?.dispose?.(); pr.mesh.material?.dispose?.();
+        this.fx.burst(pr.mesh.position.x, 0.6, pr.mesh.position.z, 4, { c: cHex, s: 0.08, speed: 2, life: 0.3 });
+      }
     }
     this.eprojs = this.eprojs.filter(pr => pr.life > 0);
   }
@@ -2878,14 +2901,14 @@ export class Game {
     for (const d of this.decals) {
       d.t += dt; d.mat.uniforms.uProg.value = Math.min(1, d.t / d.dur);
       if (d.frost) { d.mat.uniforms.uAlpha.value = 1 - d.t / d.dur; for (const e of this.enemies) if (e.pos.distanceTo(d.mesh.position) < 2.4) e.slow = 0.5; }
-      if (d.t >= d.dur) { this.scene.remove(d.mesh); d.mat.dispose(); if (d.onDone) d.onDone(); d.dead = true; }
+      if (d.t >= d.dur) { this.scene.remove(d.mesh); d.mesh.geometry?.dispose?.(); d.mat.dispose(); if (d.onDone) d.onDone(); d.dead = true; }
     }
     this.decals = this.decals.filter(d => !d.dead);
-    for (const s of this.slashes) { s.t -= dt; s.mesh.material.opacity = Math.max(0, s.t / s.max) * 0.85; s.mesh.scale.setScalar(1 + (1 - s.t / s.max) * 0.15); if (s.t <= 0) this.scene.remove(s.mesh); }
+    for (const s of this.slashes) { s.t -= dt; s.mesh.material.opacity = Math.max(0, s.t / s.max) * 0.85; s.mesh.scale.setScalar(1 + (1 - s.t / s.max) * 0.15); if (s.t <= 0) { this.scene.remove(s.mesh); s.mesh.geometry?.dispose?.(); s.mesh.material?.dispose?.(); } }
     this.slashes = this.slashes.filter(s => s.t > 0);
-    for (const r of this.rings) { r.t += dt; const k = r.t / r.max; r.mesh.scale.setScalar(Math.max(0.01, k * r.radius)); r.mesh.material.opacity = 0.9 * (1 - k); if (k >= 1) this.scene.remove(r.mesh); }
+    for (const r of this.rings) { r.t += dt; const k = r.t / r.max; r.mesh.scale.setScalar(Math.max(0.01, k * r.radius)); r.mesh.material.opacity = 0.9 * (1 - k); if (k >= 1) { this.scene.remove(r.mesh); r.mesh.geometry?.dispose?.(); r.mesh.material?.dispose?.(); } }
     this.rings = this.rings.filter(r => r.t < r.max);
-    for (const bm of this.beams || []) { bm.t -= dt; bm.mesh.material.opacity = Math.max(0, bm.t / bm.max); if (bm.t <= 0) this.scene.remove(bm.mesh); }
+    for (const bm of this.beams || []) { bm.t -= dt; bm.mesh.material.opacity = Math.max(0, bm.t / bm.max); if (bm.t <= 0) { this.scene.remove(bm.mesh); bm.mesh.geometry?.dispose?.(); bm.mesh.material?.dispose?.(); } }
     this.beams = (this.beams || []).filter(bm => bm.t > 0);
     // drops
     for (const d of this.drops) {

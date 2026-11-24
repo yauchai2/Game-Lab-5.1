@@ -49,13 +49,29 @@ export const SOUL_SLOTS = {
   combat:   { name: '戰鬥／攻擊槽', icon: '⚔️', desc: '附加額外攻擊或施法模組' },
 };
 
+export const SOUL_AWAKEN_THRESHOLDS = [0, 2, 5, 10, 18];
+export const SOUL_TIER_MULTS = [1.0, 1.25, 1.5, 1.8, 2.2];
+
 export function ensureSouls(profile) {
   if (!profile.souls || typeof profile.souls !== 'object') {
-    profile.souls = { owned: [], equipped: { mobility: null, combat: null } };
+    profile.souls = { owned: [], equipped: { mobility: null, combat: null }, shards: {} };
   }
   if (!Array.isArray(profile.souls.owned)) profile.souls.owned = [];
   if (!profile.souls.equipped) profile.souls.equipped = { mobility: null, combat: null };
+  if (!profile.souls.shards || typeof profile.souls.shards !== 'object') profile.souls.shards = {};
   return profile.souls;
+}
+
+export function soulTier(profile, soulId) {
+  const s = ensureSouls(profile);
+  if (!s.owned.includes(soulId)) return { tier: 0, mult: 0, shards: 0, nextNeed: 1 };
+  const sh = s.shards[soulId] || 0;
+  let tier = 1;
+  for (let i = 1; i < SOUL_AWAKEN_THRESHOLDS.length; i++) {
+    if (sh >= SOUL_AWAKEN_THRESHOLDS[i]) tier = i + 1;
+  }
+  const nextNeed = tier < 5 ? SOUL_AWAKEN_THRESHOLDS[tier] : null;
+  return { tier, mult: SOUL_TIER_MULTS[tier - 1], shards: sh, nextNeed };
 }
 
 export function grantSoul(profile, soulId) {
@@ -63,8 +79,14 @@ export function grantSoul(profile, soulId) {
   if (!def) return { granted: false };
   const s = ensureSouls(profile);
   const isNew = !s.owned.includes(soulId);
-  if (isNew) s.owned.push(soulId);
-  return { granted: true, isNew, def };
+  const beforeTier = isNew ? 0 : soulTier(profile, soulId).tier;
+  if (isNew) {
+    s.owned.push(soulId);
+  } else {
+    s.shards[soulId] = (s.shards[soulId] || 0) + 1;
+  }
+  const after = soulTier(profile, soulId);
+  return { granted: true, isNew, awakened: !isNew && after.tier > beforeTier, tier: after.tier, shards: after.shards, def };
 }
 
 export function rollSoulDrop(profile, enemyType, isElite = false, dropMult = 1, rng = Math.random) {
