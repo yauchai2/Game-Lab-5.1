@@ -784,5 +784,21 @@ const createGuild = require('../server/guild.cjs');
   // base = 10 + 1*2 = 12; * 1.10 = 13.2 -> 13
   assert.equal(ferryMock.meta.p.xp, 13, 'Co-Voyage ferry buff grants +10% XP (12 -> 13)');
 
-  console.log('ALL 30 LOGIC, MMO-M5-FERRY-REVIEW, MMO-M4-OVERHAUL, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
+  // 31. Phase M6: Weekly Seed Endless Lantern Spire, Mentor Lantern Scaling & Lighthouse Network Contributions
+  const ws1 = mmoProto.getWeeklySpireInfo(1795450000000);
+  const ws2 = mmoProto.getWeeklySpireInfo(1795450000000 + 3600 * 1000);
+  assert.equal(ws1.seed, ws2.seed, 'Weekly Spire seed stays identical within the same week');
+  assert.ok(ws1.seed >= 100000 && ws1.theme?.name, 'Weekly Spire provides valid seed & theme');
+  assert.equal(mmoProto.mentorDamageScale(15, 1, false), 1.0, 'Mentor scaling inactive when OFF');
+  assert.ok(mmoProto.mentorDamageScale(15, 1, true) < 0.6, 'Mentor Lantern scales Lv.15 damage down in Lv.1 zone');
+  assert.equal(mmoProto.mentorDamageScale(15, 14, true), 1.0, 'Mentor Lantern does not scale in same-level zone');
+  const lhProf = { goods: { wood: 4, ore: 6, fish: 2 }, shards: 0 };
+  const lhRes1 = mmoProto.contributeLighthouse(lhProf, 'ore', 2); // +6 pts
+  const lhRes2 = mmoProto.contributeLighthouse(lhProf, 'ore', 2); // +6 pts -> 12 pts
+  assert.equal(lhRes1.ok, true);
+  assert.equal(lhRes2.totalPts, 12, 'Lighthouse contribution accumulates light points');
+  assert.equal(lhRes2.title, '🏮 星燈開拓者', 'Reaching 10+ light points unlocks Pioneer title');
+  assert.equal(lhProf.shards, 12, 'Lighthouse donation rewards matching star shards');
+
+  console.log('ALL 31 LOGIC, MMO-M6-SPIRE-MENTOR-LIGHTHOUSE, MMO-M5-FERRY-REVIEW, MMO-M4-OVERHAUL, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
 })();

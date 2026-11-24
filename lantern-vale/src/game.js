@@ -16,7 +16,7 @@ import { BIOMES, mulberry32, clamp, lerp, angleLerp, rand, pick } from './util.j
 import { buildTownScenery, buildGuildKiosk, buildAwakenAltar, buildWardrobe, buildSheep, TOWN_LAYOUT, buildCottage } from './town.js';
 import { loadSettings, applySettings, buildSettingsUI, DIFFICULTY_MODES } from './settings.js';
 import { getFieldDanger } from './progression.js';
-import { pickHotspots, getFieldHotspot, checkTriggerIcd, getFerrySchedule, FERRY_BUFF_MS } from './mmo_protocol.js';
+import { pickHotspots, getFieldHotspot, checkTriggerIcd, foldExcessProjectiles, getFerrySchedule, FERRY_BUFF_MS, getWeeklySpireInfo, mentorDamageScale } from './mmo_protocol.js';
 import { showWeapon, applyCosmetics, buildPlayer, buildNPC, buildSlime, buildThorn, buildBoar, buildMoth, buildSkyRay, buildGolem, buildStag, buildArch, buildHouse, buildFountain, buildBoard, buildStall } from './models.js';
 import { Net } from './net.js';
 import { Meta } from './meta.js';
@@ -409,7 +409,7 @@ export class Game {
       this.ui.toast(`🔴 越級警戒：${FIELDS[id].name}（建議 Lv.${FIELDS[id].level}）敵方減傷 45% · 傷害 ×1.5`, '#ff7a7a');
     }
   }
-  startRun() {
+  startRun(opts = {}) {
     if (this.field) this.saveFieldState();
     this.originField = this.field || 1;
     this.field = 0;
@@ -417,12 +417,18 @@ export class Game {
     this.scene.remove(this.player.m.root);
     this.player = this.makePlayer();
     this.recalc(); this.player.hp = this.player.stats.maxHp; this.player.mana = this.player.stats.mana;
-    this.runSeed = this.party ? [...this.party].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % 1000000 : (Math.random() * 1e6) | 0;
-    this.runSeed += (this.originField-1)*997;
+    this.isWeeklySpire = !!opts.weeklySeed;
+    this.runSeed = opts.weeklySeed
+      ? opts.weeklySeed
+      : (this.party ? [...this.party].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % 1000000 : (Math.random() * 1e6) | 0) + (this.originField - 1) * 997;
     this.runStart = performance.now(); this.meta.runShards = 0; this.meta.p.runs++; this.meta.save(); this.runEnded = false;
     this.runStats = { synergyProcs: 0, partsBroken: 0, campfires: 0, healsDone: 0, dmgMitigated: 0 };
     this.state = 'play';
     this.loadRoom(0, null);
+    if (this.isWeeklySpire) {
+      const ws = getWeeklySpireInfo();
+      this.ui.toast(`🗼 進入本週無盡星穹塔（種子 #${ws.seed} · ${ws.theme.name}）`, '#c88cff');
+    }
   }
   enterTown(fromDir = null) {
     if (this.field) this.saveFieldState();
@@ -772,6 +778,10 @@ export class Game {
     if (hit.fire && !opts.isDoT && Math.random() < 0.45) e.statuses.burn = Math.max(e.statuses.burn, 3.6);
     if (opts.poison) e.statuses.poison = Math.max(e.statuses.poison, opts.poison);
     if (opts.shock) e.statuses.shock = Math.max(e.statuses.shock, opts.shock);
+    if (this.meta?.p?.mentorOn && this.field) {
+      const ms = mentorDamageScale(this.meta.p.level, FIELDS[this.field]?.level || 1, true);
+      if (ms < 1) dmg = Math.max(1, Math.round(dmg * ms));
+    }
     e.hp -= dmg; e.flash = 0.14;
     if (!opts.isDoT) {
       // 加強打擊感：壓扁彈回（squash-and-stretch）、暴擊衝擊環、更強震動與頓幀
@@ -880,6 +890,11 @@ export class Game {
     const sparkMul = manualSparkMult(this);
     this.onKillMeta(e); awardKill(this, e);
     if (!autoOn) onTideKill(this, e);
+    if (!autoOn && this.meta.p.mentorOn && (e.elite || e.legendary) && this.field && (this.meta.p.level - (FIELDS[this.field]?.level || 1)) >= 4) {
+      this.meta.p.mentorBadges = (this.meta.p.mentorBadges || 0) + 1;
+      this.meta.save();
+      this.ui.toast(`🏮 提燈導師暖心徽章 +1（累計 ${this.meta.p.mentorBadges}）`, '#ffd85a');
+    }
     const atlas = (!this.field && this.depth >= 0) ? computeAtlasSummary(ensureAtlas(this.meta.p)) : null;
     // 「怪物即技能」吸收系統：限定手動戰鬥吸收靈魂卡
     const soulRes = autoOn ? null : rollSoulDrop(this.meta.p, e.type, e.elite, atlas ? atlas.soulDropMult : 1);
@@ -1389,6 +1404,13 @@ export class Game {
     p.swing = 1; p.swingT = 0.15;
   }
   fireProj(pos, dir, o) {
+    // 自我審查優化：接通投射物上限過載折算（超過 16 枚時轉化為現存投射物過載傷害，避免畫質掉幀）
+    const fold = foldExcessProjectiles(this.projs.length, 1);
+    if (fold.spawnCount <= 0) {
+      const last = this.projs[this.projs.length - 1];
+      if (last) last.mult = Math.min(4.5, (last.mult || 1) * fold.overloadMult);
+      return;
+    }
     const geo = o.wave ? new THREE.BoxGeometry(1.6, 0.1, 0.3) : new THREE.IcosahedronGeometry(o.size, 0);
     const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: o.color, transparent: !!o.wave, opacity: 0.8 }));
     mesh.position.set(pos.x + dir.x * 0.5, (pos.y || 0) + 0.6, pos.z + dir.y * 0.5);
@@ -2156,7 +2178,8 @@ export class Game {
     if (this.raid) { updateRaid(this,dt); return; }
     if (this.ui.mapDialog?.open) return;
     this.time += dt;
-    if (this.meta.p.mealUntil && this.meta.p.mealUntil <= Date.now()) { this.meta.p.mealUntil=0; this.recalc(); this.meta.save(); }
+    if (this.meta.p.mealUntil && this.meta.p.mealUntil <= Date.now()) { this.meta.p.mealUntil=0; this.meta.p.mealBoost=1; this.recalc(); this.meta.save(); }
+    if (this.meta.p.ferryBuffUntil && this.meta.p.ferryBuffUntil <= Date.now()) { this.meta.p.ferryBuffUntil=0; this.recalc(); this.meta.save(); }
     if (this.chimneys && this.townGroup) { this.smokeT -= dt; if (this.smokeT <= 0) { this.smokeT = 0.35; const c = this.chimneys[(Math.random() * this.chimneys.length) | 0];
       if (c) this.puffs.burst(c.x, c.y, c.z, 1, { c: 0xeeeae2, s: 0.28, speed: 0.15, up: 0.9, g: -0.6, life: 2.4, grow: 2.2, drag: 0.6 }); } }
     if (this.hitstop > 0) { this.hitstop -= dt; dt *= 0.08; }

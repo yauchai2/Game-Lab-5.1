@@ -181,3 +181,52 @@ export function getFerrySchedule(nowMs = Date.now(), activeHotspots = null) {
     buffLabel: '⛵ 同舟共濟（移速 +10% · 經驗 +10%）',
   };
 }
+
+// Phase M6A：每週固定種子「無盡星穹塔（Weekly Endless Lantern Spire）」
+const WEEKLY_THEMES = [
+  { id: 'low_grav', name: '🌠 星隕低重力週', desc: '全層低重力高跳躍，空中射擊暴擊率大增！' },
+  { id: 'storm',    name: '⚡ 連鎖雷鳴週',   desc: '感電連鎖擴散加快，適合雷電與拼圖電路流派！' },
+  { id: 'sakura',   name: '🌸 櫻吹雪疾風週', desc: '全體攻速與移速提升，考驗極速走位與連擊！' },
+  { id: 'ember',    name: '🔥 熾炎雙王週',   desc: '灼燒爆發強化，星砂收益加倍的高壓試煉！' },
+];
+
+export function getWeeklySpireInfo(nowMs = Date.now()) {
+  const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+  const weekIdx = Math.floor(nowMs / WEEK_MS);
+  const seed = ((weekIdx * 2654435761) >>> 0) % 900000 + 100000;
+  const theme = WEEKLY_THEMES[weekIdx % WEEKLY_THEMES.length];
+  const resetInHours = Math.max(1, Math.ceil(((weekIdx + 1) * WEEK_MS - nowMs) / 3600000));
+  return { weekIdx, seed, theme, resetInHours };
+}
+
+// Phase M6A：提燈導師（Mentor Lantern）— 老帶新動態壓等與暖心徽章
+export function mentorDamageScale(playerLevel, fieldLevel, mentorOn = false) {
+  if (!mentorOn || !fieldLevel) return 1.0;
+  const over = (playerLevel || 1) - (fieldLevel || 1);
+  if (over < 4) return 1.0;
+  return Math.max(0.35, Math.round((1 / (1 + (over - 3) * 0.14)) * 100) / 100);
+}
+
+// Phase M6B：全服星燈光網建設捐獻與稱號進度
+export const LIGHTHOUSE_TIERS = [
+  { pts: 0,  title: '旅人見習' },
+  { pts: 10, title: '🏮 星燈開拓者' },
+  { pts: 30, title: '✨ 雲海築光師' },
+  { pts: 80, title: '👑 燈谷守望大師' },
+];
+
+export function getLighthouseTitle(pts = 0) {
+  let cur = LIGHTHOUSE_TIERS[0].title;
+  for (const t of LIGHTHOUSE_TIERS) if (pts >= t.pts) cur = t.title;
+  return cur;
+}
+
+export function contributeLighthouse(profile, kind, qty = 2) {
+  if (!profile?.goods || (profile.goods[kind] || 0) < qty) return { ok: false };
+  profile.goods[kind] -= qty;
+  const ptsGain = qty * (kind === 'ore' ? 3 : kind === 'fish' ? 2 : 2);
+  profile.lighthousePts = (profile.lighthousePts || 0) + ptsGain;
+  profile.shards = (profile.shards || 0) + ptsGain;
+  const title = getLighthouseTitle(profile.lighthousePts);
+  return { ok: true, ptsGain, totalPts: profile.lighthousePts, title };
+}

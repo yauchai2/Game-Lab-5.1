@@ -20,7 +20,7 @@ import { DENSITY_TIERS, LEAGUE_MECHANICS, ensureAtlas, setAtlasDensity, toggleAt
 import { TIDE_PHASES, ULTIMATES, MICRO_BUFFS, lootMultForTide, castUltimate, cycleUltimate } from './tide.js';
 import { canCorruptGear, CORRUPT_UNLOCK_LV, nextMilestone } from './progression.js';
 import { applyHudIcons } from './icons.js';
-import { computeCozyMvps } from './mmo_protocol.js';
+import { computeCozyMvps, getWeeklySpireInfo, contributeLighthouse, getLighthouseTitle } from './mmo_protocol.js';
 
 const $ = id => document.getElementById(id);
 const v3 = new THREE.Vector3();
@@ -296,7 +296,25 @@ export class UI {
   }
   renderAtlas(game) {
     const root = $('atlasRoot'); if (!root) return;
-    const a = ensureAtlas(game.meta.p), sum = computeAtlasSummary(a);
+    const p = game.meta.p, a = ensureAtlas(p), sum = computeAtlasSummary(a);
+    const ws = getWeeklySpireInfo();
+    const lhPts = p.lighthousePts || 0, lhTitle = getLighthouseTitle(lhPts);
+    const mentorOn = !!p.mentorOn, mentorOk = (p.level || 1) >= 10 || game.dev?.on;
+    const mmoStrip = `<div class="atlas-bar" style="background:rgba(78,138,126,.14);border-color:#4e8a7e;margin-bottom:8px;flex-wrap:wrap;gap:6px">
+      <div><b>🗼 每週無盡星穹塔</b> · ${ws.theme.name}（種子 #${ws.seed} · ${ws.resetInHours}h 後重置）<br><small>${ws.theme.desc}</small></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button type="button" class="btn small" id="btnRunSpire" style="background:#7a4ac0">🗼 挑戰本週星穹塔</button>
+        <button type="button" class="btn small ${mentorOn ? 'on' : ''}" id="btnMentor" ${mentorOk ? '' : 'disabled'} title="Lv.10 解鎖：老帶新動態壓等並獲得暖心徽章">${mentorOn ? '🏮 導師開啟中' : mentorOk ? '🏮 提燈導師' : '🔒 Lv.10 導師'}</button>
+      </div>
+    </div>
+    <div class="atlas-bar" style="background:rgba(255,216,90,.14);border-color:#c99228;margin-bottom:10px;flex-wrap:wrap;gap:6px">
+      <div><b>✨ 全服星燈光網建設</b> · 貢獻 <b>${lhPts}</b> 點 · 稱號：<b>${lhTitle}</b>（暖心徽章 ${p.mentorBadges || 0}）</div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap">
+        <button type="button" class="btn small" data-lh="wood" ${(p.goods?.wood || 0) >= 2 ? '' : 'disabled'}>🪵 捐木×2</button>
+        <button type="button" class="btn small" data-lh="ore" ${(p.goods?.ore || 0) >= 2 ? '' : 'disabled'}>⛏️ 捐礦×2</button>
+        <button type="button" class="btn small" data-lh="fish" ${(p.goods?.fish || 0) >= 2 ? '' : 'disabled'}>🐟 捐魚×2</button>
+      </div>
+    </div>`;
     const summaryBar = `<div class="atlas-bar">
       <div><b>${sum.dangerLabel}</b> · 密度 <b>×${sum.densityMult}</b> · 星砂 <b>×${sum.shardMult}</b> · 掉寶 <b>+${Math.round(sum.lootBonus * 100)}%</b> · 靈魂掉率 <b>×${sum.soulDropMult}</b></div>
       <button type="button" class="btn small" id="btnRunAtlas" style="background:#e8734a">⛩ 立即開啟客製副本</button>
@@ -314,7 +332,7 @@ export class UI {
         <button type="button" class="btn small ${on ? 'on' : ''}" data-atlas-mech="${m.id}">${on ? '✔ 疊加中（點此關閉）' : '+ 疊加此賽季機制'}</button>
       </div>`;
     }).join('');
-    root.innerHTML = `<div style="margin-bottom:6px;font-size:13px;color:#5a3826">自由設計你的「刷寶印鈔機」副本！所有設定會即時套用於逐層副本的怪物密度、賽季事件、腐化掉落與雙王試煉。</div>
+    root.innerHTML = `${mmoStrip}<div style="margin-bottom:6px;font-size:13px;color:#5a3826">自由設計你的「刷寶印鈔機」副本！所有設定會即時套用於逐層副本的怪物密度、賽季事件、腐化掉落與雙王試煉。</div>
       ${summaryBar}<h3>1. 選擇怪物密度</h3><div class="atlas-grid" style="margin-bottom:12px">${densCards}</div>
       <h3>2. 自由疊加賽季機制（可複選）</h3><div class="atlas-grid">${mechCards}</div>`;
     root.querySelectorAll('.atlas-card').forEach(card => {
@@ -325,6 +343,23 @@ export class UI {
     });
     const runBtn = $('btnRunAtlas');
     if (runBtn) runBtn.onclick = () => { this.toggleInv(game); game.state = 'transition'; game.audio.sfx('warp'); this.wipe(() => game.startRun()); };
+    const spireBtn = $('btnRunSpire');
+    if (spireBtn) spireBtn.onclick = () => { this.toggleInv(game); game.state = 'transition'; game.audio.sfx('warp'); this.wipe(() => game.startRun({ weeklySeed: ws.seed })); };
+    const mBtn = $('btnMentor');
+    if (mBtn) mBtn.onclick = () => {
+      if (!mentorOk) return;
+      p.mentorOn = !p.mentorOn; game.meta.save(); game.audio.sfx('ui');
+      this.toast(p.mentorOn ? '🏮 已開啟提燈導師！低等區自動壓等，擊殺精英可得暖心徽章' : '已關閉提燈導師模式', '#ffd85a');
+      this.renderAtlas(game);
+    };
+    root.querySelectorAll('[data-lh]').forEach(b => b.onclick = () => {
+      const res = contributeLighthouse(p, b.dataset.lh, 2);
+      if (res.ok) {
+        game.meta.save(); game.audio.sfx('pickup');
+        this.toast(`✨ 已捐獻星燈光網！光網進度 +${res.ptsGain} · 星砂 +${res.ptsGain}（稱號：${res.title}）`, '#ffd85a');
+        this.renderAtlas(game);
+      }
+    });
   }
   setInvTab(game, tab) {
     if (tab === 'gear') tab = 'bag';
@@ -689,9 +724,14 @@ export class UI {
     const coinEl = $('coinInfo'); if (coinEl) coinEl.textContent = `🪙 ${pr.coins}`;
     const mealEl = $('mealInfo');
     if (mealEl) {
-      const left = pr.mealUntil ? Math.ceil((pr.mealUntil - Date.now()) / 1000) : 0;
-      mealEl.hidden = left <= 0;
-      if (left > 0) mealEl.textContent = `🐟 回血 ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+      const now = Date.now();
+      const leftMeal = pr.mealUntil ? Math.ceil((pr.mealUntil - now) / 1000) : 0;
+      const leftFerry = pr.ferryBuffUntil ? Math.ceil((pr.ferryBuffUntil - now) / 1000) : 0;
+      const parts = [];
+      if (leftMeal > 0) parts.push(`${(pr.mealBoost || 1) > 1 ? '🍗 盛宴' : '🐟 回血'} ${Math.floor(leftMeal / 60)}:${String(leftMeal % 60).padStart(2, '0')}`);
+      if (leftFerry > 0) parts.push(`⛵ 同舟 ${Math.floor(leftFerry / 60)}:${String(leftFerry % 60).padStart(2, '0')}`);
+      mealEl.hidden = parts.length === 0;
+      if (parts.length) mealEl.textContent = parts.join(' · ');
     }
     const compass = $('fieldCompass');
     if (compass) {
