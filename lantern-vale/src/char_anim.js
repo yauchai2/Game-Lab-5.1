@@ -31,6 +31,8 @@ export class CharAnimator {
     this.curAction = null;
     this.lockTimer = 0;
     this.archetype = null;
+    this._pose = null;
+    this._poseClock = 0;
   }
 
   setClips(clipList, archetype = 'fighter') {
@@ -57,6 +59,7 @@ export class CharAnimator {
 
   play(state, opts = {}) {
     if (!this.clips.size) return false;
+    this._pose = null;
     const isOneShot = opts.once ?? ONE_SHOT_STATES.has(state);
     if (!opts.force && this.lockTimer > 0 && !isOneShot && state !== 'death') return false;
     if (!opts.force && this.curState === state && !isOneShot) return true;
@@ -86,10 +89,12 @@ export class CharAnimator {
 
     if (this.curAction && this.curAction !== next) {
       next.enabled = true;
+      next.paused = false;
       next.play();
       this.curAction.crossFadeTo(next, fade, false);
     } else {
       next.enabled = true;
+      next.paused = false;
       next.play();
     }
     this.curAction = next;
@@ -97,7 +102,42 @@ export class CharAnimator {
     return true;
   }
 
+  /**
+   * Phase D1：定格英雄招牌展示 Pose（精準定位動畫關鍵幀＋極微幅呼吸擺動，100% 還原參考影片拉弓／戒備架勢）
+   */
+  setShowcasePose(state, normTime = 0.45, breatheAmp = 0.035) {
+    if (!this.clips.size) return false;
+    const clip = this._resolveClip(state);
+    if (!clip) return false;
+    this.mixer.stopAllAction();
+    let act = this.actions.get(clip.name);
+    if (!act) {
+      act = this.mixer.clipAction(clip);
+      this.actions.set(clip.name, act);
+    }
+    const baseTime = Math.max(0.01, Math.min(clip.duration - 0.02, clip.duration * normTime));
+    act.enabled = true;
+    act.setEffectiveWeight(1);
+    act.setEffectiveTimeScale(1);
+    act.setLoop(THREE.LoopRepeat, Infinity);
+    act.play();
+    act.time = baseTime;
+    act.paused = true;
+    this.mixer.update(0);
+    this.curAction = act;
+    this.curState = state;
+    this._pose = { act, baseTime, amp: breatheAmp, dur: clip.duration };
+    return true;
+  }
+
   update(dt) {
+    if (this._pose) {
+      this._poseClock += dt;
+      const t = Math.max(0.005, Math.min(this._pose.dur - 0.01, this._pose.baseTime + Math.sin(this._poseClock * 2.1) * this._pose.amp));
+      this._pose.act.time = t;
+      this.mixer.update(0);
+      return;
+    }
     if (this.lockTimer > 0) this.lockTimer = Math.max(0, this.lockTimer - dt);
     this.mixer.update(dt);
   }

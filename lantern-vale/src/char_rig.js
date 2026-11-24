@@ -312,6 +312,7 @@ export function createModularHero(lookInput, opts = {}) {
   let animator = null;
   let disposed = false;
   let pendingState = opts.initialState || 'idle';
+  let pendingPose = opts.showcasePose || null;
   const scale = opts.scale ?? 0.68;
 
   const ctrl = {
@@ -329,14 +330,28 @@ export function createModularHero(lookInput, opts = {}) {
         loadArchetypeAnims(arch).then(clips => {
           if (!disposed && animator) {
             animator.setClips(clips, arch);
-            animator.play(pendingState, { force: true, fade: 0.08 });
+            if (pendingPose) animator.setShowcasePose(pendingPose.state, pendingPose.t, pendingPose.amp);
+            else animator.play(pendingState, { force: true, fade: 0.08 });
           }
         });
       }
     },
     play(state, playOpts) {
       pendingState = state;
+      pendingPose = null;
+      // 弓箭手僅於戰鬥／攻擊／展示時顯示搭弦箭矢，待機走路時收納避免浮空
+      if (rig && look.job === 1) {
+        const showArrow = !['idle', 'walk', 'run', 'jump', 'fall'].includes(state);
+        rig.traverse(o => { if (o.isMesh && o.name.startsWith('weapon_archerarrow')) o.visible = showArrow; });
+      }
       return animator ? animator.play(state, playOpts) : false;
+    },
+    setShowcasePose(state, normTime = 0.45, amp = 0.035) {
+      pendingPose = { state, t: normTime, amp };
+      if (rig && look.job === 1) {
+        rig.traverse(o => { if (o.isMesh && o.name.startsWith('weapon_archerarrow')) o.visible = true; });
+      }
+      return animator ? animator.setShowcasePose(state, normTime, amp) : false;
     },
     update(dt) {
       if (animator) animator.update(dt);
@@ -392,7 +407,8 @@ export function createModularHero(lookInput, opts = {}) {
     loadArchetypeAnims(arch).then(clips => {
       if (!disposed && animator) {
         animator.setClips(clips, arch);
-        animator.play(pendingState, { force: true, fade: 0.05 });
+        if (pendingPose) animator.setShowcasePose(pendingPose.state, pendingPose.t, pendingPose.amp);
+        else animator.play(pendingState, { force: true, fade: 0.05 });
       }
     });
     opts.onReady?.(ctrl);

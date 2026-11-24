@@ -797,6 +797,37 @@ html,body{image-rendering:auto;-webkit-font-smoothing:antialiased;color:var(--ui
 .pz-cell,.pz-info,.pz-shop-item,.atlas,.atlas button,.map-badge,.map-cp-btn,.map-leg-item,.chip,.corrupt-bar,.pz-party-slot,.arr.wide,.kb{border-radius:0!important}
 .atlas button{box-shadow:2px 2px 0 rgba(59,42,42,.45)!important}
 .card:hover:before{display:block}
+/* Phase D3：極簡 3D 腳邊編號投影＋純淨置中總覽＋聚焦滑入輕量英雄卡 */
+#title{background:radial-gradient(ellipse at 50% 48%,#b2f6fc 0%,#8eecf5 58%,#76e0ec 100%)!important}
+#title.mode-dressup{background:radial-gradient(ellipse at 34% 44%,#fbe0be 0%,#df9d66 56%,#a65c3a 100%)!important}
+.cr-pins-3d{position:absolute;inset:0;pointer-events:none;z-index:4;overflow:hidden}
+.hero-pin-3d{
+  position:absolute;transform:translate(-50%,-50%);pointer-events:auto;
+  width:26px;height:26px;display:flex;align-items:center;justify-content:center;
+  background:rgba(43,29,34,.82);color:#fff8e4;border:2px solid #fff8e4;
+  font-family:var(--font-pixel);font-size:12px;font-weight:900;cursor:pointer;
+  box-shadow:0 2px 0 #2b1d33;transition:transform .12s,background .12s;
+}
+.hero-pin-3d:hover,.hero-pin-3d.on{background:var(--ui-gold);color:#3b2a2a;border-color:#3b2a2a;transform:translate(-50%,-58%) scale(1.14)}
+.hero-pin-3d:hover:after{
+  content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);
+  white-space:nowrap;padding:3px 9px;background:#3b2a2a;color:#fff8e4;font-family:var(--font-ui);font-size:12px;
+  box-shadow:var(--box);pointer-events:none;
+}
+.cr-stage-bar{left:50%!important;bottom:22px!important}
+.cr-book{
+  top:72px!important;right:20px!important;bottom:auto!important;width:min(300px,36vw)!important;max-height:calc(100vh - 104px);
+  padding:14px 16px!important;gap:8px!important;box-sizing:border-box!important;
+  opacity:0;pointer-events:none;transform:translateX(28px);
+  transition:opacity .28s ease,transform .28s ease;
+}
+#title.mode-focus .cr-book{opacity:1;pointer-events:auto;transform:none}
+.sb-inputs{display:grid!important;grid-template-columns:1.2fr 0.8fr!important;gap:8px!important;width:100%;box-sizing:border-box}
+.sb-inputs label{min-width:0!important;display:flex!important;flex-direction:column!important;gap:3px}
+.sb-inputs input{min-width:0!important;width:100%!important;box-sizing:border-box!important}
+.sb-skills-fold{background:var(--ui-parchment);border:2px solid var(--ui-wood-dark);padding:6px 8px}
+.sb-skills-fold summary{font-size:12px;font-weight:800;color:var(--ui-wood);cursor:pointer;list-style:none}
+.sb-skills-fold[open] summary{margin-bottom:6px}
 </style>
 </head>
 <body>
@@ -881,6 +912,7 @@ html,body{image-rendering:auto;-webkit-font-smoothing:antialiased;color:var(--ui
 
 <div id="title">
   <canvas id="creatorCanvas" aria-label="3D 英雄浮島與換裝舞台"></canvas>
+  <div id="heroPins3d" class="cr-pins-3d"></div>
   <header class="cr-top">
     <div class="cr-brand"><h1>燈谷行</h1><div class="en">LANTERN VALE</div></div>
     <div class="cr-top-right">
@@ -890,31 +922,31 @@ html,body{image-rendering:auto;-webkit-font-smoothing:antialiased;color:var(--ui
   </header>
 
   <div class="cr-stage-bar">
-    <button type="button" class="cr-ov-btn" id="btnOverview" hidden>🏝️ 返回全隊總覽</button>
-    <div class="cr-pins" id="heroPins"></div>
+    <button type="button" class="cr-ov-btn" id="btnOverview" hidden>← 返回全隊總覽</button>
     <div class="cr-pill">
       <button type="button" id="btnHeroPrev" aria-label="上一位英雄">◀</button>
       <span id="heroPillName">1. 🛡 守燈衛士 · Fighter</span>
       <button type="button" id="btnHeroNext" aria-label="下一位英雄">▶</button>
     </div>
-    <div class="cr-hint">🖱️ 拖曳 360° 旋轉小島 · 點擊英雄或箭頭平滑飛近特寫</div>
   </div>
 
-  <!-- Stage 1 右側：參考圖 1 風格冒險手帳 -->
-  <aside class="cr-book" aria-label="旅人冒險手帳">
+  <!-- Stage 1 右側：極簡輕量英雄卡（僅聚焦英雄時優雅滑入，總覽時保持純淨大視野） -->
+  <aside class="cr-book" aria-label="英雄檔案卡">
     <div class="sb-tape" id="sbClassTag">🛡 守燈衛士 · Fighter</div>
     <p class="sb-desc" id="sbClassDesc"></p>
     <div class="sb-stats" id="sbStats"></div>
-    <div class="sb-label"><span>💎 初始技能拼圖與道具</span><small>點選查看說明</small></div>
-    <div class="sb-grid" id="sbGemGrid"></div>
-    <div class="sb-note" id="sbGemNote"></div>
+    <details class="sb-skills-fold">
+      <summary>💎 查看初始技能拼圖</summary>
+      <div class="sb-grid" id="sbGemGrid"></div>
+      <div class="sb-note" id="sbGemNote"></div>
+    </details>
     <div class="sb-inputs">
       <label>旅人名字<input id="inName" maxlength="12" placeholder="旅人"></label>
-      <label>組隊代碼（選填）<input id="inParty" maxlength="12" placeholder="留空單人出發"></label>
+      <label>組隊代碼<input id="inParty" maxlength="12" placeholder="選填"></label>
     </div>
     <div class="sb-ctas">
-      <button type="button" class="btn small" id="btnOpenDressup" style="background:#5a78b8">✨ 自訂外觀</button>
-      <button type="button" class="btn" id="btnStart">🏮 進入燈谷鎮</button>
+      <button type="button" class="btn small" id="btnOpenDressup" style="background:#5a78b8">✨ 外觀</button>
+      <button type="button" class="btn" id="btnStart">🏮 提燈出發</button>
     </div>
   </aside>
 

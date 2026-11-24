@@ -905,5 +905,12 @@ const createGuild = require('../server/guild.cjs');
   const bfBoard = puzzle.computeBoard([{ uid: 1, id: 'fire_whale', x: 1, y: 1, rot: 0 }, { uid: 2, id: 'bluefire', x: 1, y: 2, rot: 0 }]);
   assert.equal(bfBoard[0].mod.vfxTheme, 'bluefire', 'Linking bluefire support gem mutates skill vfxTheme to bluefire');
 
-  console.log('ALL 40 LOGIC, VFX-SKILL-REWORK-V1-V6, UI-UNIFIED-U4B, CHAR-C6-TOON-ANIM, CHAR-REWORK-C1-C5, FUZZ-QA-36, MMO-M10-PORTALS-CRAFT-KILLSWITCH, MMO-M9-SAFETY-KILLSWITCH, MMO-M8-ROLES-FEAST-GPU, MMO-M7-SOUL-AWAKEN-GPU-FIX, MMO-M6-SPIRE-MENTOR-LIGHTHOUSE, MMO-M5-FERRY-REVIEW, MMO-M4-OVERHAUL, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
+  // 41. Phase D1–D4: Minimalist Sculpted Meadow Diorama, 3D Foot Pin Projection & 5 Showcase Poses
+  const animSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'char_anim.js'), 'utf8');
+  const charPageSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'characters.js'), 'utf8');
+  assert.ok(animSrc.includes('setShowcasePose('), 'CharAnimator implements setShowcasePose for iconic hero poses');
+  assert.ok(charPageSrc.includes('buildSculptedMeadowDiorama') && charPageSrc.includes('makeMeadowTexture'), 'Sculpted hand-painted meadow diorama built');
+  assert.ok(charPageSrc.includes('heroPins3d') && htmlSrc.includes('id="heroPins3d"'), '3D projected foot pins wired in Character Theater');
+
+  console.log('ALL 41 LOGIC, DIORAMA-D1-D4, VFX-SKILL-REWORK-V1-V6, UI-UNIFIED-U4B, CHAR-C6-TOON-ANIM, CHAR-REWORK-C1-C5, FUZZ-QA-36, MMO-M10-PORTALS-CRAFT-KILLSWITCH, MMO-M9-SAFETY-KILLSWITCH, MMO-M8-ROLES-FEAST-GPU, MMO-M7-SOUL-AWAKEN-GPU-FIX, MMO-M6-SPIRE-MENTOR-LIGHTHOUSE, MMO-M5-FERRY-REVIEW, MMO-M4-OVERHAUL, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
 })();

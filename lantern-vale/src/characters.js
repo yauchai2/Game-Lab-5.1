@@ -12,66 +12,180 @@ const key = slot => slot === 0 ? 'lv_prof' : 'lv_prof_' + slot;
 function read(id) { try { return JSON.parse(localStorage.getItem(id)); } catch { return null; } }
 function clampIdx(value, count) { return Number.isInteger(value) && value >= 0 && value < count ? value : 0; }
 
-// 浮空小島上 5 位英雄的站位（還原影片群像構圖：法師在中央苔石高台，弓手／戰士／術士／武僧環繞）
+// Phase D2：光滑有機起伏草地微丘高度場（1:1 還原參考影片中央柔坡＋四周緩降草盤）
+function meadowHeight(x, z) {
+  const r2 = x * x + z * z;
+  const rimFall = Math.max(0, 1 - r2 / (2.22 * 2.22));
+  // 後方柔和寬闊草丘（供法師與武僧自然居高並立、零遮擋）
+  const hill = 0.52 * Math.exp(-((x - 0.08) ** 2 + (z + 0.78) ** 2) / 1.38);
+  const bumpL = 0.10 * Math.exp(-((x + 1.25) ** 2 + (z - 0.15) ** 2) / 0.72);
+  return 0.04 + (hill + bumpL) * Math.min(1, rimFall * 1.9);
+}
+
+// 5 位英雄群像站位（完全不互擋＋各自外向焦點運鏡通道 camAng＋招牌展示 Pose！）
 const ISLAND_SPOTS = [
-  { job: 0, x: -0.78, y: 0.08, z:  0.88, rotY:  0.22, focusDist: 2.85, focusY: 0.56, en: 'Fighter' },
-  { job: 1, x: -1.18, y: 0.04, z: -0.25, rotY:  0.52, focusDist: 2.85, focusY: 0.56, en: 'Archer' },
-  { job: 2, x:  0.02, y: 0.56, z: -0.68, rotY:  0.02, focusDist: 2.95, focusY: 1.06, en: 'Mage' },
-  { job: 3, x:  0.96, y: 0.06, z:  0.68, rotY: -0.28, focusDist: 2.85, focusY: 0.56, en: 'Necromancer' },
-  { job: 4, x:  1.12, y: 0.14, z: -0.45, rotY: -0.52, focusDist: 2.85, focusY: 0.62, en: 'Monk' },
+  { job: 0, x: -0.10, y: meadowHeight(-0.10,  0.96), z:  0.96, rotY:  0.10, camAng: -0.05, focusDist: 2.38, focusY: 0.64, en: 'Fighter',     pose: { state: 'combatIdle', t: 0.16, amp: 0.035 } },
+  { job: 1, x: -1.38, y: meadowHeight(-1.38,  0.22), z:  0.22, rotY:  0.42, camAng: -0.42, focusDist: 2.42, focusY: 0.66, en: 'Archer',      pose: { state: 'attack',     t: 0.42, amp: 0.022 } },
+  { job: 2, x: -0.44, y: meadowHeight(-0.44, -0.82), z: -0.82, rotY:  0.08, camAng: -0.28, focusDist: 2.48, focusY: 1.06, en: 'Mage',        pose: { state: 'combatIdle', t: 0.25, amp: 0.032 } },
+  { job: 3, x:  1.32, y: meadowHeight( 1.32,  0.34), z:  0.34, rotY: -0.40, camAng:  0.40, focusDist: 2.42, focusY: 0.64, en: 'Necromancer', pose: { state: 'cast',       t: 0.35, amp: 0.032 } },
+  { job: 4, x:  0.68, y: meadowHeight( 0.68, -0.84), z: -0.84, rotY: -0.18, camAng: -0.02, focusDist: 2.48, focusY: 1.04, en: 'Monk',        pose: { state: 'combatIdle', t: 0.20, amp: 0.032 } },
 ];
 
-function buildDioramaIsland() {
-  const grp = new THREE.Group();
-  // 青翠圓盤草皮與土石浮島底座
-  const grass = new THREE.Mesh(
-    new THREE.CylinderGeometry(2.38, 2.15, 0.34, 28),
-    new THREE.MeshStandardMaterial({ color: 0x8cd85c, roughness: 0.92 })
-  );
-  grass.position.y = -0.15; grass.receiveShadow = true; grp.add(grass);
+function makeMeadowTexture() {
+  if (typeof document === 'undefined') return null;
+  const cv = document.createElement('canvas');
+  cv.width = 512; cv.height = 512;
+  const ctx = cv.getContext('2d');
+  // 鮮嫩手繪草皮漸層（中央暖黃綠 → 外圍柔和翠綠）
+  const rg = ctx.createRadialGradient(252, 215, 24, 256, 256, 252);
+  rg.addColorStop(0.0, '#b2ea4a');
+  rg.addColorStop(0.55, '#89d638');
+  rg.addColorStop(0.88, '#68b92e');
+  rg.addColorStop(1.0, '#559e26');
+  ctx.fillStyle = rg;
+  ctx.fillRect(0, 0, 512, 512);
 
-  const rim = new THREE.Mesh(
-    new THREE.TorusGeometry(2.42, 0.09, 8, 36),
-    new THREE.MeshStandardMaterial({ color: 0x52c8d8, roughness: 0.4, transparent: true, opacity: 0.55 })
-  );
-  rim.rotation.x = Math.PI / 2; rim.position.y = -0.22; grp.add(rim);
-
-  const rockBase = new THREE.Mesh(
-    new THREE.ConeGeometry(2.1, 1.35, 11),
-    new THREE.MeshStandardMaterial({ color: 0x9c8266, roughness: 0.95, flatShading: true })
-  );
-  rockBase.rotation.x = Math.PI; rockBase.position.y = -0.98; grp.add(rockBase);
-
-  // 中央苔石高台（供法師站立，層次立體感！）
-  const mound = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.76, 1.05, 0.58, 9),
-    new THREE.MeshStandardMaterial({ color: 0x829068, roughness: 0.92, flatShading: true })
-  );
-  mound.position.set(0.02, 0.27, -0.68); mound.castShadow = true; mound.receiveShadow = true; grp.add(mound);
-  const moundCap = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.78, 0.82, 0.12, 9),
-    new THREE.MeshStandardMaterial({ color: 0x94de62, roughness: 0.9 })
-  );
-  moundCap.position.set(0.02, 0.54, -0.68); moundCap.receiveShadow = true; grp.add(moundCap);
-
-  // 周邊苔石與黃白小野花（呼應參考影片草地細節）
-  const stoneMat = new THREE.MeshStandardMaterial({ color: 0x9ca48e, roughness: 0.92, flatShading: true });
-  for (const [sx, sy, sz, sr] of [[-1.7, 0.12, 0.65, 0.34], [1.62, 0.14, -0.1, 0.38], [0.25, 0.08, 1.55, 0.25], [-0.9, 0.1, -1.45, 0.32]]) {
-    const b = new THREE.Mesh(new THREE.DodecahedronGeometry(sr, 0), stoneMat);
-    b.position.set(sx, sy, sz); b.scale.set(1.2, 0.72, 1); b.castShadow = true; grp.add(b);
+  // 柔和草地筆觸色斑（增添手繪溫潤感）
+  for (let i = 0; i < 180; i++) {
+    const a = (i * 2.399) % (Math.PI * 2);
+    const r = Math.sqrt(i / 180) * 235;
+    ctx.fillStyle = i % 2 ? 'rgba(186,242,96,0.22)' : 'rgba(84,162,42,0.18)';
+    ctx.beginPath();
+    ctx.ellipse(256 + Math.cos(a) * r, 256 + Math.sin(a) * r, 10 + (i % 9), 5 + (i % 5), a, 0, Math.PI * 2);
+    ctx.fill();
   }
-  const stemMat = new THREE.MeshStandardMaterial({ color: 0x5ca442, roughness: 0.9 });
-  const petalY = new THREE.MeshStandardMaterial({ color: 0xffe45a, roughness: 0.65 });
-  const petalW = new THREE.MeshStandardMaterial({ color: 0xfff8e6, roughness: 0.65 });
-  for (let i = 0; i < 16; i++) {
-    const a = (i / 16) * Math.PI * 2 + 0.18;
-    const r = 1.55 + (i % 3) * 0.24;
-    const fx = Math.cos(a) * r, fz = Math.sin(a) * r;
-    const fl = new THREE.Group(); fl.position.set(fx, 0.02, fz);
-    const st = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.025, 0.16, 4), stemMat); st.position.y = 0.08; fl.add(st);
-    const hd = new THREE.Mesh(new THREE.SphereGeometry(0.085, 6, 5), i % 3 === 0 ? petalW : petalY);
-    hd.position.y = 0.17; hd.scale.set(1.2, 0.55, 1.2); fl.add(hd);
-    grp.add(fl);
+
+  // 參考影片同款：向右前方蜿蜒的暖米色泥土小徑
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(232, 370);
+  ctx.bezierCurveTo(285, 345, 315, 305, 355, 275);
+  ctx.bezierCurveTo(395, 245, 418, 290, 400, 352);
+  ctx.lineWidth = 64;
+  ctx.strokeStyle = 'rgba(166,184,96,0.55)';
+  ctx.stroke();
+  ctx.lineWidth = 42;
+  ctx.strokeStyle = '#d7c69c';
+  ctx.stroke();
+  ctx.lineWidth = 22;
+  ctx.strokeStyle = '#e2d4b0';
+  ctx.stroke();
+  ctx.restore();
+
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.needsUpdate = true;
+  return tex;
+}
+
+function buildSculptedMeadowDiorama() {
+  const grp = new THREE.Group();
+  const R = 2.18, rings = 18, segs = 48;
+  const pos = [], uvs = [], idx = [];
+
+  // 中心點
+  pos.push(0, meadowHeight(0, 0), 0);
+  uvs.push(0.5, 0.5);
+  for (let ri = 1; ri <= rings; ri++) {
+    const t = ri / rings;
+    const rad = t * R;
+    const edgeDrop = ri === rings ? -0.14 : (ri === rings - 1 ? -0.04 : 0);
+    for (let si = 0; si < segs; si++) {
+      const a = (si / segs) * Math.PI * 2;
+      const x = Math.cos(a) * rad, z = Math.sin(a) * rad;
+      const y = ri === rings ? edgeDrop : Math.max(-0.04, meadowHeight(x, z) + edgeDrop);
+      pos.push(x, y, z);
+      uvs.push(0.5 + x / (R * 2), 0.5 + z / (R * 2));
+    }
+  }
+  for (let si = 0; si < segs; si++) {
+    const nxt = (si + 1) % segs;
+    idx.push(0, 1 + nxt, 1 + si);
+  }
+  for (let ri = 1; ri < rings; ri++) {
+    const row0 = 1 + (ri - 1) * segs;
+    const row1 = 1 + ri * segs;
+    for (let si = 0; si < segs; si++) {
+      const nxt = (si + 1) % segs;
+      idx.push(row0 + si, row0 + nxt, row1 + nxt);
+      idx.push(row0 + si, row1 + nxt, row1 + si);
+    }
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+
+  const meadowMat = new THREE.MeshStandardMaterial({
+    map: makeMeadowTexture(),
+    roughness: 0.94,
+    metalness: 0.0,
+  });
+  const mound = new THREE.Mesh(geo, meadowMat);
+  mound.receiveShadow = true;
+  grp.add(mound);
+
+  // 清透淺水藍底環（緊貼草盤外緣，還原影片淺水邊框！）
+  const waterDisc = new THREE.Mesh(
+    new THREE.RingGeometry(R * 0.92, R * 1.07, 56),
+    new THREE.MeshBasicMaterial({ color: 0x5cd8ea, transparent: true, opacity: 0.62, side: THREE.DoubleSide })
+  );
+  waterDisc.rotation.x = -Math.PI / 2;
+  waterDisc.position.y = -0.11;
+  grp.add(waterDisc);
+
+  // 貼邊圓潤低矮苔石（自然嵌入坡腳與外緣）
+  const stoneMat = new THREE.MeshStandardMaterial({ color: 0xa0987e, roughness: 0.95 });
+  const stoneSpots = [
+    [-1.42, 0.78, 0.34, 1.35, 0.42, 0.85, 0.4],
+    [-1.12, 1.15, 0.28, 1.45, 0.38, 0.78, 0.6],
+    [-0.58, 1.56, 0.30, 1.55, 0.36, 0.72, 0.15],
+    [ 0.12, 1.62, 0.26, 1.40, 0.34, 0.70, -0.1],
+    [-0.68, 0.18, 0.24, 1.15, 0.55, 0.92, 0.3],
+    [ 1.38, -0.15, 0.30, 1.25, 0.44, 0.85, -0.4],
+  ];
+  for (const [sx, sz, sr, scx, scy, scz, ry] of stoneSpots) {
+    const b = new THREE.Mesh(new THREE.SphereGeometry(sr, 10, 7), stoneMat);
+    b.position.set(sx, meadowHeight(sx, sz) + sr * scy * 0.35, sz);
+    b.scale.set(scx, scy, scz);
+    b.rotation.y = ry;
+    b.castShadow = true; b.receiveShadow = true;
+    grp.add(b);
+  }
+
+  // 纖細五瓣小黃花叢（成簇點綴於英雄腳邊與石旁，告別粗大蘑菇感！）
+  const stemMat = new THREE.MeshStandardMaterial({ color: 0x4ca232, roughness: 0.9 });
+  const petalY = new THREE.MeshBasicMaterial({ color: 0xffe44d });
+  const petalC = new THREE.MeshBasicMaterial({ color: 0xf49d28 });
+  const clusters = [
+    [-1.48, 0.42], [-1.32, 0.54], [-1.62, -0.25], [-0.45, 1.22],
+    [ 0.58, 1.16], [ 0.78, 1.06], [ 1.12,  0.88], [ 1.45,  0.32],
+    [ 1.38, -0.82], [-0.88, -1.18], [-0.15, 0.12],
+  ];
+  for (const [cx, cz] of clusters) {
+    const cnt = 2 + (Math.abs(Math.round(cx * 10)) % 2);
+    for (let i = 0; i < cnt; i++) {
+      const fx = cx + (i - 0.5) * 0.16, fz = cz + ((i % 2) ? 0.1 : -0.08);
+      const fy = meadowHeight(fx, fz);
+      const fl = new THREE.Group();
+      fl.position.set(fx, fy, fz);
+      const st = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.016, 0.14, 4), stemMat);
+      st.position.y = 0.07; fl.add(st);
+      const center = new THREE.Mesh(new THREE.SphereGeometry(0.028, 5, 4), petalC);
+      center.position.y = 0.145; fl.add(center);
+      for (let p = 0; p < 5; p++) {
+        const pa = (p / 5) * Math.PI * 2;
+        const pt = new THREE.Mesh(new THREE.SphereGeometry(0.026, 5, 4), petalY);
+        pt.position.set(Math.cos(pa) * 0.038, 0.142, Math.sin(pa) * 0.038);
+        pt.scale.set(1.1, 0.45, 1.1);
+        fl.add(pt);
+      }
+      grp.add(fl);
+    }
   }
   return grp;
 }
@@ -158,9 +272,9 @@ export function bindCharacters(game) {
   rimLight.position.set(-4, 3, -3.5);
   scene.add(rimLight);
 
-  // 舞台 1：浮空草地英雄群像小島 + Piloto 3D 技能預演引擎
+  // 舞台 1：有機起伏手繪草地群像小島 + Piloto 3D 技能預演引擎
   const islandStage = new THREE.Group();
-  const islandGeo = buildDioramaIsland();
+  const islandGeo = buildSculptedMeadowDiorama();
   islandStage.add(islandGeo);
   scene.add(islandStage);
   const theaterVfx = new VfxEngine(islandStage);
@@ -184,10 +298,10 @@ export function bindCharacters(game) {
   dressupStage.add(buildDressupRug());
   scene.add(dressupStage);
 
-  // 5 位英雄實機 3D 角色
+  // 5 位英雄實機 3D 角色（各自呈現招牌展示 Pose：弓手拉弓搭箭、戰士橫斧、法師舉杖、影刃亮刃、武僧執聖杖）
   const islandHeroes = ISLAND_SPOTS.map(sp => {
     const presetLook = normalizeCharacterLook(CHAR_CATALOG.classPresets[sp.job], sp.job);
-    const hero = createModularHero(presetLook, { scale: 0.72, initialState: 'combatIdle' });
+    const hero = createModularHero(presetLook, { scale: 0.72, initialState: 'combatIdle', showcasePose: sp.pose });
     hero.root.position.set(sp.x, sp.y, sp.z);
     hero.root.rotation.y = sp.rotY;
     // 點擊透明碰撞盒（Raycaster 命中更精準）
@@ -232,17 +346,16 @@ export function bindCharacters(game) {
   let running = true;
   let inTownWardrobe = false;
 
-  // 平滑電影運鏡（Camera Dolly & Orbit）— 將 3D 舞台居中於左側 64% 視覺區，角色正面朝向觀眾！
+  // 平滑電影運鏡（Camera Dolly & Orbit）— 總覽正中留白呈現草地群像，聚焦絲滑推近臉部特寫！
   let orbitYaw = 0.0, orbitVel = 0, dressRotY = 0;
-  const camCurPos = new THREE.Vector3(0.95, 1.85, 6.20);
-  const camCurTarget = new THREE.Vector3(0.88, 0.42, 0);
-  const camGoalPos = new THREE.Vector3(0.95, 1.85, 6.20);
-  const camGoalTarget = new THREE.Vector3(0.88, 0.42, 0);
-  let camCurFov = 32, camGoalFov = 32;
+  const camCurPos = new THREE.Vector3(0.0, 2.35, 5.25);
+  const camCurTarget = new THREE.Vector3(0.0, 0.52, 0);
+  const camGoalPos = new THREE.Vector3(0.0, 2.35, 5.25);
+  const camGoalTarget = new THREE.Vector3(0.0, 0.52, 0);
+  let camCurFov = 30, camGoalFov = 30;
 
   function computeCameraGoal() {
     if (stageMode === 'dressup') {
-      // 左側 58% 舞台居中，角色全身站於暖色圓地毯正中央（帽頂留有充裕空間）
       camGoalPos.set(0.72, 1.08, 3.80);
       camGoalTarget.set(0.72, 0.72, 0.0);
       camGoalFov = 30;
@@ -253,19 +366,20 @@ export function bindCharacters(game) {
       const cos = Math.cos(orbitYaw), sin = Math.sin(orbitYaw);
       const wx = sp.x * cos + sp.z * sin;
       const wz = -sp.x * sin + sp.z * cos;
-      const worldRot = sp.rotY + orbitYaw;
-      const fx = Math.sin(worldRot), fz = Math.cos(worldRot);
-      // 略向右偏移目標點，讓特寫英雄穩居畫面左側黃金構圖位
-      const rx = fz * 0.46, rz = -fx * 0.46;
+      // 沿各英雄專屬無遮擋外向通道 camAng 推近，徹底杜絕鄰近英雄擋鏡！
+      const worldCamAng = (sp.camAng ?? sp.rotY) + orbitYaw;
+      const fx = Math.sin(worldCamAng), fz = Math.cos(worldCamAng);
+      // 略微右偏讓英雄特寫居於黃金左中位置，右側留給輕量英雄卡
+      const rx = fz * 0.28, rz = -fx * 0.28;
       camGoalTarget.set(wx + rx, sp.focusY, wz + rz);
-      camGoalPos.set(wx + rx + fx * sp.focusDist, sp.focusY + 0.34, wz + rz + fz * sp.focusDist);
+      camGoalPos.set(wx + rx + fx * sp.focusDist, sp.focusY + 0.28, wz + rz + fz * sp.focusDist);
       camGoalFov = 28;
       return;
     }
-    // Overview：全島 5 英雄正面群像（居中於左側開闊天空，視野完整又清晰！）
-    camGoalTarget.set(0.88, 0.42, 0.0);
-    camGoalPos.set(0.95, 1.85, 6.20);
-    camGoalFov = 32;
+    // Overview：純淨居中群像（完全對齊參考影片！）
+    camGoalTarget.set(0.0, 0.52, 0.0);
+    camGoalPos.set(0.0, 2.35, 5.25);
+    camGoalFov = 30;
   }
 
   function syncHeroMeshes() {
@@ -292,7 +406,7 @@ export function bindCharacters(game) {
     stageMode = 'focus';
     // 旋轉小島讓焦點英雄面向鏡頭中心，鏡頭再平滑飛近（完全還原影片順滑感！）
     const sp = ISLAND_SPOTS[selectedJob];
-    orbitYaw = -sp.rotY * 0.45;
+    orbitYaw = -(sp.camAng ?? sp.rotY) * 0.35;
     orbitVel = 0;
     syncHeroMeshes();
     if (triggerAnim) {
@@ -357,7 +471,8 @@ export function bindCharacters(game) {
     const cls = CLASSES[selectedJob] || CLASSES[0];
     const sp = ISLAND_SPOTS[selectedJob] || ISLAND_SPOTS[0];
     if (pill) pill.textContent = `${selectedJob + 1}. ${cls.icon} ${cls.name} · ${sp.en}`;
-    document.querySelectorAll('.hero-pin-btn').forEach((b, i) => b.classList.toggle('on', i === selectedJob));
+    document.querySelectorAll('.hero-pin-btn,.hero-pin-3d').forEach((b, i) => b.classList.toggle('on', i === selectedJob));
+    selRing.visible = stageMode === 'focus';
     computeCameraGoal();
   }
 
@@ -569,17 +684,25 @@ export function bindCharacters(game) {
       if (hits.length) {
         const job = hits[0].object.userData.heroJob;
         if (Number.isInteger(job)) { game.audio?.sfx?.('ui'); focusHero(job, true); }
+      } else if (stageMode === 'focus') {
+        setOverview();
       }
     }
     drag = null;
   });
 
-  // 底部 ◀ 職業名 ▶ 切換列與編號點（完全對齊參考影片！）
-  const pinsEl = $('heroPins');
-  if (pinsEl) {
-    pinsEl.innerHTML = CLASSES.map((c, i) => `<button type="button" class="hero-pin-btn" data-pin="${i}" title="${c.name}">${i + 1}</button>`).join('');
-    pinsEl.querySelectorAll('[data-pin]').forEach(b => b.onclick = () => { game.audio?.sfx?.('ui'); focusHero(+b.dataset.pin, true); });
+  // 真 3D 腳邊投影編號點（1–5 隨小島 360° 旋轉跟動，完全還原參考影片！）
+  const pins3dEl = $('heroPins3d');
+  const pin3dBtns = [];
+  if (pins3dEl) {
+    pins3dEl.innerHTML = CLASSES.map((c, i) => `<button type="button" class="hero-pin-3d" data-pin="${i}" data-tip="${c.name} · ${ISLAND_SPOTS[i]?.en || ''}">${i + 1}</button>`).join('');
+    pins3dEl.querySelectorAll('[data-pin]').forEach(b => {
+      b.onclick = () => { game.audio?.sfx?.('ui'); focusHero(+b.dataset.pin, true); };
+      pin3dBtns.push(b);
+    });
   }
+  const _pinProj = new THREE.Vector3();
+  const _pinWorld = new THREE.Vector3();
   const prevBtn = $('btnHeroPrev'), nextBtn = $('btnHeroNext'), ovBtn = $('btnOverview');
   if (prevBtn) prevBtn.onclick = () => { game.audio?.sfx?.('ui'); focusHero((selectedJob + CLASSES.length - 1) % CLASSES.length, true); };
   if (nextBtn) nextBtn.onclick = () => { game.audio?.sfx?.('ui'); focusHero((selectedJob + 1) % CLASSES.length, true); };
@@ -771,6 +894,23 @@ export function bindCharacters(game) {
       camera.updateProjectionMatrix();
     }
     renderer.render(scene, camera);
+    // 更新 5 顆真 3D 腳邊投影編號點座標
+    if (pin3dBtns.length) {
+      const showPins = stageMode === 'overview';
+      const rw = canvas.clientWidth || window.innerWidth, rh = canvas.clientHeight || window.innerHeight;
+      for (let i = 0; i < pin3dBtns.length; i++) {
+        const btn = pin3dBtns[i], sp = ISLAND_SPOTS[i];
+        if (!showPins || !sp) { btn.style.display = 'none'; continue; }
+        _pinWorld.set(sp.x, sp.y + 0.08, sp.z).applyMatrix4(islandStage.matrixWorld);
+        _pinProj.copy(_pinWorld).project(camera);
+        const sx = (_pinProj.x * 0.5 + 0.5) * rw;
+        const sy = (-_pinProj.y * 0.5 + 0.5) * rh;
+        btn.style.display = 'flex';
+        btn.style.left = `${sx.toFixed(1)}px`;
+        btn.style.top = `${sy.toFixed(1)}px`;
+        btn.style.zIndex = String(Math.round((1 - _pinProj.z) * 100));
+      }
+    }
   }
   requestAnimationFrame(loop);
 
