@@ -158,10 +158,10 @@ const createGuild = require('../server/guild.cjs');
   assert.equal(board[0].id, 'rain');
   assert.equal(board[0].mod.multi, 2, 'Adjacent 多重投射 adds +2 projectiles/waves');
   assert.ok(board[0].mod.cdr > 0, 'Adjacent 極速詠唱 reduces cooldown');
-  // Verify Mystic starts with a live Logic Circuit (bolt -> CoH -> thunder)
+  // Verify Mystic starts with a live Logic Circuit (bolt -> CoH -> blue_tornado)
   const mysticPz = puzzle.ensurePuzzle({ puzzle: null }, 2);
   const mysticBoard = puzzle.computeBoard(mysticPz.presets[0]);
-  assert.ok(mysticBoard.find(s => s.id === 'bolt')?.mod.triggerOnHit.includes('thunder'), 'Mystic starts with live bolt -> thunder CoH circuit');
+  assert.ok(mysticBoard.find(s => s.id === 'bolt')?.mod.triggerOnHit.includes('blue_tornado'), 'Mystic starts with live bolt -> blue_tornado CoH circuit');
   // Stack a second 熾炎增幅 adjacent to rain at (2, 1)
   assert.equal(puzzle.canPlace(pz.presets[0], 'ember', 2, 1, 0, 1), true);
   pz.presets[0].push({ uid: 99, id: 'ember', x: 2, y: 1, rot: 0 });
@@ -458,7 +458,7 @@ const createGuild = require('../server/guild.cjs');
   // 20. Ember Tide (餘燼潮汐) Dynamic Escalation, Mandatory Lull, Rekindle & Cozy-Chaotic Ultimates
   const tide = await import(src('tide.js'));
   assert.equal(tide.TIDE_PHASES.length, 4, 'Four Ember Tide escalation phases defined');
-  assert.equal(tide.ULTIMATES.length, 3, 'Three cozy-chaotic ultimates defined (storm, hound, daybreak)');
+  assert.equal(tide.ULTIMATES.length, 8, 'Eight ultimates defined (5 Class-specific 3D ultimates + 3 shared tide ultimates)');
   assert.equal(tide.MICRO_BUFFS.length, 3, 'Three seamless mid-wave micro-buffs defined');
   const td = tide.createTideState();
   assert.equal(td.phase, 0);
@@ -474,7 +474,7 @@ const createGuild = require('../server/guild.cjs');
   assert.equal(td.apexTimer, tide.APEX_DURATION);
   assert.ok(td.ultCharge >= 100, 'Killing swarm charges ultimate to 100%');
   const ultUsed = tide.consumeUltimate(td);
-  assert.equal(ultUsed.id, 'storm', 'Consuming full ultimate casts THUNDERSTORM first');
+  assert.equal(ultUsed.id, 'dragon', 'Consuming full ultimate casts Fighter 3D DRAGON BREATH first');
   assert.equal(td.ultCharge, 0);
   // Slaying Tide Boss during Apex immediately transitions into 25s Lull
   const lullRes = tide.recordTideKill(td, { isTideBoss: true });
@@ -891,5 +891,19 @@ const createGuild = require('../server/guild.cjs');
   }
   assert.ok(htmlSrc.includes('Phase U4b：全遊戲統一「A Short Hike 溫馨像素風」'), 'Phase U4b A Short Hike unified style block present in index.html');
 
-  console.log('ALL 39 LOGIC, UI-UNIFIED-U4, CHAR-C6-TOON-ANIM, CHAR-REWORK-C1-C5, FUZZ-QA-36, MMO-M10-PORTALS-CRAFT-KILLSWITCH, MMO-M9-SAFETY-KILLSWITCH, MMO-M8-ROLES-FEAST-GPU, MMO-M7-SOUL-AWAKEN-GPU-FIX, MMO-M6-SPIRE-MENTOR-LIGHTHOUSE, MMO-M5-FERRY-REVIEW, MMO-M4-OVERHAUL, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
+  // 40. Phase V1–V6: Piloto 4-Pack VFX Assets, 24 Active / 16 Support Gems, 5 Class Mechanics & 8 Ultimates (5 Class + 3 Shared)
+  const vfxDir = path.join(__dirname, '..', 'game', 'assets', 'vfx');
+  const vfxGlb = path.join(vfxDir, 'vfx_meshes.glb');
+  assert.ok(fs.existsSync(vfxGlb) && fs.statSync(vfxGlb).size > 500000, 'Packed 28-mesh vfx_meshes.glb exists & valid');
+  assert.ok(fs.readdirSync(path.join(vfxDir, 'tex')).filter(f => f.endsWith('.webp')).length >= 22, 'All 22 stylized WebP VFX textures present');
+  assert.equal(Object.keys(puzzle.ACTIVE_GEMS).length, 24, 'Skill Puzzle 2.0 has 24 Active Gems (14 upgraded + 10 3D summons)');
+  assert.equal(Object.keys(puzzle.SUPPORT_GEMS).length, 16, 'Skill Puzzle 2.0 has 16 Support Gems (incl. bluefire & vortex)');
+  for (const cls of puzzle.CLASSES) {
+    assert.ok(cls.classMech && cls.classMech.max > 0 && cls.classUlt, `Class ${cls.name} has signature classMech & classUlt`);
+  }
+  assert.equal(tide.ULTIMATES.length, 8, '8 Ultimates defined (5 Class-specific 3D Ultimates + 3 Shared Tide Ultimates)');
+  const bfBoard = puzzle.computeBoard([{ uid: 1, id: 'fire_whale', x: 1, y: 1, rot: 0 }, { uid: 2, id: 'bluefire', x: 1, y: 2, rot: 0 }]);
+  assert.equal(bfBoard[0].mod.vfxTheme, 'bluefire', 'Linking bluefire support gem mutates skill vfxTheme to bluefire');
+
+  console.log('ALL 40 LOGIC, VFX-SKILL-REWORK-V1-V6, UI-UNIFIED-U4B, CHAR-C6-TOON-ANIM, CHAR-REWORK-C1-C5, FUZZ-QA-36, MMO-M10-PORTALS-CRAFT-KILLSWITCH, MMO-M9-SAFETY-KILLSWITCH, MMO-M8-ROLES-FEAST-GPU, MMO-M7-SOUL-AWAKEN-GPU-FIX, MMO-M6-SPIRE-MENTOR-LIGHTHOUSE, MMO-M5-FERRY-REVIEW, MMO-M4-OVERHAUL, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
 })();

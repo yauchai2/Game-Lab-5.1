@@ -12,9 +12,14 @@ export const TIDE_PHASES = [
 ];
 
 export const ULTIMATES = [
-  { id: 'storm',    icon: '⚡', name: '星燈雷雨風暴', shout: 'THUNDERSTORM!',  color: '#7ae8ff', desc: '頭頂召喚跟隨移動的星燈雷雲 5.5 秒，連環天雷轟擊怪海並觸發感電連鎖！' },
-  { id: 'hound',    icon: '🐕', name: '巨型燈犬衝鋒', shout: 'WOOF!',          color: '#ffa83a', desc: '召喚巨型發光燈犬向前猛衝，撞飛並暈眩沿途所有敵人！' },
-  { id: 'daybreak', icon: '☀️', name: '破曉大太陽',   shout: 'DAYBREAK!',      color: '#fff07a', desc: '升起破曉太陽淨化異常並回血，釋放全螢幕黃金清場震波！' },
+  { id: 'dragon',     icon: '🐉', name: '蒼炎神龍吐息', shout: 'DRAGON BREATH!', color: '#ff8a3a', classJob: 0, desc: '【衛士專屬】召喚動態 3D 神龍頭朝前方噴吐烈焰扇形橫掃並灼燒地面！' },
+  { id: 'phoenix',    icon: '🦅', name: '雷霆鳳凰降臨', shout: 'THUNDER PHOENIX!', color: '#6cb8ff', classJob: 1, desc: '【遊俠專屬】召喚 3D 巨型雷鳳展翅掠過戰場，劈落連鎖感電雷弧！' },
+  { id: 'whale',      icon: '🐋', name: '熾炎巨鯨滅潮', shout: 'FIRE WHALE!',    color: '#ff6a3a', classJob: 2, desc: '【秘術專屬】召喚 3D 巨型火鯨破土躍擊重砸怪海，捲起雙層火浪！' },
+  { id: 'wolf',       icon: '🐺', name: '冥界巨狼吞噬', shout: 'SHADOW FANG!',   color: '#c87aff', classJob: 3, desc: '【影刃專屬】召喚 3D 暗影巨狼破界撲咬，重創敵群並附加 6 秒易傷！' },
+  { id: 'spirit_sun', icon: '☀️', name: '聖燈靈陽普照', shout: 'SPIRIT SUN!',    color: '#ffe87a', classJob: 4, desc: '【武僧專屬】升起 3D 燃燒靈陽與繁花聖陣，淨化異常、大幅回血並釋放聖光震波！' },
+  { id: 'storm',      icon: '⚡', name: '星燈雷雨風暴', shout: 'THUNDERSTORM!',  color: '#7ae8ff', desc: '頭頂召喚跟隨移動的星燈雷雲 5.5 秒，連環天雷轟擊怪海並觸發感電連鎖！' },
+  { id: 'hound',      icon: '🐕', name: '巨型燈犬衝鋒', shout: 'WOOF!',          color: '#ffa83a', desc: '召喚巨型發光燈犬向前猛衝，撞飛並暈眩沿途所有敵人！' },
+  { id: 'daybreak',   icon: '🌅', name: '破曉大太陽',   shout: 'DAYBREAK!',      color: '#fff07a', desc: '升起破曉太陽淨化異常並回血，釋放全螢幕黃金清場震波！' },
 ];
 
 export const MICRO_BUFFS = [
@@ -516,6 +521,48 @@ function spawnDaybreak(g) {
   g.ui.toast('☀️ 破曉大太陽升起！淨化異常並清場！', '#fff07a');
 }
 
+function spawnClassUltimate(g, u) {
+  const p = g.player, dir = g.aimDir();
+  const tx = p.pos.x + dir.x * 4.5, tz = p.pos.z + dir.y * 4.5;
+  p.heroRig?.play?.('buff', { once: true, force: true });
+  g.shake = Math.max(g.shake, 0.7);
+  if (u.id === 'dragon') {
+    g.vfx?.spawnSummon('dragon_head', p.pos.x, p.y, p.pos.z, dir.x, dir.y, { theme: 'fire' });
+    for (let i = 1; i <= 3; i++) {
+      g.shockRing(p.pos.x + dir.x * (i * 2.6), p.pos.z + dir.y * (i * 2.6), 4.2, g.rollDamage(2.6, true), 0xff7a30, 0.9, { isTrigger: true });
+    }
+    g.spawnGroundZone('magma', tx, tz, 4.6, 5.5, 0.95, { color: 0xff6a30, fire: true });
+    g.audio.sfx('meteor');
+  } else if (u.id === 'phoenix') {
+    g.vfx?.spawnSummon('thunder_phoenix', p.pos.x, p.y, p.pos.z, dir.x, dir.y, { theme: 'thunder' });
+    for (let i = 1; i <= 4; i++) {
+      const px = p.pos.x + dir.x * (i * 2.8), pz = p.pos.z + dir.y * (i * 2.8);
+      g.shockRing(px, pz, 3.8, g.rollDamage(2.4, false), 0x7ae8ff, 0.6, { isTrigger: true });
+      g.applyElementAt(px, pz, 'shock', 3.4);
+    }
+    g.audio.sfx('ultFort');
+  } else if (u.id === 'whale') {
+    g.vfx?.spawnSummon('fire_whale', tx, g.world.gh(tx, tz), tz, dir.x, dir.y, { theme: 'fire' });
+    g.shockRing(tx, tz, 7.2, g.rollDamage(4.2, true), 0xff6a30, 1.4, { isTrigger: true });
+    g.spawnGroundZone('magma', tx, tz, 5.2, 6.0, 1.0, { color: 0xff6a30, fire: true });
+    g.audio.sfx('meteor');
+  } else if (u.id === 'wolf') {
+    g.vfx?.spawnSummon('wolf_head', tx, g.world.gh(tx, tz), tz, dir.x, dir.y, { theme: 'death' });
+    g.shockRing(tx, tz, 6.4, g.rollDamage(4.0, false), 0xb86cff, 1.1, { leech: 10, isTrigger: true });
+    for (const e of g.enemies) if (!e.dead && Math.hypot(e.pos.x - tx, e.pos.z - tz) < 7.2) e.vuln = 6.5;
+    g.audio.sfx('slam');
+  } else {
+    g.vfx?.spawnSummon('spirit_sun', p.pos.x, p.y, p.pos.z, dir.x, dir.y, { theme: 'holy' });
+    g.vfx?.spawnSummon('healing_tree', p.pos.x, p.y, p.pos.z, dir.x, dir.y, { theme: 'lotus', dur: 6.5 });
+    if (p.statuses) for (const k of Object.keys(p.statuses)) p.statuses[k] = 0;
+    g.heal(p.stats.maxHp * 0.55, true);
+    g.shockRing(p.pos.x, p.pos.z, 10.5, g.rollDamage(3.2, true), 0xffe87a, 1.2, { isTrigger: true });
+    g.audio.sfx('ultDaybreak');
+  }
+  g.ui.dmgNum(p.pos.x, p.y + 3.0, p.pos.z, `${u.icon} ${u.shout}`, 'comic');
+  g.ui.toast(`${u.icon} ${u.name} 發動！`, u.color);
+}
+
 export function castUltimate(g) {
   if (!g.tide) g.tide = createTideState();
   const u = consumeUltimate(g.tide);
@@ -524,11 +571,10 @@ export function castUltimate(g) {
     g.ui.toast(`大絕充能中（${Math.floor(g.tide.ultCharge)}%）· 擊殺怪物累積熱度即可充能`, '#ffd85a');
     return false;
   }
-  if (u.id === 'storm') spawnLanternStorm(g);
+  if (['dragon', 'phoenix', 'whale', 'wolf', 'spirit_sun'].includes(u.id)) spawnClassUltimate(g, u);
+  else if (u.id === 'storm') spawnLanternStorm(g);
   else if (u.id === 'hound') spawnBigPuppy(g);
   else spawnDaybreak(g);
-  // 施放後自動輪替至下一個大絕，讓玩家體驗三種截然不同的荒誕驚喜
-  g.tide.ultIndex = (g.tide.ultIndex + 1) % ULTIMATES.length;
   return true;
 }
 

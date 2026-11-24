@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { Meta } from './meta.js';
 import { CLASSES, ALL_GEMS, ensurePuzzle } from './puzzle.js';
 import { CHAR_CATALOG, JOB_ARCHETYPES, normalizeCharacterLook, createModularHero, preloadAllCharacterAnims } from './char_rig.js';
+import { VfxEngine } from './vfx_engine.js';
 
 export const HOODS = [[0x2f8a7e,0x23695f],[0xd9543a,0xa83f2c],[0x6a6ad0,0x4a4aa0],[0xe0a030,0xb07f20],[0xc060b0,0x904488],[0x58a858,0x3f823f],[0x4aa0d8,0x3478a8],[0x8a6a50,0x65503c]];
 
@@ -157,11 +158,12 @@ export function bindCharacters(game) {
   rimLight.position.set(-4, 3, -3.5);
   scene.add(rimLight);
 
-  // 舞台 1：浮空草地英雄群像小島
+  // 舞台 1：浮空草地英雄群像小島 + Piloto 3D 技能預演引擎
   const islandStage = new THREE.Group();
   const islandGeo = buildDioramaIsland();
   islandStage.add(islandGeo);
   scene.add(islandStage);
+  const theaterVfx = new VfxEngine(islandStage);
 
   // 漂浮發光星火粒子
   const sparkPos = new Float32Array(28 * 3);
@@ -296,6 +298,14 @@ export function bindCharacters(game) {
     if (triggerAnim) {
       const h = islandHeroes[selectedJob]?.hero;
       h?.play('buff', { once: true, force: true });
+      // Phase V5：選角聚焦時於英雄腳下綻放專屬 Piloto 3D 法陣與招牌迷你特效！
+      const th = CLASSES[selectedJob]?.auraTheme || 'holy';
+      theaterVfx.spawnDecal(selectedJob === 4 || selectedJob === 0 ? 'holy_ring' : 'magic_circle', sp.x, sp.y, sp.z, { theme: th, scaleStart: 0.8, scaleEnd: 1.75, dur: 1.2, spinY: 1.8 });
+      if (selectedJob === 4) theaterVfx.spawnSummon('lotus_burst', sp.x, sp.y, sp.z, 0, 1, { theme: 'lotus' });
+      else if (selectedJob === 2) theaterVfx.spawnMesh('tornado', { x: sp.x, y: sp.y + 0.55, z: sp.z, theme: 'bluefire', scaleStart: 0.4, scaleEnd: 0.65, dur: 1.1, spinY: 5 });
+      else if (selectedJob === 1) theaterVfx.spawnMesh('ring_wind', { x: sp.x, y: sp.y + 0.45, z: sp.z, theme: 'wind', scaleStart: 0.55, scaleEnd: 0.9, dur: 1.0, spinY: 6 });
+      else if (selectedJob === 3) theaterVfx.spawnDecal('mana_runes', sp.x, sp.y, sp.z, { theme: 'death', scaleStart: 0.6, scaleEnd: 1.9, dur: 1.1 });
+      else theaterVfx.spawnSlash(sp.x, sp.y, sp.z, sp.rotY, { theme: 'holy', scale: 0.95 });
     }
     renderScrapbook();
     updateStageClasses();
@@ -643,7 +653,7 @@ export function bindCharacters(game) {
     } else if (pv === 'dressup') {
       focusHero(qJob ?? 2, false); enterDressup();
       camCurPos.copy(camGoalPos); camCurTarget.copy(camGoalTarget); camCurFov = camGoalFov;
-    } else if (pv === 'town' || pv === 'field' || pv === 'inv' || pv === 'puzzle' || pv === 'map') {
+    } else if (pv === 'town' || pv === 'field' || pv === 'inv' || pv === 'puzzle' || pv === 'map' || pv === 'vfx_demo') {
       const targetJob = qJob ?? (pv === 'town' ? 4 : 0);
       selectedJob = targetJob;
       activeSlotLook = normalizeCharacterLook(CHAR_CATALOG.classPresets[targetJob], targetJob);
@@ -653,13 +663,27 @@ export function bindCharacters(game) {
       $('hud')?.classList.remove('hide');
       setTimeout(() => {
         game.dayTime = 0.36;
-        if (pv === 'field') { game.enterTown?.(); game.enterField?.(1); }
+        if (pv === 'field' || pv === 'vfx_demo') { game.enterTown?.(); game.enterField?.(1); }
         else game.enterTown?.();
         game.fade = 0;
         if (game.camZoom) game.camZoom = 0.85;
         if (pv === 'inv') setTimeout(() => game.ui?.toggleInv?.(game), 140);
         else if (pv === 'puzzle') setTimeout(() => game.ui?.openPuzzle?.(game), 140);
         else if (pv === 'map') setTimeout(() => game.ui?.openMap?.(), 140);
+        else if (pv === 'vfx_demo') {
+          // 實機截圖展示各職業 3D 大絕＋招牌召喚技！
+          setTimeout(() => {
+            if (game.tide) { game.tide.ultCharge = 100; game.tide.ultIndex = targetJob; }
+            const p = game.player;
+            if (p) {
+              p.classRes = Math.round((CLASSES[targetJob]?.classMech?.max || 100) * 0.7);
+              const summons = ['dragon_head', 'thunder_phoenix', 'fire_whale', 'wolf_head', 'healing_tree'];
+              const themes = ['fire', 'thunder', 'fire', 'death', 'lotus'];
+              game.vfx?.spawnSummon(summons[targetJob] || 'fire_whale', p.pos.x + 2.2, p.y, p.pos.z + 1.4, 0.85, 0.52, { theme: themes[targetJob], dur: 4.5 });
+              game.vfx?.spawnDecal('holy_ring', p.pos.x, p.y, p.pos.z, { theme: CLASSES[targetJob]?.auraTheme || 'holy', scaleStart: 3.4, scaleEnd: 3.8, dur: 4.0 });
+            }
+          }, 900);
+        }
       }, 60);
     }
   } catch {}
@@ -732,6 +756,7 @@ export function bindCharacters(game) {
       }
     } else {
       for (const h of islandHeroes) h.hero.update(dt);
+      theaterVfx.update(dt, camera);
     }
 
     // 絲滑運鏡插值（0.65s 電影飛近聚焦感）

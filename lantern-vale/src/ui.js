@@ -593,7 +593,15 @@ export class UI {
     { const c0 = CLASSES[g.character?.job ?? 0] || CLASSES[0], c2 = findSecondClass(g.meta.p.secondClass), ic = (c2 || c0).icon;
       const ie = $('pcIcon'); if (ie && ie._v !== ic) { ie.textContent = ic; ie._v = ic; }
       const lv = $('pcLv'); if (lv) lv.textContent = g.meta.p.level;
-      const nm = $('pcName'); const nv = g.character?.name || (c2 || c0).name; if (nm && nm._v !== nv) { nm.textContent = nv; nm._v = nv; } }
+      const nm = $('pcName'); const nv = g.character?.name || (c2 || c0).name; if (nm && nm._v !== nv) { nm.textContent = nv; nm._v = nv; }
+      const cm = c0.classMech;
+      if (cm) {
+        const rl = $('pcResLabel'), rf = $('pcResFill'), rn = $('pcResNum');
+        const cur = Math.round(p.classRes || 0);
+        if (rl) rl.textContent = `${cm.icon} ${cm.name}`;
+        if (rf) { rf.style.width = `${Math.min(100, (cur / cm.max) * 100)}%`; rf.style.background = cm.color; }
+        if (rn) rn.textContent = `${cur}/${cm.max}`;
+      } }
     const sbEl = $('statusBar');
     if (sbEl) {
       const lang = g.settings?.lang || 'zh-TW';

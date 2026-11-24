@@ -24,6 +24,7 @@ import { buildPanels } from './panels.js';
 const EMOTES = ['嗨～', '♥', '哈哈', 'zZ'];
 import { HOODS } from './characters.js';
 import { createModularHero, CHAR_CATALOG, normalizeCharacterLook } from './char_rig.js';
+import { VfxEngine } from './vfx_engine.js';
 import { makeItem, itemLines, itemScore, RARITY, SLOTS, rollBoons, BOONS, tierInfo, corruptItem } from './loot.js';
 import { activeMountDef, buildMountMesh } from './mounts.js';
 import { rollSoulDrop, activeSouls, soulTier } from './souls.js';
@@ -138,6 +139,7 @@ export class Game {
     this.puffs = new Particles(this.scene, 300, true);
     this.weather = new Weather(this.scene);
     this.enemies = []; this.projs = []; this.eprojs = []; this.drops = []; this.decals = []; this.exits = []; this.slashes = []; this.rings = [];
+    this.vfx = new VfxEngine(this.scene);
     this.keys = {}; this.mouse = { x: 0, y: 0, l: false, r: false }; this.aim = new V3();
     this.ray = new THREE.Raycaster(); this.plane = new THREE.Plane(new V3(0, 1, 0), 0);
     this.state = 'title'; this.time = 0; this.shake = 0; this.hitstop = 0; this.hurtFlash = 0; this.fade = 0;
@@ -303,6 +305,19 @@ export class Game {
     const sc = findSecondClass(profile.secondClass);
     if (sc) for (const [k, v] of Object.entries(sc.bonuses)) s[k] = (s[k] || 0) + v;
     if (p.m?.aura) { p.m.aura.visible = !!sc; if (sc && p.m.auraMat) p.m.auraMat.color.setHex(sc.aura); }
+    if (this.tide && !this.tide._ultJobSynced) {
+      this.tide.ultIndex = Math.max(0, Math.min(4, cls.id || 0));
+      this.tide._ultJobSynced = true;
+    }
+    if (p.m?.pilotoAura) {
+      p.m.root.remove(p.m.pilotoAura);
+      p.m.pilotoAura.userData?.dispose?.();
+      p.m.pilotoAura = null;
+    }
+    if (sc && this.vfx) {
+      p.m.pilotoAura = this.vfx.createHeroAura(sc.auraTheme || cls.auraTheme || 'arcane', 1.85);
+      p.m.root.add(p.m.pilotoAura);
+    }
     const pz = ensurePuzzle(profile, cls.id);
     p.hotbar = computeBoard(pz.presets[pz.activePreset] || [], pz.partyGem?.id || null);
     showWeapon(p.m, profile.weapon);
@@ -533,6 +548,7 @@ export class Game {
     for (const w of this.player.wisps) dropObj(w.mesh);
     this.player.wisps = [];
     this.enemies = []; this.projs = []; this.eprojs = []; this.decals = []; this.drops = []; this.exits = []; this.slashes = []; this.rings = [];
+    this.vfx?.clear();
     this.fx.clear(); this.puffs.clear();
     const town = depth === -1, harbor = depth === -2, anyTown = town || harbor;
     if (this.townGroup) { dropObj(this.townGroup); this.townGroup = null; this.chimneys = null; }
@@ -801,6 +817,10 @@ export class Game {
       this.audio.sfx('perfect');
       this.ui.toast('🦅 空中破翼擊落！體力 +40 · 踏跳反彈', '#7ae8ff');
       this.fx.burst(e.pos.x, e.pos.y + 0.6, e.pos.z, 14, { c: [0x7ae8ff, 0xffe480, 0xffffff], s: 0.14, speed: 6, up: 4, life: 0.5 });
+    }
+    if (!opts.isDoT && this.vfx) {
+      const hitTheme = opts.shock ? 'thunder' : hit.fire ? 'fire' : opts.slow ? 'frost' : opts.poison ? 'poison' : (['holy', 'wind', 'bluefire', 'death', 'lotus'][this.character?.job ?? 0] || 'arcane');
+      this.vfx.spawnHitImpact(e.pos.x, e.pos.y, e.pos.z, hitTheme, !!hit.crit);
     }
     // 異常狀態附加（冰凍、中毒、灼燒、感電；潮濕敵人受寒冰命中幾乎必凍）
     if (opts.slow && e.type !== 'stag') {
@@ -1194,31 +1214,82 @@ export class Game {
       }
       hitAny = true;
     }
-    if (hitAny) this.shake = Math.max(this.shake, 0.12);
-    this.makeSlash(p.pos, dir, range);
+    if (hitAny) {
+      this.shake = Math.max(this.shake, 0.12);
+      this.gainClassRes(this.character?.job === 0 ? 18 : this.character?.job === 2 ? 22 : 1);
+    }
+    const comboStep = ((p.swingCount - 1) % 3) + 1;
+    const job = this.character?.job ?? 0;
+    this.makeSlash(p.pos, dir, range, comboStep);
+    // Phase V3：五大職業普攻第 3 段專屬終結連招 VFX！
+    if (comboStep === 3) {
+      if (job === 0) {
+        this.vfx?.spawnSummon('ground_slam', p.pos.x + dir.x * 1.4, p.y, p.pos.z + dir.y * 1.4, dir.x, dir.y, { theme: 'holy' });
+        this.shockRing(p.pos.x + dir.x * 1.4, p.pos.z + dir.y * 1.4, 2.8, this.rollDamage(1.35), 0xffcf4a, 0.45, { isTrigger: true });
+      } else if (job === 2) {
+        this.vfx?.spawnDecal('mana_runes', p.pos.x + dir.x * 2.0, p.y, p.pos.z + dir.y * 2.0, { theme: 'bluefire', scaleStart: 1.0, scaleEnd: 3.4, dur: 0.45 });
+        this.fireProj(p.pos, dir, { speed: 18, mult: 1.1, fire: true, color: 0x58d8ff, size: 0.2, life: 0.9, isTrigger: true });
+      } else if (job === 3) {
+        this.vfx?.spawnSlash(p.pos.x, p.y, p.pos.z, Math.atan2(dir.x, dir.y), { clean: true, theme: 'death', scale: range * 1.05, tilt: 0.45, dir: -1 });
+        this.vfx?.spawnSlash(p.pos.x, p.y, p.pos.z, Math.atan2(dir.x, dir.y), { clean: true, theme: 'arcane', scale: range * 1.05, tilt: -0.45, dir: 1 });
+      } else if (job === 4) {
+        this.vfx?.spawnHitImpact(p.pos.x + dir.x * 1.6, p.y + 0.3, p.pos.z + dir.y * 1.6, 'lotus', true);
+        this.shockRing(p.pos.x + dir.x * 1.6, p.pos.z + dir.y * 1.6, 2.6, this.rollDamage(1.25), 0xff8eb8, 0.3, { leech: 4, isTrigger: true });
+      }
+    }
     if (this.has('moon') && p.swingCount % 4 === 0) this.shockRing(p.pos.x, p.pos.z, 4.5 * (1 + p.stats.area / 100), this.rollDamage(0.8), 0xd8e0ff);
     if (p.specials.has('sweepWave')) this.fireProj(p.pos, dir, { speed: 13, mult: 0.8, pierce: 99, color: 0xfff2c0, size: 0.4, wave: true, life: 0.6 });
   }
-  makeSlash(pos, dir, range) {
-    const wp = this.meta.p.weapon;
-    const accent = { staff: 0xffd26a, bow: 0x8ef0ff, blades: 0xff8ab8, shield: 0xa0e8ff }[wp] || 0xffe480;
-    const ang = Math.atan2(dir.x, dir.y) - Math.PI / 2;
-    const addArc = (r0, r1, col, op, dur, yOff) => {
-      const geo = new THREE.RingGeometry(r0, r1, 18, 1, -1.25, 2.5);
-      geo.rotateX(-Math.PI / 2);
-      const mat = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: op, depthWrite: false, side: THREE.DoubleSide });
-      const mesh = new THREE.Mesh(geo, mat);
-      mesh.position.set(pos.x, (pos.y || 0) + yOff, pos.z);
-      mesh.rotation.y = ang; mesh.userData.noNormal = true;
-      this.scene.add(mesh);
-      this.slashes.push({ mesh, t: dur, max: dur });
-    };
-    addArc(range * 0.42, range * 1.04, accent, 0.55, 0.22, 0.52);
-    addArc(range * 0.62, range * 0.96, 0xfffdf2, 0.92, 0.14, 0.58);
-    for (let i = 0; i < 6; i++) {
-      const a = Math.atan2(dir.x, dir.y) + (i - 2.5) * 0.38;
-      const d = range * (0.7 + Math.random() * 0.3);
-      this.fx.emit(pos.x + Math.sin(a) * d, (pos.y || 0) + 0.55, pos.z + Math.cos(a) * d, { c: i % 2 ? accent : 0xffffff, s: 0.08, vx: Math.sin(a) * 3, vz: Math.cos(a) * 3, vy: 1.5, life: 0.24 });
+  gainClassRes(amt = 1) {
+    const p = this.player;
+    const cls = CLASSES[this.character?.job ?? 0] || CLASSES[0];
+    const m = cls.classMech;
+    if (!m || !p) return;
+    p.classRes = Math.min(m.max, (p.classRes || 0) + amt);
+    if (p.classRes >= m.max) {
+      p.classRes = 0;
+      p.classBuffT = 6.0;
+      const dir = this.aimDir();
+      if (cls.id === 0) {
+        this.vfx?.spawnDecal('holy_ring', p.pos.x, p.y, p.pos.z, { theme: 'holy', scaleStart: 1.2, scaleEnd: 4.2, dur: 1.0 });
+        this.ui.toast('🛡️ 【堅壁戰意】滿層！展開聖光護盾 · 下招範圍 +30%', '#ffcf4a');
+      } else if (cls.id === 1) {
+        this.vfx?.spawnMesh('ring_wind', { x: p.pos.x, y: p.y + 0.8, z: p.pos.z, theme: 'wind', scaleStart: 1.2, scaleEnd: 2.2, dur: 0.9, spinY: 6 });
+        this.ui.toast('🪶 【順風連羽】滿 5 層！疾風加速 · 下次技能必暴！', '#5ce0a8');
+      } else if (cls.id === 2) {
+        this.vfx?.spawnDecal('shock_ring', p.pos.x + dir.x * 2, p.y, p.pos.z + dir.y * 2, { theme: 'bluefire', scaleStart: 1.0, scaleEnd: 5.5, dur: 0.65 });
+        this.shockRing(p.pos.x + dir.x * 2, p.pos.z + dir.y * 2, 4.4, this.rollDamage(1.8, true), 0x42b8ff, 0.5, { isTrigger: true });
+        this.ui.toast('🔵 【雙焰共鳴】過載爆破！熾金與幽藍魂火交會！', '#42b8ff');
+      } else if (cls.id === 3) {
+        this.vfx?.spawnDecal('mana_runes', p.pos.x + dir.x * 2, p.y, p.pos.z + dir.y * 2, { theme: 'death', scaleStart: 1.2, scaleEnd: 4.8, dur: 0.7 });
+        this.shockRing(p.pos.x + dir.x * 2, p.pos.z + dir.y * 2, 3.8, this.rollDamage(1.75), 0xb86cff, 0.4, { leech: 8, isTrigger: true });
+        this.heal(p.stats.maxHp * 0.1, true); p.mana = Math.min(p.stats.mana, p.mana + 15);
+        this.ui.toast('🌙 【暗影印記】引爆！汲血暗潮回復生命與法力！', '#c87aff');
+      } else {
+        this.vfx?.spawnSummon('lotus_burst', p.pos.x, p.y, p.pos.z, dir.x, dir.y, { theme: 'lotus' });
+        this.heal(p.stats.maxHp * 0.14, true);
+        this.ui.toast('🪷 【蓮華禪韻】綻放！全隊回復生命並獲得靈動加速！', '#ff8eb8');
+      }
+      this.audio.sfx('boon');
+    }
+  }
+  makeSlash(pos, dir, range, comboStep = 1) {
+    const job = this.character?.job ?? 0;
+    const theme = ['holy', 'wind', 'bluefire', 'death', 'lotus'][job] || 'fire';
+    const yaw = Math.atan2(dir.x, dir.y);
+    if (this.vfx) {
+      this.vfx.spawnSlash(pos.x, pos.y || 0, pos.z, yaw, {
+        clean: job === 3 || job === 1,
+        theme,
+        scale: range * (comboStep === 3 ? 1.05 : 0.78),
+        dir: comboStep % 2 ? 1 : -1,
+        tilt: comboStep === 2 ? 0.25 : -0.18,
+      });
+    }
+    for (let i = 0; i < 5; i++) {
+      const a = yaw + (i - 2) * 0.4;
+      const d = range * (0.7 + Math.random() * 0.28);
+      this.fx.emit(pos.x + Math.sin(a) * d, (pos.y || 0) + 0.55, pos.z + Math.cos(a) * d, { c: 0xffe480, s: 0.08, vx: Math.sin(a) * 3, vz: Math.cos(a) * 3, vy: 1.5, life: 0.22 });
     }
   }
   spawnBeam(x1, y1, z1, x2, y2, z2, color = 0xffe07a) {
@@ -1255,11 +1326,12 @@ export class Game {
     }
     if ((p.skillCds[slotIdx] || 0) > 0 || p.roll > 0) return;
     const { def, mod } = sk;
-    if (def.mana && p.mana < def.mana) {
+    const manaCost = Math.round((def.mana || 0) * (mod.bluefire ? 0.75 : 1));
+    if (manaCost && p.mana < manaCost) {
       if (!this._noManaT || this.time - this._noManaT > 1) { this.ui.toast('法力不足', '#7fb2ff'); this.ui.status?.noMana(); this._noManaT = this.time; }
       return;
     }
-    if (def.mana) { p.mana -= def.mana; this.ui.mpVial?.impulse((Math.random() - 0.5) * 1.4, 1.3); }
+    if (manaCost) { p.mana -= manaCost; this.ui.mpVial?.impulse((Math.random() - 0.5) * 1.4, 1.3); }
     // 連續施放 3 次技能觸發「魔力過載／狂暴」：液體瓶劇烈沸騰頂起瓶塞，技能傷害 +25%！
     p.castCombo = (p.castComboT > 0 ? p.castCombo : 0) + 1; p.castComboT = 4.2;
     if (p.castCombo >= 3 && p.statuses && p.statuses.overload <= 0) {
@@ -1275,7 +1347,21 @@ export class Game {
   execPuzzleSkill(id, mod, scale = 1, isTrigger = false) {
     const p = this.player, dir = this.aimDir();
     p.facing = Math.atan2(dir.x, dir.y);
-    if (!isTrigger) { p.combatT = 5.0; p.heroRig?.play('skill', { once: true, force: true, speed: 1.15 }); }
+    if (!isTrigger) {
+      p.combatT = 5.0;
+      p.heroRig?.play('skill', { once: true, force: true, speed: 1.15 });
+      this.gainClassRes(this.character?.job === 0 ? 22 : this.character?.job === 2 ? 34 : 1);
+    }
+    const vfxTh = mod.vfxTheme || null;
+    const pullVortex = (cx, cz, rad) => {
+      if (!mod.vortex) return;
+      this.vfx?.spawnDecal('shock_ring', cx, this.world.gh(cx, cz), cz, { theme: vfxTh || 'arcane', scaleStart: rad * 2.1, scaleEnd: 0.5, dur: 0.45, spinY: 4 });
+      for (const e of this.enemies) {
+        if (e.dead) continue;
+        const dx = cx - e.pos.x, dz = cz - e.pos.z, d = Math.hypot(dx, dz);
+        if (d > 0.4 && d < rad * 1.55) { e.pos.x += (dx / d) * Math.min(2.4, d * 0.55); e.pos.z += (dz / d) * Math.min(2.4, d * 0.55); }
+      }
+    };
     const runeCol = { bolt: 0xffb347, slam: 0xffe3a0, wisp: 0xfff27a, rain: 0x6cb8ff, trap: 0x6fe06a, whirl: 0xff8ab0, mark: 0xd06cff, meteor: 0xff6a30, nova: 0x7ae8ff, prism: 0xffe07a, phantom: 0xb48ae0 }[id] || 0xffe07a;
     const rg = new THREE.RingGeometry(0.75, 1.0, 24); rg.rotateX(-Math.PI / 2);
     const rm = new THREE.Mesh(rg, new THREE.MeshBasicMaterial({ color: runeCol, transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide }));
@@ -1298,7 +1384,9 @@ export class Game {
     } else if (id === 'slam') {
       this.audio.sfx('slam');
       const R = 3.2 * areaMul * (this.has('quake') ? 1.35 : 1), cx = p.pos.x + dir.x * 1.2, cz = p.pos.z + dir.y * 1.2;
+      this.vfx?.spawnSummon('ground_slam', cx, this.world.gh(cx, cz), cz, dir.x, dir.y, { theme: vfxTh || 'earth' });
       this.shockRing(cx, cz, R, this.rollDamage(2.2 * dmgMul, mod.fire), mod.fire ? 0xffa050 : 0xffe3a0, 1.1, { slow, leech, ...trigOpts });
+      pullVortex(cx, cz, R);
       this.puffs.burst(cx, 0.2, cz, 16, { c: [this.biome.rock, this.biome.rockDark, this.biome.dirt], s: 0.25, speed: 5, up: 6, life: 0.8 });
       this.shake = 0.45; p.swing = 1; p.swingT = 0.28;
     } else if (id === 'wisp') {
@@ -1314,6 +1402,7 @@ export class Game {
     } else if (id === 'rain') {
       this.audio.sfx('bolt');
       const tx = this.aim.x, tz = this.aim.z, waves = 2 + Math.floor(mod.multi / 2), R = 2.8 * areaMul;
+      this.vfx?.spawnSummon('arrows_rain', tx, this.world.gh(tx, tz), tz, dir.x, dir.y, { theme: vfxTh || 'wind' });
       for (let w = 0; w < waves; w++) {
         this.addDecal('circle', tx + (Math.random() - 0.5) * 1.4, tz + (Math.random() - 0.5) * 1.4, R, mod.fire ? 0xff9a4a : 0x6cb8ff, 0.45 + w * 0.28, null, () => {
           this.shockRing(tx, tz, R, this.rollDamage(1.3 * dmgMul, mod.fire), mod.fire ? 0xffa850 : 0x8cd0ff, 0, { slow, leech, ...trigOpts });
@@ -1370,7 +1459,9 @@ export class Game {
     } else if (id === 'nova') {
       this.audio.sfx('nova');
       const R = 4.6 * areaMul;
+      this.vfx?.spawnSummon('ice_puffer', p.pos.x, p.y, p.pos.z, dir.x, dir.y, { theme: vfxTh || 'frost' });
       this.shockRing(p.pos.x, p.pos.z, R, this.rollDamage(2.0 * dmgMul, mod.fire), 0x7ae8ff, 0.6, { slow: Math.max(slow, 3.2), leech, ...trigOpts });
+      pullVortex(p.pos.x, p.pos.z, R);
       if (!this.applyElementAt(p.pos.x, p.pos.z, 'frost', R)) {
         this.spawnGroundZone('ice', p.pos.x, p.pos.z, R * 0.9, 5.5, 0.45 * dmgMul, { color: 0x9cf0ff, slow: 2.4, slipStun: 1.1, healPlayer: true });
       }
@@ -1400,7 +1491,9 @@ export class Game {
     } else if (id === 'sakura') {
       this.audio.sfx('nova');
       const R = 4.4 * areaMul;
+      this.vfx?.spawnSummon('lotus_burst', p.pos.x, p.y, p.pos.z, dir.x, dir.y, { theme: vfxTh || 'lotus' });
       this.shockRing(p.pos.x, p.pos.z, R, this.rollDamage(1.85 * dmgMul, mod.fire), 0xffa6c9, 0.25, { slow: Math.max(slow, 1.5), leech: leech + 3, ...trigOpts });
+      pullVortex(p.pos.x, p.pos.z, R);
       this.spawnGroundZone('sakura', p.pos.x, p.pos.z, R * 0.95, 5.2, 0.52 * dmgMul, { color: 0xffa6c9, healPlayer: true, slow: 1.2 });
       this.fx.burst(p.pos.x, p.y + 1.0, p.pos.z, 28, { c: [0xffa6c9, 0xffd6e7, 0xffffff], s: 0.12, speed: 6, up: 4, life: 0.85 });
       p.swing = 1; p.swingT = 0.24;
@@ -1426,7 +1519,9 @@ export class Game {
     } else if (id === 'quakeg') {
       this.audio.sfx('slam');
       const R = 4.2 * areaMul, cx = p.pos.x + dir.x * 1.4, cz = p.pos.z + dir.y * 1.4;
+      this.vfx?.spawnSummon('ground_slam', cx, this.world.gh(cx, cz), cz, dir.x, dir.y, { theme: vfxTh || 'earth' });
       this.shockRing(cx, cz, R, this.rollDamage(2.1 * dmgMul, mod.fire), 0x6ae8ff, 1.3, { slow, leech, ...trigOpts });
+      pullVortex(cx, cz, R);
       this.puffs.burst(cx, 0.2, cz, 18, { c: [0x6ae8ff, 0x7b7874, 0xffffff], s: 0.28, speed: 5.5, up: 5, life: 0.75 });
       this.addDecal('circle', cx, cz, R * 1.2, 0x6ae8ff, 0.42, null, () => {
         this.audio.sfx('slam');
@@ -1434,6 +1529,89 @@ export class Game {
         this.shake = Math.max(this.shake, 0.48);
       });
       p.swing = 1; p.swingT = 0.28;
+    } else if (id === 'paladin_sword') {
+      this.audio.sfx('slam');
+      const tx = this.aim.x, tz = this.aim.z, R = 3.8 * areaMul;
+      this.vfx?.spawnSummon('paladin_sword', tx, this.world.gh(tx, tz), tz, dir.x, dir.y, { theme: vfxTh || 'holy' });
+      this.shockRing(tx, tz, R, this.rollDamage(2.4 * dmgMul, mod.fire), 0xffe07a, 1.2, { slow, leech, ...trigOpts });
+      pullVortex(tx, tz, R);
+      this.shake = Math.max(this.shake, 0.48); p.swing = 1; p.swingT = 0.26;
+    } else if (id === 'fire_whale') {
+      this.audio.sfx('meteor');
+      const tx = this.aim.x, tz = this.aim.z, R = 4.8 * areaMul;
+      this.vfx?.spawnSummon('fire_whale', tx, this.world.gh(tx, tz), tz, dir.x, dir.y, { theme: vfxTh || 'fire' });
+      this.shockRing(tx, tz, R, this.rollDamage(2.9 * dmgMul, true), 0xff6a30, 1.1, { slow, leech, ...trigOpts });
+      this.spawnGroundZone('magma', tx, tz, R * 0.9, 5.5, 0.85 * dmgMul, { color: 0xff6a30, fire: true });
+      pullVortex(tx, tz, R);
+      this.shake = Math.max(this.shake, 0.62); p.swing = 1; p.swingT = 0.3;
+    } else if (id === 'thunder_phoenix') {
+      this.audio.sfx('ultFort');
+      const R = 3.4 * areaMul;
+      this.vfx?.spawnSummon('thunder_phoenix', p.pos.x, p.y, p.pos.z, dir.x, dir.y, { theme: vfxTh || 'thunder' });
+      for (let i = 1; i <= 3; i++) {
+        const px = p.pos.x + dir.x * (i * 2.8), pz = p.pos.z + dir.y * (i * 2.8);
+        this.shockRing(px, pz, R, this.rollDamage(1.85 * dmgMul, mod.fire), 0x7ae8ff, 0.5, { shock: 5.0, slow, leech, ...trigOpts });
+        this.applyElementAt(px, pz, 'shock', R);
+      }
+      this.shake = Math.max(this.shake, 0.42); p.swing = 1; p.swingT = 0.25;
+    } else if (id === 'dark_wolf') {
+      this.audio.sfx('slam');
+      const tx = this.aim.x, tz = this.aim.z, R = 4.2 * areaMul;
+      this.vfx?.spawnSummon('wolf_head', tx, this.world.gh(tx, tz), tz, dir.x, dir.y, { theme: vfxTh || 'death' });
+      this.shockRing(tx, tz, R, this.rollDamage(2.7 * dmgMul, mod.fire), 0xb86cff, 0.8, { leech: leech + 5, slow, ...trigOpts });
+      for (const e of this.enemies) if (!e.dead && Math.hypot(e.pos.x - tx, e.pos.z - tz) < R + e.r) e.vuln = 6.0;
+      pullVortex(tx, tz, R);
+      this.shake = Math.max(this.shake, 0.45); p.swing = 1; p.swingT = 0.25;
+    } else if (id === 'healing_tree') {
+      this.audio.sfx('boon');
+      const tx = p.pos.x + dir.x * 1.8, tz = p.pos.z + dir.y * 1.8, R = 4.6 * areaMul;
+      this.vfx?.spawnSummon('healing_tree', tx, this.world.gh(tx, tz), tz, dir.x, dir.y, { theme: vfxTh || 'lotus', dur: 6.5 });
+      if (p.statuses) { p.statuses.poison = 0; p.statuses.burn = 0; }
+      this.heal(p.stats.maxHp * 0.2, true);
+      this.spawnGroundZone('sakura', tx, tz, R, 6.5, 0.45 * dmgMul, { color: 0x7fe08a, healPlayer: true, slow: 1.5 });
+      p.swing = 1; p.swingT = 0.22;
+    } else if (id === 'black_hole') {
+      this.audio.sfx('warp');
+      const tx = this.aim.x, tz = this.aim.z, R = 4.8 * areaMul;
+      this.vfx?.spawnSummon('black_hole', tx, this.world.gh(tx, tz), tz, dir.x, dir.y, { theme: vfxTh || 'arcane', dur: 3.6 });
+      for (const e of this.enemies) {
+        if (e.dead) continue;
+        const dx = tx - e.pos.x, dz = tz - e.pos.z, d = Math.hypot(dx, dz);
+        if (d > 0.5 && d < R * 1.7) { e.pos.x += (dx / d) * Math.min(3.5, d * 0.72); e.pos.z += (dz / d) * Math.min(3.5, d * 0.72); }
+      }
+      this.shockRing(tx, tz, R, this.rollDamage(2.2 * dmgMul, mod.fire), 0x9c5ad8, 1.0, { slow: 2.5, leech, ...trigOpts });
+      p.swing = 1; p.swingT = 0.26;
+    } else if (id === 'blue_tornado') {
+      this.audio.sfx('nova');
+      const R = 3.8 * areaMul, tx = p.pos.x + dir.x * 2.6, tz = p.pos.z + dir.y * 2.6;
+      this.vfx?.spawnSummon('tornado', tx, this.world.gh(tx, tz), tz, dir.x, dir.y, { theme: vfxTh || 'bluefire', dur: 3.6 });
+      this.shockRing(tx, tz, R, this.rollDamage(2.1 * dmgMul, true), 0x42b8ff, 0.7, { slow: 1.8, leech, ...trigOpts });
+      this.applyElementAt(tx, tz, 'fire', R);
+      pullVortex(tx, tz, R);
+      p.swing = 1; p.swingT = 0.24;
+    } else if (id === 'spear_cage') {
+      this.audio.sfx('prism');
+      const tx = this.aim.x, tz = this.aim.z, R = 3.6 * areaMul;
+      this.vfx?.spawnSummon('spear_cage', tx, this.world.gh(tx, tz), tz, dir.x, dir.y, { theme: vfxTh || 'thunder', radius: R });
+      this.shockRing(tx, tz, R, this.rollDamage(2.3 * dmgMul, mod.fire), 0x7ae8ff, 1.5, { shock: 5.5, slow: 3.0, leech, ...trigOpts });
+      p.swing = 1; p.swingT = 0.25;
+    } else if (id === 'sword_beams') {
+      this.audio.sfx('swing');
+      const n = 3 + mod.multi, spread = 0.22;
+      for (let i = 0; i < n; i++) {
+        const a = (i - (n - 1) / 2) * spread, d = dir.clone().rotateAround(new V2(), a);
+        this.vfx?.spawnSlash(p.pos.x + d.x * 1.6, p.y, p.pos.z + d.y * 1.6, Math.atan2(d.x, d.y), { clean: true, theme: vfxTh || 'arcane', scale: 2.2 });
+        this.fireProj(p.pos, d, { speed: 19, mult: 1.45 * dmgMul, fire: mod.fire, pierce: 6, wave: true, color: 0xff7aa8, size: 0.42, life: 0.75, slow, leech, ...trigOpts });
+      }
+      p.swing = 1; p.swingT = 0.22;
+    } else if (id === 'candle_ward') {
+      this.audio.sfx('wisp');
+      const R = 3.4 * areaMul;
+      this.vfx?.spawnSummon('candle_ward', p.pos.x, p.y, p.pos.z, dir.x, dir.y, { theme: vfxTh || 'bluefire', radius: R, dur: 6.0 });
+      this.heal(p.stats.maxHp * 0.14, true);
+      p.mana = Math.min(p.stats.mana, p.mana + 20);
+      this.spawnGroundZone('magma', p.pos.x, p.pos.z, R, 6.0, 0.55 * dmgMul, { color: 0x42b8ff, fire: true, healPlayer: true });
+      p.swing = 1; p.swingT = 0.22;
     }
     // 古樹鹿王之魂（戰鬥槽）：施放主動技能召喚 3 道古樹根鬚衝擊波向前穿刺
     if (!isTrigger && p.souls?.combat?.id === 'stag' && (this._stagSoulCd || 0) <= this.time) {
@@ -2298,7 +2476,7 @@ export class Game {
         s.done = true;
         this.ui.wipe(() => s.dest === 'harbor' ? this.enterHarbor('pier') : this.enterTown('pier'));
       }
-      this.animatePlayer(dt); this.updateCamera(dt); this.fx.update(dt); this.puffs.update(dt); this.ui.update(this);
+      this.animatePlayer(dt); this.updateCamera(dt); this.fx.update(dt); this.puffs.update(dt); this.vfx?.update(dt, this.camera); this.ui.update(this);
       return;
     }
 
@@ -2519,7 +2697,7 @@ export class Game {
     this.updateCamera(dt);
     this.updateOcclusion(dt);
     this.updateHover();
-    this.fx.update(dt); this.puffs.update(dt);
+    this.fx.update(dt); this.puffs.update(dt); this.vfx?.update(dt, this.camera);
     this.updateNet(dt);
     this.ui.update(this);
   }

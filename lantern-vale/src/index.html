@@ -775,6 +775,9 @@ html,body{image-rendering:auto;-webkit-font-smoothing:antialiased;color:var(--ui
 #pcard .pc-name,#pcard .pc-num{color:#fff8e4!important;text-shadow:2px 0 0 #3b2a2a,-2px 0 0 #3b2a2a,0 2px 0 #3b2a2a,0 -2px 0 #3b2a2a,0 3px 0 #2b1d33!important}
 #pcard .pc-bar{border:0!important;border-radius:0!important;box-shadow:var(--boxsh)!important;background:#3b2a2a!important}
 #pcard .pc-xp{border-radius:0!important;box-shadow:0 0 0 2px #3b2a2a!important}
+#pcard .pc-res{display:flex;align-items:center;gap:6px;margin:4px 0 0 22px;font-size:11px;font-weight:900;color:#fff8e4;text-shadow:1px 0 0 #3b2a2a,-1px 0 0 #3b2a2a,0 1px 0 #3b2a2a,0 -1px 0 #3b2a2a}
+#pcard .pc-res-track{flex:1;max-width:110px;height:7px;background:#3b2a2a;box-shadow:0 0 0 2px #3b2a2a;overflow:hidden}
+#pcard .pc-res-track i{display:block;height:100%;width:0%;background:#ffcf4a;transition:width .18s}
 .sk{background:var(--ui-cream)!important;border:0!important;border-radius:0!important;box-shadow:var(--boxsh)!important;margin:var(--px)!important}
 .sk:hover{background:var(--ui-gold)!important;outline:none!important}
 .sk.util{background:var(--ui-parchment)!important}
@@ -847,6 +850,7 @@ html,body{image-rendering:auto;-webkit-font-smoothing:antialiased;color:var(--ui
       <div class="pc-row hp"><span class="pc-ic">♥</span><div class="pc-bar"><canvas id="pcHp" width="100" height="10"></canvas></div><span class="pc-num" id="hpText"></span></div>
       <div class="pc-row mp"><span class="pc-ic">★</span><div class="pc-bar"><canvas id="pcMp" width="100" height="10"></canvas></div><span class="pc-num" id="mpText"></span></div>
       <div class="pc-xp"><i></i></div>
+      <div class="pc-res" id="pcResWrap"><span id="pcResLabel">🛡️ 堅壁戰意</span><div class="pc-res-track"><i id="pcResFill"></i></div><b id="pcResNum">0/100</b></div>
     </div>
   </div>
   <canvas id="hudFx"></canvas>

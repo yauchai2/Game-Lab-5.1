@@ -46,27 +46,27 @@ export function dayInfo(dayTime) {
   };
 }
 
-// ======================== 2. 八大原創二轉覺醒職業 ========================
+// ======================== 2. 十大原創二轉覺醒職業（Phase V4：解鎖 3D 召喚大招與專屬腳底法陣） ========================
 export const SECOND_CLASSES = {
   0: [
-    { id: 'bastion', name: '聖光堡壘', icon: '⚜', aura: 0xffe07a, gem: 'prism', trial: 'Lv.10 或完成 1 次完美採集', bonuses: { armor: 12, maxHp: 45 }, desc: '化身堅不可摧的光輝壁壘，解鎖「折光棱鏡」寶石。' },
-    { id: 'earthwalker', name: '大地行者', icon: '⛰', aura: 0x8cd06a, gem: 'meteor', trial: 'Lv.10 或擊敗 5 隻敵人', bonuses: { area: 35, baseDmg: 8 }, desc: '與山谷地脈共鳴，解鎖「星隕天降」寶石。' },
+    { id: 'bastion', name: '聖光堡壘', icon: '⚜', aura: 0xffe07a, auraTheme: 'holy', gem: 'spear_cage', trial: 'Lv.10 或完成 1 次完美採集', bonuses: { armor: 12, maxHp: 45 }, desc: '化身堅不可摧的光輝壁壘，解鎖 3D 招牌寶石「🔱 雷槍聖牢」。' },
+    { id: 'earthwalker', name: '大地行者', icon: '⛰', aura: 0x8cd06a, auraTheme: 'earth', gem: 'paladin_sword', trial: 'Lv.10 或擊敗 5 隻敵人', bonuses: { area: 35, baseDmg: 8 }, desc: '與山谷地脈共鳴，解鎖 3D 招牌寶石「⚔️ 聖劍天降」。' },
   ],
   1: [
-    { id: 'skywarden', name: '蒼穹馭風者', icon: '🪽', aura: 0x8ae8ff, gem: 'nova', trial: 'Lv.10 或滑翔穿過 1 個空中星環', bonuses: { moveSpd: 18, atkSpd: 15 }, desc: '駕馭高空上升氣流，解鎖「極光新星」寶石。' },
-    { id: 'starhunter', name: '星痕獵手', icon: '🌠', aura: 0xffc864, gem: 'prism', trial: 'Lv.10 或擊敗 5 隻敵人', bonuses: { crit: 15, critMult: 40, proj: 1 }, desc: '箭矢化為星軌連射，解鎖「折光棱鏡」寶石。' },
+    { id: 'skywarden', name: '蒼穹馭風者', icon: '🪽', aura: 0x8ae8ff, auraTheme: 'wind', gem: 'thunder_phoenix', trial: 'Lv.10 或滑翔穿過 1 個空中星環', bonuses: { moveSpd: 18, atkSpd: 15 }, desc: '駕馭高空上升氣流，解鎖 3D 召喚寶石「🦅 雷霆鳳凰」。' },
+    { id: 'starhunter', name: '星痕獵手', icon: '🌠', aura: 0xffc864, auraTheme: 'thunder', gem: 'spear_cage', trial: 'Lv.10 或擊敗 5 隻敵人', bonuses: { crit: 15, critMult: 40, proj: 1 }, desc: '箭矢化為星軌連射，解鎖 3D 控場寶石「🔱 雷槍聖牢」。' },
   ],
   2: [
-    { id: 'starcaller', name: '焚星賢者', icon: '☄', aura: 0xff7a40, gem: 'meteor', trial: 'Lv.10 或施放拼圖技能 5 次', bonuses: { addFire: 8, dmgPct: 22 }, desc: '引動天穹熾炎，解鎖「星隕天降」寶石。' },
-    { id: 'frostweaver', name: '霜燈織夢師', icon: '❄', aura: 0x7ac8ff, gem: 'nova', trial: 'Lv.10 或在星夜探索一次', bonuses: { mana: 40, manaRegen: 50, cdr: 15 }, desc: '編織寒霜極光，解鎖「極光新星」寶石。' },
+    { id: 'starcaller', name: '焚星賢者', icon: '☄', aura: 0xff7a40, auraTheme: 'fire', gem: 'fire_whale', trial: 'Lv.10 或施放拼圖技能 5 次', bonuses: { addFire: 8, dmgPct: 22 }, desc: '引動天穹熾炎，解鎖 3D 巨獸寶石「🐋 熾炎巨鯨」。' },
+    { id: 'frostweaver', name: '霜燈織夢師', icon: '❄', aura: 0x7ac8ff, auraTheme: 'bluefire', gem: 'black_hole', trial: 'Lv.10 或在星夜探索一次', bonuses: { mana: 40, manaRegen: 50, cdr: 15 }, desc: '編織幽藍星域，解鎖 3D 聚怪寶石「🕳️ 星域黑洞」。' },
   ],
   3: [
-    { id: 'crimsonblade', name: '緋月劍舞者', icon: '🌙', aura: 0xff6a8a, gem: 'phantom', trial: 'Lv.10 或擊敗 5 隻敵人', bonuses: { atkSpd: 25, critMult: 45 }, desc: '在月影中疾斬如風，解鎖「影霧幻陣」寶石。' },
-    { id: 'mistphantom', name: '夜霧幻影師', icon: '🌫', aura: 0xb48ae0, gem: 'phantom', trial: 'Lv.10 或完成 1 次完美採集', bonuses: { rollCdr: 20, moveSpd: 15, crit: 12 }, desc: '操縱迷霧分身迷惑群敵，解鎖「影霧幻陣」寶石。' },
+    { id: 'crimsonblade', name: '緋月劍舞者', icon: '🌙', aura: 0xff6a8a, auraTheme: 'arcane', gem: 'sword_beams', trial: 'Lv.10 或擊敗 5 隻敵人', bonuses: { atkSpd: 25, critMult: 45 }, desc: '在月影中疾斬如風，解鎖 3D 劍波寶石「🌙 附魔劍氣」。' },
+    { id: 'mistphantom', name: '夜霧幻影師', icon: '🌫', aura: 0xb48ae0, auraTheme: 'death', gem: 'dark_wolf', trial: 'Lv.10 或完成 1 次完美採集', bonuses: { rollCdr: 20, moveSpd: 15, crit: 12 }, desc: '操縱冥界巨影吞噬群敵，解鎖 3D 召喚寶石「🐺 暗影巨狼」。' },
   ],
   4: [
-    { id: 'lotussage', name: '蓮華禪師', icon: '🪷', aura: 0x8ef0b8, gem: 'sakura', trial: 'Lv.10 或完成 1 次完美採集', bonuses: { regen: 4, maxHp: 40, cdr: 12 }, desc: '展開綻放蓮華氣場持續治癒與強化隊友，解鎖「櫻吹雪」寶石。' },
-    { id: 'thunderfist', name: '雷鳴拳聖', icon: '⚡', aura: 0xffd24a, gem: 'quakeg', trial: 'Lv.10 或擊敗 5 隻敵人', bonuses: { atkSpd: 24, baseDmg: 9, crit: 10 }, desc: '以迅雷連擊震盪大地，解鎖「星晶震盪」寶石。' },
+    { id: 'lotussage', name: '蓮華禪師', icon: '🪷', aura: 0x8ef0b8, auraTheme: 'lotus', gem: 'healing_tree', trial: 'Lv.10 或完成 1 次完美採集', bonuses: { regen: 4, maxHp: 40, cdr: 12 }, desc: '展開綻放蓮華氣場持續治癒隊友，解鎖 3D 領域寶石「🌳 繁花聖樹」。' },
+    { id: 'thunderfist', name: '雷鳴拳聖', icon: '⚡', aura: 0xffd24a, auraTheme: 'thunder', gem: 'candle_ward', trial: 'Lv.10 或擊敗 5 隻敵人', bonuses: { atkSpd: 24, baseDmg: 9, crit: 10 }, desc: '以魂火燭陣與迅雷連擊震盪大地，解鎖 3D 寶石「🕯️ 魂火燭陣」。' },
   ],
 };
 

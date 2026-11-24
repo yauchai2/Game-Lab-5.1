@@ -5,67 +5,82 @@ export const CLASSES = [
   {
     id: 0, key: 'warden', name: '守燈衛士', icon: '🛡', weapon: 'shield',
     summary: '減傷 +15% · 生命 +25',
-    desc: '持盾鎮守谷口，開局即配備震擊與極光冰面控場。',
+    desc: '持盾鎮守谷口，累積【堅壁戰意】自動展開聖光護盾，開局配備聖劍天降與裂地重擊。',
+    classMech: { id: 'resolve', name: '堅壁戰意', icon: '🛡️', max: 100, color: '#ffcf4a', desc: '普攻／受擊累積戰意，滿 100 自動展開聖光護盾並強化下招範圍 +30%。' },
+    classUlt: 'dragon',
+    auraTheme: 'holy',
     bonuses: { armor: 15, maxHp: 25 },
     starter: [
-      { id: 'slam', x: 1, y: 1, rot: 0 },
+      { id: 'paladin_sword', x: 1, y: 1, rot: 0 },
       { id: 'area', x: 3, y: 1, rot: 1 },
       { id: 'leech', x: 3, y: 3, rot: 0 },
-      { id: 'nova', x: 1, y: 3, rot: 0 },
+      { id: 'slam', x: 1, y: 3, rot: 0 },
     ],
-    bag: ['bolt', 'coh', 'ember'],
+    bag: ['spear_cage', 'coh', 'ember'],
   },
   {
     id: 1, key: 'ranger', name: '林風遊俠', icon: '🏹', weapon: 'bow',
     summary: '移速 +12% · 暴擊 +10%',
-    desc: '穿梭林冠的弓手，開局即能以星羽箭雨配餘燼彈觸發蒸汽連鎖。',
+    desc: '穿梭林冠的弓手，疊滿【順風連羽】觸發必暴疾風，以 3D 星羽箭雨與雷霆鳳凰橫掃敵陣。',
+    classMech: { id: 'feathers', name: '順風連羽', icon: '🪶', max: 5, color: '#5ce0a8', desc: '普攻與移動疊加風羽，滿 5 層展開疾風氣流環並使下次技能必暴！' },
+    classUlt: 'phoenix',
+    auraTheme: 'wind',
     bonuses: { moveSpd: 12, crit: 10 },
     starter: [
       { id: 'rain', x: 1, y: 1, rot: 0 },
       { id: 'multi', x: 2, y: 3, rot: 0 },
       { id: 'haste', x: 1, y: 3, rot: 0 },
-      { id: 'bolt', x: 3, y: 2, rot: 0 },
+      { id: 'nova', x: 3, y: 2, rot: 0 },
     ],
-    bag: ['nova', 'split', 'chain'],
+    bag: ['thunder_phoenix', 'split', 'chain'],
   },
   {
     id: 2, key: 'mystic', name: '餘燼秘術師', icon: '🔥', weapon: 'staff',
     summary: '法力 +25 · 回魔 +40% · 火傷 +4',
-    desc: '駕馭燈火邏輯電路，開局即內建「餘燼彈命中觸發落雷」自動連招。',
+    desc: '駕馭【雙焰共鳴（熾金↔幽藍）】，以幽藍龍捲、星域黑洞與熾炎巨鯨交織元素連鎖。',
+    classMech: { id: 'duality', name: '雙焰共鳴', icon: '🔵', max: 100, color: '#42b8ff', desc: '施法在熾金餘燼與幽藍魂火間交替，滿層觸發雙焰過載爆破（1.8× 傷）！' },
+    classUlt: 'whale',
+    auraTheme: 'bluefire',
     bonuses: { mana: 25, manaRegen: 40, addFire: 4 },
     starter: [
       { id: 'bolt', x: 1, y: 1, rot: 0 },
       { id: 'coh', x: 1, y: 2, rot: 0 },
-      { id: 'thunder', x: 3, y: 2, rot: 0 },
-      { id: 'ember', x: 3, y: 1, rot: 0 },
+      { id: 'blue_tornado', x: 3, y: 2, rot: 0 },
+      { id: 'bluefire', x: 3, y: 1, rot: 0 },
     ],
-    bag: ['orbit', 'split', 'multi'],
+    bag: ['fire_whale', 'black_hole', 'multi'],
   },
   {
     id: 3, key: 'strider', name: '影刃行者', icon: '⚔', weapon: 'blades',
     summary: '攻速 +25% · 暴傷 +35% · 翻滾更快',
-    desc: '雙刃疾行的獵手，開局即可布下毒霧再以餘燼彈引爆劇毒爆燃。',
+    desc: '雙刃疾行的獵手，以【暗影印記】引爆汲血暗爆，搭配附魔劍氣與冥界巨狼收割殘敵。',
+    classMech: { id: 'shadow', name: '暗影印記', icon: '🌙', max: 3, color: '#b86cff', desc: '普攻與暴擊凝聚暗影印記，滿 3 層引爆汲血暗潮並回復生命與法力！' },
+    classUlt: 'wolf',
+    auraTheme: 'death',
     bonuses: { atkSpd: 25, critMult: 35, rollCdr: 25 },
     starter: [
       { id: 'whirl', x: 1, y: 1, rot: 0 },
-      { id: 'trap', x: 3, y: 2, rot: 0 },
-      { id: 'bolt', x: 1, y: 3, rot: 0 },
-      { id: 'frost', x: 1, y: 4, rot: 0 },
+      { id: 'sword_beams', x: 3, y: 2, rot: 0 },
+      { id: 'phantom', x: 1, y: 3, rot: 0 },
+      { id: 'vamp', x: 1, y: 4, rot: 0 },
     ],
-    bag: ['coc', 'echo', 'leech'],
+    bag: ['dark_wolf', 'coc', 'echo'],
   },
   {
     id: 4, key: 'monk', name: '禪燈武僧', icon: '🥋', weapon: 'staff',
     summary: '攻速 +18% · 生命 +20 · 每秒回血 +2',
-    desc: '手持禪杖與氣勁連打的雲遊行者，兼具靈動身法與團隊治癒氣場。',
+    desc: '手持聖燈法杖凝聚【蓮華禪韻】，滿 3 蓮印自動綻放全隊治療領域，兼具繁花聖樹與雷鳴連擊。',
+    classMech: { id: 'lotus', name: '蓮華禪韻', icon: '🪷', max: 3, color: '#ff8eb8', desc: '普攻與施法凝聚蓮印，滿 3 枚自動綻放蓮華治癒領域回復全隊並加速！' },
+    classUlt: 'spirit_sun',
+    auraTheme: 'lotus',
     bonuses: { atkSpd: 18, maxHp: 20, regen: 2 },
     starter: [
       { id: 'sakura', x: 1, y: 1, rot: 0 },
+      { id: 'healing_tree', x: 2, y: 2, rot: 0 },
       { id: 'echo', x: 1, y: 3, rot: 0 },
       { id: 'leech', x: 3, y: 1, rot: 0 },
-      { id: 'whirl', x: 2, y: 2, rot: 0 },
     ],
-    bag: ['quakeg', 'haste', 'area'],
+    bag: ['candle_ward', 'thunder', 'haste'],
   },
 ];
 
@@ -84,6 +99,17 @@ export const ACTIVE_GEMS = {
   sakura:  { id: 'sakura',  type: 'active', name: '櫻吹雪',   short: '櫻雪', icon: '🌸', color: '#eb7aa8', price: 24, cd: 5.2,  mana: 11, shape: [[1,0],[0,1],[1,1]], desc: '捲起漫天櫻花旋風斬擊敵人並留下持續回復與傷害的花瓣領域。' },
   thunder: { id: 'thunder', type: 'active', name: '雷霆落雷', short: '落雷', icon: '⚡', color: '#5c84e8', price: 26, cd: 4.8,  mana: 12, shape: [[0,0],[0,1],[1,1],[1,2]], desc: '自天穹召喚多道連鎖雷霆劈擊附近敵人，施加感電（易傷 +25%）。' },
   quakeg:  { id: 'quakeg',  type: 'active', name: '星晶震盪', short: '星震', icon: '🗿', color: '#64a89e', price: 28, cd: 6.2,  mana: 14, shape: [[0,0],[1,0],[0,1],[1,1]], desc: '召喚星晶巨像之力連續重擊地面 2 波，大幅擊退並暈眩群敵。' },
+  // Phase V4：10 顆全新 3D 召喚／招牌主動寶石（Piloto Studio 四大技能包實機網格！）
+  paladin_sword:   { id: 'paladin_sword',   type: 'active', name: '聖劍天降', short: '聖劍', icon: '⚔️', color: '#f2b830', price: 26, cd: 5.2, mana: 11, shape: [[0,0],[0,1],[0,2]], desc: '召喚巨型 3D 聖光英雄劍從天垂直插地，引發聖環震波並暈眩周圍敵人。' },
+  fire_whale:      { id: 'fire_whale',      type: 'active', name: '熾炎巨鯨', short: '火鯨', icon: '🐋', color: '#e85a2a', price: 34, cd: 7.2, mana: 16, shape: [[0,0],[1,0],[2,0],[1,1]], desc: '召喚 3D 火焰巨鯨自地面破土躍擊重砸目標區域，留下大片熔岩火海！' },
+  thunder_phoenix: { id: 'thunder_phoenix', type: 'active', name: '雷霆鳳凰', short: '雷鳳', icon: '🦅', color: '#5698f0', price: 34, cd: 6.8, mana: 15, shape: [[1,0],[0,1],[1,1],[2,1]], desc: '召喚 3D 雷霆巨鳳展翅向前貫穿衝鋒，沿途劈落連鎖感電雷弧！' },
+  dark_wolf:       { id: 'dark_wolf',       type: 'active', name: '暗影巨狼', short: '冥狼', icon: '🐺', color: '#8a3ec8', price: 32, cd: 6.0, mana: 13, shape: [[0,0],[1,0],[1,1]], desc: '召喚 3D 冥界巨狼破影猛咬目標區域，重創敵人並施加 6 秒易傷（+30%）。' },
+  healing_tree:    { id: 'healing_tree',    type: 'active', name: '繁花聖樹', short: '聖樹', icon: '🌳', color: '#52b868', price: 28, cd: 9.0, mana: 14, shape: [[0,0],[1,0],[0,1]], desc: '種下 3D 綻放花樹 6.5 秒，持續治療範圍內友軍、驅散異常並緩速敵人！' },
+  black_hole:      { id: 'black_hole',      type: 'active', name: '星域黑洞', short: '黑洞', icon: '🕳️', color: '#7848d8', price: 32, cd: 7.5, mana: 15, shape: [[0,0],[1,0],[0,1],[1,1]], desc: '展開 3D 重力黑洞持續向心牽引周圍怪海，結束時引爆空間震波！' },
+  blue_tornado:    { id: 'blue_tornado',    type: 'active', name: '幽藍龍捲', short: '藍捲', icon: '🌪️', color: '#2ea8e8', price: 28, cd: 5.8, mana: 12, shape: [[0,0],[0,1],[1,1]], desc: '召喚 3D 幽藍魂火龍捲向前捲起敵群，與水窪／毒霧連攜可觸發廣域元素反應！' },
+  spear_cage:      { id: 'spear_cage',      type: 'active', name: '雷槍聖牢', short: '雷牢', icon: '🔱', color: '#4c88e0', price: 30, cd: 6.5, mana: 13, shape: [[0,0],[1,0],[0,1],[1,1]], desc: '召喚 8 根 3D 騎士雷槍環形插地困住敵群並持續感電傷害！' },
+  sword_beams:     { id: 'sword_beams',     type: 'active', name: '附魔劍氣', short: '劍氣', icon: '🌙', color: '#d85898', price: 24, cd: 3.8, mana: 9,  shape: [[0,0],[1,0],[2,0]], desc: '揮出三道穿透 3D 月牙附魔劍氣波，專精高速直線清掃怪海。' },
+  candle_ward:     { id: 'candle_ward',     type: 'active', name: '魂火燭陣', short: '燭陣', icon: '🕯️', color: '#38b8d8', price: 26, cd: 8.5, mana: 10, shape: [[0,0],[1,0]], desc: '展開 6 支 3D 幽藍蠟燭法陣 6 秒，站於陣內持續回血回魔並灼燒踏入敵人！' },
 };
 
 export const SUPPORT_GEMS = {
@@ -100,7 +126,9 @@ export const SUPPORT_GEMS = {
   split: { id: 'split', type: 'support', name: '分裂稜鏡', short: '分裂', icon: '⑂',  color: '#e88c38', price: 22, shape: [[0,0],[1,0],[0,1]], desc: '相鄰投射物命中目標時向四周分裂出 3 枚次級火花！' },
   coh:   { id: 'coh',   type: 'support', name: '命中觸發器', short: '命中觸發', icon: '🔗', color: '#b85cf0', price: 26, shape: [[0,0],[1,0]], desc: '【邏輯電路】橋接兩顆主動技能：前招命中時自動觸發相鄰另一招（0.65 秒保護冷卻）。' },
   coc:   { id: 'coc',   type: 'support', name: '暴擊觸發器', short: '暴擊觸發', icon: '💥', color: '#f04878', price: 28, shape: [[0,0],[0,1]], desc: '【邏輯電路】橋接兩顆主動技能：暴擊時立即免費觸發相鄰另一招（0.45 秒保護冷卻）。' },
-  orbit: { id: 'orbit', type: 'support', name: '環繞軌道核', short: '軌道', icon: '🪐', color: '#3ec6d8', price: 24, shape: [[0,0],[1,0]], desc: '【魔杖改造】相鄰投射物改為環繞角色高速旋轉的軌道切割彈幕！' },
+  orbit:    { id: 'orbit',    type: 'support', name: '環繞軌道核',   short: '軌道', icon: '🪐', color: '#3ec6d8', price: 24, shape: [[0,0],[1,0]], desc: '【魔杖改造】相鄰投射物改為環繞角色高速旋轉的軌道切割彈幕！' },
+  bluefire: { id: 'bluefire', type: 'support', name: '幽藍魂火轉化', short: '藍火', icon: '🔵', color: '#2a98f0', price: 22, shape: [[0,0]], desc: '【視覺演化】將相鄰主動技能轉化為幽藍魂火特效，耗魔 -25% 且傷害 +18%！' },
+  vortex:   { id: 'vortex',   type: 'support', name: '聚能引力核',   short: '聚怪', icon: '🌀', color: '#8a5cf0', price: 24, shape: [[0,0],[0,1]], desc: '【視覺演化】相鄰範圍技能命中時產生向心引力，將周圍怪海拉向中心！' },
 };
 
 export const ALL_GEMS = { ...ACTIVE_GEMS, ...SUPPORT_GEMS };
@@ -236,7 +264,8 @@ export function computeBoard(placed, partyGemId = null) {
     }
     const mod = {
       multi: 0, echo: 0, area: 0, dmgMult: 1, fire: def.id === 'bolt', chain: 0, cdr: 0, frost: 0, leech: 0, shock: 0,
-      split: false, orbit: false, partyShared: partySup ? partySup.id : null,
+      split: false, orbit: false, bluefire: false, vortex: false, vfxTheme: null,
+      partyShared: partySup ? partySup.id : null,
       triggerOnHit: [...triggerOnHit], triggerOnCrit: [...triggerOnCrit],
       supports: linkedDefs,
     };
@@ -253,9 +282,15 @@ export function computeBoard(placed, partyGemId = null) {
       if (s.id === 'storm') { mod.shock += 4.5; mod.chain += 1; }
       if (s.id === 'split') mod.split = true;
       if (s.id === 'orbit') mod.orbit = true;
+      if (s.id === 'bluefire') { mod.bluefire = true; mod.dmgMult += 0.18; mod.fire = true; }
+      if (s.id === 'vortex') { mod.vortex = true; mod.area += 0.15; }
     }
+    // 輔助寶石視覺變異主題（優先序：幽藍魂火 > 雷鳴 > 霜緩 > 熾炎）
+    mod.vfxTheme = mod.bluefire ? 'bluefire' : mod.shock > 0 ? 'thunder' : mod.frost > 0 ? 'frost' : (mod.fire && def.id !== 'bolt') ? 'fire' : null;
     const chainTags = [];
     if (partySup) chainTags.push(`🤝羈絆:${partySup.short}`);
+    if (mod.bluefire) chainTags.push('🔵藍火');
+    if (mod.vortex) chainTags.push('🌀聚怪');
     if (mod.split) chainTags.push('分裂');
     if (mod.chain) chainTags.push(`連鎖+${mod.chain}`);
     if (mod.orbit) chainTags.push('軌道');
