@@ -4,6 +4,12 @@ const http = require('http'), fs = require('fs'), path = require('path');
 const { WebSocketServer } = require('ws');
 const guild = require('./guild.cjs')(process.env.LV_DATABASE || path.join(__dirname, 'data', 'guild.sqlite'));
 const { SpatialGrid, ZoneTide, pickHotspots } = require('./zone_engine.cjs');
+const FEATURE_FLAGS = {
+  market: process.env.LV_KILL_MARKET !== '1',
+  corrupt: process.env.LV_KILL_CORRUPT !== '1',
+  autopilot: process.env.LV_KILL_AUTOPILOT !== '1',
+  weeklySpire: process.env.LV_KILL_SPIRE !== '1',
+};
 const zoneTides = new Map();
 const getZoneTide = z => { let t = zoneTides.get(z); if (!t) { t = new ZoneTide(z); zoneTides.set(z, t); } return t; };
 const PORT = +process.env.PORT || 8080;
@@ -24,7 +30,7 @@ function broadcast(obj, filter) { const m = JSON.stringify(obj); for (const p of
 wss.on('connection', ws => {
   const me = { id: nextId++, ws, name: '旅人' + Math.floor(Math.random() * 900 + 100), col: 0, zone: 'town', x: 0, y: 0, z: 0, f: 0, a: 0, last: 0, chatT: [] };
   players.set(me.id, me);
-  ws.send(JSON.stringify({ t: 'welcome', id: me.id, history, hotspots: pickHotspots() }));
+  ws.send(JSON.stringify({ t: 'welcome', id: me.id, history, hotspots: pickHotspots(), features: FEATURE_FLAGS }));
   broadcast({ t: 'online', n: players.size });
   ws.on('message', raw => {
     let m; try { m = JSON.parse(raw); } catch (e) { return; }

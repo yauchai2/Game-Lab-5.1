@@ -16,7 +16,7 @@ import { BIOMES, mulberry32, clamp, lerp, angleLerp, rand, pick } from './util.j
 import { buildTownScenery, buildGuildKiosk, buildAwakenAltar, buildWardrobe, buildSheep, TOWN_LAYOUT, buildCottage } from './town.js';
 import { loadSettings, applySettings, buildSettingsUI, DIFFICULTY_MODES } from './settings.js';
 import { getFieldDanger } from './progression.js';
-import { pickHotspots, getFieldHotspot, checkTriggerIcd, foldExcessProjectiles, getFerrySchedule, FERRY_BUFF_MS, getWeeklySpireInfo, mentorDamageScale, getClassTeamRole } from './mmo_protocol.js';
+import { pickHotspots, getFieldHotspot, checkTriggerIcd, foldExcessProjectiles, getFerrySchedule, FERRY_BUFF_MS, getWeeklySpireInfo, mentorDamageScale, getClassTeamRole, parseChatCommand, muteUser, unmuteUser, isMutedUser, DEFAULT_FEATURE_FLAGS } from './mmo_protocol.js';
 import { showWeapon, applyCosmetics, buildPlayer, buildNPC, buildSlime, buildThorn, buildBoar, buildMoth, buildSkyRay, buildGolem, buildStag, buildArch, buildHouse, buildFountain, buildBoard, buildStall } from './models.js';
 import { Net } from './net.js';
 import { Meta } from './meta.js';
@@ -322,6 +322,11 @@ export class Game {
       else if (wId === 'ember') { s.dmgPct += 25; }
       else if (wId === 'low_grav') { s.crit += 20; }
       else if (wId === 'storm') { s.cdr += 15; }
+    }
+    // Phase M8A/M9：組隊或連線時自動啟動職業團隊軟分工光環
+    if (this.party || this.net?.ok) {
+      const role = getClassTeamRole(cls.id);
+      for (const [k, v] of Object.entries(role.bonuses || {})) s[k] = (s[k] || 0) + v;
     }
     const B = id => p.boons.filter(b => b === id).length;
     s.maxHp += 30 * B('thick');
@@ -1031,6 +1036,14 @@ export class Game {
     for (const d of this.drops) if (d.kind === 'item') { const dd = Math.hypot(d.g.position.x - this.player.pos.x, d.g.position.z - this.player.pos.z); if (dd < bd && Math.abs(d.g.position.y - this.player.y) < 2.2) { bd = dd; best = d; } }
     return best;
   }
+  disposeDrop(d) {
+    if (!d?.g) return;
+    this.scene.remove(d.g);
+    d.g.traverse?.(o => {
+      if (o.geometry && !o.userData?.sharedGeo) o.geometry.dispose?.();
+      if (o.material && !o.userData?.sharedMat) o.material.dispose?.();
+    });
+  }
   tryPickup() {
     const p = this.player;
     const nearby = this.drops.filter(d => d.kind === 'item' && Math.hypot(d.g.position.x - p.pos.x, d.g.position.z - p.pos.z) < 3.2 && Math.abs(d.g.position.y - p.y) < 2.4);
@@ -1039,7 +1052,7 @@ export class Game {
     let equippedNames = [], bagCount = 0, bestUpgrade = 0, lastIt = null;
     for (const d of nearby) {
       const it = d.item; lastIt = it;
-      this.scene.remove(d.g);
+      this.disposeDrop(d);
       const idx = this.drops.indexOf(d); if (idx >= 0) this.drops.splice(idx, 1);
       const existing = p.equip[it.slot];
       if (!existing) {
@@ -2070,7 +2083,8 @@ export class Game {
     n.on('status', s => { if (s.ok) this.identifyGuild(); else { this.wallet=null; this.exitRaid?.(); } this.ui.netStatus(s); if (!s.ok && this.depth === -1 && !this.bots.length && s.reason !== 'no-server') this.spawnBots(); });
     n.on('welcome', m => {
       if (m.hotspots) this.hotspots = m.hotspots;
-      for (const h of m.history || []) this.ui.addChat(h.name, h.text, false, h.zone);
+      if (m.features) this.features = { ...DEFAULT_FEATURE_FLAGS, ...m.features };
+      for (const h of m.history || []) if (!isMutedUser(this.meta.p, h.name)) this.ui.addChat(h.name, h.text, false, h.zone);
       this.ui.addChat('', `已連線，你的編號 #${m.id}`, true);
     });
     n.on('tide_sync', m => {
@@ -2081,7 +2095,11 @@ export class Game {
     });
     n.on('online', m => this.ui.setOnline(m.n));
     n.on('sys', m => this.ui.addChat('', m.text, true));
-    n.on('chat', m => { this.ui.addChat(m.name, m.text, false, m.zone); this.audio.sfx('chat'); if (m.id === n.id) this.say('me', m.text); else if (this.remotes.has(m.id)) this.say(m.id, m.text); });
+    n.on('chat', m => {
+      if (isMutedUser(this.meta.p, m.name)) return;
+      this.ui.addChat(m.name, m.text, false, m.zone); this.audio.sfx('chat');
+      if (m.id === n.id) this.say('me', m.text); else if (this.remotes.has(m.id)) this.say(m.id, m.text);
+    });
     n.on('emote', m => { if (this.remotes.has(m.id)) this.say(m.id, EMOTES[m.e % EMOTES.length]); });
     n.on('gone', m => this.removeRemote(m.id));
     n.on('snap', m => {
@@ -2137,9 +2155,21 @@ export class Game {
     const r = this.remotes.get(id); if (!r) return; r.bub.textContent = text; r.say = 4.5;
   }
   sendChat(text) {
-    if (!text) return;
-    if (this.net.ok) this.net.send({ t: 'chat', text });
-    else { this.ui.addChat(this.playerName, text, false, 'town'); this.say('me', text); }
+    const cmd = parseChatCommand(text);
+    if (cmd.kind === 'empty') return;
+    if (cmd.kind === 'mute') {
+      if (muteUser(this.meta.p, cmd.target)) { this.meta.save(); this.ui.addChat('', `🔇 已將「${cmd.target}」加入靜音名單（輸入 /unmute ${cmd.target} 解除）`, true); }
+      return;
+    }
+    if (cmd.kind === 'unmute') {
+      if (unmuteUser(this.meta.p, cmd.target)) { this.meta.save(); this.ui.addChat('', `🔊 已解除「${cmd.target}」的靜音`, true); }
+      return;
+    }
+    const prefix = cmd.channel === 'party' ? '[小隊] ' : cmd.channel === 'guild' ? '[公會] ' : '';
+    const out = prefix + cmd.text;
+    if (!cmd.text) return;
+    if (this.net.ok) this.net.send({ t: 'chat', text: out });
+    else { this.ui.addChat(this.playerName, out, false, 'town'); this.say('me', out); }
   }
   emote(i) {
     this.audio.sfx('emote'); const e = EMOTES[i % EMOTES.length];
@@ -2925,7 +2955,7 @@ export class Game {
       if (d.kind === 'orb' && this.state === 'play') {
         const dx = p.pos.x - d.g.position.x, dz = p.pos.z - d.g.position.z, dist = Math.hypot(dx, dz);
         if (dist < 7.5 && d.vy === 0 && Math.abs(d.g.position.y - p.y) < 2.5) { d.g.position.x += dx / dist * dt * 13; d.g.position.z += dz / dist * dt * 13; }
-        if (dist < 0.9 && Math.abs(d.g.position.y - p.y) < 2.0) { this.audio.sfx('orb'); this.heal(p.stats.maxHp * 0.14); d.taken = true; this.scene.remove(d.g); }
+        if (dist < 0.9 && Math.abs(d.g.position.y - p.y) < 2.0) { this.audio.sfx('orb'); this.heal(p.stats.maxHp * 0.14); d.taken = true; this.disposeDrop(d); }
       }
     }
     this.drops = this.drops.filter(d => !d.taken);

@@ -242,3 +242,48 @@ export const CLASS_TEAM_ROLES = [
 export function getClassTeamRole(jobId = 0) {
   return CLASS_TEAM_ROLES[jobId] || CLASS_TEAM_ROLES[0];
 }
+
+// Phase M9A：社交安全（聊天頻道分離 + 黑名單靜音）
+export function parseChatCommand(raw) {
+  const s = String(raw || '').trim();
+  if (!s) return { kind: 'empty' };
+  if (s.startsWith('/mute '))   return { kind: 'mute',   target: s.slice(6).trim().slice(0, 16) };
+  if (s.startsWith('/unmute ')) return { kind: 'unmute', target: s.slice(8).trim().slice(0, 16) };
+  if (s.startsWith('/p '))      return { kind: 'chat',   channel: 'party', text: s.slice(3).trim() };
+  if (s.startsWith('/g '))      return { kind: 'chat',   channel: 'guild', text: s.slice(3).trim() };
+  return { kind: 'chat', channel: 'zone', text: s };
+}
+
+export function muteUser(profile, name) {
+  const clean = String(name || '').trim().slice(0, 16);
+  if (!clean) return false;
+  profile.mutedUsers = Array.isArray(profile.mutedUsers) ? profile.mutedUsers : [];
+  if (!profile.mutedUsers.includes(clean)) profile.mutedUsers.push(clean);
+  return true;
+}
+
+export function unmuteUser(profile, name) {
+  const clean = String(name || '').trim().slice(0, 16);
+  if (!Array.isArray(profile.mutedUsers)) return false;
+  const idx = profile.mutedUsers.indexOf(clean);
+  if (idx < 0) return false;
+  profile.mutedUsers.splice(idx, 1);
+  return true;
+}
+
+export function isMutedUser(profile, name) {
+  return Array.isArray(profile?.mutedUsers) && profile.mutedUsers.includes(name);
+}
+
+// Phase M9B：營運熱開關（Live-Ops Feature Kill Switches — 出 Bug 可 10 秒免停機止血）
+export const DEFAULT_FEATURE_FLAGS = {
+  market: true,
+  corrupt: true,
+  autopilot: true,
+  weeklySpire: true,
+};
+
+export function isFeatureEnabled(flags, key) {
+  if (!flags || typeof flags !== 'object') return DEFAULT_FEATURE_FLAGS[key] !== false;
+  return flags[key] !== false;
+}

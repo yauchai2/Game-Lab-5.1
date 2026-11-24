@@ -824,5 +824,17 @@ const createGuild = require('../server/guild.cjs');
   const soupHit = pbMod.findRecipe({ uid: 'a', icon: '🐚' }, { uid: 'b', icon: '🍯' });
   assert.equal(soupHit?.recipe?.id, 'star_brew', 'Conch + Honey Box fuses into Star-Tide Warm Soup');
 
-  console.log('ALL 33 LOGIC, MMO-M8-ROLES-FEAST-GPU, MMO-M7-SOUL-AWAKEN-GPU-FIX, MMO-M6-SPIRE-MENTOR-LIGHTHOUSE, MMO-M5-FERRY-REVIEW, MMO-M4-OVERHAUL, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
+  // 34. Phase M9: Social Safety (Chat Channels & Mute/Block List) + Live-Ops Feature Kill Switches
+  assert.equal(mmoProto.parseChatCommand('/p 準備開王').channel, 'party');
+  assert.equal(mmoProto.parseChatCommand('/g 晚安大家').channel, 'guild');
+  assert.equal(mmoProto.parseChatCommand('/mute 廣告機器人').kind, 'mute');
+  const socProf = {};
+  mmoProto.muteUser(socProf, '廣告機器人');
+  assert.equal(mmoProto.isMutedUser(socProf, '廣告機器人'), true, 'Muted user is blocked from chat');
+  mmoProto.unmuteUser(socProf, '廣告機器人');
+  assert.equal(mmoProto.isMutedUser(socProf, '廣告機器人'), false, 'Unmuted user restored');
+  assert.equal(mmoProto.isFeatureEnabled(mmoProto.DEFAULT_FEATURE_FLAGS, 'market'), true);
+  assert.equal(mmoProto.isFeatureEnabled({ market: false }, 'market'), false, 'Live-Ops kill switch halts feature immediately');
+
+  console.log('ALL 34 LOGIC, MMO-M9-SAFETY-KILLSWITCH, MMO-M8-ROLES-FEAST-GPU, MMO-M7-SOUL-AWAKEN-GPU-FIX, MMO-M6-SPIRE-MENTOR-LIGHTHOUSE, MMO-M5-FERRY-REVIEW, MMO-M4-OVERHAUL, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
 })();
