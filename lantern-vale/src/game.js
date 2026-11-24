@@ -11,7 +11,7 @@ import { addGearToBag } from './physbag.js';
 import { t } from './i18n.js';
 import * as THREE from 'three';
 import { World, toonMat, HALF, windU } from './world.js';
-import { preloadNatureAssets, attachMonsterGlb, attachLandmarkGlb } from './assets.js';
+import { preloadNatureAssets, attachMonsterGlb, attachLandmarkGlb, attachPalmovProp } from './assets.js';
 import { BIOMES, mulberry32, clamp, lerp, angleLerp, rand, pick } from './util.js';
 import { buildTownScenery, buildGuildKiosk, buildAwakenAltar, buildWardrobe, buildSheep, TOWN_LAYOUT, buildCottage } from './town.js';
 import { loadSettings, applySettings, buildSettingsUI, DIFFICULTY_MODES } from './settings.js';
@@ -2187,7 +2187,9 @@ export class Game {
   buildTown() {
     const P = this.biome, g = new THREE.Group(); this.townGroup = g; this.scene.add(g);
     const add = (o, x, z, ry = 0, obst = 0) => { o.position.set(x, 0, z); o.rotation.y = ry; g.add(o); if (obst) this.world.obstacles.push({ x, z, r: obst, h: 0 }); return o; };
-    add(buildFountain(), 0, -1, 0, 2.0);
+    const fHolder = new THREE.Group();
+    add(fHolder, 0, -1, 0, 2.0);
+    attachPalmovProp(fHolder, 'fountain', buildFountain(), { scale: 0.82 });
     const sc = buildTownScenery({ gh: (x, z) => this.world.gh(x, z), rng: Math.random });
     g.add(sc.group); this.world.obstacles.push(...sc.obstacles); this.chimneys = sc.chimneys; this.spots = sc.spots; this.smokeT = 0;
     // portal sign
@@ -2271,8 +2273,8 @@ export class Game {
     holder.position.set(TOWN_LAYOUT.home[0], this.world.gh(TOWN_LAYOUT.home[0], TOWN_LAYOUT.home[1]), TOWN_LAYOUT.home[1]);
     holder.rotation.y = Math.PI / 2;
     this.townGroup.add(holder);
-    const key = ['cottage', 'cottage_b', 'cottage_c', 'cottage_c'][rank] || 'cottage_c';
-    attachLandmarkGlb(holder, key, fb, { scale: 0.92 + rank * 0.08, yOffset: -0.1, emissive: 0x3c342a, emissiveIntensity: 0.34 });
+    const key = ['village_house_5', 'village_house_1', 'village_house_3', 'village_house_2'][rank] || 'village_house_2';
+    attachPalmovProp(holder, key, fb, { scale: 0.92 + rank * 0.06, yOffset: -0.05 });
     this.homeModel = holder;
   }
   spawnBots() {

@@ -181,6 +181,47 @@ export const LANDMARK_FILES = {
   purple_crystal:   'assets/landmarks/purple_crystal.glb',
 };
 
+export const PALMOV_PROPS = {
+  village_house_1: 'assets/palmov/village_house_1.glb',
+  village_house_2: 'assets/palmov/village_house_2.glb',
+  village_house_3: 'assets/palmov/village_house_3.glb',
+  village_house_4: 'assets/palmov/village_house_4.glb',
+  village_house_5: 'assets/palmov/village_house_5.glb',
+  wooden_house_1:  'assets/palmov/wooden_house_1.glb',
+  wooden_house_2:  'assets/palmov/wooden_house_2.glb',
+  farm_barn:       'assets/palmov/farm_barn.glb',
+  farm_house:      'assets/palmov/farm_house.glb',
+  farm_windmill:   'assets/palmov/farm_windmill.glb',
+  lighthouse:      'assets/palmov/lighthouse.glb',
+  fountain:        'assets/palmov/fountain.glb',
+  well:            'assets/palmov/well.glb',
+  food_tent_1:     'assets/palmov/food_tent_1.glb',
+  food_tent_2:     'assets/palmov/food_tent_2.glb',
+  food_tent_3:     'assets/palmov/food_tent_3.glb',
+  lamppost:        'assets/palmov/lamppost.glb',
+  bench:           'assets/palmov/bench.glb',
+  village_fence:   'assets/palmov/village_fence.glb',
+  wooden_bridge:   'assets/palmov/wooden_bridge.glb',
+  wooden_pier:     'assets/palmov/wooden_pier.glb',
+  fishing_boat:    'assets/palmov/fishing_boat.glb',
+  ship_dock:       'assets/palmov/ship_dock.glb',
+  barrel:          'assets/palmov/barrel.glb',
+  box:             'assets/palmov/box.glb',
+  bonfire:         'assets/palmov/bonfire.glb',
+  camp_tent_red:   'assets/palmov/camp_tent_red.glb',
+  camp_tent_blue:  'assets/palmov/camp_tent_blue.glb',
+  camp_tent_yellow:'assets/palmov/camp_tent_yellow.glb',
+  tree_green:      'assets/palmov/tree_green.glb',
+  tree_pine:       'assets/palmov/tree_pine.glb',
+  tree_autumn:     'assets/palmov/tree_autumn.glb',
+  tree_sakura:     'assets/palmov/tree_sakura.glb',
+};
+
+export const PALMOV_SETPIECES = {
+  autumn_camp: 'assets/scenes/setpiece_autumn_camp.glb',
+  tea_house:   'assets/scenes/setpiece_tea_house.glb',
+};
+
 export const MONSTER_FILES = {
   plant_chewer:  'assets/monsters/plant_chewer.glb',
   golem_ice:     'assets/monsters/golem_ice.glb',
@@ -275,6 +316,36 @@ export function attachLandmarkGlb(holder, key, fallbackObj, opts = {}) {
   return holder;
 }
 
+export function attachPalmovProp(holder, key, fallbackObj = null, opts = {}) {
+  if (fallbackObj) holder.add(fallbackObj);
+  const url = PALMOV_PROPS[key];
+  if (!url) return holder;
+  loadGlbAsset(url).then(scene => {
+    if (!scene || !holder.parent) return;
+    if (fallbackObj) holder.remove(fallbackObj);
+    const { root } = bakePixelToonScene(scene, { emissive: 0x302a22, emissiveIntensity: 0.24, ...opts });
+    if (opts.scale) root.scale.setScalar(opts.scale);
+    if (opts.rotY) root.rotation.y = opts.rotY;
+    if (opts.yOffset) root.position.y = opts.yOffset;
+    holder.add(root);
+  });
+  return holder;
+}
+
+export function attachPalmovSetpiece(holder, key, opts = {}) {
+  const url = PALMOV_SETPIECES[key];
+  if (!url) return holder;
+  loadGlbAsset(url).then(scene => {
+    if (!scene || !holder.parent) return;
+    const { root } = bakePixelToonScene(scene, { emissive: 0x302a22, emissiveIntensity: 0.22, ...opts });
+    if (opts.scale) root.scale.setScalar(opts.scale);
+    if (opts.rotY) root.rotation.y = opts.rotY;
+    if (opts.yOffset) root.position.y = opts.yOffset;
+    holder.add(root);
+  });
+  return holder;
+}
+
 export function attachMonsterGlb(modelObj, key, opts = {}) {
   const url = MONSTER_FILES[key];
   if (!url) return;
@@ -301,8 +372,10 @@ export function preloadNatureAssets(onReady) {
   // Node.js 測試環境或本機 file:// 開啟時自動採用內建程序化幾何體，避免 CORS 報錯
   if (typeof window === 'undefined' || window.location?.protocol === 'file:') return;
 
-  // 預載主城低面實模（總計 < 250KB）與最常用怪物實模，進入主城即刻無縫呈現
-  for (const k of ['bell_tower', 'town_well', 'fishing_hut', 'town_blacksmith', 'cottage', 'cottage_b', 'cottage_c']) loadGlbAsset(LANDMARK_FILES[k]);
+  // 預載 Phase W1–W2 主城 Palmov 統一低多邊形道具與最常用怪物實模，進入主城即刻無縫呈現
+  for (const k of ['fountain', 'well', 'farm_barn', 'village_house_1', 'village_house_2', 'village_house_3', 'village_house_4', 'village_house_5', 'wooden_house_1', 'wooden_house_2', 'farm_house', 'farm_windmill', 'lighthouse', 'food_tent_1', 'food_tent_2', 'food_tent_3', 'lamppost', 'bench', 'ship_dock', 'fishing_boat', 'tree_green', 'tree_autumn', 'tree_pine', 'tree_sakura']) {
+    if (PALMOV_PROPS[k]) loadGlbAsset(PALMOV_PROPS[k]);
+  }
   for (const k of ['plant_chewer', 'golem_ice', 'golem_fire', 'beholder']) loadGlbAsset(MONSTER_FILES[k]);
 
   const loader = new GLTFLoader();
