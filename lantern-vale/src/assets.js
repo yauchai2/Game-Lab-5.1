@@ -220,6 +220,26 @@ export const PALMOV_PROPS = {
 export const PALMOV_SETPIECES = {
   autumn_camp: 'assets/scenes/setpiece_autumn_camp.glb',
   tea_house:   'assets/scenes/setpiece_tea_house.glb',
+  field_01:    'assets/scenes/field_01.glb',
+  field_02:    'assets/scenes/field_02.glb',
+  field_03:    'assets/scenes/field_03.glb',
+  field_04:    'assets/scenes/field_04.glb',
+  field_05:    'assets/scenes/field_05.glb',
+  field_06:    'assets/scenes/field_06.glb',
+  field_07:    'assets/scenes/field_07.glb',
+  field_08:    'assets/scenes/field_08.glb',
+  field_09:    'assets/scenes/field_09.glb',
+  field_10:    'assets/scenes/field_10.glb',
+  field_11:    'assets/scenes/field_11.glb',
+  field_12:    'assets/scenes/field_12.glb',
+  field_13:    'assets/scenes/field_13.glb',
+  field_14:    'assets/scenes/field_14.glb',
+  field_15:    'assets/scenes/field_15.glb',
+  field_16:    'assets/scenes/field_16.glb',
+  field_17:    'assets/scenes/field_17.glb',
+  field_18:    'assets/scenes/field_18.glb',
+  field_19:    'assets/scenes/field_19.glb',
+  field_20:    'assets/scenes/field_20.glb',
 };
 
 export const MONSTER_FILES = {

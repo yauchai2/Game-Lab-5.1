@@ -914,5 +914,17 @@ const createGuild = require('../server/guild.cjs');
   assert.ok(charPageSrc.includes('buildMountainShipStage') && charPageSrc.includes('creator_mountain_ship.glb'), 'Location mountain ship 3D stage wired');
   assert.ok(charPageSrc.includes('heroPins3d') && htmlSrc.includes('id="heroPins3d"'), '3D projected foot pins wired in Character Theater');
 
-  console.log('ALL 41 LOGIC, DIORAMA-D1-D4, VFX-SKILL-REWORK-V1-V6, UI-UNIFIED-U4B, CHAR-C6-TOON-ANIM, CHAR-REWORK-C1-C5, FUZZ-QA-36, MMO-M10-PORTALS-CRAFT-KILLSWITCH, MMO-M9-SAFETY-KILLSWITCH, MMO-M8-ROLES-FEAST-GPU, MMO-M7-SOUL-AWAKEN-GPU-FIX, MMO-M6-SPIRE-MENTOR-LIGHTHOUSE, MMO-M5-FERRY-REVIEW, MMO-M4-OVERHAUL, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
+  // 42. Phase W1–W6: Palmov Low Poly Locations Pack — 33 Unified Props + 22 Pre-Assembled Setpieces (20 Fields + 2 Camps)
+  const palmovPropKeys = Object.keys(p2bAssets.PALMOV_PROPS || {});
+  const palmovSetKeys = Object.keys(p2bAssets.PALMOV_SETPIECES || {});
+  assert.ok(palmovPropKeys.length >= 33, '33 Palmov standalone props registered in PALMOV_PROPS');
+  assert.ok(palmovSetKeys.length >= 22, '22 Palmov setpieces (20 fields + 2 camps) registered in PALMOV_SETPIECES');
+  assert.equal(typeof p2bAssets.attachPalmovProp, 'function', 'attachPalmovProp exported');
+  assert.equal(typeof p2bAssets.attachPalmovSetpiece, 'function', 'attachPalmovSetpiece exported');
+  for (const rel of [...Object.values(p2bAssets.PALMOV_PROPS), ...Object.values(p2bAssets.PALMOV_SETPIECES)]) {
+    const full = path.join(gameDir, rel);
+    assert.ok(fsMod.existsSync(full) && fsMod.statSync(full).size > 5000, `Palmov GLB asset exists & valid: ${rel}`);
+  }
+
+  console.log('ALL 42 LOGIC, PALMOV-WORLD-W1-W6, DIORAMA-D1-D6, VFX-SKILL-REWORK-V1-V6, UI-UNIFIED-U4B, CHAR-C6-TOON-ANIM, CHAR-REWORK-C1-C5, FUZZ-QA-36, MMO-M10-PORTALS-CRAFT-KILLSWITCH, MMO-M9-SAFETY-KILLSWITCH, MMO-M8-ROLES-FEAST-GPU, MMO-M7-SOUL-AWAKEN-GPU-FIX, MMO-M6-SPIRE-MENTOR-LIGHTHOUSE, MMO-M5-FERRY-REVIEW, MMO-M4-OVERHAUL, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
 })();

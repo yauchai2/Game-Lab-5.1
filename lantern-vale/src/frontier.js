@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { BIOMES, mulberry32 } from './util.js';
 import { toonMat, part } from './world.js';
-import { attachLandmarkGlb } from './assets.js';
+import { attachLandmarkGlb, attachPalmovProp, attachPalmovSetpiece } from './assets.js';
 import { FIELD_BLUEPRINTS, uvToWorld } from './field_blueprints.js';
 import { makeItem, serializeItem, deserializeItem } from './loot.js';
 import { ALL_GEMS, addGemToBag } from './puzzle.js';
@@ -615,6 +615,53 @@ export function setupField(g, restored = false) {
   const grave = g.meta.p.graves[g.field];
   if (grave) addSpot(g,'grave','取回墓碑素材',grave.x,grave.z);
   spawnSkyFeatures(g);
+  // Phase W3–W5：每張野外地圖自動掛載專屬 Palmov 成品核心景觀套裝（field_01..field_20）＋ 旅人前哨營火點
+  const spKey = `field_${String(g.field).padStart(2, '0')}`;
+  {
+    // 沿斜角鏡頭（camYaw=0.62）正前方黃金構圖區（西北偏西 10.5m）擺放核心成品套裝，避開右上巡遊 UI，進場即入眼簾！
+    let sx = g.player.pos.x - 7.8, sz = g.player.pos.z - 6.8;
+    if (!g.world.isLand(sx, sz)) {
+      const alt = g.world.randomWalkable(r, g.player.pos, 11);
+      sx = alt.x; sz = alt.z;
+    }
+    const sy = g.world.gh(sx, sz);
+    const spHolder = new THREE.Group();
+    spHolder.position.set(sx, sy - 0.14, sz);
+    spHolder.rotation.y = -0.62;
+    g.world.group.add(spHolder);
+    attachPalmovSetpiece(spHolder, spKey, { scale: 0.85, emissive: 0x38322a, emissiveIntensity: 0.30 });
+    g.world.obstacles.push({ x: sx, z: sz, r: 3.8, h: sy });
+    // 若地圖有獨立王區 POI，於王區後方補置一座主題副景套裝，提升深入探索視覺回報
+    const bossPoi = (bp?.pois || []).find(p => p.k === 'boss');
+    if (bossPoi) {
+      const bw = uvToWorld(bossPoi.x, bossPoi.y, g.world.half);
+      const bx = bw.x - 6.5, bz = bw.z - 6.5;
+      if (g.world.isLand(bx, bz) && Math.hypot(bx - sx, bz - sz) > 22) {
+        const by = g.world.gh(bx, bz);
+        const bHolder = new THREE.Group();
+        bHolder.position.set(bx, by - 0.14, bz);
+        bHolder.rotation.y = 0.45;
+        g.world.group.add(bHolder);
+        attachPalmovSetpiece(bHolder, spKey, { scale: 0.95, emissive: 0x38322a, emissiveIntensity: 0.30 });
+        g.world.obstacles.push({ x: bx, z: bz, r: 4.2, h: by });
+      }
+    }
+    // 於第一檢查點旁點綴 Palmov 營火＋帳篷＋路燈，打造溫暖探險驛站
+    const cp0 = g.checkpoints?.[0];
+    if (cp0) {
+      const campX = cp0.x + 3.4, campZ = cp0.z - 2.2;
+      if (g.world.isLand(campX, campZ)) {
+        const cy = g.world.gh(campX, campZ);
+        const bf = new THREE.Group(); bf.position.set(campX, cy, campZ); g.world.group.add(bf);
+        attachPalmovProp(bf, 'bonfire', null, { scale: 0.95 });
+        const tn = new THREE.Group(); tn.position.set(campX + 2.4, g.world.gh(campX + 2.4, campZ - 1.2), campZ - 1.2); tn.rotation.y = -0.6; g.world.group.add(tn);
+        attachPalmovProp(tn, g.field % 2 ? 'camp_tent_red' : 'camp_tent_blue', null, { scale: 0.9 });
+        const lp = new THREE.Group(); lp.position.set(campX - 1.8, g.world.gh(campX - 1.8, campZ + 1.4), campZ + 1.4); g.world.group.add(lp);
+        attachPalmovProp(lp, 'lamppost', null, { scale: 0.95 });
+        g.world.obstacles.push({ x: campX, z: campZ, r: 0.75, h: cy });
+      }
+    }
+  }
   if (bp) buildBlueprintLandmarks(g, bp);
   else buildZoneLandmarks(g);
   g.fieldClock = restored ? 1 : 0; g.dueling = false;

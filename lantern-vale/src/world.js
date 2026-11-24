@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { mulberry32, Noise, clamp, smooth, rand, pick, lerp } from './util.js';
-import { natureAssets, buildAssetMaterial } from './assets.js';
+import { natureAssets, buildAssetMaterial, attachPalmovProp } from './assets.js';
 import { getBlueprintGrid, sampleBlueprintCell, uvToWorld } from './field_blueprints.js';
 
 export const HALF = 30;          // world spans -30..30
@@ -1050,165 +1050,51 @@ export class World {
       return grp;
     };
     const scScale = this.half >= 160 ? 2 : 1;
-    // 1. 巨樹（Colossal Ancient Trees，帶板根、雙層巨冠與暖色吊燈）
+    const placePalmovLandmark = (key, pt, ry, obstR, scale = 1.0, occlude = true) => {
+      const g = new THREE.Group();
+      g.rotation.y = ry;
+      addLandmark(g, pt.x, pt.z, obstR, occlude);
+      attachPalmovProp(g, key, null, { scale, yOffset: -0.06 });
+      return g;
+    };
+    // Phase W6：全面以 Palmov 低多邊形精緻建築／營地／風車／石井／樹木取代舊版方塊與圓錐地標！
+    const treeKey = P.key === 'snow' ? 'tree_pine' : P.key === 'autumn' || P.key === 'ember' ? 'tree_autumn' : P.key === 'sakura' ? 'tree_sakura' : 'tree_green';
+    // 1. 巨型地標古樹群
     for (let i = 0; i < 4 * scScale; i++) {
       const pt = placeSpot(16); if (!pt) continue;
-      const g = new THREE.Group();
-      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 1.15, 5.8, 7), toonMat({ color: P.trunk }));
-      trunk.position.y = 2.9; trunk.castShadow = true; trunk.receiveShadow = true; g.add(trunk);
-      for (let b = 0; b < 4; b++) {
-        const root = new THREE.Mesh(new THREE.ConeGeometry(0.55, 2.2, 5), toonMat({ color: P.trunk }));
-        const a = b * 1.57 + r() * 0.4;
-        root.position.set(Math.cos(a) * 0.9, 0.7, Math.sin(a) * 0.9); root.rotation.z = -Math.cos(a) * 0.55; root.rotation.x = Math.sin(a) * 0.55;
-        g.add(root);
-      }
-      const canopyCols = [P.leaf[0], P.leaf[1] || P.pine[0], P.leaf[2] || P.pine[1]];
-      for (let c = 0; c < 6; c++) {
-        const ca = c * 1.05, cr = c === 0 ? 0 : 1.85 + r() * 0.7;
-        const dome = new THREE.Mesh(new THREE.IcosahedronGeometry(c === 0 ? 2.8 : 1.9 + r() * 0.4, 1), toonMat({ color: canopyCols[c % canopyCols.length] }));
-        dome.position.set(Math.cos(ca) * cr, (c === 0 ? 7.2 : 5.6 + r() * 1.1), Math.sin(ca) * cr);
-        dome.castShadow = true; dome.receiveShadow = true; g.add(dome);
-      }
-      const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.38, 0.32), new THREE.MeshBasicMaterial({ color: 0xffdc7a }));
-      lamp.position.set(1.25, 3.6, 0.4); g.add(lamp);
-      addLandmark(g, pt.x, pt.z, 1.35, true);
+      placePalmovLandmark(i % 3 === 0 ? 'tree_autumn' : treeKey, pt, r() * 6.28, 1.15, 1.35 + r() * 0.25, true);
     }
-    // 2. 巨石與層狀苔岩（Towering Megalith Boulders）
-    for (let i = 0; i < 5 * scScale; i++) {
-      const pt = placeSpot(14); if (!pt) continue;
-      const g = new THREE.Group();
-      const main = new THREE.Mesh(new THREE.DodecahedronGeometry(2.3 + r() * 0.9, 0), toonMat({ color: P.rock }));
-      main.scale.set(1.15, 1.35, 1.0); main.position.y = 1.6; main.rotation.set(r() * 0.3, r() * 6, r() * 0.3);
-      main.castShadow = true; main.receiveShadow = true; g.add(main);
-      const cap = new THREE.Mesh(new THREE.DodecahedronGeometry(1.5, 0), toonMat({ color: P.grass }));
-      cap.scale.set(1.1, 0.45, 1.1); cap.position.y = 3.2; g.add(cap);
-      for (let s = 0; s < 2; s++) {
-        const sub = new THREE.Mesh(new THREE.DodecahedronGeometry(1.1 + r() * 0.4, 0), toonMat({ color: P.rockDark }));
-        sub.position.set((s ? 1 : -1) * 1.8, 0.7, (r() - 0.5) * 1.4); sub.castShadow = true; g.add(sub);
-      }
-      addLandmark(g, pt.x, pt.z, 2.3, true);
-    }
-    // 3. 遺跡八角水池與斷柱聖壇（致敬參考圖：八角石池、清澈水心與四根苔蘚斷柱）
-    for (let i = 0; i < 2 * scScale; i++) {
-      const pt = placeSpot(20); if (!pt) continue;
-      const g = new THREE.Group();
-      const basin = new THREE.Mesh(new THREE.CylinderGeometry(3.6, 3.9, 0.75, 8), toonMat({ color: 0xc8c2b4 }));
-      basin.position.y = 0.38; basin.receiveShadow = true; basin.castShadow = true; g.add(basin);
-      const water = new THREE.Mesh(new THREE.CylinderGeometry(3.05, 3.05, 0.8, 8), new THREE.MeshBasicMaterial({ color: 0x58b8dc }));
-      water.position.y = 0.4; g.add(water);
-      const core = new THREE.Mesh(new THREE.BoxGeometry(1.15, 1.25, 1.15), toonMat({ color: 0xb2ac9e }));
-      core.position.y = 0.72; core.castShadow = true; g.add(core);
-      const orb = new THREE.Mesh(new THREE.OctahedronGeometry(0.42, 0), new THREE.MeshBasicMaterial({ color: 0x9cf2ff }));
-      orb.position.y = 1.65; g.add(orb);
-      for (let c = 0; c < 4; c++) {
-        const a = c * 1.57 + 0.4, ch = 2.6 + (c % 2) * 1.4;
-        const col = new THREE.Mesh(new THREE.BoxGeometry(0.85, ch, 0.85), toonMat({ color: c % 2 ? 0xc2bcb0 : 0x9fa398 }));
-        col.position.set(Math.cos(a) * 4.7, ch / 2, Math.sin(a) * 4.7); col.castShadow = true; g.add(col);
-        const moss = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.25, 0.95), toonMat({ color: P.grass }));
-        moss.position.set(Math.cos(a) * 4.7, ch + 0.08, Math.sin(a) * 4.7); g.add(moss);
-      }
-      addLandmark(g, pt.x, pt.z, 3.6, true);
-    }
-    // 4. 山谷木造瞭望塔（Cozy Wooden Lookout Watchtower）
-    for (let i = 0; i < 2; i++) {
-      const pt = placeSpot(22); if (!pt) continue;
-      const g = new THREE.Group();
-      for (const [lx, lz] of [[-1.1, -1.1], [1.1, -1.1], [-1.1, 1.1], [1.1, 1.1]]) {
-        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.24, 5.2, 0.24), toonMat({ color: 0x7c5032 }));
-        leg.position.set(lx, 2.6, lz); leg.castShadow = true; g.add(leg);
-      }
-      const deck = new THREE.Mesh(new THREE.BoxGeometry(2.9, 0.26, 2.9), toonMat({ color: 0xa87446 }));
-      deck.position.y = 3.6; deck.castShadow = true; g.add(deck);
-      const roof = new THREE.Mesh(new THREE.ConeGeometry(2.5, 1.8, 4), toonMat({ color: 0xc95a42 }));
-      roof.position.y = 5.9; roof.rotation.y = Math.PI / 4; roof.castShadow = true; g.add(roof);
-      const beacon = new THREE.Mesh(new THREE.OctahedronGeometry(0.32, 0), new THREE.MeshBasicMaterial({ color: 0xffe480 }));
-      beacon.position.y = 4.4; g.add(beacon);
-      addLandmark(g, pt.x, pt.z, 1.65, true);
-    }
-    // 5. A Short Hike 風格林間野餐休憩點＆沙灘遮陽傘（木桌、遮陽傘、營火與圓木椅）
-    const umbCols = [0xff5e78, 0x3fa7d6, 0xffc857, 0x6fd08c];
+    // 2. 林間木屋／風車／水井聚落點綴
+    const cabins = ['wooden_house_1', 'wooden_house_2', 'farm_windmill', 'well', 'fountain'];
     for (let i = 0; i < 3 * scScale; i++) {
-      const pt = placeSpot(14); if (!pt) continue;
-      const g = new THREE.Group();
-      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.4, 5), toonMat({ color: 0xf0e6d2 }));
-      pole.position.set(-1.1, 1.2, -0.4); g.add(pole);
-      const canopy = new THREE.Mesh(new THREE.ConeGeometry(1.55, 0.65, 6), toonMat({ color: umbCols[i % umbCols.length] }));
-      canopy.position.set(-1.1, 2.35, -0.4); canopy.castShadow = true; g.add(canopy);
-      const top = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.14, 0.9), toonMat({ color: 0xc24838 }));
-      top.position.set(0.6, 0.72, 0); top.castShadow = true; g.add(top);
-      const bench1 = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.12, 0.3), toonMat({ color: 0xa63c2e }));
-      bench1.position.set(0.6, 0.42, 0.72); g.add(bench1);
-      const bench2 = bench1.clone(); bench2.position.z = -0.72; g.add(bench2);
-      for (let f = -1; f <= 1; f++) {
-        const post = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.8, 0.14), toonMat({ color: 0xb07c48 }));
-        post.position.set(f * 1.1, 0.4, -1.8); g.add(post);
-      }
-      const rail = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.1, 0.08), toonMat({ color: 0xc8925a }));
-      rail.position.set(0, 0.62, -1.8); g.add(rail);
-      addLandmark(g, pt.x, pt.z, 1.3, false);
+      const pt = placeSpot(20); if (!pt) continue;
+      const k = cabins[i % cabins.length];
+      placePalmovLandmark(k, pt, r() * 6.28, k === 'well' ? 1.2 : 2.3, k === 'fountain' ? 0.85 : 0.92, true);
     }
-    // 6. 溫暖林間石圈營火、圓木椅與木路牌（致敬 A Short Hike 營地）
+    // 3. 溫暖旅人營火休憩點（Palmov 營火＋彩色帳篷＋木長椅＋路燈）
+    const tents = ['camp_tent_red', 'camp_tent_blue', 'camp_tent_yellow'];
     for (let i = 0; i < 3 * scScale; i++) {
       const pt = placeSpot(15); if (!pt) continue;
       const g = new THREE.Group();
-      for (let s = 0; s < 7; s++) {
-        const a = (s / 7) * Math.PI * 2;
-        const st = new THREE.Mesh(new THREE.DodecahedronGeometry(0.24, 0), toonMat({ color: P.rockDark }));
-        st.position.set(Math.cos(a) * 0.72, 0.12, Math.sin(a) * 0.72); g.add(st);
-      }
-      const fire = new THREE.Mesh(new THREE.ConeGeometry(0.32, 0.65, 5), new THREE.MeshBasicMaterial({ color: 0xff8c30 }));
-      fire.position.y = 0.34; g.add(fire);
-      for (const sgn of [-1, 1]) {
-        const bench = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.22, 1.5, 6), toonMat({ color: P.trunk }));
-        bench.rotation.z = Math.PI / 2; bench.rotation.y = sgn * 0.35; bench.position.set(sgn * 1.35, 0.22, 0.6); bench.castShadow = true; g.add(bench);
-      }
-      const post = new THREE.Mesh(new THREE.BoxGeometry(0.14, 1.35, 0.14), toonMat({ color: 0x7a4e32 }));
-      post.position.set(-1.7, 0.68, -1.1); g.add(post);
-      const board = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.42, 0.08), toonMat({ color: 0xf4dfba }));
-      board.position.set(-1.7, 1.12, -1.06); board.rotation.y = 0.25; g.add(board);
-      addLandmark(g, pt.x, pt.z, 1.1, false);
+      g.rotation.y = r() * 6.28;
+      addLandmark(g, pt.x, pt.z, 1.4, false);
+      const bf = new THREE.Group(); g.add(bf); attachPalmovProp(bf, 'bonfire', null, { scale: 0.95 });
+      const tn = new THREE.Group(); tn.position.set(2.2, 0, -1.2); tn.rotation.y = -0.6; g.add(tn);
+      attachPalmovProp(tn, tents[i % tents.length], null, { scale: 0.9 });
+      const bn = new THREE.Group(); bn.position.set(-1.6, 0, 1.1); bn.rotation.y = 0.7; g.add(bn);
+      attachPalmovProp(bn, 'bench', null, { scale: 0.46 });
+      const lp = new THREE.Group(); lp.position.set(-1.8, 0, -1.5); g.add(lp);
+      attachPalmovProp(lp, 'lamppost', null, { scale: 0.95 });
     }
-    // 7. 飛瀑岩池與跨溪木板橋（致敬 A Short Hike 瀑布橋）
-    for (let i = 0; i < 2; i++) {
-      const pt = placeSpot(22); if (!pt) continue;
-      const g = new THREE.Group();
-      const cliff = new THREE.Mesh(new THREE.BoxGeometry(4.4, 4.6, 2.4), toonMat({ color: P.rock }));
-      cliff.position.set(0, 2.3, -2.8); cliff.castShadow = true; cliff.receiveShadow = true; g.add(cliff);
-      const fall = new THREE.Mesh(new THREE.BoxGeometry(1.75, 4.65, 0.32), new THREE.MeshBasicMaterial({ color: 0x62d6f0 }));
-      fall.position.set(0, 2.3, -1.55); g.add(fall);
-      const foam = new THREE.Mesh(new THREE.CylinderGeometry(1.65, 1.9, 0.24, 10), new THREE.MeshBasicMaterial({ color: 0xeaffff }));
-      foam.position.set(0, 0.14, -1.1); g.add(foam);
-      const pool = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.8, 0.12, 12), new THREE.MeshBasicMaterial({ color: 0x42b8d8 }));
-      pool.position.set(0, 0.08, 0.4); g.add(pool);
-      const bridge = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.16, 3.8), toonMat({ color: 0xc88446 }));
-      bridge.position.set(0, 0.28, 1.4); bridge.rotation.y = Math.PI / 2; bridge.castShadow = true; g.add(bridge);
-      addLandmark(g, pt.x, pt.z, 2.4, true);
-    }
-    // 8. 雙巨柱石階清泉遺跡（致敬 Pin on Vibe 參考圖：層疊石階、雙高柱、湛藍倒影池與漂浮白蓮）
+    // 4. 旅商物資補給站（木桶＋貨箱＋彩色市集帳篷）
     for (let i = 0; i < 2 * scScale; i++) {
-      const pt = placeSpot(24); if (!pt) continue;
+      const pt = placeSpot(18); if (!pt) continue;
       const g = new THREE.Group();
-      const step1 = new THREE.Mesh(new THREE.BoxGeometry(6.8, 0.36, 5.4), toonMat({ color: 0xd6d0c4 }));
-      step1.position.y = 0.18; step1.receiveShadow = true; step1.castShadow = true; g.add(step1);
-      const step2 = new THREE.Mesh(new THREE.BoxGeometry(5.6, 0.36, 4.4), toonMat({ color: 0xc8c2b4 }));
-      step2.position.y = 0.52; step2.receiveShadow = true; g.add(step2);
-      const pond = new THREE.Mesh(new THREE.BoxGeometry(4.4, 0.12, 3.2), new THREE.MeshBasicMaterial({ color: 0x3ec6e8 }));
-      pond.position.y = 0.72; g.add(pond);
-      for (const [lx, lz] of [[-1.1, 0.5], [1.2, -0.4], [0.2, 0.7]]) {
-        const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 0.05, 6), toonMat({ color: 0x6ac86e }));
-        pad.position.set(lx, 0.8, lz); g.add(pad);
-      }
-      for (const sx of [-2.4, 2.4]) {
-        const col = new THREE.Mesh(new THREE.BoxGeometry(0.95, 5.2, 0.95), toonMat({ color: 0xd0cac0 }));
-        col.position.set(sx, 2.9, -1.6); col.castShadow = true; g.add(col);
-        const cap = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.35, 1.25), toonMat({ color: 0xbcb6aa }));
-        cap.position.set(sx, 5.6, -1.6); g.add(cap);
-        const vine = new THREE.Mesh(new THREE.BoxGeometry(1.02, 0.4, 1.02), toonMat({ color: P.grass }));
-        vine.position.set(sx, 5.8, -1.6); g.add(vine);
-      }
-      const rune = new THREE.Mesh(new THREE.OctahedronGeometry(0.45, 0), new THREE.MeshBasicMaterial({ color: 0xffe680 }));
-      rune.position.set(0, 2.2, -1.6); g.add(rune);
-      addLandmark(g, pt.x, pt.z, 3.4, true);
+      g.rotation.y = r() * 6.28;
+      addLandmark(g, pt.x, pt.z, 1.5, false);
+      const st = new THREE.Group(); g.add(st); attachPalmovProp(st, i % 2 ? 'food_tent_1' : 'food_tent_2', null, { scale: 0.72 });
+      const br = new THREE.Group(); br.position.set(1.8, 0, 0.9); g.add(br); attachPalmovProp(br, 'barrel', null, { scale: 1.05 });
+      const bx = new THREE.Group(); bx.position.set(-1.7, 0, 1.0); g.add(bx); attachPalmovProp(bx, 'box', null, { scale: 1.0 });
     }
   }
 
