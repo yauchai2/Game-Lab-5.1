@@ -11,12 +11,15 @@ module.exports = function createGuild(filename) {
     CREATE TABLE IF NOT EXISTS members(id TEXT PRIMARY KEY, coins INTEGER NOT NULL DEFAULT 0, amber INTEGER NOT NULL DEFAULT 0);
     CREATE TABLE IF NOT EXISTS lots(id INTEGER PRIMARY KEY, seller TEXT NOT NULL, price INTEGER NOT NULL);
   `);
+  const AUCTION_TAX_RATE = 0.08;
   const rooms = new Map(), online = new Map();
   const send = (me, msg) => { if (me.ws.readyState===1) me.ws.send(JSON.stringify(msg)); };
-  function wallet(me) {
+  const fetchLots = () => db.prepare('SELECT id,price,seller FROM lots ORDER BY price,id LIMIT 50').all();
+  function wallet(me, cachedLots = null) {
     if (!me.member) return;
     const balance = db.prepare('SELECT coins,amber FROM members WHERE id=?').get(me.member);
-    const lots = db.prepare('SELECT id,price,seller=? AS mine FROM lots ORDER BY price,id LIMIT 50').all(me.member);
+    const rawLots = cachedLots || fetchLots();
+    const lots = rawLots.map(l => ({ id: l.id, price: l.price, mine: l.seller === me.member ? 1 : 0 }));
     send(me,{t:'wallet',...balance,lots});
   }
   function leave(me) {
@@ -27,6 +30,7 @@ module.exports = function createGuild(filename) {
   }
   function disconnect(me) { leave(me); if (online.get(me.member)===me) online.delete(me.member); }
   function trade(me,m) {
+    let affectedSeller = null;
     db.exec('BEGIN IMMEDIATE');
     try {
       if (m.op==='list' && Number.isSafeInteger(m.price) && m.price>0 && m.price<=9999) {
@@ -40,13 +44,27 @@ module.exports = function createGuild(filename) {
           db.prepare('UPDATE members SET amber=amber+1 WHERE id=?').run(me.member);
           db.prepare('DELETE FROM lots WHERE id=?').run(m.id);
         } else if (lot && m.op==='buy' && lot.seller!==me.member && db.prepare('UPDATE members SET coins=coins-?,amber=amber+1 WHERE id=? AND coins>=?').run(lot.price,me.member,lot.price).changes) {
-          db.prepare('UPDATE members SET coins=coins+? WHERE id=?').run(lot.price-Math.ceil(lot.price*.1),lot.seller);
+          const tax = Math.max(1, Math.round(lot.price * AUCTION_TAX_RATE));
+          db.prepare('UPDATE members SET coins=coins+? WHERE id=?').run(lot.price - tax, lot.seller);
           db.prepare('DELETE FROM lots WHERE id=?').run(m.id);
+          affectedSeller = lot.seller;
         }
       }
       db.exec('COMMIT');
     } catch(e) { db.exec('ROLLBACK'); throw e; }
-    for (const member of online.values()) wallet(member);
+    // Phase M4A：單次查詢共享 lots 快取，避免 N 人同時在線引發全服 DB 查詢風暴
+    const sharedLots = fetchLots();
+    wallet(me, sharedLots);
+    if (affectedSeller && online.has(affectedSeller)) wallet(online.get(affectedSeller), sharedLots);
+    if (online.size <= 32) {
+      for (const member of online.values()) {
+        if (member !== me && member.member !== affectedSeller) wallet(member, sharedLots);
+      }
+    } else {
+      for (const member of online.values()) {
+        if (member !== me && member.member !== affectedSeller) send(member, { t: 'marketDirty' });
+      }
+    }
   }
   function message(me,m) {
     if (m.t==='guildHello') {
@@ -73,11 +91,12 @@ module.exports = function createGuild(filename) {
     const code=String(m.code||'').trim().slice(0,12) || ('個人-'+me.id);
     let room=rooms.get(code);
     if (!room) {
-      room={code,members:new Map(),hp:144,x:0,z:0,clock:0,pulse:0}; rooms.set(code,room);
+      room={code,members:new Map(),hp:144,x:0,z:0,clock:0,pulse:0,portalsLeft:6}; rooms.set(code,room);
     }
     if (room.members.size>=4) {send(me,{t:'guildNotice',text:'此組隊副本已滿。'});return;}
-    room.members.set(me.id,{me,x:0,z:4,dx:0,dz:0,hp:100,attack:false,cooldown:0,damage:0});
-    me.raid=room;send(me,{t:'raidStart',code});
+    const power = Number.isFinite(+m.power) ? Math.max(6, Math.min(32, Math.round(+m.power))) : 8;
+    room.members.set(me.id,{me,x:0,z:4,dx:0,dz:0,hp:100,attack:false,cooldown:0,damage:0,power,mitigated:0});
+    me.raid=room;send(me,{t:'raidStart',code,portalsLeft:room.portalsLeft});
   }
   function tick() {
     const now=Date.now();
@@ -92,21 +111,32 @@ module.exports = function createGuild(filename) {
         f.z=Math.max(-4.6,Math.min(4.6,f.z+f.dz/length*.45));
         f.cooldown=Math.max(0,f.cooldown-1);
         const dist=Math.hypot(f.x-room.x,f.z-room.z);
-        if (f.attack&&!f.cooldown&&dist<3) {room.hp-=8;f.damage+=8;f.cooldown=5;}
-        if (impact&&dist<3.4) f.hp=Math.max(0,f.hp-16);
+        if (f.attack&&!f.cooldown&&dist<3) {room.hp-=f.power;f.damage+=f.power;f.cooldown=5;}
+        if (impact&&dist<3.4) {
+          f.hp=Math.max(0,f.hp-16);
+          f.mitigated+=16;
+          if (f.hp<=0 && room.portalsLeft>0) { room.portalsLeft--; }
+        }
       }
       const members=[...room.members.values()];
-      const snapshot={t:'raidFrame',hp:Math.max(0,room.hp),warn:room.clock%40>=30,
+      const snapshot={t:'raidFrame',hp:Math.max(0,room.hp),portalsLeft:room.portalsLeft,warn:room.clock%40>=30,
         members:members.map(f=>({id:f.me.id,name:f.me.name,hp:f.hp,x:f.x,z:f.z}))};
       for(const f of members) send(f.me,snapshot);
       if(room.hp>0 && members.some(f=>f.hp>0)) continue;
       const won=room.hp<=0;
+      const topBreaker = [...members].sort((a,b)=>b.damage-a.damage)[0];
+      const topTank = [...members].sort((a,b)=>b.mitigated-a.mitigated)[0];
+      const mvps = won ? [
+        topBreaker && topBreaker.damage > 0 ? { badge: '🦌 精準破位王', name: topBreaker.me.name } : null,
+        topTank && topTank.mitigated > 0 ? { badge: '🏮 救命提燈人', name: topTank.me.name } : null,
+      ].filter(Boolean) : [];
       db.exec('BEGIN IMMEDIATE');
       try {
         if(won) for(const f of members) if(f.damage>0) db.prepare('UPDATE members SET coins=coins+12,amber=amber+1 WHERE id=?').run(f.me.member);
         db.exec('COMMIT');
       } catch(e) {db.exec('ROLLBACK');throw e;}
-      for(const f of members) {leave(f.me);wallet(f.me);send(f.me,{t:'guildNotice',text:won && f.damage>0?'守護獸已平息 · 公會幣 +12、琥珀 +1':won?'隊友已平息守護獸':'隊伍已返回燈谷鎮'});}
+      const mvpTxt = mvps.length ? ' ｜ 高光：' + mvps.map(x=>`${x.badge} ${x.name}`).join(' · ') : '';
+      for(const f of members) {leave(f.me);wallet(f.me);send(f.me,{t:'guildNotice',mvps,text:(won && f.damage>0?'守護獸已平息 · 公會幣 +12、琥珀 +1':won?'隊友已平息守護獸':'隊伍已返回燈谷鎮')+mvpTxt});}
     }
   }
   return {message,disconnect,tick};

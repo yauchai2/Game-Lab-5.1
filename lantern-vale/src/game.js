@@ -149,6 +149,8 @@ export class Game {
     this.recallT = 0; this.sailing = null; this.lastTown = -1; this.waypoint = null; this.worldBoxes = [];
     this.zoneStates = new Map(); this.camZoom = 1.0; this.camYaw = 0.62; this.camPunch = 0; this.exitCooldown = 0; this.groundZones = []; this.physProps = []; this.mount = null; this.beams = []; this._fadedMats = new Map(); this.combo = { count: 0, timer: 0 }; this.glideTrails = []; this.sheep = []; this.shrineBuffs = { fury: 0, frost: 0, gold: 0, sheep: 0 }; this.tide = createTideState(); this.autopilot = createAutopilotState();
     this.dev = { on: false, god: false, noCd: false, fastMove: false };
+    this.runStats = { synergyProcs: 0, partsBroken: 0, campfires: 0, healsDone: 0, dmgMitigated: 0 };
+    this.puzzleIcd = new Map();
     this.onAutoKill = (d) => onAutopilotKill(this, d);
     this.toggleAutopilot = (m) => toggleAutopilot(this, m);
     this.dbg = installDebugger(this);
@@ -291,7 +293,7 @@ export class Game {
     if (sc) for (const [k, v] of Object.entries(sc.bonuses)) s[k] = (s[k] || 0) + v;
     if (p.m?.aura) { p.m.aura.visible = !!sc; if (sc && p.m.auraMat) p.m.auraMat.color.setHex(sc.aura); }
     const pz = ensurePuzzle(profile, cls.id);
-    p.hotbar = computeBoard(pz.presets[pz.activePreset] || []);
+    p.hotbar = computeBoard(pz.presets[pz.activePreset] || [], pz.partyGem?.id || null);
     showWeapon(p.m, profile.weapon);
     applyCosmetics(p.m, profile.cosmetics);
     const attackName={staff:'杖',bow:'弓',blades:'刃',shield:'盾'}[profile.weapon] || '杖';
@@ -417,6 +419,7 @@ export class Game {
     this.runSeed = this.party ? [...this.party].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % 1000000 : (Math.random() * 1e6) | 0;
     this.runSeed += (this.originField-1)*997;
     this.runStart = performance.now(); this.meta.runShards = 0; this.meta.p.runs++; this.meta.save(); this.runEnded = false;
+    this.runStats = { synergyProcs: 0, partsBroken: 0, campfires: 0, healsDone: 0, dmgMitigated: 0 };
     this.state = 'play';
     this.loadRoom(0, null);
   }
@@ -913,7 +916,9 @@ export class Game {
   heal(v, show = true) {
     const p = this.player; const before = p.hp;
     p.hp = Math.min(p.stats.maxHp, p.hp + v);
-    if (show && p.hp > before) this.ui.dmgNum(p.pos.x, 1.6, p.pos.z, `+${Math.round(p.hp - before)}`, 'heal');
+    const gained = p.hp - before;
+    if (gained > 0 && this.runStats) this.runStats.healsDone += gained;
+    if (show && gained > 0) this.ui.dmgNum(p.pos.x, 1.6, p.pos.z, `+${Math.round(gained)}`, 'heal');
   }
   hurtPlayer(dmg, src, statusKind = null) {
     const p = this.player;
@@ -927,7 +932,9 @@ export class Game {
     const shockMul = p.statuses?.shock > 0 ? 1.2 : 1;
     const fieldLv = this.field > 0 ? (FIELDS[this.field]?.level || 1) : 0;
     const dangerMul = (fieldLv > 0 && (fieldLv - (this.meta?.p?.level || 1)) >= 6) ? 1.5 : 1;
-    dmg = Math.round(dmg * shockMul * dangerMul * (1 - p.stats.armor / 100) * (this.meta.has('fragile') ? 1.35 : 1));
+    const rawDmg = dmg * shockMul * dangerMul * (this.meta.has('fragile') ? 1.35 : 1);
+    dmg = Math.round(rawDmg * (1 - p.stats.armor / 100));
+    if (this.runStats) this.runStats.dmgMitigated += Math.max(0, Math.round(rawDmg - dmg));
     p.hp -= dmg; p.iframes = 0.6;
     this.hurtFlash = 0.5; this.shake = Math.max(this.shake, 0.38); this.hitstop = 0.06;
     // 劇烈衝擊液體瓶（左右晃動＋水花四濺）
@@ -1883,6 +1890,7 @@ export class Game {
     this.meta.p.goods.wood -= 1;
     const p = this.player, x = p.pos.x + Math.sin(p.facing) * 1.4, z = p.pos.z + Math.cos(p.facing) * 1.4, y = this.world.gh(x, z);
     this.spawnCampfireAt(x, y, z);
+    if (this.runStats) this.runStats.campfires++;
     this.audio.sfx('campfire');
     const hs = this.hotspots ? getFieldHotspot(this.field, this.hotspots) : null;
     if (hs?.kind === 'food_night') {
@@ -2455,12 +2463,13 @@ export class Game {
     this.ui.wipe(() => { this.state = 'play'; this.loadRoom(this.depth + 1, x.type); });
   }
 
-  updateEnemies(dt) {
+  updateEnemies(baseDt) {
     const p = this.player, W = this.world;
     const playing = this.state === 'play';
     const cullSq = this.field ? 48 * 48 : 99999;
     for (const e of this.enemies) {
       if (e.dead) continue;
+      let dt = baseDt;
       // 遠距魔物距離剔除（Distance Culling）：超大野外地圖上 >48m 外的魔物暫停 AI 與渲染，大幅提升 FPS
       const rdx = p.pos.x - e.pos.x, rdz = p.pos.z - e.pos.z;
       const distSq = rdx * rdx + rdz * rdz;
@@ -2469,6 +2478,12 @@ export class Game {
         continue;
       }
       if (e.m?.root && !e.m.root.visible) e.m.root.visible = true;
+      // Phase M4D：遠距實體 LOD 降頻（28m–48m 採 15Hz 更新並關閉陰影，40+ 同屏穩跑 60 FPS）
+      if (distSq > 28 * 28 && !e.legendary && e.type !== 'stag') {
+        e._lodTick = ((e._lodTick || 0) + 1) & 3;
+        if (e._lodTick !== 0) continue;
+        dt = Math.min(0.16, dt * 4);
+      }
       e.t += dt; e.flash = Math.max(0, e.flash - dt); e.stun = Math.max(0, e.stun - dt); e.hitCd = Math.max(0, e.hitCd - dt);
       e.slow = Math.max(0, e.slow - dt); e.vuln = Math.max(0, (e.vuln || 0) - dt);
       e.blinded = Math.max(0, (e.blinded || 0) - dt); e._slipCd = Math.max(0, (e._slipCd || 0) - dt);

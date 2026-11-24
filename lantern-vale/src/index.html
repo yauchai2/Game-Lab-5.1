@@ -436,6 +436,9 @@ body.holding-gem,body.holding-gem *{cursor:grabbing!important}
 @media(max-width:640px){.pz-layout{grid-template-columns:1fr}}
 .pz-grid{position:relative;display:grid;grid-template-columns:repeat(6,44px);grid-template-rows:repeat(6,44px);gap:3px;padding:6px;background:#3b2a2a;box-shadow:var(--box);width:max-content}
 .pz-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:4;overflow:visible}
+.pz-party-bar{margin:8px 0 4px}
+.pz-party-slot{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;border:2px dashed #4e8a7e;background:rgba(78,138,126,.12);color:var(--ink);font:inherit;font-size:12px;font-weight:700;border-radius:4px;cursor:pointer;text-align:left}
+.pz-party-slot.filled{border-style:solid;border-color:#d99a26;background:linear-gradient(90deg,rgba(255,216,90,.24),rgba(78,138,126,.18))}
 .corrupt-bar{display:flex;height:18px;border-radius:3px;overflow:hidden;border:2px solid var(--ink);margin:6px 0 4px;font-size:10px;font-weight:700;color:#fff;text-shadow:0 1px 0 rgba(0,0,0,.6)}
 .corrupt-bar>span{flex:1;display:flex;align-items:center;justify-content:center;white-space:nowrap}
 .cmp-deltas{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
@@ -527,6 +530,7 @@ body.photo-mode #hud > *:not(#photoBadge){opacity:0!important;pointer-events:non
     <button type="button" id="btnWiki">📖 百科資料庫</button>
     <button type="button" id="btnChangelog">📜 更新日誌</button>
     <button type="button" id="btnSet">⚙ 遊戲設定</button>
+    <button type="button" id="btnInvite">🔗 複製組隊連結</button>
     <button type="button" id="btnMute">🔊 音效：開</button>
     <button type="button" id="btnDebug">🛠️ 除錯工具 (F3)</button>
     <button type="button" id="btnDonate">❤️ 贊助支持</button>
@@ -644,6 +648,7 @@ body.photo-mode #hud > *:not(#photoBadge){opacity:0!important;pointer-events:non
   <div class="pz-layout">
     <div>
       <div class="pz-grid"></div>
+      <div class="pz-party-bar"><button type="button" id="pzPartySlot" class="pz-party-slot" title="放入 1 顆輔助寶石，自動串連全盤主動技能並共享給同隊隊友！"></button></div>
       <div class="pz-tools">
         <button type="button" class="btn small" id="pzAuto" style="background:#7a4ac0">⚡ 一鍵推薦構築</button>
         <button type="button" class="btn small" id="pzRotate">旋轉 (R)</button>

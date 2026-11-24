@@ -20,6 +20,7 @@ import { DENSITY_TIERS, LEAGUE_MECHANICS, ensureAtlas, setAtlasDensity, toggleAt
 import { TIDE_PHASES, ULTIMATES, MICRO_BUFFS, lootMultForTide, castUltimate, cycleUltimate } from './tide.js';
 import { canCorruptGear, CORRUPT_UNLOCK_LV, nextMilestone } from './progression.js';
 import { applyHudIcons } from './icons.js';
+import { computeCozyMvps } from './mmo_protocol.js';
 
 const $ = id => document.getElementById(id);
 const v3 = new THREE.Vector3();
@@ -45,6 +46,25 @@ export class UI {
     }
     $('btnMute').onclick = () => { game.audio.init(); const m = game.audio.toggleMute(); $('btnMute').textContent = m ? '🔇 音效：關' : '🔊 音效：開'; };
     const dbgBtn = $('btnDebug'); if (dbgBtn) dbgBtn.onclick = () => { $('menuPop')?.classList.add('hide'); game.dbg?.toggle?.(); };
+    // Phase M4C：1 秒網址拉人組隊（?join=CODE）＋一鍵複製組隊邀請連結
+    try {
+      const joinCode = new URLSearchParams(location.search).get('join');
+      if (joinCode && $('inParty')) {
+        const cleanCode = joinCode.trim().slice(0, 12);
+        $('inParty').value = cleanCode;
+        game.party = cleanCode;
+        setTimeout(() => this.toast(`🏮 已透過邀請連結加入小隊「${cleanCode}」`, '#ffd85a'), 400);
+      }
+    } catch (e) { /* ignore */ }
+    const invBtn = $('btnInvite');
+    if (invBtn) invBtn.onclick = () => {
+      const code = (game.party || $('inParty')?.value?.trim() || ('LV-' + Math.floor(1000 + Math.random() * 9000))).slice(0, 12);
+      game.party = code;
+      if ($('inParty')) $('inParty').value = code;
+      const url = `${location.origin}${location.pathname}?join=${encodeURIComponent(code)}`;
+      navigator.clipboard?.writeText?.(url).catch(() => {});
+      this.toast(`🔗 已複製小隊連結（代碼 ${code}）！貼給朋友 5 秒入隊`, '#7fe08a');
+    };
     $('btnMute').textContent = game.audio.muted ? '🔇 音效：關' : '🔊 音效：開';
     bindWorldMap(game); bindTouch(game); bindPuzzleUI(game); bindCodexUI(game);
     const pzBtn = $('sk-puzzle'); if (pzBtn) pzBtn.onclick = () => { if (this.puzzleOpen) this.closePuzzle(); else this.openPuzzle(); };
@@ -786,7 +806,14 @@ export class UI {
     return `抵達 ${Math.floor(g.depth / 3) + 1}-${g.depth % 3 + 1} · 擊敗 ${p.kills} · 總傷害 ${p.dmgDealt} · ${Math.floor(secs / 60)}分${secs % 60}秒`;
   }
   showDead(g) { this.heirUI(g, 'deadHeir'); $('deadSum').textContent = this.runSummary(g); $('dead').classList.remove('hide'); this.saveBest(g); }
-  showWin(g) { this.heirUI(g, 'winHeir'); $('winSum').textContent = this.runSummary(g); $('win').classList.remove('hide'); this.saveBest(g, true); }
+  showWin(g) {
+    this.heirUI(g, 'winHeir');
+    const mvps = computeCozyMvps(g.runStats);
+    const mvpLine = ' ｜ 溫馨高光：' + mvps.map(b => `${b.icon}${b.title}`).join(' · ');
+    $('winSum').textContent = this.runSummary(g) + mvpLine;
+    $('win').classList.remove('hide');
+    this.saveBest(g, true);
+  }
   saveBest(g, won) {
     try {
       const key = g.slot ? 'lv_best_' + g.slot : 'lv_best';

@@ -749,5 +749,27 @@ const createGuild = require('../server/guild.cjs');
   const fnHs = mmoProto.getFieldHotspot(2, { hotspots: [{ fieldId: 2, kind: 'food_night', name: '🍗 旅人美食夜市' }] });
   assert.equal(fnHs.kind, 'food_night', 'Food night hotspot detected for campfire feast +50% buff');
 
-  console.log('ALL 28 LOGIC, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
+  // 29. Phase M4A–M4C: Puzzle Trigger ICD, Projectile Overload Folding, Party Link Socket & Cozy MVP Badges
+  const icdMap = new Map();
+  assert.equal(mmoProto.checkTriggerIcd(icdMap, 'bolt->nova', 1000), true, 'First trigger fires immediately');
+  assert.equal(mmoProto.checkTriggerIcd(icdMap, 'bolt->nova', 1120), false, 'Trigger within 250ms ICD is throttled');
+  assert.equal(mmoProto.checkTriggerIcd(icdMap, 'bolt->nova', 1260), true, 'Trigger fires again after 250ms ICD');
+  const folded = mmoProto.foldExcessProjectiles(14, 6, 16);
+  assert.equal(folded.spawnCount, 2, 'Caps active projectiles at MAX_ACTIVE_PROJECTILES (16)');
+  assert.equal(folded.overflow, 4, 'Tracks 4 overflow projectiles');
+  assert.ok(folded.overloadMult > 2.0, 'Folds overflow projectiles into overload damage multiplier');
+  // Party Link Socket shares support gem across all active skills
+  const partySkills = puzzle.computeBoard([{ uid: 1, id: 'bolt', x: 1, y: 1, rot: 0 }], 'chain');
+  assert.equal(partySkills[0].mod.chain, 2, 'Party Link Socket shares chain +2 to active skills');
+  assert.equal(partySkills[0].mod.partyShared, 'chain');
+  assert.ok(partySkills[0].mod.circuitLabel.includes('🤝羈絆'), 'Circuit label shows Party Link Socket');
+  // Cozy MVP Badges
+  const mvps = mmoProto.computeCozyMvps({ synergyProcs: 3, partsBroken: 2, campfires: 1, healsDone: 45 });
+  assert.equal(mvps.length, 4, 'Awards all 4 Cozy MVP Badges when criteria met');
+  assert.ok(mvps.some(b => b.title === '連攜發動機') && mvps.some(b => b.title === '營火大廚'));
+  // Guild 6-Portal Co-op Raid & MVP notice
+  assert.ok(c1.msgs.some(m => m.t === 'raidStart' && m.portalsLeft === 6), 'Guild Raid starts with 6-Portal Co-op limit');
+  assert.ok(c1.msgs.some(m => m.t === 'guildNotice' && Array.isArray(m.mvps) && m.mvps.length >= 1), 'Guild Raid victory awards Cozy MVP badges');
+
+  console.log('ALL 29 LOGIC, MMO-M4-OVERHAUL, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
 })();

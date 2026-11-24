@@ -127,3 +127,36 @@ export function getFieldHotspot(fieldId, activePayload = null) {
   const data = activePayload || pickHotspots();
   return (data.hotspots || []).find(h => h.fieldId === fieldId) || null;
 }
+
+// Phase M4A：6×6 拼圖邏輯電路防炸服保護（強制 250ms ICD + 投射物上限過載折算）
+export const PUZZLE_ICD_MS = 250;
+export const MAX_ACTIVE_PROJECTILES = 16;
+
+export function checkTriggerIcd(icdMap, triggerKey, nowMs = Date.now(), icdMs = PUZZLE_ICD_MS) {
+  const last = icdMap.get(triggerKey) || 0;
+  if (nowMs - last < icdMs) return false;
+  icdMap.set(triggerKey, nowMs);
+  return true;
+}
+
+export function foldExcessProjectiles(activeCount, requestedCount, maxActive = MAX_ACTIVE_PROJECTILES) {
+  const room = Math.max(0, maxActive - activeCount);
+  const spawnCount = Math.min(requestedCount, room);
+  const overflow = Math.max(0, requestedCount - spawnCount);
+  // 超出上限的投射物不生成實體，直接折算為「過載傷害倍率」保護伺服器 Tick
+  const overloadMult = overflow > 0 ? Math.round((1 + (overflow / Math.max(1, spawnCount)) * 0.85) * 100) / 100 : 1.0;
+  return { spawnCount, overflow, overloadMult };
+}
+
+// Phase M4C：溫馨高光徽章（Cozy MVP Badges — 取代內捲 DPS 傷害榜）
+export function computeCozyMvps(stats = {}) {
+  const badges = [];
+  if ((stats.synergyProcs || 0) >= 1) badges.push({ icon: '🔥', title: '連攜發動機', detail: `觸發 ${stats.synergyProcs} 次元素連攜` });
+  if ((stats.partsBroken || 0) >= 1)  badges.push({ icon: '🦌', title: '精準破位王', detail: `破壞 ${stats.partsBroken} 處強敵部位` });
+  if ((stats.campfires || 0) >= 1)    badges.push({ icon: '🍗', title: '營火大廚',   detail: `生起 ${stats.campfires} 座溫暖營火` });
+  if ((stats.healsDone || 0) >= 30 || (stats.dmgMitigated || 0) >= 40) {
+    badges.push({ icon: '🏮', title: '救命提燈人', detail: '穩健守護隊伍續航' });
+  }
+  if (!badges.length) badges.push({ icon: '🌿', title: '星燈探索者', detail: '平安完成本次燈谷探險' });
+  return badges;
+}

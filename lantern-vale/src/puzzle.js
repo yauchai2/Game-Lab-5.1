@@ -136,6 +136,7 @@ export function ensurePuzzle(profile, classId = 0) {
     profile.puzzle = defaultPuzzle(classId);
   }
   if (!profile.puzzle.nextUid) profile.puzzle.nextUid = 100;
+  if (!('partyGem' in profile.puzzle)) profile.puzzle.partyGem = null;
   return profile.puzzle;
 }
 
@@ -174,8 +175,10 @@ export function canPlace(placed, gemId, x, y, rot, level = 1, ignoreUid = null) 
 }
 
 // 計算棋盤上所有主動技能與相鄰（上下左右邊相連）的輔助寶石加成與邏輯電路觸發鏈
-export function computeBoard(placed) {
+// Phase M4B：支援 partyGemId（小隊羈絆插座，自動共享給全盤主動技能與同隊隊友）
+export function computeBoard(placed, partyGemId = null) {
   const occ = occupiedMap(placed);
+  const partySup = (partyGemId && SUPPORT_GEMS[partyGemId] && partyGemId !== 'coh' && partyGemId !== 'coc') ? SUPPORT_GEMS[partyGemId] : null;
   const supportToActives = new Map();
   for (const item of placed) {
     if (!SUPPORT_GEMS[item.id]) continue;
@@ -215,9 +218,12 @@ export function computeBoard(placed) {
         }
       }
     }
+    if (partySup && !linkedDefs.some(s => s.id === partySup.id)) {
+      linkedDefs.push(partySup);
+    }
     const mod = {
       multi: 0, echo: 0, area: 0, dmgMult: 1, fire: def.id === 'bolt', chain: 0, cdr: 0, frost: 0, leech: 0, shock: 0,
-      split: false, orbit: false,
+      split: false, orbit: false, partyShared: partySup ? partySup.id : null,
       triggerOnHit: [...triggerOnHit], triggerOnCrit: [...triggerOnCrit],
       supports: linkedDefs,
     };
@@ -236,6 +242,7 @@ export function computeBoard(placed) {
       if (s.id === 'orbit') mod.orbit = true;
     }
     const chainTags = [];
+    if (partySup) chainTags.push(`🤝羈絆:${partySup.short}`);
     if (mod.split) chainTags.push('分裂');
     if (mod.chain) chainTags.push(`連鎖+${mod.chain}`);
     if (mod.orbit) chainTags.push('軌道');
@@ -366,7 +373,36 @@ export function bindPuzzleUI(g) {
     const placed = currentPlaced();
     const open = unlockedSet(level);
     const occ = occupiedMap(placed);
-    const computed = computeBoard(placed);
+    const computed = computeBoard(placed, pz.partyGem?.id || null);
+    const partySlotEl = modal.querySelector('#pzPartySlot');
+    if (partySlotEl) {
+      const pg = pz.partyGem && SUPPORT_GEMS[pz.partyGem.id] ? SUPPORT_GEMS[pz.partyGem.id] : null;
+      partySlotEl.classList.toggle('filled', !!pg);
+      partySlotEl.innerHTML = pg
+        ? `<span>🤝 小隊羈絆共享：<b>${pg.icon} ${pg.name}</b>（全技能＋同隊隊友共享）</span><small>點擊卸下</small>`
+        : `<span>🤝 小隊羈絆插座（空位）</span><small>手持輔助寶石點擊鑲嵌</small>`;
+      partySlotEl.onclick = () => {
+        if (holding) {
+          if (!SUPPORT_GEMS[holding.id] || holding.id === 'coh' || holding.id === 'coc') {
+            g.ui.toast('小隊羈絆插座僅可鑲嵌一般輔助寶石（不含觸發橋接）', '#ffb08a');
+            return;
+          }
+          if (pz.partyGem) pz.bag.push({ uid: pz.partyGem.uid, id: pz.partyGem.id, rot: 0 });
+          if (holding.source === 'bag') {
+            const bi = pz.bag.findIndex(b => b.uid === holding.uid);
+            if (bi >= 0) pz.bag.splice(bi, 1);
+          }
+          pz.partyGem = { uid: holding.uid, id: holding.id };
+          setHolding(null);
+          g.audio.sfx('pickup'); g.meta.save(); g.recalc(); render();
+          g.ui.toast(`🤝 已鑲嵌小隊羈絆寶石：${SUPPORT_GEMS[pz.partyGem.id].name}！`, '#7fe08a');
+        } else if (pz.partyGem) {
+          pz.bag.push({ uid: pz.partyGem.uid, id: pz.partyGem.id, rot: 0 });
+          pz.partyGem = null;
+          g.audio.sfx('ui'); g.meta.save(); g.recalc(); render();
+        }
+      };
+    }
     const linkCount = new Map(computed.map(s => [s.uid, s.mod.supports.length]));
     const linkedUids = new Set();
     for (const s of computed) {
