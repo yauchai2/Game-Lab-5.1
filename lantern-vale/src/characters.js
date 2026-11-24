@@ -200,9 +200,18 @@ export function bindCharacters(game) {
     return { ...sp, hero, hitBox };
   });
 
-  // 換裝間單人展示角色
+  // 換裝間單人展示角色 + 換裝星星粒子迸發（Phase C6）
   const dressHero = createModularHero(CHAR_CATALOG.classPresets[0], { scale: 0.92, initialState: 'idle' });
   dressupStage.add(dressHero.root);
+  const DU_SPARK_N = 24;
+  const duSparkPos = new Float32Array(DU_SPARK_N * 3);
+  const duSparkVel = new Float32Array(DU_SPARK_N * 3);
+  const duSparkGeo = new THREE.BufferGeometry();
+  duSparkGeo.setAttribute('position', new THREE.BufferAttribute(duSparkPos, 3));
+  const duSparkMat = new THREE.PointsMaterial({ color: 0xffe478, size: 0.11, transparent: true, opacity: 0, depthWrite: false });
+  const duSparks = new THREE.Points(duSparkGeo, duSparkMat);
+  dressupStage.add(duSparks);
+  let duSparkLife = 0;
 
   // 選中腳底暖金發光環
   const selRing = new THREE.Mesh(
@@ -401,6 +410,19 @@ export function bindCharacters(game) {
 
   function triggerTryOnPose(kind = 'buff') {
     dressHero.play(kind, { once: true, force: true });
+    // 換裝時迸發暖金小星星粒子
+    for (let i = 0; i < DU_SPARK_N; i++) {
+      const a = (i / DU_SPARK_N) * Math.PI * 2 + Math.random() * 0.4;
+      const r = 0.25 + Math.random() * 0.35;
+      duSparkPos[i * 3] = Math.cos(a) * r;
+      duSparkPos[i * 3 + 1] = 0.35 + Math.random() * 0.85;
+      duSparkPos[i * 3 + 2] = Math.sin(a) * r;
+      duSparkVel[i * 3] = Math.cos(a) * (0.45 + Math.random() * 0.6);
+      duSparkVel[i * 3 + 1] = 0.65 + Math.random() * 0.9;
+      duSparkVel[i * 3 + 2] = Math.sin(a) * (0.45 + Math.random() * 0.6);
+    }
+    duSparkGeo.attributes.position.needsUpdate = true;
+    duSparkLife = 0.85;
     game.audio?.sfx?.('ui');
   }
 
@@ -610,15 +632,32 @@ export function bindCharacters(game) {
   }
   if (slotsSel) slotsSel.onchange = selectSlot;
   selectSlot();
-  // 支援 ?preview=focus|dressup 快速預覽指定舞台狀態（立即定位鏡頭）
+  // 支援 ?preview=focus|dressup|town|field&job=0..4 快速預覽指定舞台或進遊戲實景
   try {
-    const pv = new URLSearchParams(location.search).get('preview');
+    const qs = new URLSearchParams(location.search);
+    const pv = qs.get('preview');
+    const qJob = qs.has('job') ? clampIdx(+qs.get('job'), CLASSES.length) : null;
     if (pv === 'focus') {
-      focusHero(1, false);
+      focusHero(qJob ?? 1, false);
       camCurPos.copy(camGoalPos); camCurTarget.copy(camGoalTarget); camCurFov = camGoalFov;
     } else if (pv === 'dressup') {
-      focusHero(2, false); enterDressup();
+      focusHero(qJob ?? 2, false); enterDressup();
       camCurPos.copy(camGoalPos); camCurTarget.copy(camGoalTarget); camCurFov = camGoalFov;
+    } else if (pv === 'town' || pv === 'field') {
+      const targetJob = qJob ?? (pv === 'town' ? 4 : 0);
+      selectedJob = targetJob;
+      activeSlotLook = normalizeCharacterLook(CHAR_CATALOG.classPresets[targetJob], targetJob);
+      game.character = { ...activeSlotLook, job: targetJob };
+      running = false;
+      titleEl.classList.add('hide');
+      $('hud')?.classList.remove('hide');
+      setTimeout(() => {
+        game.dayTime = 0.36;
+        if (pv === 'town') game.enterTown?.();
+        else { game.enterTown?.(); game.enterField?.(1); }
+        game.fade = 0;
+        if (game.camZoom) game.camZoom = 0.85;
+      }, 60);
     }
   } catch {}
 
@@ -675,6 +714,19 @@ export function bindCharacters(game) {
     if (stageMode === 'dressup') {
       dressHero.root.rotation.y += (dressRotY - dressHero.root.rotation.y) * Math.min(1, dt * 10);
       dressHero.update(dt);
+      if (duSparkLife > 0) {
+        duSparkLife = Math.max(0, duSparkLife - dt);
+        for (let i = 0; i < DU_SPARK_N; i++) {
+          duSparkPos[i * 3] += duSparkVel[i * 3] * dt;
+          duSparkPos[i * 3 + 1] += duSparkVel[i * 3 + 1] * dt;
+          duSparkPos[i * 3 + 2] += duSparkVel[i * 3 + 2] * dt;
+          duSparkVel[i * 3 + 1] -= 0.7 * dt;
+        }
+        duSparkGeo.attributes.position.needsUpdate = true;
+        duSparkMat.opacity = Math.min(1, duSparkLife * 1.4);
+      } else if (duSparkMat.opacity > 0) {
+        duSparkMat.opacity = 0;
+      }
     } else {
       for (const h of islandHeroes) h.hero.update(dt);
     }

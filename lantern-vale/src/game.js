@@ -263,7 +263,8 @@ export class Game {
     this.scene.add(m.root);
     const look = normalizeCharacterLook(this.character);
     const heroRig = createModularHero(look, {
-      scale: 0.62,
+      scale: 0.88,
+      toon: true,
       weapon: this.meta?.p?.weapon || 'staff',
       initialState: 'idle',
       onReady: () => { m.body.visible = false; },
@@ -1011,6 +1012,7 @@ export class Game {
     if (this.has('bramble')) for (const e of this.enemies) if (!e.dead && e.pos.distanceTo(p.pos) < 2.5) this.hitEnemy(e, { dmg: 20, crit: false });
     if (src) { tmp3.subVectors(p.pos, src).setY(0).normalize(); p.vel.addScaledVector(tmp3, 6); }
     if (p.hp <= 0) { p.hp = 0; this.die(); }
+    else { p.combatT = 5.0; p.heroRig?.play('getHit', { once: true, force: true, speed: 1.1 }); }
   }
   die() {
     if (this.state !== 'play') return;
@@ -1273,6 +1275,7 @@ export class Game {
   execPuzzleSkill(id, mod, scale = 1, isTrigger = false) {
     const p = this.player, dir = this.aimDir();
     p.facing = Math.atan2(dir.x, dir.y);
+    if (!isTrigger) { p.combatT = 5.0; p.heroRig?.play('skill', { once: true, force: true, speed: 1.15 }); }
     const runeCol = { bolt: 0xffb347, slam: 0xffe3a0, wisp: 0xfff27a, rain: 0x6cb8ff, trap: 0x6fe06a, whirl: 0xff8ab0, mark: 0xd06cff, meteor: 0xff6a30, nova: 0x7ae8ff, prism: 0xffe07a, phantom: 0xb48ae0 }[id] || 0xffe07a;
     const rg = new THREE.RingGeometry(0.75, 1.0, 24); rg.rotateX(-Math.PI / 2);
     const rm = new THREE.Mesh(rg, new THREE.MeshBasicMaterial({ color: runeCol, transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide }));
@@ -1542,12 +1545,14 @@ export class Game {
   tryFlask() {
     const p = this.player; if (p.flask.charges <= 0 || p.hp >= p.stats.maxHp) return;
     p.flask.charges--; p.healOver = 1.0; this.audio.sfx('flask');
+    p.heroRig?.play('buff', { once: true, force: true });
     p.healRate = p.stats.maxHp * 0.42 * (1 + 0.25 * p.boons.filter(b => b === 'flask').length);
     this.fx.burst(p.pos.x, 1, p.pos.z, 10, { c: [0xff7a8a, 0xffd0d8], s: 0.1, speed: 2, up: 3, life: 0.6, g: -1 });
   }
   takeBoon(b) {
     const p = this.player;
     p.boons.push(b.id); this.audio.sfx('boon');
+    p.heroRig?.play('buff', { once: true, force: true });
     if (b.skill) p.skills[b.skill] = true;
     this.recalc();
     if (b.id === 'thick') p.hp = p.stats.maxHp;
@@ -2153,7 +2158,8 @@ export class Game {
     const jobIdx = Math.abs(col || 0) % CHAR_CATALOG.classPresets.length;
     const npcLook = { ...CHAR_CATALOG.classPresets[jobIdx], hairStyle: Math.abs((col || 0) * 3) % 5, skinTone: Math.abs(col || 0) % 3, eyeColor: Math.abs((col || 0) * 2) % 4 };
     const heroRig = createModularHero(npcLook, {
-      scale: 0.62,
+      scale: 0.84,
+      toon: true,
       initialState: 'idle',
       onReady: () => { m.body.visible = false; },
     });
@@ -3190,7 +3196,19 @@ export class Game {
       } else if (p.air) {
         p.heroRig.play(p.vy > 1.5 ? 'jump' : 'fall');
       } else if (moving) {
-        p.heroRig.play(p.sprinting ? 'run' : 'walk', { speed: p.sprinting ? 1.2 : 1.05 });
+        // Phase C6：戰鬥瞄準移動時依移動與面朝夾角自動切換方向跑姿（RunBack / RunL / RunR / Run / Walk）
+        let moveState = p.sprinting ? 'run' : 'walk';
+        if (p.combatT > 0) {
+          const vLen = Math.hypot(p.vel.x, p.vel.z);
+          if (vLen > 0.4) {
+            const fx = Math.sin(p.facing), fz = Math.cos(p.facing);
+            const fwd = (p.vel.x * fx + p.vel.z * fz) / vLen;
+            const side = (p.vel.x * fz - p.vel.z * fx) / vLen;
+            if (fwd < -0.55) moveState = 'runBack';
+            else if (Math.abs(side) > 0.68 && fwd < 0.5) moveState = side > 0 ? 'runL' : 'runR';
+          }
+        }
+        p.heroRig.play(moveState, { speed: p.sprinting ? 1.2 : 1.05 });
       } else {
         p.heroRig.play(p.combatT > 0 ? 'combatIdle' : 'idle');
       }
@@ -3208,8 +3226,8 @@ export class Game {
       }
       m.xray.visible = occluded;
     }
-    // blink when invulnerable
-    m.root.visible = this.state !== 'dead' && !(p.iframes > 0 && Math.floor(this.time * 20) % 2 === 0);
+    // blink when invulnerable（陣亡時若已載入骨骼角色則保留可見以播放完整倒地動畫）
+    m.root.visible = (this.state !== 'dead' || !!p.heroRig?.ready) && !(p.iframes > 0 && Math.floor(this.time * 20) % 2 === 0);
     m.lantern.material.color.setHex(Math.sin(this.time * 9) > 0.8 ? 0xffe9a0 : 0xffd36e);
   }
 

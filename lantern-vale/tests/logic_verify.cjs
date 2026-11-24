@@ -875,5 +875,14 @@ const createGuild = require('../server/guild.cjs');
   }
   assert.ok(fs.readdirSync(path.join(charDir, 'tex')).length >= 17, 'All 17 character variant textures present on disk');
 
-  console.log('ALL 37 LOGIC, CHAR-REWORK-C1-C5, FUZZ-QA-36, MMO-M10-PORTALS-CRAFT-KILLSWITCH, MMO-M9-SAFETY-KILLSWITCH, MMO-M8-ROLES-FEAST-GPU, MMO-M7-SOUL-AWAKEN-GPU-FIX, MMO-M6-SPIRE-MENTOR-LIGHTHOUSE, MMO-M5-FERRY-REVIEW, MMO-M4-OVERHAUL, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
+  // 38. Phase C6: In-Game Toon Character Integration, Directional Strafe/Combat Anim Triggers & X-Ray Root Attachment
+  const gameSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'game.js'), 'utf8');
+  const modelsSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'models.js'), 'utf8');
+  const rigSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'char_rig.js'), 'utf8');
+  assert.ok(rigSrc.includes('toToonMaterial') && gameSrc.includes('toon: true'), 'In-game modular heroes use MeshToonMaterial wrapper');
+  assert.ok(gameSrc.includes("play('skill'") && gameSrc.includes("play('getHit'") && gameSrc.includes("play('buff'"), 'Combat skill/getHit/buff skeletal animations wired');
+  assert.ok(gameSrc.includes("'runBack'") && gameSrc.includes("'runL'") && gameSrc.includes("'runR'"), 'Directional combat strafe animations wired');
+  assert.ok(modelsSrc.includes('root.add(xray)'), 'X-Ray occlusion silhouette attached to root so it works with modular heroRig');
+
+  console.log('ALL 38 LOGIC, CHAR-C6-TOON-ANIM, CHAR-REWORK-C1-C5, FUZZ-QA-36, MMO-M10-PORTALS-CRAFT-KILLSWITCH, MMO-M9-SAFETY-KILLSWITCH, MMO-M8-ROLES-FEAST-GPU, MMO-M7-SOUL-AWAKEN-GPU-FIX, MMO-M6-SPIRE-MENTOR-LIGHTHOUSE, MMO-M5-FERRY-REVIEW, MMO-M4-OVERHAUL, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
 })();

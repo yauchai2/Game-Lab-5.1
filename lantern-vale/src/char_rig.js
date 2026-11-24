@@ -41,7 +41,7 @@ export const CHAR_CATALOG = {
     { id: 'mage_01',    name: '星夜巫師帽', icon: '🧙', mesh: 'outfit_mage_hat_001' },
     { id: 'mage_02',    name: '典雅大法帽', icon: '🎩', mesh: 'outfit_mage_hat_002' },
     { id: 'necro_01',   name: '暗影大兜帽', icon: '🥷', mesh: 'outfit_necromancer_hat_001' },
-    { id: 'monk_01',    name: '雲遊竹斗笠', icon: '👒', mesh: 'outfit_monk_hat_001' },
+    { id: 'monk_01',    name: '聖燈法冠',   icon: '👑', mesh: 'outfit_monk_hat_001' },
   ],
   bodies: [
     { id: 'fighter_01', name: '衛士輕甲',   icon: '🛡️', mesh: 'outfit_fighter_body_001' },
@@ -78,7 +78,7 @@ export const CHAR_CATALOG = {
     { id: 'staff_01', name: '藍晶法杖',   icon: '🪄', meshes: ['weapon_magestaff_001'], tex: 'mage_staff_A.png' },
     { id: 'staff_02', name: '秘火法杖',   icon: '🔥', meshes: ['weapon_magestaff_001'], tex: 'mage_staff_B.png' },
     { id: 'blade_01', name: '幽霧秘刃',   icon: '🗡️', meshes: ['weapon_necromancerblade_001'] },
-    { id: 'monk_01',  name: '禪燈長棍',   icon: '🥢', meshes: ['weapon_monkstaff_001'] },
+    { id: 'monk_01',  name: '聖燈法杖',   icon: '🪄', meshes: ['weapon_monkstaff_001'] },
   ],
   classPresets: [
     // 0: 守燈衛士 Fighter
@@ -271,6 +271,33 @@ export function applyModularLook(rigRoot, lookInput, equipWeapon = 'staff') {
   });
 }
 
+let _toonGrad = null;
+function getToonGrad() {
+  if (_toonGrad) return _toonGrad;
+  const data = new Uint8Array([165, 165, 165, 255, 222, 222, 222, 255, 255, 255, 255, 255]);
+  const tex = new THREE.DataTexture(data, 3, 1, THREE.RGBAFormat);
+  tex.minFilter = THREE.NearestFilter; tex.magFilter = THREE.NearestFilter; tex.needsUpdate = true;
+  _toonGrad = tex;
+  return _toonGrad;
+}
+
+function toToonMaterial(src) {
+  if (!src) return src;
+  const tm = new THREE.MeshToonMaterial({
+    name: src.name,
+    color: src.color ? src.color.clone() : new THREE.Color(0xffffff),
+    map: src.map || null,
+    transparent: !!src.transparent,
+    alphaTest: src.alphaTest || 0,
+    depthWrite: src.depthWrite !== false,
+    side: src.side ?? THREE.FrontSide,
+    gradientMap: getToonGrad(),
+    emissive: new THREE.Color(0x3a2e22),
+    emissiveIntensity: 0.42,
+  });
+  return tm;
+}
+
 /**
  * 建立一個獨立的模組化 3D 角色控制器（自動共用幾何體、獨立材質與骨骼動畫機）
  */
@@ -342,16 +369,19 @@ export function createModularHero(lookInput, opts = {}) {
       o.castShadow = opts.castShadow !== false;
       o.receiveShadow = opts.receiveShadow !== false;
       o.frustumCulled = false; // 避免骨骼動畫導致誤剔除
+      const wrap = m => opts.toon ? toToonMaterial(m) : m.clone();
       if (Array.isArray(o.material)) {
-        o.material = o.material.map(m => m.clone());
+        o.material = o.material.map(wrap);
       } else if (o.material) {
-        o.material = o.material.clone();
+        o.material = wrap(o.material);
       }
-      const mats = Array.isArray(o.material) ? o.material : [o.material];
-      for (const m of mats) {
-        if (!m) continue;
-        m.roughness = 0.88;
-        m.metalness = 0.02;
+      if (!opts.toon) {
+        const mats = Array.isArray(o.material) ? o.material : [o.material];
+        for (const m of mats) {
+          if (!m) continue;
+          m.roughness = 0.88;
+          m.metalness = 0.02;
+        }
       }
     });
     rigHolder.add(rig);

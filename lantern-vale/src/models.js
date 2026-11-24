@@ -65,7 +65,7 @@ export function buildPlayer(hood = 0x2f8a7e, hoodDark = 0x23695f, scarfCol = 0xd
   const xrayMat = new THREE.MeshBasicMaterial({ color: 0xffdf7a, transparent: true, opacity: 0.45, depthTest: false, depthWrite: false });
   const xray = new THREE.Mesh(new THREE.CapsuleGeometry(0.32, 0.55, 3, 6), xrayMat);
   xray.position.y = 0.62; xray.renderOrder = 999; xray.userData.noNormal = true; xray.visible = false;
-  body.add(xray);
+  root.add(xray);
   // 二轉覺醒腳底光環
   const auraMat = new THREE.MeshBasicMaterial({ color: 0xffd85a, transparent: true, opacity: 0.75, depthWrite: false, side: THREE.DoubleSide });
   const aura = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.74, 20), auraMat);
