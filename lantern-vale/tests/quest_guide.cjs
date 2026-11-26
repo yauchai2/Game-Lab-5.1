@@ -38,11 +38,12 @@ const { chromium } = require('playwright');
 
       await openTracker();
       assert.equal(await page.locator('[data-quest-guide-follow]').textContent(), '跟燈去草原');
-      assert.match(await page.locator('[data-opening-practice]').textContent(), /直接傳送/);
+      assert.doesNotMatch(await page.locator('#panelM').textContent(), /傳送/);
       await page.waitForFunction(() => !__game.questGuide.root.visible);
       await page.locator('[data-quest-guide-follow]').click();
       await visibleGuide();
       assert.match(await page.evaluate(() => __game.questGuide.target.label), /晨光草原/);
+      assert.equal(await page.evaluate(() => __game.zone), 'town');
       assert.equal(await page.evaluate(() => __game.questGuide.reducedMotion.matches), mobile);
 
       await page.waitForFunction(() => __game.exitCooldown <= 0.05);
@@ -88,6 +89,19 @@ const { chromium } = require('playwright');
       if (dir) await page.screenshot({ path: path.join(dir, mobile ? 'opening-combat-mobile.png' : 'opening-combat-desktop.png') });
       await page.locator('#openingCombatCue[data-action=counter]').waitFor();
       assert.match(await page.locator('#openingCombatCue').textContent(), /反擊/);
+      const pace = await page.evaluate(() => {
+        const g = __game, p = g.player;
+        const boar = g.enemies.find(e => e.openingPractice);
+        g.tryAttack();
+        const autoInterval = p.cds.atk;
+        const mana = p.mana;
+        g.castHotbar(0);
+        const buffered = p.inputBuf?.kind === 'skill' && p.mana === mana;
+        p.cds.action = 0;
+        g.castHotbar(0);
+        return { autoInterval, buffered, recovery: p.cds.action, hp: boar.maxHp };
+      });
+      assert.ok(pace.autoInterval > 0.9 && pace.buffered && pace.recovery >= 0.9 && pace.hp >= 90);
       await page.reload({ waitUntil: 'domcontentloaded' });
       await page.locator('#btnQuickStart').click();
       await visibleGuide();
