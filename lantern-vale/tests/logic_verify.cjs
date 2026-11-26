@@ -1158,6 +1158,7 @@ const createGuild = require('../server/guild.cjs');
 
   // 42. Phase v6b: 19 Grounded HD-Verified Palmov POIs (zero boats on land, zero Japanese temples), 20 Giant Field Bosses, Zero-WALL POIs & HD Settings Toggle
   const bpV6 = await import('../src/field_blueprints.js');
+  const settingsSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'settings.js'), 'utf8');
   const { DEFAULTS: renderDefaults } = await import(src('settings.js'));
   assert.equal(renderDefaults.pixel, 2, 'Fine is the default pixel size');
   assert.equal(Object.keys(p2bAssets.PALMOV_POIS).length, 16, 'All 16 grounded HD-verified Palmov POI GLBs registered');
