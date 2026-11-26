@@ -33,6 +33,7 @@ import { getActiveAccount, slotKeys } from './account.js';
 import { canCorruptGear, CORRUPT_UNLOCK_LV, nextMilestone } from './progression.js';
 import { applyHudIcons } from './icons.js';
 import { installHoverSystem } from './hover.js';
+import { updateFlameHud, flameHudHtmlPill } from './flame_hud.js';
 import { computeCozyMvps, getWeeklySpireInfo, contributeLighthouse, getLighthouseTitle, getClassTeamRole, isFeatureEnabled } from './mmo_protocol.js';
 
 const $ = id => document.getElementById(id);
@@ -970,6 +971,7 @@ export class UI {
         if (rf) { rf.style.width = `${Math.min(100, (cur / cm.max) * 100)}%`; rf.style.background = cm.color; }
         if (rn) rn.textContent = `${cur}/${cm.max}`;
       } }
+    const flameSnap = updateFlameHud(g);
     const sbEl = $('statusBar');
     if (sbEl) {
       const lang = g.settings?.lang || 'zh-TW';
@@ -987,6 +989,7 @@ export class UI {
       if (sb.sheep > 0) pills.push(`<span class="st-pill st-buff-sheep">🐑 軟綿祝福 ${Math.ceil(sb.sheep)}s</span>`);
       if (p.galeBuff) pills.push(`<span class="st-pill st-buff-gold">💨 疾風強化 +60%</span>`);
       if ((g.autopilot?.sparkBuffT || 0) > 0 && g.autopilot?.mode === 'off') pills.push(`<span class="st-pill st-spark">✨ 歸來星火 ×1.5 (${Math.ceil(g.autopilot.sparkBuffT)}s)</span>`);
+      if (flameSnap) { const fp = flameHudHtmlPill(flameSnap); if (fp) pills.push(fp); }
       if (p.realmRule) pills.push(`<span class="st-pill ${p.realmRule.pillClass || 'st-realm-sea'}">${p.realmRule.icon} ${p.realmRule.short}</span>`);
       if (p.terrainFx) pills.push(`<span class="st-pill ${p.terrainFx.pillClass || 'st-terrain-water'}">${p.terrainFx.icon} ${p.terrainFx.short}</span>`);
       const html = pills.join('');

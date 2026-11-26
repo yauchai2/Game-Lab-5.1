@@ -1,0 +1,76 @@
+{
+  "_doc": "Beaconfall Flame (lamp) tuning. Every number the lamp mechanic uses lives here; src/flame.js reads nothing else. Edit freely - tests only assert invariants (bounds, ordering), not exact values.",
+  "max": 100,
+  "startPct": 1.0,
+  "gain": {
+    "basicHit": 1.2,
+    "bowShot": 0.5,
+    "kill": 3,
+    "eliteKill": 6,
+    "bossKill": 25
+  },
+  "cost": {
+    "ultimate": 20,
+    "ultimateGate": false,
+    "hollowHitPct": 0.04
+  },
+  "regen": {
+    "insideLightPerSec": 10,
+    "townPerSec": 25
+  },
+  "drain": {
+    "outsideLightPerSec": 0.5
+  },
+  "radius": {
+    "starLantern": 14,
+    "campfire": 8,
+    "gate": 10
+  },
+  "safe": {
+    "hpPctPerSec": 0.008,
+    "manaPerSec": 3,
+    "autosave": true
+  },
+  "dimming": {
+    "graceSec": 14,
+    "stackEverySec": 10,
+    "maxStacks": 3,
+    "emptyFlameMinStacks": 2,
+    "decayInsideEverySec": 2,
+    "perStack": {
+      "speedMul": 0.05,
+      "regenMul": 0.25,
+      "viewMul": 0.12
+    }
+  },
+  "difficulty": {
+    "cozy": { "drainMul": 0.5, "maxStacks": 1 },
+    "standard": { "drainMul": 1, "maxStacks": 3 },
+    "veteran": { "drainMul": 1.35, "maxStacks": 3 }
+  },
+  "respawn": {
+    "flamePct": 0.6,
+    "hpPct": 1.0,
+    "manaPct": 1.0,
+    "iframes": 3,
+    "pushRadius": 9,
+    "pushStun": 1.6,
+    "offset": 1.8,
+    "delayMs": 900
+  },
+  "variants": {
+    "default": { "id": "dusk", "name": "Dimming", "icon": "🌑", "color": "#9aa4c8", "veil": "6,8,20", "drainMul": 1, "perStack": {} },
+    "byField": {
+      "3": { "id": "sporefog", "name": "Spore Fog", "icon": "🍄", "color": "#9bd08a", "veil": "20,34,18", "drainMul": 1.15, "perStack": { "regenMul": 0.3 } },
+      "4": { "id": "blizzard", "name": "Blizzard", "icon": "❄️", "color": "#bfe6ff", "veil": "190,215,235", "drainMul": 1.2, "perStack": { "speedMul": 0.07 } },
+      "5": { "id": "ashfall", "name": "Ashfall", "icon": "🌋", "color": "#ff9a60", "veil": "40,16,8", "drainMul": 1.1, "perStack": { "viewMul": 0.14 } }
+    },
+    "byBiome": {
+      "gothic": { "id": "gloom", "name": "Grave Gloom", "icon": "🪦", "color": "#b49cff", "veil": "18,10,30", "drainMul": 1.25, "perStack": { "viewMul": 0.15 } },
+      "deep_sea": { "id": "murk", "name": "Deep Murk", "icon": "🌊", "color": "#5ad0e0", "veil": "4,20,30", "drainMul": 1.1, "perStack": {} },
+      "desert": { "id": "sandveil", "name": "Sandveil", "icon": "🏜️", "color": "#e8c070", "veil": "50,36,14", "drainMul": 1.1, "perStack": { "viewMul": 0.14 } },
+      "scifi": { "id": "blackout", "name": "Blackout", "icon": "🛰️", "color": "#6ad8ff", "veil": "4,10,22", "drainMul": 1.1, "perStack": {} },
+      "alien": { "id": "hivedark", "name": "Hive Dark", "icon": "🪲", "color": "#d88aff", "veil": "24,8,30", "drainMul": 1.15, "perStack": {} }
+    }
+  }
+}

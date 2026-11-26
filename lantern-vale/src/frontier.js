@@ -11,6 +11,7 @@ import { buildZoneLandmarks } from './harbor.js';
 import { addGearToBag } from './physbag.js';
 import { milestoneText } from './progression.js';
 import { getFieldHotspot } from './mmo_protocol.js';
+import { markLanternLit } from './flame.js';
 import { grantLifeXp, getLifeSkillInfo, addDailyActivity } from './mmo_world.js';
 
 export const GOODS = { wood: '香杉木', ore: '星紋礦', fish: '溪銀魚' };
@@ -580,6 +581,7 @@ export function setupField(g, restored = false) {
       g.world.group.add(mesh);
       const cp = { idx, name: cpName || `檢查點 ${idx + 1}`, x: pt.x, z: pt.z, y, unlocked: saved.includes(idx), mesh };
       g.checkpoints.push(cp);
+      if (cp.unlocked && markLanternLit(g, g.field, idx)) g.meta.save();   // back-fill respawn points for existing saves
       g.spots.push({ kind: 'checkpoint', cpIdx: idx, label: `🔵 傳送檢查點 · ${cp.name}（[F] 瞬移）`, x: pt.x, z: pt.z, top: y + 2.4, mesh });
     });
   }
@@ -654,7 +656,8 @@ export function tickField(g, dt) {
       cp.unlocked = true;
       g.meta.p.unlockedCps = g.meta.p.unlockedCps || {};
       const list = Array.isArray(g.meta.p.unlockedCps[g.field]) ? g.meta.p.unlockedCps[g.field] : [0];
-      if (!list.includes(cp.idx)) { list.push(cp.idx); g.meta.p.unlockedCps[g.field] = list; g.meta.save(); }
+      if (!list.includes(cp.idx)) { list.push(cp.idx); g.meta.p.unlockedCps[g.field] = list; }
+      markLanternLit(g, g.field, cp.idx); g.meta.save();
       g.audio?.sfx?.('win');
       g.fx?.burst?.(cp.x, cp.y + 1.5, cp.z, 20, { c: [0x38d0ff, 0xffffff, 0x9cf2ff], s: 0.14, speed: 5, up: 4, life: 0.65 });
       g.ui?.toast?.(`🔵 已解鎖傳送檢查點：${cp.name}`, '#6ae8ff');
@@ -690,7 +693,8 @@ export function useFieldSpot(g,s) {
       cur.unlocked = true;
       p.unlockedCps = p.unlockedCps || {};
       const list = Array.isArray(p.unlockedCps[g.field]) ? p.unlockedCps[g.field] : [0];
-      if (!list.includes(cur.idx)) { list.push(cur.idx); p.unlockedCps[g.field] = list; g.meta.save(); }
+      if (!list.includes(cur.idx)) { list.push(cur.idx); p.unlockedCps[g.field] = list; }
+      markLanternLit(g, g.field, cur.idx); g.meta.save();
     }
     const unlocked = cps.filter(c => c.unlocked);
     if (unlocked.length <= 1) {
@@ -787,6 +791,14 @@ export function useFieldSpot(g,s) {
     }
     return true;
   }
+}
+// After dying in-field the gravestone appears where the player fell (setupField only adds it on entry).
+export function refreshGraveSpot(g) {
+  const keep = [];
+  for (const sp of g.spots) { if (sp.kind === 'grave') sp.mesh?.parent?.remove(sp.mesh); else keep.push(sp); }
+  g.spots.length = 0; g.spots.push(...keep);
+  const grave = g.meta.p.graves[g.field];
+  if (grave) addSpot(g, 'grave', '取回墓碑素材', grave.x, grave.z);
 }
 export function leaveGrave(g) {
   if (g.settings?.difficulty === 'cozy') { rememberGear(g); return 0; }

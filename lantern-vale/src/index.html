@@ -1321,7 +1321,7 @@ button,select,a,summary,.sk,.pz-cell,.pz-gem,.atlas button,.du-card,.sb-slot,.so
 }
 
 /* 5. 左下異常狀態列抬高避免蓋到旅人名稱；右側裝備對比移至右側欄左方避免重疊 */
-#statusBar{bottom:158px!important}
+#statusBar{bottom:186px!important}
 #tip{right:276px!important;bottom:96px!important;z-index:32!important}
 
 /* 6. 背包裝備格（深棕內底亮字）＋底部三鈕格線對齊不溢出右欄 */
@@ -1887,7 +1887,7 @@ body:has(#menuPop:not(.hide),[aria-modal="true"]:not(.hide)) #toasts{opacity:0}
 }
 .ambush-panel.playing .btn{font-size:13px;min-height:44px;padding:4px 9px!important}
 .ambush-panel.playing p{margin:0;font-size:12px}
-.ambush-trial :is(#btnMap,#btnMenu,#touchDetails,#rightStack,#topbar,#touchInteract,#chat,#pcLv,.pc-xp,#pcResWrap,#sk-s1,#sk-s2,#sk-s3,#skills .util,#skills .sk-sep,#quickTideUlt,#apStop,#myTag){display:none!important}
+.ambush-trial :is(#btnMap,#btnMenu,#touchDetails,#rightStack,#topbar,#touchInteract,#chat,#pcLv,.pc-xp,#pcResWrap,#pcFlameWrap,#dimVeil,#sk-s1,#sk-s2,#sk-s3,#skills .util,#skills .sk-sep,#quickTideUlt,#apStop,#myTag){display:none!important}
 @media(pointer:coarse){
   .ambush-keyboard{display:none}
   .ambush-touch{display:inline}
@@ -1994,6 +1994,20 @@ body:has(#menuPop:not(.hide),[aria-modal="true"]:not(.hide)) #toasts{opacity:0}
 #wipe::after{content:"";width:18px;height:18px;border-radius:50%;background:radial-gradient(circle,#fff6d6 0%,#ffd85a 55%,transparent 75%);opacity:.75;animation:bsGlow .7s ease-in-out infinite alternate}
 .lv-loading{display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 8px;color:#6c5746;font-size:13px}
 .lv-loading i{width:8px;height:8px;border-radius:50%;background:#d89c32;display:inline-block;animation:bsGlow .8s ease-in-out infinite alternate}
+
+/* Beaconfall Flame: lamp bar, Dimming pill and dark veil (cream-brown pixel UI) */
+#pcard .fl .pc-ic{color:#f08a2c}
+#pcard .fl-bar{position:relative;height:14px;margin:4px;overflow:hidden;background:#5a3826;image-rendering:pixelated}
+#pcard .fl-bar i{display:block;height:100%;width:100%;background:repeating-linear-gradient(90deg,#ffb255 0 8px,#f08a2c 8px 10px);transition:width .18s,filter .2s}
+#pcard .fl-bar i.low{background:repeating-linear-gradient(90deg,#e8643a 0 8px,#c44a2a 8px 10px);animation:flFlicker .5s steps(2) infinite}
+#pcard .fl.in-light .fl-bar{box-shadow:var(--box),0 0 0 2px #ffe08a inset}
+#pcard .fl.dimmed .pc-num{color:#8a4a2a}
+#pcard .fl.empty .pc-ic{filter:grayscale(1) brightness(.8)}
+@keyframes flFlicker{50%{filter:brightness(1.25)}}
+#statusBar .st-dim{background:#3b3550;color:var(--dim-c,#cfd4ff);box-shadow:0 0 0 2px #1f1a30}
+#dimVeil{position:fixed;inset:0;pointer-events:none;z-index:4;opacity:0;transition:opacity .8s;
+  background:radial-gradient(ellipse closest-side at center,rgba(var(--veil-rgb,6,8,20),0) var(--veil-in,62%),rgba(var(--veil-rgb,6,8,20),var(--veil-a,.4)) 100%)}
+#dimVeil.on{opacity:1}
 </style>
 </head>
 <body>
@@ -2109,6 +2123,7 @@ body:has(#menuPop:not(.hide),[aria-modal="true"]:not(.hide)) #toasts{opacity:0}
   <div id="hoverBadge"></div>
   <div id="photoBadge" class="hide">📷 拍照純淨模式 · 按 P 恢復介面</div>
   <div id="boss" class="hide"><div class="name"></div><div class="bar"><div class="fill"></div></div><div class="bparts" style="display:flex;justify-content:center;gap:6px;margin-top:4px;flex-wrap:wrap"></div></div>
+  <div id="dimVeil" aria-hidden="true"></div>
   <div id="statusBar"></div>
   <div id="pcard" class="panel">
     <canvas id="pcFeather" width="45" height="12"></canvas>
@@ -2117,6 +2132,7 @@ body:has(#menuPop:not(.hide),[aria-modal="true"]:not(.hide)) #toasts{opacity:0}
       <div class="pc-name" id="pcName">旅人</div>
       <div class="pc-row hp"><span class="pc-ic">♥</span><div class="pc-bar"><canvas id="pcHp" width="100" height="10"></canvas></div><span class="pc-num" id="hpText"></span></div>
       <div class="pc-row mp"><span class="pc-ic">★</span><div class="pc-bar"><canvas id="pcMp" width="100" height="10"></canvas></div><span class="pc-num" id="mpText"></span></div>
+      <div class="pc-row fl" id="pcFlameWrap"><span class="pc-ic">🔥</span><div class="pc-bar fl-bar"><i id="pcFlameFill"></i></div><span class="pc-num" id="pcFlameNum"></span></div>
       <div class="pc-xp"><i></i></div>
       <div class="pc-res" id="pcResWrap"><span id="pcResLabel">🛡️ 堅壁戰意</span><div class="pc-res-track"><i id="pcResFill"></i></div><b id="pcResNum">0/100</b></div>
     </div>

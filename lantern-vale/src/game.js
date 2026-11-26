@@ -1,8 +1,10 @@
 import { Weather } from './weather.js';
 import { bindGuild, updateRaid } from './guild.js';
-import { FIELDS, FIELD_BOSS_SPEC, fieldBiome, awardKill, grantExperience, setupField, tickField, useFieldSpot, leaveGrave, rememberGear, restoreGear } from './frontier.js';
+import { FIELDS, FIELD_BOSS_SPEC, fieldBiome, awardKill, grantExperience, setupField, tickField, useFieldSpot, leaveGrave, refreshGraveSpot, rememberGear, restoreGear } from './frontier.js';
 import { FIELD_BLUEPRINTS } from './field_blueprints.js';
 import { getTerrainEffect, updateFieldTerrainFx, updateRealmRule } from './terrain_fx.js';
+import { updateFlame, onBasicHit, onKill as onFlameKill, onPlayerHurt as onFlameHurt, findRespawn, applyRespawnState, FLAME_CFG } from './flame.js';
+import { syncLightRings } from './flame_fx.js';
 import { buildDungeonScenery } from './dungeon_scene.js';
 import { CLASSES, ensurePuzzle, computeBoard, ALL_GEMS, addGemToBag } from './puzzle.js';
 import { dayInfo, findSecondClass, buildDungeonLandmark, tickSkyFeatures, buildInterior } from './world_alive.js';
@@ -1279,6 +1281,7 @@ export class Game {
     this.shake = Math.max(this.shake, e.type === 'stag' ? 1 : e.elite ? 0.42 : 0.22);
     if (e.elite || e.type === 'stag') this.camPunch = e.type === 'stag' ? 0.2 : 0.11;
     const p = this.player; p.kills++;
+    onFlameKill(this, e);
     if (e.expeditionId && e.expeditionTier === meadowExpedition(this.meta.p).active?.tier) {
       completeMeadowObjective(this, e.expeditionId, e.brokenWeakens?.has('spores'));
       if (e.sporeGuardian) for (const zone of this.groundZones) {
@@ -1500,6 +1503,7 @@ export class Game {
     if (this.runStats) this.runStats.dmgMitigated += Math.max(0, Math.round(rawDmg - dmg));
     this.ambushTrial?.playerHit(Math.min(dmg, p.hp), trialSource, trialAttack);
     p.hp -= dmg; p.iframes = 0.35;
+    if (src) onFlameHurt(this, dmg);               // Hollow hits burn Flame
     this.hurtFlash = 0.5; this.shake = Math.max(this.shake, 0.38); this.hitstop = 0.06;
     // 劇烈衝擊液體瓶（左右晃動＋水花四濺）
     const dirSign = src ? Math.sign(p.pos.x - src.x || 1) : 1;
@@ -1554,7 +1558,15 @@ export class Game {
     const lost = cave ? 0 : leaveGrave(this); this.audio.sfx('dead'); this.audio.setMusic('title', 0);
     this.puffs.burst(this.player.pos.x, 0.5, this.player.pos.z, 20, { c: [0x2f8a7e, 0xd9543a, 0xffd36e], s: 0.2, speed: 4, life: 1 });
     this.player.m.root.visible = false;
+    // Beaconfall Phase 2: die in a field -> wake at the nearest lit star lantern (no lit lantern: back to town as before)
+    const respawn = !cave && this.field > 0 ? findRespawn(this) : null;
     setTimeout(() => {
+      if (respawn && this.state === 'dead' && this.field > 0) {
+        const spoilNote = (lostSpoils.lostCoins > 0 || lostSpoils.lostShards > 0)
+          ? ` · 未結算戰利品袋遺失 50%（-${lostSpoils.lostCoins}金 / -${lostSpoils.lostShards}星砂）` : '';
+        this.respawnAtLantern(respawn, lost, spoilNote);
+        return;
+      }
       this.enterTown();
       const spoilMsg = (lostSpoils.lostCoins > 0 || lostSpoils.lostShards > 0)
         ? ` · 未結算戰利品袋遺失 50%（-${lostSpoils.lostCoins}金 / -${lostSpoils.lostShards}星砂）`
@@ -1566,6 +1578,34 @@ export class Game {
       }
       this.ui.banner('在燈谷鎮甦醒', (lost ? '墓碑保管了 ' + lost + ' 份素材 · ' + FIELDS[this.originField || 1].name : '裝備與星砂已保留') + spoilMsg);
     }, 900);
+  }
+  // Wake at a lit star lantern inside the current field. Enemies, loot and field state stay as they were.
+  respawnAtLantern(rp, lostGoods = 0, spoilNote = '') {
+    const p = this.player, R = FLAME_CFG.respawn;
+    const ang = Math.atan2(p.pos.z - rp.z, p.pos.x - rp.x);
+    let x = rp.x + Math.cos(ang) * R.offset, z = rp.z + Math.sin(ang) * R.offset;
+    if (!this.world.isWalk(x, z)) { x = rp.x; z = rp.z; }
+    const y = this.world.gh(x, z);
+    p.pos.set(x, y, z); p.y = y; p.vel.set(0, 0, 0); p.vy = 0;
+    p.air = p.climbing = p.gliding = false; p.roll = 0; p.sitting = null;
+    p.lastLow?.set(x, y, z); this.camPos?.set?.(x, 0, z);
+    if (p.statuses) for (const k in p.statuses) p.statuses[k] = 0;
+    applyRespawnState(this);
+    this.state = 'play'; p.m.root.visible = true;
+    p.heroRig?.play('idle', { force: true });
+    // push nearby enemies back so the player is not instantly chain-killed
+    for (const e of this.enemies) {
+      if (e.dead) continue;
+      const dx = e.pos.x - x, dz = e.pos.z - z, d = Math.hypot(dx, dz);
+      if (d < R.pushRadius) { const k = 8 / Math.max(d, 0.5); e.knock.x += dx * k * 0.3; e.knock.z += dz * k * 0.3; e.stun = Math.max(e.stun || 0, R.pushStun); }
+    }
+    refreshGraveSpot(this);
+    this.audio.sfx('revive'); this.audio.setMusic(this.musicKey || 'town', this.enemies.length ? 1 : 0);
+    this.puffs.burst(x, y + 0.6, z, 26, { c: [0xffe87a, 0xffa83a, 0xffffff], s: 0.2, speed: 5, up: 4.5, life: 0.8 });
+    this.fx.burst(x, y + 1.2, z, 18, { c: [0x38d0ff, 0xffffff], s: 0.12, speed: 4, up: 3.5, life: 0.6 });
+    this.fade = 0.6;
+    this.ui.banner('在星燈旁甦醒', `${rp.name || 'Star Lantern'} · ` + (lostGoods ? '墓碑保管了 ' + lostGoods + ' 份素材（回原地取回）' : '裝備與星砂已保留') + spoilNote);
+    this.meta.save();
   }
   victory() { this.bankRun(1); this.meta.p.best.wins++; this.meta.save(); this.audio.sfx('win'); this.state = 'win'; this.ui.showWin(this); }
 
@@ -1762,6 +1802,7 @@ export class Game {
       this.fx.burst(p.pos.x, p.y + 0.5, p.pos.z, 10, { c: [0x7ae8ff, 0xffffff], s: 0.12, speed: 4, up: 1, life: 0.35 });
     }
     if (this.meta.p.weapon === 'bow') {
+      onBasicHit(this, 'bow');
       this.fireProj(p.pos, dir, { speed: 21, mult: p.air ? 1.15 : .85, color: p.air ? 0x8ef0ff : 0xebd69f, size: .09, life: .85, airShot: p.air }); return;
     }
     const range = meleeReach(p);
@@ -1790,6 +1831,7 @@ export class Game {
       hitAny = true;
     }
     if (hitAny) {
+      onBasicHit(this, 'melee');
       this.shake = Math.max(this.shake, 0.12);
       this.gainClassRes(this.character?.job === 0 ? 18 : this.character?.job === 2 ? 22 : 1);
     }
@@ -3223,9 +3265,10 @@ export class Game {
       p.perfectDodgeCd = Math.max(0, (p.perfectDodgeCd || 0) - dt);
       p.perfectCritT = Math.max(0, (p.perfectCritT || 0) - dt);
       p.leechBuffT = Math.max(0, (p.leechBuffT || 0) - dt);
-      p.mana = Math.min(S.mana, p.mana + dt * 7 * (1 + (S.manaRegen || 0) / 100));
-      if (S.regen) this.heal(S.regen * dt, false);
-      if (p.specials.has('mossRegen')) this.heal(S.maxHp * 0.02 * dt, false);
+      const dimRegen = this.flameRt?.fx?.regenMul ?? 1;            // Flame: Dimming lowers natural regen
+      p.mana = Math.min(S.mana, p.mana + dt * 7 * (1 + (S.manaRegen || 0) / 100) * dimRegen);
+      if (S.regen) this.heal(S.regen * dt * dimRegen, false);
+      if (p.specials.has('mossRegen')) this.heal(S.maxHp * 0.02 * dt * dimRegen, false);
       if (p.healOver > 0) { p.healOver -= dt; this.heal(p.healRate * dt, false); }
       if (!this.ui.invOpen && !this.ui.setOpen && !this.ui.panelOpen && !this.ui.puzzleOpen) {
         if (p.inputBuf) {
@@ -3303,6 +3346,7 @@ export class Game {
       }
       updateFieldTerrainFx(this, dt);
       updateRealmRule(this, dt, this.field ? FIELDS[this.field]?.realmRule : null);
+      updateFlame(this, dt); syncLightRings(this, dt);
       p.sprinting = false;
       const frozen = (p.statuses?.freeze || 0) > 0;
       const mountDef = this.mount?.def || null;
@@ -3330,7 +3374,7 @@ export class Game {
         const mountSpd = mountDef ? mountDef.speedMult : 1;
         const buffSpd = ((this.shrineBuffs?.fury || 0) > 0 ? 1.2 : 1) * ((this.shrineBuffs?.sheep || 0) > 0 ? 1.1 : 1);
         const glideSpd = p.gliding ? (p.souls?.mobility?.id === 'skyray' ? 1.95 : 1.35) : 1;
-        const terrainSpd = (p.terrainFx ? (p.terrainFx.speedMult || 1) : 1) * (p.realmRule?.speedMult || 1);
+        const terrainSpd = (p.terrainFx ? (p.terrainFx.speedMult || 1) : 1) * (p.realmRule?.speedMult || 1) * (this.flameRt?.fx?.speedMul ?? 1);
         const devSpd = (this.dev?.on && this.dev?.fastMove) ? 2.2 : 1;
         const f = chillMul * mountSpd * buffSpd * terrainSpd * devSpd * (attacking ? 0.55 : 1) * (p.climbing ? 0.22 : 1) * glideSpd * (canSprint ? 1.25 : 1);
         if (mountDef?.ramKnockback && mv.lengthSq() > 0.2) {

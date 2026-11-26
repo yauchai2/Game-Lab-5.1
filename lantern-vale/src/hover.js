@@ -2,6 +2,7 @@
 // 涵蓋 55+ 獨立 UI 元素（顆粒級資訊卡）、Tab 小地圖標記偵測、3D 世界全物件與微音效節流
 import { CLASSES, ACTIVE_GEMS, unlockedCount } from './puzzle.js';
 import { FIELDS, xpForNextLevel } from './frontier.js';
+import { flameSnapshot, FLAME_CFG } from './flame.js';
 import { FIELD_BLUEPRINTS } from './field_blueprints.js';
 import { FAMILY_META, getRealmRule } from './terrain_fx.js';
 import { getFieldDanger, nextMilestone } from './progression.js';
@@ -331,6 +332,11 @@ export function installHoverSystem(game) {
     if (el.closest?.('#pcard .pc-row.mp')) {
       const regen = (7 * (1 + (S.manaRegen || 0) / 100)).toFixed(1);
       return { title: `★ ${Math.floor(p?.mana || 0)}/${S.mana || 35}`, key: `連放 ${p?.castCombo || 0}/3`, chips: [`💧+${regen}/s`], accent: '#62b4ff' };
+    }
+    if (el.closest?.('#pcard .pc-row.fl')) {
+      const fs = flameSnapshot(g), c = FLAME_CFG;
+      const where = !fs.dark ? '安全區（城鎮／副本）' : fs.safe ? `光圈內 · ${fs.zone?.name || '光源'}` : `光圈外 · Dimming ×${fs.dim}`;
+      return { title: `🔥 Flame ${Math.ceil(fs.value)}/${fs.max}`, key: where, body: `燈焰值與法力並存。普攻 +${c.gain.basicHit}、擊殺 +${c.gain.kill}；大招消耗 ${c.cost.ultimate}、被怪物打中會燒掉 ${Math.round(c.cost.hollowHitPct * 100)}%。已點亮的星燈／營火／城門有安全光圈，圈外 Flame 會慢慢燒盡並疊加 Dimming（移速、回復、視野下降）。`, chips: [`光圈內 +${c.regen.insideLightPerSec}/s`, `圈外 -${c.drain.outsideLightPerSec}/s`], accent: '#ff9a3c' };
     }
     if (el.closest?.('#pcard .pc-xp')) {
       const lv = pr.level || 1, need = xpForNextLevel(lv);

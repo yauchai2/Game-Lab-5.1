@@ -1,3 +1,4 @@
+import { onUltimate as onFlameUltimate, canSpend, FLAME_CFG } from './flame.js';
 import * as THREE from 'three';
 import { toonMat } from './world.js';
 import { clamp, lerp, pick } from './util.js';
@@ -636,14 +637,21 @@ function spawnClassUltimate(g, u) {
   g.ui.toast(`${u.icon} ${u.name} 發動！`, u.color);
 }
 
+function canCastWithFlame(g) {
+  if (!FLAME_CFG.cost.ultimateGate || canSpend(g, FLAME_CFG.cost.ultimate)) return true;
+  g.audio?.sfx?.('ui'); g.ui?.toast?.(`Flame 不足（需要 ${FLAME_CFG.cost.ultimate}）· 回到星燈旁或擊殺怪物回復`, '#ff9a50');
+  return false;
+}
 export function castUltimate(g) {
   if (!g.tide) g.tide = createTideState();
+  if (g.meta && !canCastWithFlame(g)) return false;
   const u = consumeUltimate(g.tide);
   if (!u) {
     g.audio.sfx('ui');
     g.ui.toast(`大絕充能中（${Math.floor(g.tide.ultCharge)}%）· 擊殺怪物累積熱度即可充能`, '#ffd85a');
     return false;
   }
+  if (g.meta) onFlameUltimate(g);   // Beaconfall: ultimates burn Flame (soft cost unless ultimateGate is on)
   if (['dragon', 'phoenix', 'whale', 'wolf', 'spirit_sun'].includes(u.id)) spawnClassUltimate(g, u);
   else if (u.id === 'storm') spawnLanternStorm(g);
   else if (u.id === 'hound') spawnBigPuppy(g);
