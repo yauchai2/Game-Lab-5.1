@@ -6,7 +6,7 @@ const { chromium } = require('playwright');
   const url = process.env.LV_GAME_URL || 'http://localhost:8080/';
   const browser = await chromium.launch({
     channel: process.env.LV_CHROMIUM_CHANNEL || 'chrome',
-    args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
+    args: process.env.LV_SOFTWARE_GL === '0' ? [] : ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
   });
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 }, hasTouch: true });
@@ -56,13 +56,16 @@ const { chromium } = require('playwright');
     }, n);
     const defeat = async () => page.evaluate(() => {
       for (const enemy of __game.enemies.filter(e => !e.dead)) __game.hitEnemy(enemy, { dmg: 100000, crit: false, fire: false });
+      const mats = __game.meta.p.mMats;
+      return [mats.boar_tusk || 0, mats.thorn_bark || 0];
     });
 
     await start();
     await page.evaluate(() => { __game.meta.p.keys = 0; __game.meta.save(); });
     await openTracker();
     await page.locator('[data-exp-tier="1"][data-exp-route="survey"]').click();
-    await field();
+    await page.locator('[data-exp-warp]').click();
+    await page.waitForFunction(() => __game.zone === 'field:1' && __game.state === 'play');
     console.log('Entered the grassland');
     await openCave();
     assert.ok(await page.locator('[data-cave-tier="normal"]').isDisabled());
@@ -114,19 +117,24 @@ const { chromium } = require('playwright');
     });
     await page.waitForFunction(() => __game.boss?.state === 'meadow-strike');
     await screenshot('lantern-cave-boss.png');
-    await defeat();
+    // Enemy drops are independent of the guaranteed clear reward.
+    const normalMats = await defeat();
     await page.waitForFunction(() => __game.cleared && __game.exits.some(exit => exit.type === 'caveReturn' && exit.on));
     const rewards = await page.evaluate(() => {
       const p = JSON.parse(localStorage.getItem(__game.meta.key));
       return [p.meadowCave.active, p.meadowCave.clears.normal, p.mMats.boar_tusk, p.mMats.thorn_bark, p.keys];
     });
-    assert.deepEqual(rewards, [null, 1, 3, 3, 0]);
+    assert.deepEqual(rewards, [null, 1, normalMats[0] + 3, normalMats[1] + 3, 0]);
     await page.evaluate(() => __game.roomCleared());
-    assert.equal(await page.evaluate(() => __game.meta.p.mMats.boar_tusk), 3);
+    assert.equal(await page.evaluate(() => __game.meta.p.mMats.boar_tusk), rewards[2]);
     await moveTo({ exitType: 'caveReturn' });
     await page.waitForFunction(() => __game.zone === 'field:1' && __game.caveRun === null);
 
-    await page.evaluate(() => { __game.meta.p.keys = 1; __game.meta.save(); });
+    await page.evaluate(() => {
+      __game.meta.p.keys = 1;
+      __game.meta.p.goods.ore = 0;
+      __game.meta.save();
+    });
     await page.setViewportSize({ width: 390, height: 844 });
     await openCave(true);
     assert.match(await page.locator('#panelM').textContent(), /各 ×4/);
@@ -139,11 +147,33 @@ const { chromium } = require('playwright');
     assert.deepEqual(await page.evaluate(() => __game.enemies.map(e => e.type)), ['boar', 'boar', 'thorn']);
     await defeat();
     await stage(2);
-    await defeat();
+    const eliteMats = await defeat();
     await page.waitForFunction(() => __game.meta.p.meadowCave.clears.elite === 1);
-    assert.deepEqual(await page.evaluate(() => [__game.meta.p.keys, __game.meta.p.mMats.boar_tusk, __game.meta.p.mMats.thorn_bark]), [0, 7, 7]);
+    assert.deepEqual(await page.evaluate(() => [__game.meta.p.keys, __game.meta.p.mMats.boar_tusk, __game.meta.p.mMats.thorn_bark]), [0, eliteMats[0] + 4, eliteMats[1] + 4]);
+    await page.locator('[data-cc-forge]').tap();
+    const recipe = page.locator('#panelM [data-recipe-id]').first();
+    assert.equal(await recipe.getAttribute('data-recipe-id'), 'rec_tusk_staff');
+    assert.match(await recipe.textContent(), /還差 星紋礦 ×2/);
+    assert.ok(await recipe.getByRole('button', { name: '鍛造' }).isDisabled());
+    assert.equal(await page.locator('#panelM').evaluate(el => el.scrollWidth <= el.clientWidth + 1), true);
+    await page.waitForFunction(() => getComputedStyle(document.getElementById('wipe')).clipPath.startsWith('circle(0%'));
+    await screenshot('lantern-cave-workshop-mobile.png');
+    await page.evaluate(() => {
+      __game.meta.p.goods.ore = 2;
+      __game.meta.p.level = 4;
+      __game.meta.save();
+      __game.ui.openPanel('workshop', { recipeId: 'rec_tusk_staff' });
+    });
+    assert.match(await recipe.textContent(), /材料齊備 · Lv.5 才能穿戴/);
+    await recipe.getByRole('button', { name: '鍛造' }).tap();
+    const crafted = await page.evaluate(() => {
+      const p = JSON.parse(localStorage.getItem(__game.meta.key));
+      return [p.goods.ore, p.mMats.boar_tusk, p.mMats.thorn_bark,
+        p.bagItems.some(item => item.name.includes('狂豬利牙戰杖'))];
+    });
+    assert.deepEqual(crafted, [0, eliteMats[0], eliteMats[1] + 1, true]);
     assert.deepEqual(errors, []);
-    console.log('Passed expedition key, cave entrance, all waves, boss telegraph, saved checkpoint across reload, one-time payout and mobile panel.');
+    console.log('Passed expedition key, cave entrance, all waves, boss telegraph, saved checkpoint across reload, one-time payout, mobile workshop, and crafting below equip level.');
   } finally {
     await browser.close();
   }

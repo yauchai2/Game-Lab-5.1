@@ -1,6 +1,6 @@
 import { GOODS, craft, rememberGear, xpForNextLevel } from './frontier.js';
 import { CLASSES } from './puzzle.js';
-import { MONSTER_MATS, GEAR_RECIPES, canCraftRecipe, craftMonsterGear } from './mmo_rpg.js';
+import { MONSTER_MATS, GEAR_RECIPES, missingRecipeCosts, craftMonsterGear } from './mmo_rpg.js';
 import { RARITY, fmtOf, canEquipItem, itemReqLevel, itemScore } from './loot.js';
 import { addGearToBag } from './physbag.js';
 const labels = { slime:'苔團', thorn:'棘木靈', boar:'岩背野豬', moth:'暮光蛾', stag:'古樹鹿王' };
@@ -34,10 +34,10 @@ function settle(p, now) {
   }
   p.sales = pending;
 }
-export function buildLodge(g, body, title, kind) {
+export function buildLodge(g, body, title, kind, recipeId = null) {
   const p = g.meta.p, now = Date.now();
   settle(p, now); g.meta.save();
-  const refresh = () => buildLodge(g, body, title, kind);
+  const refresh = () => buildLodge(g, body, title, kind, recipeId);
   title.textContent = { market:'溪畔拍賣行', home:'旅人小屋', workshop:'素材工坊' }[kind];
   body.replaceChildren();
   const line = (label, hint) => {
@@ -65,19 +65,40 @@ export function buildLodge(g, body, title, kind) {
     action(line('NPC 商人每五分鐘調價','已裝備及鍛造的物品綁定角色。'),'結算',true,()=>{});
   } else if (kind === 'workshop') {
     const mm = p.mMats || {};
-    line('📦 怪物鍛造材料庫', Object.values(MONSTER_MATS).map(m => `${m.icon}${m.name} ×${mm[m.id] || 0}`).join('　'));
-    for (const rec of GEAR_RECIPES) {
+    const materialStock = () => line('📦 怪物鍛造材料庫', Object.values(MONSTER_MATS)
+      .map(m => `${m.icon}${m.name} ×${mm[m.id] || 0}`).join('　'));
+    const preferred = GEAR_RECIPES.find(rec => rec.id === recipeId);
+    const resourceLabel = key => ({ coins: '金幣', shards: '星砂' })[key] || GOODS[key] || MONSTER_MATS[key]?.name || key;
+    const renderRecipe = rec => {
       const c = rec.cost || {};
       const gdStr = Object.entries(c.goods || {}).map(([k, n]) => `${GOODS[k] || k}×${n}`).join(' ');
       const matStr = Object.entries(c.mMats || {}).map(([k, n]) => `${MONSTER_MATS[k]?.icon || ''}${MONSTER_MATS[k]?.name || k}×${n}`).join(' ');
       const costStr = `🪙${c.coins || 0}${c.shards ? ` 💎${c.shards}` : ''}${gdStr ? ` ${gdStr}` : ''} ${matStr}`;
       const rName = RARITY[rec.rarity]?.name || '裝備';
       const reqLv = rec.reqLevel || 1;
-      const lvBadge = (p.level || 1) >= reqLv ? `Lv.${reqLv}+` : `🔒需Lv.${reqLv}`;
+      const missing = missingRecipeCosts(p, rec);
+      const shortage = missing.map(({ key, count }) => `${resourceLabel(key)} ×${count}`).join('、');
+      const levelNote = (p.level || 1) < reqLv ? `Lv.${reqLv} 才能穿戴` : `Lv.${reqLv} 裝備`;
+      const title = `${rec === preferred ? '洞窟素材配方 · ' : ''}${rec.name} · T${rec.tier} ${rName}`;
+      const row = line(title, `${shortage ? '還差 ' + shortage : '材料齊備'} · ${levelNote}`);
+      row.dataset.recipeId = rec.id;
+      const costInfo = document.createElement('small');
+      costInfo.textContent = `配方需求 ${costStr.trim()} · ${rec.desc}`;
+      row.firstElementChild.append(document.createElement('br'), costInfo);
+      if (rec === preferred) {
+        const sources = [];
+        if (missing.some(({ key }) => key === 'ore')) sources.push('星紋礦可開採或向拍賣行購買');
+        if (missing.some(({ key }) => key === 'boar_tusk')) sources.push('狂豬有機會掉落利牙');
+        if (sources.length) {
+          const sourceInfo = document.createElement('small');
+          sourceInfo.textContent = sources.join(' · ');
+          row.firstElementChild.append(document.createElement('br'), sourceInfo);
+        }
+      }
       action(
-        line(`【T${rec.tier} ${rName} · ${lvBadge}】${rec.name}`, `${rec.desc} ｜ 需求：${costStr}`),
+        row,
         '鍛造',
-        canCraftRecipe(p, rec),
+        !missing.length,
         () => {
           const res = craftMonsterGear(p, rec.id, fmtOf);
           if (!res.ok) return;
@@ -95,7 +116,10 @@ export function buildLodge(g, body, title, kind) {
           g.audio?.sfx?.(it.rarity >= 3 ? 'corruptGod' : 'classup');
         },
       );
-    }
+    };
+    if (preferred) renderRecipe(preferred);
+    materialStock();
+    for (const rec of GEAR_RECIPES) if (rec !== preferred) renderRecipe(rec);
     action(line('基礎鍛造（隨機詞綴）','香杉木 ×2、星紋礦 ×3'), '鍛造',p.goods.wood>=2 && p.goods.ore>=3,()=>{const name=craft(g); if(name) g.ui.toast('裝備了 '+name);});
     action(line('製作副本鑰石','星紋礦 ×2'), '製作',p.goods.ore>=2,()=>{p.goods.ore-=2;p.keys++;});
     action(line('鑲嵌餘燼寶石','星紋礦 ×4 · 解鎖 Q 震擊 · 附加 4 點火傷'),p.gem?'已鑲嵌':'鑲嵌',!p.gem && p.goods.ore>=4,()=>{p.goods.ore-=4;p.gem=true;});
