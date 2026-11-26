@@ -178,11 +178,11 @@ export function syncOpeningEncounter(g) {
   boar.openingPractice = true;
   boar.level = FIELDS[1].level;
   initParts(boar, []);
-  boar.hp = boar.maxHp = Math.round(boar.maxHp * 0.61);
-  boar.dmg *= 0.48;
+  boar.hp = boar.maxHp = Math.round(boar.maxHp * 0.82);
+  boar.dmg *= 0.72;
   boar.cd = 0;
   boar.chargeWindS = 1.1;
-  boar.chargeRecoveryS = 1.2;
+  boar.chargeRecoveryS = 1.05;
 }
 
 export function lightOpeningLamp(g) {

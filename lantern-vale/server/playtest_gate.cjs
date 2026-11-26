@@ -61,9 +61,9 @@ function createPlaytestGate(file) {
   }
   async function block(req, res, url) {
     const entry = url.pathname === '/' || url.pathname === '/index.html';
-    res.setHeader('Cache-Control', 'private, no-store');
-    if (url.pathname === '/__dev/events') { res.writeHead(404).end(); return true; }
+    if (url.pathname === '/__dev/events') { res.setHeader('Cache-Control', 'private, no-store'); res.writeHead(404).end(); return true; }
     if (authorized(req)) return false;
+    res.setHeader('Cache-Control', 'private, no-store');
     if (!entry) { res.writeHead(401).end(); return true; }
 
     if (req.method === 'POST') {

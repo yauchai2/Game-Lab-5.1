@@ -1,5 +1,29 @@
 # 交接說明（Claude → Codex，2026-11-22）
 
+## 2026-11-26 3 秒內資產載入極速優化、物理背包實體體積防重疊修復與 UI 簡約重構階段四
+
+- **建置雜湊**：`game/index.html` `293a2ee0b7fe`（2090KB）。`node tests/logic_verify.cjs`（55/55 全通過）、`node tests/playtest_review.cjs`、`node --check server/server.js` 與 `node --check server/playtest_gate.cjs` 全通過。
+- **目標 3 秒內資產載入極速優化（`src/index.html`、`src/characters.js`、`src/itemdb.js`、`src/ui.js`、`server/server.js`、`server/playtest_gate.cjs`、`game/assets/char/tex/*.png`）**：
+  - **全平台標題畫面瘦身**：移除桌面端開局 `preloadAllCharacterAnims()`，全平台（桌機＋手機）於標題畫面啟用 `theaterVfx` `lazy: true` 與 5 位島嶼英雄／換裝英雄 `lazyAnim: true`，首屏僅下載 `index.html`（541KB br）＋`creator_mountain_ship.glb`（391KB br）＋`adventurer_base.glb`（1,162KB br）≈ **2.09 MB Brotli**（首屏省下約 4.5 MB br 動畫與特效檔案）。
+  - **並行預載與角色貼圖壓縮**：於 `<head>` 加入核心 3D 模型 `<link rel="preload" as="fetch" crossorigin>`，讓瀏覽器解析 JS 時同步下載浮島與英雄；並將 `game/assets/char/tex/` 中超過 256px 的 PNG 貼圖壓縮至最高 256px（**1.5 MB → 576 KB，降幅 62%**）。
+  - **伺服器端資產快取、ETag 與 304 協商**：修正 `playtest_gate.cjs` 使 `Cache-Control: private, no-store` 僅套用於未登入／登入頁回應；`server/server.js` 對 `/assets/*` 啟用 `Cache-Control: private, max-age=86400`（受保護環境）或 `public, max-age=86400`、`ETag`／`304 Not Modified` 與 **32MB LRU 記憶體壓縮快取（`_assetCache`）**，消除跨網試玩重複下載與即時壓縮延遲（需重啟遠端 8082 服務生效）。
+  - **裝備圖示自動重試與破圖防護**：`loadItemImage()` 加入最多 2 次退避重試，`artImg()` 加入失敗重試 1 次與隱藏破圖降級，解決弱網／隧道高併發下出現破圖圖示的問題。
+- **物理背包修復左上角卡死與實體體積防重疊（`src/physbag.js`、`src/itemdb.js`）**：
+  - **根除左上角 `(0,0)` 卡死**：新增 `_sanitize()` 過濾與修復 `NaN`/`Infinity` 座標、角度與速度上限（`|vx|,|vy| <= 620`、`|vang| <= 8`），於 `_pos(e)` 防護零寬高畫布除以零，並改以 `_clampBounds()` 單軸最大穿透推回取代多圓累加推力。
+  - **實體體積防重疊**：`getItemSilhouette()` 提升覆蓋密度至最多 14 顆實體圓並放大半徑貼合圖片本體；物理引擎升級為 **2 子步 × 8 輪 PBD 位置分離迭代**（即時更新累積偏移並維持 `1.5px` 實體間距，推擠後立即執行邊界約束），讓裝備與道具擁有紮實實體體積且不再互相穿透重疊。
+- **UI 簡約重構階段四（`src/index.html`、`src/lodge.js`、`src/panels.js`）**：
+  - 新增 CrispPixel 木質金邊 `.panel-tabs` 分頁列（觸控裝置 `min-height: 40px`），將**工坊（Workshop）**拆為「裝備鍛造／武器與鑰石」2 分頁、**鍛造屋（Forge）**拆為「精煉與詞綴／潛能與符文／腐化改造／前往工坊」4 分頁、**冒險者公會（Guild Hall）**拆為「每日與懸賞／小隊與試煉／公會與階級」3 分頁，徹底收斂長捲動資訊牆。
+
+## 2026-11-26 像素大小簡化
+
+- 畫面設定保留「關閉」（原畫解析度）及「細」（兩倍像素）。新設定及舊的標準／粗都使用「細」，既有的「關閉」選擇會保留。
+
+## 2026-11-26 步行任務與戰鬥難度
+
+- 巡燈旅程、區域遠征、洞窟挑戰與續戰、首通徽章及工坊路線共用光路。開始遠征不會換場景，玩家走到相應出口、洞口或鐵匠鋪才可進入。洞窟鑰石仍於入口成功開始時扣除，續戰沿用已付票券。
+- `src/progression.js` 集中 Lv.1–5、Lv.6–10 及更高等級的戰鬥節奏。Lv.1–5 基礎普攻 1.45 → 0.94 次／秒、技能冷卻 ×1.55、技能共用出招間隔 0.9 秒、玩家傷害 ×0.82、回魔速度 ×0.66。同級早期遭遇的敵人生命 ×1.22、傷害 ×1.30，幼狂豬也另有強化。滾動閃避保留獨立冷卻。
+- 尋路用距離估計優先搜尋，大地圖走北側出口或回程不需要全圖掃描才找到路。回歸檢查走區域出口、洞口扣票、洞窟續戰和走到鐵匠鋪領獎。
+
 ## 2026-11-26 登入角色自動引路
 
 - 角色每次出發自動開啟任務光路。新角色在鎮上直接看到通往晨光草原的燈火。有續行目標的存檔沿現有任務路線引導。任務面板可關閉當次光路，重開面板不會自行恢復。

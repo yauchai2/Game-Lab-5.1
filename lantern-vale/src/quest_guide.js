@@ -7,6 +7,34 @@ const SPACING = 1.35;
 const PLAYER_RADIUS = 0.38;
 const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 
+function pushRouteCell(queue, cell) {
+  let i = queue.length;
+  queue.push(cell);
+  while (i > 0) {
+    const parent = (i - 1) >> 1;
+    if (queue[parent].priority <= cell.priority) break;
+    queue[i] = queue[parent];
+    i = parent;
+  }
+  queue[i] = cell;
+}
+
+function popRouteCell(queue) {
+  const root = queue[0];
+  const last = queue.pop();
+  if (!queue.length) return root;
+  let i = 0;
+  while (2 * i + 1 < queue.length) {
+    let child = 2 * i + 1;
+    if (child + 1 < queue.length && queue[child + 1].priority < queue[child].priority) child++;
+    if (last.priority <= queue[child].priority) break;
+    queue[i] = queue[child];
+    i = child;
+  }
+  queue[i] = last;
+  return root;
+}
+
 export function findQuestRoute(world, boxes, start, target, interior) {
   // Use the player's collision footprints and subdivide edges so lights cannot cut corners.
   const height = interior ? () => 0 : (x, z) => world.gh(x, z);
@@ -47,36 +75,48 @@ export function findQuestRoute(world, boxes, start, target, interior) {
   const sx = cellX(start.x), sz = cellX(start.z);
   const parents = new Int32Array(side * side).fill(-2);
   const queue = [];
+  const costs = new Float64Array(parents.length).fill(Infinity);
+  const closed = new Uint8Array(parents.length);
+  const targetWalkable = walk(target.x, target.z);
   for (let dz = -1; dz <= 1; dz++) {
     for (let dx = -1; dx <= 1; dx++) {
       const x = sx + dx, z = sz + dz;
       if (x < 0 || x >= side || z < 0 || z >= side) continue;
       const index = z * side + x;
-      if (!canConnect(start, toPoint(index), true)) continue;
+      const point = toPoint(index);
+      if (!canConnect(start, point, true)) continue;
       parents[index] = -1;
-      queue.push(index);
+      costs[index] = distance(start, point);
+      pushRouteCell(queue, { index, priority: costs[index] + distance(point, target) });
     }
   }
   const offsets = [[1, 0], [-1, 0], [0, 1], [0, -1]];
   let nearest = -1, nearestDistance = 1.65;
-  for (let head = 0; head < queue.length && head < 10000; head++) {
-    const index = queue[head], point = toPoint(index);
+  for (let visited = 0; queue.length && visited < parents.length;) {
+    const { index } = popRouteCell(queue);
+    if (closed[index]) continue;
+    closed[index] = 1;
+    visited++;
+    const point = toPoint(index);
     const remaining = distance(point, target);
     if (remaining < nearestDistance) {
       nearest = index;
       nearestDistance = remaining;
-      if (remaining < spacing * 0.75 || canConnect(point, target)) break;
+      if ((!targetWalkable && remaining <= 1.4) || remaining < spacing * 0.75 || canConnect(point, target)) break;
     }
 
     const x = index % side, z = Math.floor(index / side);
     for (const [dx, dz] of offsets) {
       const nx = x + dx, nz = z + dz, next = nz * side + nx;
-      if (nx < 0 || nx >= side || nz < 0 || nz >= side || parents[next] !== -2) continue;
+      if (nx < 0 || nx >= side || nz < 0 || nz >= side || closed[next]) continue;
+      const cost = costs[index] + spacing;
+      if (cost >= costs[next]) continue;
       const end = toPoint(next);
-      if (!walk(end.x, end.z)) { parents[next] = -3; continue; }
+      if (!walk(end.x, end.z)) { closed[next] = 1; continue; }
       if (!canConnect(point, end)) continue;
+      costs[next] = cost;
       parents[next] = index;
-      queue.push(next);
+      pushRouteCell(queue, { index: next, priority: cost + distance(end, target) });
     }
   }
   if (nearest < 0) return [];

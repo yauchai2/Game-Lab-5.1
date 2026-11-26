@@ -48,7 +48,7 @@ const { createPlaytestGate } = require('../server/playtest_gate.cjs');
     assert.match(cookie, /HttpOnly; Secure; SameSite=Strict/);
     const headers = { cookie: cookie.split(';')[0] };
     assert.match(await (await fetch(base + trial, { headers })).text(), /window\.LV_SERVER=true/);
-    assert.equal((await fetch(base + image, { headers })).headers.get('cache-control'), 'private, no-store');
+    assert.equal((await fetch(base + image, { headers })).headers.get('cache-control'), 'private, no-cache');
     assert.equal((await fetch(base + '/__dev/events', { headers })).status, 404);
 
     const socket = extra => new WebSocket(`ws://127.0.0.1:${port}/ws`, { ...extra, handshakeTimeout: 5000 });

@@ -96,23 +96,25 @@ export function questNavigationTarget(g) {
   const inRegion = region => !g.interior && (region === 0 ? g.depth === -1 && !g.field : g.field === region);
   const caveExit = g.exits?.find(exit => exit.type === 'caveReturn' && exit.on);
 
-  if (g.caveRun) return step === 'badge' && caveExit
+  const destination = g.questDestination;
+  if (g.caveRun) return caveExit && (destination || step === 'badge')
     ? { x: caveExit.x, z: caveExit.z, label: '返回晨光草原' } : null;
+  if (destination === 'cave' || (!destination && (step === 'resume' || (step === 'support' && profile.keys > 0)))) {
+    if (!inRegion(1)) return nextMapLeg(g, 1);
+    const door = g.spots.find(spot => spot.kind === 'meadowCave');
+    return door ? { x: door.x, z: door.z, label: '草原洞窟入口' } : null;
+  }
+  if (destination || step === 'badge') {
+    if (!inRegion(0)) return nextMapLeg(g, 0);
+    const kind = destination === 'guild' ? 'guild' : 'forge';
+    const place = g.spots.find(spot => spot.kind === kind);
+    return place ? { x: place.x, z: place.z, label: kind === 'guild' ? '燈谷公會大廳' : '鐵匠鋪' } : null;
+  }
   if (active && meadowStage(active) !== 'reward') {
     const region = MEADOW_TIERS[active.tier].field;
     return inRegion(region) ? meadowObjective(g) : nextMapLeg(g, region);
   }
   if (step === 'lamp' || step === 'spar') return inRegion(1) ? meadowObjective(g) : nextMapLeg(g, 1);
-  if (step === 'resume' || (step === 'support' && profile.keys > 0)) {
-    if (!inRegion(1)) return nextMapLeg(g, 1);
-    const door = g.exits.find(exit => exit.type === 'dungeon' && exit.on);
-    return door ? { x: door.x, z: door.z, label: '草原洞窟' } : null;
-  }
-  if (step === 'badge') {
-    if (!inRegion(0)) return nextMapLeg(g, 0);
-    const forge = g.spots.find(spot => spot.kind === 'forge');
-    return forge ? { x: forge.x, z: forge.z, label: '鐵匠鋪' } : null;
-  }
   return null;
 }
 

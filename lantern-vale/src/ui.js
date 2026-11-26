@@ -264,6 +264,7 @@ export class UI {
       enterCharacter();
       beginOpening(game.meta.p);
       game.questGuide.enabled = true;
+      game.questDestination = null;
       game.meta.save();
       game.net.connect(game.playerName, game.hoodIdx, game.party);
       $('title').classList.add('hide'); $('hud').classList.remove('hide'); game.enterTown();
@@ -380,10 +381,11 @@ export class UI {
       };
     });
   }
-  // 物品圖示 <img>（透明 PNG）；沒有圖時回傳空字串由呼叫端用欄位字剪影
+  // 物品圖示 <img>（透明 PNG，載入失敗自動重試一次並隱藏破圖避免醜陋缺圖框）
   artImg(o, size = 128, cls = 'eq-art') {
     const id = resolveArtId(o), url = id && itemIconUrl(id, size);
-    return url ? `<img class="${cls}" src="${url}" alt="" draggable="false" decoding="async">` : '';
+    if (!url) return '';
+    return `<img class="${cls}" src="${url}" alt="" draggable="false" decoding="async" onerror="if(!this.dataset.r){this.dataset.r=1;setTimeout(()=>{this.src=this.src.split('?')[0]+'?r=1';},350);}else{this.style.display='none';}">`;
   }
   renderBagEquipStrip(game) {
     const el = $('bagEquipStrip'); if (!el) return;
@@ -1194,7 +1196,7 @@ export class UI {
             support: '準備寶石，進入草原洞窟',
             resume: '繼續草原洞窟',
             badge: '打造首通獎勵 · 巡燈徽章',
-            next: '選擇下一站 · 遠征或洞窟',
+            next: g.questDestination === 'cave' ? '前往草原洞窟入口' : '選擇下一站 · 遠征或洞窟',
           }[step];
           qFl.style.width = '0%';
         } else if (showExpedition) {
