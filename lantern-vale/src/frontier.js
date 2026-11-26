@@ -4,7 +4,7 @@ import { BIOMES, mulberry32 } from './util.js';
 import { toonMat, part } from './world.js';
 import { attachLandmarkGlb, attachPalmovPoi } from './assets.js';
 import { FIELD_BLUEPRINTS, uvToWorld } from './field_blueprints.js';
-import { makeItem, serializeItem, deserializeItem } from './loot.js';
+import { makeItem, deserializeItem, rememberGear } from './loot.js';
 import { ALL_GEMS, addGemToBag } from './puzzle.js';
 import { spawnSkyFeatures, startGatherMini, openHighChest, FIELD_NPCS } from './world_alive.js';
 import { buildZoneLandmarks } from './harbor.js';
@@ -66,10 +66,7 @@ export const progressDefaults = {
   level: 1, xp: 0, coins: 15, keys: 1, goods: { wood: 0, ore: 0, fish: 0 }, graves: {}, timers: {},
   gear: {}, species: {}, home: 0, mealUntil: 0, weapon: 'staff', gem: false, sales: [],
 };
-export function rememberGear(g) {
-  g.meta.p.gear = Object.fromEntries(Object.entries(g.player.equip).map(([slot,it]) => [slot, serializeItem(it)]));
-  g.meta.save();
-}
+export { rememberGear };
 export function restoreGear(g, player) {
   for (const [slot, item] of Object.entries(g.meta.p.gear)) {
     if (item && Object.hasOwn(player.equip, slot)) player.equip[slot] = deserializeItem(item);

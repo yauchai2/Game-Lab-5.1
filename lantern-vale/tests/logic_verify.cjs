@@ -556,6 +556,20 @@ const createGuild = require('../server/guild.cjs');
   assert.equal(aeMock.player.equip.staff.name, strongStaff.name, 'Stronger staff equipped');
   assert.ok(aeMock.meta.p.bagItems.some(b => b.kind === 'gear' && b.name === weakStaff.name), 'Replaced weak staff returned to bag');
 
+  assert.equal(aeMock.meta.p.gear.staff.name, strongStaff.name, 'Auto-equip persists the upgraded weapon');
+  const headBefore = loot.makeItem(() => 0.2, 0, 0, 'head');
+  const headNext = loot.makeItem(() => 0.8, 4, 0, 'head');
+  aeMock.player.equip.head = headBefore;
+  aeMock.audio = { sfx() {} };
+  aeMock.ui = { toast() {} };
+  let savedGear;
+  aeMock.meta.save = () => { savedGear = structuredClone(aeMock.meta.p); };
+  physbag.addGearToBag(aeMock.meta.p, headNext);
+  assert.ok(physbag.useBagItem(aeMock, aeMock.meta.p.bagItems.at(-1), 'bagItems'));
+  assert.equal(savedGear.gear.head.name, headNext.name, 'Manual equip persists the new item on the character');
+  assert.ok(savedGear.bagItems.some(entry => entry.name === headBefore.name), 'Previous gear is saved in the bag');
+  assert.ok(savedGear.bagItems.every(entry => entry.name !== headNext.name), 'New gear is saved exactly once');
+
   // 19. Salvage Trash Gear to Shards (preserves rare/unique & upgrades)
   const trashNormal = loot.makeItem(() => 0.1, 0, 0, 'staff');
   const keepRare = loot.makeItem(() => 0.5, 2, 2, 'staff');
