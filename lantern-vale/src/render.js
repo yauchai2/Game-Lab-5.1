@@ -11,7 +11,7 @@ export class Pipeline {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.info.autoReset = false;
-    this.pixelScale = 3;
+    this.pixelScale = 2;
     this.normalMat = new THREE.MeshNormalMaterial();
     this.postScene = new THREE.Scene();
     this.postCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
