@@ -115,6 +115,19 @@ export class AmbushTrial {
     this.buttons.next.onclick = () => { this.index++; this.start(); };
     this.buttons.stop.onclick = () => this.finish('abandoned');
     this.buttons.export.onclick = () => this.download();
+    addEventListener('keydown', e => {
+      if (this.game.state !== 'trial-result' || this.active || e.repeat || e.defaultPrevented || e.isComposing) return;
+      const a = document.activeElement;
+      if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA')) return;
+      if (e.code === 'KeyR') {
+        e.preventDefault();
+        this.start(true);
+      } else if ((e.code === 'Enter' || e.code === 'Space') && !e.target.closest?.('button, a[href], summary')) {
+        e.preventDefault();
+        if (this.index === 0) { this.index++; this.start(); }
+        else this.start(true);
+      }
+    });
     this.status.textContent = '兩場短戰鬥。每場都可以重試。';
     this.buttons.start.focus();
   }

@@ -1067,7 +1067,15 @@ export class Game {
     if ((e.level || 1) - (this.meta.p.level || 1) >= 6) mult *= 0.55;
     if ((e.type === 'stag' || e.isWorldBoss || e.isTideBoss) && (p.bossDmgPct || 0) > 0) mult *= (1 + p.bossDmgPct / 100);
     let dmg = Math.round(hit.dmg * mult);
-    const isCounter = !opts.isDoT && e.state === 'rest' && e.t < (e.chargeRecoveryS || 0);
+    const isAimInterrupt = !opts.isDoT && e.type === 'thorn' && e.state === 'aim';
+    if (isAimInterrupt) {
+      e.state = 'rest';
+      e.t = 0;
+      e.chargeRecoveryS = 0.75;
+      e.stun = Math.max(e.stun, 0.35);
+      e.m.body.scale.set(1, 1, 1);
+    }
+    const isCounter = isAimInterrupt || (!opts.isDoT && e.state === 'rest' && e.t < (e.chargeRecoveryS || 0));
     if (isCounter) {
       dmg = Math.round(dmg * 1.5);
       hit = { ...hit, crit: true };
@@ -1596,7 +1604,10 @@ export class Game {
       enemy.state = 'rest';
       enemy.t = 0;
       if (this.state !== 'play' || enemy.stun > 0 || enemy.statuses?.freeze > 0) return;
-      if (enemy.meadowPounce) this.moveEntity(enemy.pos, x - enemy.pos.x, z - enemy.pos.z, enemy.r);
+      if (enemy.meadowPounce) {
+        enemy.chargeRecoveryS = 0.72;
+        this.moveEntity(enemy.pos, x - enemy.pos.x, z - enemy.pos.z, enemy.r);
+      }
       this.audio.sfx('slam');
       this.puffs.burst(x, y + 0.25, z, 8, { c: [0xffbe73, 0xffe8ac], s: 0.18, speed: 3.6, life: 0.45 });
       if (Math.abs(this.player.y - y) < 1.5 && Math.hypot(this.player.pos.x - x, this.player.pos.z - z) < radius) {
@@ -3754,10 +3765,10 @@ export class Game {
               mvx = mvz = 0;
             }
           }
-        } else if (e.state === 'rest' && e.t > 0.62) {
+        } else if (e.state === 'rest' && e.t >= (e.chargeRecoveryS ?? 0.62)) {
           e.state = 'move'; e.cd = 1.45 + e.ph * 0.08;
         }
-        e.m.body.position.y = e.state === 'meadow-strike' ? Math.sin(Math.min(1, e.t / 0.85) * Math.PI) * 0.64 : Math.abs(Math.sin(e.t * 6 + e.ph)) * 0.25;
+        e.m.body.position.y = e.state === 'meadow-strike' ? Math.sin(Math.min(1, e.t / 0.85) * Math.PI) * 0.64 : (e.state === 'rest' ? 0 : Math.abs(Math.sin(e.t * 6 + e.ph)) * 0.25);
         const sq = 1 + Math.sin(e.t * 12 + e.ph) * 0.08;
         e.m.body.scale.set(sq, 2 - sq, sq);
       } else if (e.type === 'thorn') {
@@ -3770,7 +3781,7 @@ export class Game {
               e.rootCastLast = true;
               this.queueMeadowStrike(e, p.pos.x, p.pos.z, 2.65, 1.1, 1.15);
               mvx = mvz = 0;
-            } else { e.state = 'aim'; e.t = 0; }
+            } else { e.state = 'aim'; e.t = 0; this.audio.sfx('hover'); }
           }
         } else if (e.state === 'aim') {
           const s = 1 + Math.sin(e.t * 40) * 0.08; e.m.body.scale.set(s, s, s);
@@ -3784,7 +3795,7 @@ export class Game {
             }
             e.state = 'move'; e.cd = 2.0 + (this.ambushTrial ? this.rng() : Math.random()); e.m.body.scale.set(1, 1, 1);
           }
-        } else if (e.state === 'rest' && e.t > 0.9) {
+        } else if (e.state === 'rest' && e.t >= (e.chargeRecoveryS ?? 0.9)) {
           e.state = 'move'; e.cd = 0.9;
         }
       } else if (e.type === 'boar') {
@@ -3934,15 +3945,39 @@ export class Game {
       e.m.root.position.set(e.pos.x, e.pos.y, e.pos.z);
       if (e.m.shadowRing) e.m.shadowRing.position.y = -flyH + 0.06;
       e.m.root.rotation.y = e.facing;
+      const inThornAim = e.type === 'thorn' && e.state === 'aim';
+      if (inThornAim) {
+        const aimDur = e.expeditionName ? 0.85 : 0.55;
+        const aimRem = Math.max(0, 1 - e.t / aimDur);
+        if (!e.m.aimRing) {
+          const ag = new THREE.RingGeometry(0.84, 1.0, 24); ag.rotateX(-Math.PI / 2);
+          e.m.aimRing = new THREE.Mesh(ag, new THREE.MeshBasicMaterial({ color: 0x9bd85a, transparent: true, opacity: 0.75, side: THREE.DoubleSide, depthWrite: false }));
+          e.m.aimRing.position.y = 0.09; e.m.aimRing.userData.noNormal = true; e.m.aimRing.renderOrder = 3;
+          e.m.root.add(e.m.aimRing);
+        }
+        e.m.aimRing.visible = true;
+        e.m.aimRing.scale.setScalar(0.35 + 1.0 * aimRem);
+        e.m.aimRing.material.opacity = 0.35 + 0.5 * (1 - aimRem);
+      } else if (e.m.aimRing) {
+        e.m.aimRing.visible = false;
+      }
       const recDur = e.chargeRecoveryS || 0;
-      const inRestOpening = e.type === 'boar' && e.state === 'rest' && recDur > 0 && e.t < recDur;
+      const inRestOpening = e.state === 'rest' && recDur > 0 && e.t < recDur;
       if (inRestOpening) {
         const rem = Math.max(0, 1 - e.t / recDur);
         const ease = Math.min(1, e.t / 0.12) * Math.min(1, (recDur - e.t) / 0.2);
-        e.m.body.rotation.x = 0.28 * ease;
-        const pant = Math.sin(e.t * 14) * 0.09;
-        if (e.squash > 0) e.m.body.scale.set(1 + e.squash * 0.7, 1 - e.squash * 0.55, 1 + e.squash * 0.7);
-        else e.m.body.scale.set(1 + pant, 1 - pant * 0.85, 1 + pant);
+        if (e.type === 'boar') {
+          e.m.body.rotation.x = 0.28 * ease;
+          const pant = Math.sin(e.t * 14) * 0.09;
+          if (e.squash > 0) e.m.body.scale.set(1 + e.squash * 0.7, 1 - e.squash * 0.55, 1 + e.squash * 0.7);
+          else e.m.body.scale.set(1 + pant, 1 - pant * 0.85, 1 + pant);
+        } else if (e.type === 'slime') {
+          if (e.squash > 0) e.m.body.scale.set(1 + e.squash * 0.7, 1 - e.squash * 0.55, 1 + e.squash * 0.7);
+          else e.m.body.scale.set(1.28, 0.62, 1.28);
+        } else if (e.type === 'thorn') {
+          e.m.body.rotation.x = -0.24 * ease;
+          if (e.squash > 0) e.m.body.scale.set(1 + e.squash * 0.7, 1 - e.squash * 0.55, 1 + e.squash * 0.7);
+        }
         if (!e.m.restRing) {
           const rg = new THREE.RingGeometry(0.84, 1.0, 28); rg.rotateX(-Math.PI / 2);
           e.m.restRing = new THREE.Mesh(rg, new THREE.MeshBasicMaterial({ color: 0xffcf4a, transparent: true, opacity: 0.78, side: THREE.DoubleSide, depthWrite: false }));
@@ -3953,7 +3988,7 @@ export class Game {
         e.m.restRing.scale.setScalar(0.45 + 1.25 * rem);
         e.m.restRing.material.opacity = 0.35 + 0.55 * rem;
       } else {
-        if (e.type === 'boar') e.m.body.rotation.x = 0;
+        if (e.type === 'boar' || e.type === 'thorn') e.m.body.rotation.x = 0;
         if (e.m.restRing) e.m.restRing.visible = false;
         if (e.squash > 0) e.m.body.scale.set(1 + e.squash * 0.7, 1 - e.squash * 0.55, 1 + e.squash * 0.7);
         else if (e.type !== 'slime' && e.state !== 'aim') e.m.body.scale.set(1, 1, 1);
