@@ -943,14 +943,20 @@ export function tickSimAdventurers(g, dt) {
     if (a.m.legR) a.m.legR.position.z = moving ? -sw * 0.12 : 0;
 
     if (!isMid && a.tag && g.ui?.screenPos) {
-      const [sx, sy] = g.ui.screenPos(a.x, a.y + 2.15 + hopY, a.z);
-      const vis = sx > -120 && sx < (typeof innerWidth !== 'undefined' ? innerWidth + 120 : 2000) && sy > -80 && sy < (typeof innerHeight !== 'undefined' ? innerHeight + 80 : 2000);
-      a.tag.style.display = vis ? 'block' : 'none';
-      a.tag.style.transform = `translate(${sx}px, ${sy}px) translate(-50%,-100%)`;
-      a.tag.classList.toggle('following', !!a.following);
-      if (a.bub) {
-        a.bub.style.transform = `translate(${sx}px, ${sy - 22}px) translate(-50%,-100%)`;
-        a.bub.style.opacity = vis && a.sayT > 0 ? 1 : 0;
+      const showTag = !!(a.following || distSq <= 8.5 * 8.5);
+      if (!showTag) {
+        a.tag.style.display = 'none';
+        if (a.bub) a.bub.style.opacity = 0;
+      } else {
+        const [sx, sy] = g.ui.screenPos(a.x, a.y + 2.15 + hopY, a.z);
+        const vis = sx > -120 && sx < (typeof innerWidth !== 'undefined' ? innerWidth + 120 : 2000) && sy > -80 && sy < (typeof innerHeight !== 'undefined' ? innerHeight + 80 : 2000);
+        a.tag.style.display = vis ? 'block' : 'none';
+        a.tag.style.transform = `translate(${sx}px, ${sy}px) translate(-50%,-100%)`;
+        a.tag.classList.toggle('following', !!a.following);
+        if (a.bub) {
+          a.bub.style.transform = `translate(${sx}px, ${sy - 22}px) translate(-50%,-100%)`;
+          a.bub.style.opacity = vis && a.sayT > 0 ? 1 : 0;
+        }
       }
     }
   }

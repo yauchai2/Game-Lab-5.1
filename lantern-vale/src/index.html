@@ -1939,6 +1939,46 @@ body:has(#menuPop:not(.hide),[aria-modal="true"]:not(.hide)) #toasts{opacity:0}
 .tip-art{width:58px;height:58px;object-fit:contain;flex:none;filter:drop-shadow(0 2px 0 rgba(0,0,0,.5))}
 .tip-title{min-width:0}
 .mod-desc{font-size:12.5px;margin-top:2px}
+/* ===== 階段一：極簡常駐 HUD、名牌清場與手機半透明圓鈕 ===== */
+#tags{z-index:1!important}
+#pcard{z-index:14!important}
+.ptag.sim-adv{background:transparent!important;border-color:transparent!important;box-shadow:none!important;padding:1px 4px!important;font-size:11.5px!important;opacity:.86;border-radius:6px!important}
+.ptag.sim-adv .sim-ti,.ptag.sim-adv .sim-lv{display:none!important}
+.ptag.sim-adv:hover{background:rgba(36,22,28,.78)!important;border-color:rgba(255,224,150,.55)!important;opacity:1}
+.ptag.sim-adv.following{background:rgba(28,68,42,.72)!important;border-color:rgba(127,224,138,.65)!important;opacity:1}
+#topbar,#fieldCompass,#questTracker,#worldActivity,#autoHud{
+  background:rgba(30,19,24,.50)!important;border-image:none!important;
+  border:1px solid rgba(255,224,150,.24)!important;border-radius:10px!important;
+  box-shadow:0 2px 8px rgba(0,0,0,.22)!important;backdrop-filter:blur(4px);
+}
+#topbar{padding:5px 12px!important;font-size:12.5px!important}
+#fieldCompass{padding:5px 12px!important;font-size:12px!important}
+#rightStack{width:214px!important;gap:6px!important}
+#questTracker{padding:7px 10px!important}
+#questTracker .qt-head{background:transparent!important;border:0!important;border-image:none!important;padding:0!important;margin-bottom:2px!important;box-shadow:none!important}
+#questTracker .qt-desc{font-size:11.5px!important;opacity:.92}
+#worldActivity{opacity:.72;transition:opacity .15s}
+#worldActivity:hover,#worldActivity[open]{opacity:1}
+#worldActivity > summary{padding:5px 10px!important;font-size:11.5px!important;background:transparent!important;border:0!important}
+#hud #skills .sk{border-image:none!important;background:rgba(30,19,24,.62)!important;border:1.5px solid rgba(255,224,150,.38)!important;border-radius:10px!important;box-shadow:0 2px 8px rgba(0,0,0,.28)!important}
+@media (any-pointer: coarse){
+  #touchMove{background:rgba(24,16,22,.32)!important;border:1.5px solid rgba(255,232,168,.42)!important;box-shadow:none!important;backdrop-filter:blur(3px)}
+  #touchMove span{background:rgba(255,246,226,.78)!important;border:1.5px solid rgba(43,29,51,.55)!important;box-shadow:none!important}
+  #touchInteract{border-radius:999px!important;padding:0 16px!important;background:rgba(28,18,24,.66)!important;border:1.5px solid rgba(255,226,150,.55)!important;box-shadow:0 2px 8px rgba(0,0,0,.28)!important}
+  #hud #skills{grid-template-columns:repeat(3,var(--touch-size))!important;align-items:center!important;justify-items:center!important;gap:8px!important}
+  #hud #skills .sk,.touch-key{
+    border-radius:50%!important;background:rgba(28,18,24,.54)!important;
+    border:1.5px solid rgba(255,226,150,.48)!important;color:#fff6e2!important;
+    box-shadow:0 2px 8px rgba(0,0,0,.28)!important;backdrop-filter:blur(3px);
+    transition:transform .08s,background .08s!important;
+  }
+  .touch-key:active,.touch-key.held{transform:scale(.92)!important;background:rgba(255,216,90,.82)!important;color:#2b1d14!important}
+  #skills #touchAttack{
+    grid-column:span 1!important;width:62px!important;height:62px!important;min-width:62px!important;min-height:62px!important;
+    background:rgba(244,198,86,.84)!important;color:#2b1d14!important;border:2px solid #fff3cf!important;font-size:15px!important;
+  }
+  #skills #touchAttack.held{background:rgba(255,224,116,.96)!important}
+}
 </style>
 </head>
 <body>
