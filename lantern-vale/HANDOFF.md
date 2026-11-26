@@ -10,6 +10,7 @@
 
 ## 2026-11-26 三色極簡戰鬥語彙統一、手機防長按選字、統一測試入口（`?test`）、密碼 `0000` 與內建 AI 自動打
 
+- **極簡試玩入口頁（`src/test_hub.js`）**：針對陌生測試者重設計 `/?test` 畫面，主視覺僅保留標題、一句說明、「▶ 開始戰鬥試玩」與「進入完整遊戲」兩顆清晰按鈕；將 `AB／BA` 順序、技能風格、AI 自動打、複製連結、組隊代碼與 build 雜湊全部收合至底部「進階測試選項 ▾」。
 - **三色極簡戰鬥語彙統一（`src/game.js`）**：依手機真人實測回饋，將棘芽射手蓄力環由黃綠（`0x9bd85a`）改為鮮紅（`0xff4d5a`），徹底與金色破綻環（`0xffcf4a`）區分，全遊戲統一為「紅＝即將出招／危險（閃避或打斷）、金＝收招破綻（1.5 倍反打）、青藍＝玩家完美閃避必暴」。
 - **手機長按 UI 防選字與防呼出選單（`src/index.html`、`src/touch.js`、`src/ui.js`）**：補齊 iOS Safari／行動瀏覽器必備的 `-webkit-user-select: none`、`-webkit-touch-callout: none`、`-webkit-tap-highlight-color: transparent`、`-webkit-user-drag: none` 與 `touch-action` 設定（同時保留 `input`／`textarea` 正常輸入選字），並於搖桿、普攻、跳躍滑翔、翻滾與快捷技能槽攔截非被動 `touchstart`、`selectstart` 與 `contextmenu`，長按按鈕不再觸發系統選字放大鏡或複製選單。
 - **內建 AI 自動打（`src/ambush_trial.js`、`src/test_hub.js`）**：於岔道伏擊面板與 `/?test` 統一測試入口頁新增「🤖 AI 自動打」按鈕（支援網址 `?bot=1` 進場自動開打、戰鬥中隨時切換接手）；內建 Bot 會自動側閃／翻滾躲狂豬衝鋒與荊棘彈、優先反打金色破綻與打斷棘芽蓄力、自動施放第 1 格技能（如 `❄ 霜緩`／`♥ 汲血`）與喝藥。
