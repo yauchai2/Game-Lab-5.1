@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
 <meta name="lv-build" content="__LV_BUILD_ID__">
 <title>燈谷行 Lantern Vale</title>
+<link rel="preload" href="assets/char/adventurer_base.glb" as="fetch" crossorigin>
+<link rel="preload" href="assets/scenes/creator_mountain_ship.glb" as="fetch" crossorigin>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%233b2a2a'/%3E%3Ccircle cx='16' cy='16' r='9' fill='%23ffd85a'/%3E%3C/svg%3E">
 <style>
 @font-face{
@@ -1675,6 +1677,9 @@ html{scrollbar-color:var(--cp-gold-sh) var(--cp-wood-dark);scrollbar-width:thin}
 :is(.pbody,.sbody,.inv-pane,.cx-box,.sim-card,.sim-roster-box,.acct-box) :where(small,.psmall,.hint){
   font-size:var(--ui-type-detail);line-height:1.5;
 }
+.quest-guide-controls{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-block:8px 10px}
+.quest-guide-controls[hidden]{display:none}
+@media (pointer:coarse){.quest-guide-controls .btn{min-height:44px}}
 .pbody .prow{gap:10px;align-items:center}
 .pbody .prow .pl{min-width:0}
 .pbody .prow .btn{max-width:55%;white-space:normal}
@@ -2013,6 +2018,38 @@ body:has(#menuPop:not(.hide),[aria-modal="true"]:not(.hide)) #toasts{opacity:0}
 .panel-tabs button:hover{background:var(--cp-wood-hi)!important;color:var(--cp-ink)!important;text-shadow:none!important}
 .panel-tabs button.on{background:var(--cp-gold)!important;color:var(--cp-ink)!important;text-shadow:0 1px 0 var(--cp-gold-hi)!important;box-shadow:inset 0 3px 0 var(--cp-gold-hi),inset 0 -3px 0 var(--cp-gold-sh),var(--cp-box)!important;transform:translateY(-2px)}
 @media(pointer:coarse){.panel-tabs button{min-height:40px}}
+/* Opening guidance shares the HUD without covering the ground telegraphs. */
+#openingCombatCue,#openingSupportCue{
+  position:absolute;left:50%;transform:translateX(-50%);z-index:16;text-align:center;
+  padding:5px 9px;max-width:calc(100% - 24px);width:max-content;
+  color:var(--cp-parchment-hi);background:var(--cp-ink);border:2px solid var(--cp-gold);
+  box-shadow:var(--cp-boxsh);font-size:13px;pointer-events:none;
+}
+#openingCombatCue{top:max(100px,24%);}
+#openingCombatCue[data-action=counter]{top:var(--cue-y);left:var(--cue-x);border-color:var(--cp-ok-hi);}
+#openingSupportCue{bottom:24%;border-color:var(--cp-ok-hi);}
+#hud.opening-combat ~ #toasts,#hud.opening-combat #worldActivity,#hud.opening-combat #banner,
+#hud:is(.opening-arrival,.opening-combat) #tags .sim-adv{visibility:hidden}
+#hud.opening-cave-boss #banner{top:32%!important;width:min(90%,420px)}
+#hud.opening-cave-boss #banner h2{font-size:clamp(16px,3vw,24px)}
+#hud.opening-cave-boss ~ #toasts{top:calc(var(--edge-top, 10px) + 202px)!important}
+#banner{width:min(90%,500px)}
+#banner h2{max-width:100%;text-wrap:balance}
+#heroPillRole{color:var(--cp-parchment-hi);background:var(--cp-ink);border:1px solid var(--cp-gold);padding:2px 7px;text-align:center;font-size:12px;}
+#title .cr-brand{white-space:nowrap}
+@media(max-width:760px){
+  #title .cr-top{display:grid;gap:5px}
+  #title .cr-top-right :is(button,select){white-space:nowrap}
+}
+@media(max-width:600px){
+  #hud.opening-cave-boss #banner{top:max(268px,35%)!important}
+  #hud.opening-combat #fieldTarget{top:max(160px,calc(var(--edge-top) + 154px))!important}
+  #openingCombatCue{top:max(209px,25%)}
+}
+
+.opening-badge-card{padding:12px;border:2px solid var(--cp-gold);background:var(--cp-parchment-hi)}
+.opening-badge-card p{margin:6px 0}
+.opening-badge-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 </style>
 </head>
 <body>
@@ -2173,6 +2210,7 @@ body:has(#menuPop:not(.hide),[aria-modal="true"]:not(.hide)) #toasts{opacity:0}
   <div id="tags"></div><div class="ptag me" id="myTag"></div><div class="pbub" id="myBub"></div>
   <div id="chat"><div id="chatLog"></div><input id="chatIn" class="hide" maxlength="120" placeholder="說點什麼…" autocomplete="off"><div class="touch-only" id="touchChatActions"><button type="button" class="touch-key" id="btnChatClose" data-i18n="close">關閉</button><button type="button" class="touch-key" id="btnChatSend" data-i18n="touchSend">送出</button></div><div class="chatHint">Enter 聊天 · 1–4 表情</div></div>
   <div id="banner"><h2></h2><p></p></div>
+  <div id="openingCombatCue" role="status" hidden></div><div id="openingSupportCue" role="status" hidden></div>
 </div>
 
 <div id="title">
@@ -2195,6 +2233,7 @@ body:has(#menuPop:not(.hide),[aria-modal="true"]:not(.hide)) #toasts{opacity:0}
       <span id="heroPillName">守燈衛士</span>
       <button type="button" id="btnHeroNext" aria-label="下一位英雄">▶</button>
     </div>
+    <div id="heroPillRole">近身穩守 · 聖劍震暈</div>
     <button type="button" class="btn small on" id="btnQuickStart" data-i18n="start">開始冒險</button>
   </div>
 
@@ -2292,7 +2331,7 @@ body:has(#menuPop:not(.hide),[aria-modal="true"]:not(.hide)) #toasts{opacity:0}
   <div class="sbody"></div>
   <div class="sfoot"><button class="btn small" id="btnClose">繼續遊戲</button><button type="button" class="btn small" id="btnSwitchChar" style="background:#5a463a">👤 切換角色／帳號</button><span class="hint">Esc 開關設定</span></div>
 </div></div>
-<div id="panelM" class="modal hide"><div class="panel setp"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px"><h3 style="margin:0"></h3><button type="button" class="modal-x" id="btnPanelX" aria-label="關閉">✕</button></div><div class="pshards"></div><div class="pbody"></div></div></div>
+<div id="panelM" class="modal hide"><div class="panel setp"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px"><h3 style="margin:0"></h3><button type="button" class="modal-x" id="btnPanelX" aria-label="關閉">✕</button></div><div class="pshards"></div><div class="quest-guide-controls" hidden><button type="button" class="btn small on" data-quest-guide-follow>✦ 跟隨燈火</button><button type="button" class="btn small" data-quest-guide-toggle>關閉光路</button></div><div class="pbody"></div></div></div>
 <div id="puzzleM" class="modal hide"><div class="panel pzp">
   <div class="pz-head"><h3>💎 技能拼圖</h3><div style="display:flex;align-items:center;gap:10px"><span class="pz-coins"></span><button type="button" class="modal-x" id="btnPuzzleX" aria-label="關閉技能拼圖">✕</button></div></div>
   <div class="pz-presets"></div>

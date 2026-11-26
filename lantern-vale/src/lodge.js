@@ -1,9 +1,9 @@
 import { GOODS, craft, rememberGear, xpForNextLevel } from './frontier.js';
 import { CLASSES } from './puzzle.js';
 import { MONSTER_MATS, GEAR_RECIPES, missingRecipeCosts, craftMonsterGear } from './mmo_rpg.js';
-import { RARITY, fmtOf, canEquipItem, itemReqLevel, itemScore } from './loot.js';
+import { RARITY, fmtOf, canEquipItem, itemReqLevel, itemScore, itemLines } from './loot.js';
 import { addGearToBag } from './physbag.js';
-import { OPENING_BADGE, commitCharacterReward, craftOpeningBadge } from './opening.js';
+import { OPENING_BADGE, commitCharacterReward, craftOpeningBadge, recordOpeningEvent } from './opening.js';
 const labels = { slime:'苔團', thorn:'棘木靈', boar:'岩背野豬', moth:'暮光蛾', stag:'古樹鹿王' };
 const weapons = { staff:'燈杖', blades:'雙刀', bow:'短弓', shield:'守衛盾' };
 const MARKET = {
@@ -35,6 +35,67 @@ function settle(p, now) {
   }
   p.sales = pending;
 }
+export function renderOpeningBadge(g, body, refresh) {
+  const meta = g.meta, profile = meta.p;
+  const equipped = g.player.equip[OPENING_BADGE.slot];
+  const canWear = canEquipItem(OPENING_BADGE, profile.level || 1);
+  const card = document.createElement('div');
+  card.className = 'opening-badge-card';
+  card.dataset.openingBadge = 'ready';
+  const heading = document.createElement('b');
+  heading.textContent = OPENING_BADGE.name;
+  const detail = document.createElement('p');
+  detail.textContent = '草原洞窟首通獎勵 · 飾品 · 基礎傷害 +2' + (canWear ? '' : ' · Lv.2 可穿戴');
+  card.append(heading, detail);
+  if (equipped) {
+    const compare = document.createElement('p');
+    const stats = itemLines(equipped).map(line => line.t).filter(Boolean).join(' · ');
+    compare.textContent = `目前裝備 ${equipped.name}${stats ? ' · ' + stats : ''}。換上徽章會把原有飾品放入背包。`;
+    card.append(compare);
+  }
+  const actions = document.createElement('div');
+  actions.className = 'opening-badge-actions';
+  const addChoice = (label, wear, primary) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `btn small${primary ? ' on' : ''}`;
+    button.textContent = label;
+    button.onclick = async () => {
+      for (const choice of actions.children) choice.disabled = true;
+      const crafted = await commitCharacterReward(meta, saved => saved.opening?.badge === 'crafted', () => {
+        if (g.meta !== meta || meta.p !== profile) return false;
+        if (wear && (!canEquipItem(OPENING_BADGE, profile.level || 1) || g.player.equip[OPENING_BADGE.slot] !== equipped)) return false;
+        const item = craftOpeningBadge(profile, fmtOf);
+        if (!item) return false;
+        const before = g.player.stats.baseDmg;
+        if (wear) {
+          if (equipped) addGearToBag(profile, equipped);
+          g.player.equip[item.slot] = item;
+          rememberGear(g);
+        } else addGearToBag(profile, item);
+        meta.save();
+        g.recalc();
+        g.audio?.sfx?.('classup');
+        g.ui.toast(wear ? `已穿戴巡燈徽章 · 基礎傷害 ${before} → ${g.player.stats.baseDmg}` : '巡燈徽章已收入背包', '#ffe08a');
+        recordOpeningEvent(g, wear ? 'badge_equipped' : 'badge_bagged');
+        return true;
+      });
+      if (g.meta !== meta || !button.isConnected || !g.ui.panelOpen) return;
+      if (crafted) refresh();
+      else {
+        g.ui.toast('請重新確認目前裝備或重進角色同步進度。', '#ffe08a');
+        for (const choice of actions.children) choice.disabled = false;
+      }
+    };
+    actions.append(button);
+  };
+  if (canWear && !equipped) addChoice('打造並穿戴', true, true);
+  addChoice('打造入背包', false, !canWear || !!equipped);
+  if (canWear && equipped) addChoice('打造並換上徽章', true, false);
+  card.append(actions);
+  body.append(card);
+}
+
 export function buildLodge(g, body, title, kind, recipeId = null) {
   const p = g.meta.p, now = Date.now();
   settle(p, now); g.meta.save();
@@ -85,38 +146,7 @@ export function buildLodge(g, body, title, kind, recipeId = null) {
       .map(m => `${m.name} ×${mm[m.id] || 0}`).join('　'));
     if (wTab === 'gear') {
       if (p.opening?.badge === 'ready') {
-        const equipped = g.player.equip[OPENING_BADGE.slot];
-        const canWear = canEquipItem(OPENING_BADGE, p.level || 1);
-        const equipNow = canWear && !equipped;
-        const badge = line(OPENING_BADGE.name, `消耗草原洞窟首通材料 · 基礎傷害 +2 · ${canWear ? '可穿戴' : 'Lv.2 可穿戴'}`);
-        badge.dataset.openingBadge = 'ready';
-        const build = document.createElement('button');
-        build.type = 'button';
-        build.className = 'btn small on';
-        build.textContent = equipNow ? '打造並穿戴' : '打造入背包';
-        build.onclick = async () => {
-          build.disabled = true;
-          const meta = g.meta;
-          const crafted = await commitCharacterReward(meta, profile => profile.opening?.badge === 'crafted', () => {
-            if (g.meta !== meta || meta.p !== p) return false;
-            const item = craftOpeningBadge(p, fmtOf);
-            if (!item) return false;
-            const worn = equipNow && !g.player.equip[item.slot];
-            if (worn) {
-              g.player.equip[item.slot] = item;
-              rememberGear(g);
-            } else addGearToBag(p, item);
-            g.meta.save();
-            g.recalc();
-            g.audio?.sfx?.('classup');
-            g.ui.toast(worn ? '已穿戴巡燈徽章 · 基礎傷害 +2' : '巡燈徽章已收入背包', '#ffe08a');
-            return true;
-          });
-          if (g.meta !== meta || !build.isConnected || !g.ui.panelOpen) return;
-          if (crafted) refresh();
-          else g.ui.toast('此徽章已打造。重新進入角色可同步進度。', '#ffe08a');
-        };
-        badge.append(build);
+        renderOpeningBadge(g, body, refresh);
       } else if (p.opening?.badge === 'crafted' && !p.opening.finished) {
         const route = line('巡燈徽章已打造', '挑戰精英或探索低語森林');
         const next = document.createElement('button');

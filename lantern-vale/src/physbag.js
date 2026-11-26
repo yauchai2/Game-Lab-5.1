@@ -131,31 +131,38 @@ export class PhysicsContainer {
   }
 
   sync(items) {
+    this.W = this.canvas.width || this.W || 420;
+    this.H = this.canvas.height || this.H || 300;
     const map = new Map(this.bodies.map(b => [b.data.uid, b]));
     const next = [];
+    const safeSpan = Math.max(80, this.W - 112);
+    const cols = Math.max(3, Math.floor(safeSpan / 68));
     items.forEach((it, idx) => {
       const sh0 = shapeForItem(it), K = 1.18;
       const sh = { shape: sh0.shape, hw: sh0.hw * K, hh: sh0.hh * K, r: sh0.r * K };
       const dSize = this._drawSize(it);
       const old = map.get(it.uid);
-      if (old) {
+      if (old && Number.isFinite(old.x) && Number.isFinite(old.y) && Number.isFinite(old.ang)) {
         old.data = it;
         old.shape = sh.shape; old.hw = sh.hw; old.hh = sh.hh; old.r = sh.r; old.dSize = dSize;
         next.push(old);
       } else {
+        const col = idx % cols, row = Math.floor(idx / cols);
+        const sx = Number.isFinite(it._sx) ? Math.max(44, Math.min(this.W - 44, it._sx)) : (56 + (col + 0.5) * (safeSpan / cols) + (Math.random() - 0.5) * 10);
+        const sy = Number.isFinite(it._sy) ? Math.max(44, Math.min(this.H - 44, it._sy)) : Math.min(this.H - 54, 48 + row * 56);
         next.push({
           data: it,
           shape: sh.shape, hw: sh.hw, hh: sh.hh, r: sh.r, dSize,
-          x: it._sx ?? (48 + ((idx * 63) % (this.W - 96)) + (Math.random() - 0.5) * 14),
-          y: it._sy ?? (34 + Math.floor(idx / 4) * 22),
-          vx: (Math.random() - 0.5) * 90,
-          vy: it._sy != null ? -140 : 10 + Math.random() * 40,
-          ang: (Math.random() - 0.5) * 0.7,
-          vang: (Math.random() - 0.5) * 2.2,
+          x: sx, y: sy,
+          vx: (Math.random() - 0.5) * 40,
+          vy: Number.isFinite(it._sy) ? -120 : 10 + Math.random() * 25,
+          ang: (Math.random() - 0.5) * 0.45,
+          vang: (Math.random() - 0.5) * 1.2,
         });
       }
     });
     this.bodies = next;
+    for (const b of this.bodies) this._clampBounds(b, 10, false);
     if (this.selectedUid && !this.bodies.some(b => b.data.uid === this.selectedUid)) {
       this.selectedUid = null;
       this.onSelect(null);
@@ -171,9 +178,9 @@ export class PhysicsContainer {
 
   shake() {
     for (const b of this.bodies) {
-      b.vy = -(280 + Math.random() * 260);
-      b.vx = (Math.random() - 0.5) * 320;
-      b.vang = (Math.random() - 0.5) * 10;
+      b.vy = -(260 + Math.random() * 220);
+      b.vx = (Math.random() - 0.5) * 280;
+      b.vang = (Math.random() - 0.5) * 6;
     }
   }
 
@@ -196,18 +203,20 @@ export class PhysicsContainer {
     const sil = im ? getItemSilhouette(im) : null;
     const { dw, dh } = this._dims(b, im);
     const cos = Math.cos(b.ang), sin = Math.sin(b.ang);
-    if (!sil) return [{ x: b.x, y: b.y, r: Math.max(14, b.r * 0.72), rx: 0, ry: 0 }];
+    if (!sil || !sil.circles?.length) {
+      return [{ x: b.x, y: b.y, r: Math.max(16, (b.dSize || 50) * 0.42), rx: 0, ry: 0 }];
+    }
     const scaleR = Math.min(dw, dh);
     return sil.circles.map(c => {
       const lx = c.x * dw, ly = c.y * dh;
       const rx = lx * cos - ly * sin, ry = lx * sin + ly * cos;
-      return { x: b.x + rx, y: b.y + ry, r: Math.max(5, c.r * scaleR), rx, ry };
+      return { x: b.x + rx, y: b.y + ry, r: Math.max(6, c.r * scaleR), rx, ry };
     });
   }
 
   _extents(b) {
     const cs = this._worldCircles(b);
-    let ex = 14, ey = 14;
+    let ex = 16, ey = 16;
     for (const c of cs) {
       ex = Math.max(ex, Math.abs(c.rx) + c.r);
       ey = Math.max(ey, Math.abs(c.ry) + c.r);
@@ -215,96 +224,152 @@ export class PhysicsContainer {
     return { ex, ey };
   }
 
-  step(dt) {
-    const g = 900, pad = 10, W = this.W, H = this.H;
-    const circleCache = new Map();
-    const getCs = b => {
-      let cs = circleCache.get(b);
-      if (!cs) { cs = this._worldCircles(b); circleCache.set(b, cs); }
-      return cs;
-    };
-    for (const b of this.bodies) {
-      if (this.drag && this.drag.body === b) continue;
-      b.vy += g * dt;
-      b.vx *= 0.99; b.vy *= 0.994;
-      b.x += b.vx * dt; b.y += b.vy * dt;
-      b.ang += b.vang * dt; b.vang *= 0.93;
-      const cs = getCs(b);
-      let grounded = false;
-      for (const c of cs) {
-        if (c.x - c.r < pad) {
-          const pen = pad - (c.x - c.r);
-          b.x += pen; b.vx = Math.abs(b.vx) * 0.35;
-          b.vang -= (c.ry * 0.0025) * pen;
-          circleCache.delete(b);
-        } else if (c.x + c.r > W - pad) {
-          const pen = (c.x + c.r) - (W - pad);
-          b.x -= pen; b.vx = -Math.abs(b.vx) * 0.35;
-          b.vang += (c.ry * 0.0025) * pen;
-          circleCache.delete(b);
-        }
-        if (c.y - c.r < pad) {
-          const pen = pad - (c.y - c.r);
-          b.y += pen; b.vy = Math.abs(b.vy) * 0.3;
-          circleCache.delete(b);
-        } else if (c.y + c.r > H - pad) {
-          const pen = (c.y + c.r) - (H - pad);
-          b.y -= pen;
-          b.vy = -Math.abs(b.vy) * 0.26;
-          if (Math.abs(b.vy) < 22) b.vy = 0;
-          // 依接觸點相對於重心的水平臂長產生自然傾倒力矩
-          b.vang -= c.rx * 0.012;
-          grounded = true;
-          circleCache.delete(b);
-        }
-      }
-      if (grounded) b.vx *= 0.84;
+  _sanitize(b) {
+    if (!Number.isFinite(b.x) || !Number.isFinite(b.y) || !Number.isFinite(b.ang)) {
+      b.x = this.W * 0.5;
+      b.y = Math.min(this.H * 0.35, 90);
+      b.vx = 0; b.vy = 0; b.ang = 0; b.vang = 0;
     }
-    // 多圓真實圖片輪廓碰撞解算與「高速撞擊物理合成」偵測
+    if (!Number.isFinite(b.vx)) b.vx = 0;
+    if (!Number.isFinite(b.vy)) b.vy = 0;
+    if (!Number.isFinite(b.vang)) b.vang = 0;
+    if (b.ang > Math.PI * 4 || b.ang < -Math.PI * 4) b.ang = b.ang % (Math.PI * 2);
+    b.vx = Math.max(-620, Math.min(620, b.vx));
+    b.vy = Math.max(-620, Math.min(620, b.vy));
+    b.vang = Math.max(-8, Math.min(8, b.vang));
+  }
+
+  _clampBounds(b, pad = 10, applyBounce = true) {
+    this._sanitize(b);
+    const W = this.W, H = this.H;
+    const cs = this._worldCircles(b);
+    let penL = 0, penR = 0, penT = 0, penB = 0;
+    let maxBRx = 0, maxLRy = 0, maxRRy = 0;
+    for (const c of cs) {
+      const l = pad - (c.x - c.r); if (l > penL) { penL = l; maxLRy = c.ry; }
+      const r = (c.x + c.r) - (W - pad); if (r > penR) { penR = r; maxRRy = c.ry; }
+      const t = pad - (c.y - c.r); if (t > penT) penT = t;
+      const bt = (c.y + c.r) - (H - pad); if (bt > penB) { penB = bt; maxBRx = c.rx; }
+    }
+    if (penL > 0 && penR > 0) {
+      b.x = W * 0.5;
+    } else if (penL > 0) {
+      b.x += penL;
+      if (applyBounce) { b.vx = Math.abs(b.vx) * 0.3; b.vang = Math.max(-8, Math.min(8, b.vang - maxLRy * 0.0018 * Math.min(penL, 12))); }
+    } else if (penR > 0) {
+      b.x -= penR;
+      if (applyBounce) { b.vx = -Math.abs(b.vx) * 0.3; b.vang = Math.max(-8, Math.min(8, b.vang + maxRRy * 0.0018 * Math.min(penR, 12))); }
+    }
+    if (penT > 0 && penB > 0) {
+      b.y = H * 0.5;
+    } else if (penT > 0) {
+      b.y += penT;
+      if (applyBounce) b.vy = Math.abs(b.vy) * 0.25;
+    } else if (penB > 0) {
+      b.y -= penB;
+      if (applyBounce) {
+        b.vy = -Math.abs(b.vy) * 0.2;
+        if (Math.abs(b.vy) < 18) b.vy = 0;
+        b.vang = Math.max(-8, Math.min(8, b.vang - maxBRx * 0.006));
+        b.vx *= 0.86;
+      }
+      return true;
+    }
+    return false;
+  }
+
+  step(rawDt) {
+    const dt = Math.min(0.033, Math.max(0.001, Number.isFinite(rawDt) ? rawDt : (1 / 60)));
+    const subSteps = 2;
+    const subDt = dt / subSteps;
+    const g = 900, pad = 10, gap = 1.5;
     let fusedPair = null;
-    for (let iter = 0; iter < 3; iter++) {
-      circleCache.clear();
-      for (let i = 0; i < this.bodies.length; i++) {
-        for (let j = i + 1; j < this.bodies.length; j++) {
-          const a = this.bodies[i], b = this.bodies[j];
-          const bdx = b.x - a.x, bdy = b.y - a.y;
-          const maxSpan = ((a.dSize || 56) + (b.dSize || 56)) * 0.65;
-          if (bdx * bdx + bdy * bdy > maxSpan * maxSpan) continue;
-          const cA = getCs(a), cB = getCs(b);
-          let hit = false;
-          for (const ca of cA) {
-            for (const cb of cB) {
-              const dx = cb.x - ca.x, dy = cb.y - ca.y;
-              const minD = ca.r + cb.r;
-              const d2 = dx * dx + dy * dy;
-              if (d2 >= minD * minD) continue;
-              const dist = Math.sqrt(d2) || 0.01;
-              const nx = dx / dist, ny = dy / dist;
-              const overlap = (minD - dist) * 0.5;
-              const dragA = this.drag && this.drag.body === a;
-              const dragB = this.drag && this.drag.body === b;
-              if (!dragA) { a.x -= nx * overlap; a.y -= ny * overlap; }
-              if (!dragB) { b.x += nx * overlap; b.y += ny * overlap; }
-              const rvx = b.vx - a.vx, rvy = b.vy - a.vy;
-              const vn = rvx * nx + rvy * ny;
-              if (vn < 0) {
-                const imp = -vn * 0.48;
-                if (!dragA) { a.vx -= imp * nx; a.vy -= imp * ny; a.vang -= (ca.rx * ny - ca.ry * nx) * imp * 0.00045; }
-                if (!dragB) { b.vx += imp * nx; b.vy += imp * ny; b.vang += (cb.rx * ny - cb.ry * nx) * imp * 0.00045; }
+
+    for (let s = 0; s < subSteps; s++) {
+      for (const b of this.bodies) {
+        this._sanitize(b);
+        if (this.drag && this.drag.body === b) {
+          this._clampBounds(b, pad, false);
+          continue;
+        }
+        b.vy += g * subDt;
+        b.vx *= 0.992; b.vy *= 0.996;
+        b.x += b.vx * subDt; b.y += b.vy * subDt;
+        b.ang += b.vang * subDt; b.vang *= 0.93;
+        this._clampBounds(b, pad, true);
+      }
+
+      // 8 輪實體體積分離迭代（PBD）：即時更新圓座標並施加硬邊界約束，確保裝備與物件不重疊
+      const n = this.bodies.length;
+      for (let iter = 0; iter < 8; iter++) {
+        let anyOverlap = false;
+        for (let i = 0; i < n; i++) {
+          const a = this.bodies[i];
+          const dragA = this.drag && this.drag.body === a;
+          for (let j = i + 1; j < n; j++) {
+            const b = this.bodies[j];
+            const dragB = this.drag && this.drag.body === b;
+            const maxSpan = ((a.dSize || 56) + (b.dSize || 56)) * 0.72 + gap;
+            const bdx = b.x - a.x, bdy = b.y - a.y;
+            if (bdx * bdx + bdy * bdy > maxSpan * maxSpan) continue;
+            const cA = this._worldCircles(a), cB = this._worldCircles(b);
+            let pairHit = false;
+            let accAx = 0, accAy = 0, accBx = 0, accBy = 0;
+            for (const ca of cA) {
+              for (const cb of cB) {
+                const dx = (cb.x + accBx) - (ca.x + accAx);
+                const dy = (cb.y + accBy) - (ca.y + accAy);
+                const minD = ca.r + cb.r + gap;
+                const d2 = dx * dx + dy * dy;
+                if (d2 >= minD * minD) continue;
+                const dist = Math.sqrt(d2);
+                const nx = dist > 0.001 ? dx / dist : ((i + j) % 2 ? 1 : -1);
+                const ny = dist > 0.001 ? dy / dist : -0.2;
+                const pen = minD - dist;
+                const push = pen * (iter >= 5 ? 0.85 : 0.65);
+                if (dragA && !dragB) {
+                  accBx += nx * push; accBy += ny * push;
+                } else if (dragB && !dragA) {
+                  accAx -= nx * push; accAy -= ny * push;
+                } else if (!dragA && !dragB) {
+                  accAx -= nx * push * 0.5; accAy -= ny * push * 0.5;
+                  accBx += nx * push * 0.5; accBy += ny * push * 0.5;
+                }
+                if (iter === 0) {
+                  const rvx = b.vx - a.vx, rvy = b.vy - a.vy;
+                  const vn = rvx * nx + rvy * ny;
+                  if (vn < 0) {
+                    const imp = -vn * 0.42;
+                    if (!dragA) {
+                      a.vx -= imp * nx; a.vy -= imp * ny;
+                      a.vang -= (ca.rx * ny - ca.ry * nx) * imp * 0.0003;
+                    }
+                    if (!dragB) {
+                      b.vx += imp * nx; b.vy += imp * ny;
+                      b.vang += (cb.rx * ny - cb.ry * nx) * imp * 0.0003;
+                    }
+                  }
+                }
+                pairHit = true;
+                anyOverlap = true;
               }
-              hit = true;
             }
-          }
-          if (hit) {
-            circleCache.delete(a); circleCache.delete(b);
-            const relSpd = Math.hypot(b.vx - a.vx, b.vy - a.vy);
-            if (!fusedPair && this.onSynthesize && relSpd > 145 && findRecipe(a.data, b.data)) {
-              fusedPair = [a, b];
+            if (pairHit) {
+              a.x += accAx; a.y += accAy;
+              b.x += accBx; b.y += accBy;
+              if (!dragA) this._clampBounds(a, pad, false);
+              if (!dragB) this._clampBounds(b, pad, false);
+              if (s === 0 && iter === 0 && !fusedPair && this.onSynthesize) {
+                const relSpd = Math.hypot(b.vx - a.vx, b.vy - a.vy);
+                if (relSpd > 145 && findRecipe(a.data, b.data)) fusedPair = [a, b];
+              }
             }
           }
         }
+        if (!anyOverlap) break;
       }
     }
+
     if (fusedPair) {
       const [a, b] = fusedPair;
       const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
@@ -405,7 +470,8 @@ export class PhysicsContainer {
 
   _pos(e) {
     const rect = this.canvas.getBoundingClientRect();
-    return { x: (e.clientX - rect.left) * (this.W / rect.width), y: (e.clientY - rect.top) * (this.H / rect.height) };
+    const rw = rect.width || this.W || 1, rh = rect.height || this.H || 1;
+    return { x: (e.clientX - rect.left) * (this.W / rw), y: (e.clientY - rect.top) * (this.H / rh) };
   }
 
   _hit(x, y) {
@@ -459,10 +525,11 @@ export class PhysicsContainer {
       const p = this._pos(e);
       if (this.drag) {
         const b = this.drag.body;
-        b.vx = (p.x - this.drag.lx) * 28;
-        b.vy = (p.y - this.drag.ly) * 28;
-        b.x = Math.max(b.hw + 8, Math.min(this.W - b.hw - 8, p.x + this.drag.ox));
-        b.y = Math.max(b.hh + 8, Math.min(this.H - b.hh - 8, p.y + this.drag.oy));
+        b.vx = Math.max(-540, Math.min(540, (p.x - this.drag.lx) * 28));
+        b.vy = Math.max(-540, Math.min(540, (p.y - this.drag.ly) * 28));
+        b.x = p.x + this.drag.ox;
+        b.y = p.y + this.drag.oy;
+        this._clampBounds(b, 10, false);
         this.drag.lx = p.x; this.drag.ly = p.y;
       } else {
         const nextHover = this._hit(p.x, p.y);

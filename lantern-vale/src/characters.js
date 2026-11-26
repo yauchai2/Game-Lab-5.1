@@ -417,7 +417,6 @@ export function bindCharacters(game) {
   if (!titleEl || !canvas) return () => {};
 
   const isMobileNet = typeof matchMedia !== 'undefined' && matchMedia('(any-pointer: coarse)').matches;
-  if (!isMobileNet) preloadAllCharacterAnims();
 
   let slot = clampIdx(read(slotKeys(0).activeSlotKey), 3);
   function refreshSlotsUI(keepSlot = true) {
@@ -507,7 +506,7 @@ export function bindCharacters(game) {
   });
   islandStage.add(islandGeo);
   scene.add(islandStage);
-  const theaterVfx = new VfxEngine(islandStage, { lazy: isMobileNet });
+  const theaterVfx = new VfxEngine(islandStage, { lazy: true });
 
   // 漂浮發光海風星火粒子
   const sparkPos = new Float32Array(28 * 3);
@@ -528,10 +527,10 @@ export function bindCharacters(game) {
   dressupStage.add(buildDressupRug());
   scene.add(dressupStage);
 
-  // 5 位英雄實機 3D 角色（行動裝置僅按需載入選中角色動畫，大幅縮減首屏傳輸量）
+  // 5 位英雄實機 3D 角色（全平台按需載入選中角色動畫，確保 3 秒內完成首屏島嶼與模型載入）
   islandHeroes = ISLAND_SPOTS.map(sp => {
     const presetLook = normalizeCharacterLook(CHAR_CATALOG.classPresets[sp.job], sp.job);
-    const hero = createModularHero(presetLook, { scale: 0.68, initialState: 'combatIdle', showcasePose: sp.pose, lazyAnim: isMobileNet });
+    const hero = createModularHero(presetLook, { scale: 0.68, initialState: 'combatIdle', showcasePose: sp.pose, lazyAnim: true });
     hero.root.position.set(sp.x, sp.y, sp.z);
     hero.root.rotation.y = sp.rotY;
     // 點擊透明碰撞盒（Raycaster 命中更精準）
@@ -547,7 +546,7 @@ export function bindCharacters(game) {
   });
 
   // 換裝間單人展示角色 + 換裝星星粒子迸發（Phase C6）
-  const dressHero = createModularHero(CHAR_CATALOG.classPresets[0], { scale: 0.92, initialState: 'idle', lazyAnim: isMobileNet });
+  const dressHero = createModularHero(CHAR_CATALOG.classPresets[0], { scale: 0.92, initialState: 'idle', lazyAnim: true });
   dressupStage.add(dressHero.root);
   const DU_SPARK_N = 24;
   const duSparkPos = new Float32Array(DU_SPARK_N * 3);
@@ -705,6 +704,8 @@ export function bindCharacters(game) {
     const cls = CLASSES[selectedJob] || CLASSES[0];
     const sp = ISLAND_SPOTS[selectedJob] || ISLAND_SPOTS[0];
     if (pill) pill.textContent = cls.name;
+    const role = $('heroPillRole');
+    if (role) role.textContent = ['近身穩守 · 聖劍震暈', '遠程牽制 · 箭雨封路', '遠程術法 · 火焰爆發', '貼身快攻 · 雙刃連擊', '近身連擊 · 回復生命'][cls.id] || '';
     document.querySelectorAll('.hero-pin-btn,.hero-pin-3d').forEach((b, i) => b.classList.toggle('on', i === selectedJob));
     selRing.visible = stageMode === 'focus';
     selBeam.visible = stageMode === 'focus';

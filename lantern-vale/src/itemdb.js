@@ -61,25 +61,40 @@ export function resolveArtId(o) {
   return fb && hasArt(fb) ? fb : null;
 }
 
-// 圖片快取（Canvas 與 DOM 共用）
+// 圖片快取（Canvas 與 DOM 共用，載入失敗自動重試最多 2 次）
 const _imgs = new Map();
 export function loadItemImage(id, size = 128, onLoad) {
   if (typeof Image === 'undefined' || !id || !hasArt(id)) return null;
   const key = id + '@' + size;
   let im = _imgs.get(key);
   if (!im) {
-    im = new Image(); im.decoding = 'async'; im.src = itemIconUrl(id, size);
-    im._ready = false; im.onload = () => { im._ready = true; onLoad?.(); };
+    im = new Image(); im.decoding = 'async';
+    im._ready = false; im._retries = 0; im._cbs = [];
+    if (onLoad) im._cbs.push(onLoad);
+    im.onload = () => {
+      im._ready = true;
+      const cbs = im._cbs; im._cbs = [];
+      for (const fn of cbs) fn();
+    };
+    im.onerror = () => {
+      if (im._retries < 2) {
+        im._retries++;
+        setTimeout(() => { im.src = `${itemIconUrl(id, size)}?r=${im._retries}`; }, 400 * im._retries);
+      }
+    };
+    im.src = itemIconUrl(id, size);
     _imgs.set(key, im);
-  } else if (!im._ready && onLoad) { const prev = im.onload; im.onload = () => { prev?.(); onLoad(); }; }
+  } else if (!im._ready && onLoad) {
+    im._cbs.push(onLoad);
+  }
   return im;
 }
 
-// 從透明去背 PNG 萃取真實物理輪廓（24×24 Alpha 遮罩＋多圓輪廓碰撞代理＋真實視覺重心）
+// 從透明去背 PNG 萃取真實物理輪廓（24×24 Alpha 遮罩＋高覆蓋多圓輪廓碰撞代理＋真實視覺重心）
 let _silCanvas = null, _silCtx = null;
 const DEFAULT_SIL = {
   size: 24, mask: null, cx: 0, cy: 0, w: 0.78, h: 0.78,
-  circles: [{ x: 0, y: 0, r: 0.36 }],
+  circles: [{ x: 0, y: 0, r: 0.42 }],
 };
 export function getItemSilhouette(im) {
   if (!im || !im._ready) return null;
@@ -99,7 +114,7 @@ export function getItemSilhouette(im) {
     let minX = N, maxX = -1, minY = N, maxY = -1, sumX = 0, sumY = 0, count = 0;
     for (let y = 0; y < N; y++) {
       for (let x = 0; x < N; x++) {
-        if (data[(y * N + x) * 4 + 3] > 42) {
+        if (data[(y * N + x) * 4 + 3] > 32) {
           mask[y * N + x] = 1;
           if (x < minX) minX = x; if (x > maxX) maxX = x;
           if (y < minY) minY = y; if (y > maxY) maxY = y;
@@ -110,9 +125,9 @@ export function getItemSilhouette(im) {
     if (count < 4) { im._sil = DEFAULT_SIL; return DEFAULT_SIL; }
     const cxPx = sumX / count, cyPx = sumY / count;
     const cx = cxPx / N - 0.5, cy = cyPx / N - 0.5;
-    const w = Math.max(0.2, (maxX - minX + 1) / N);
-    const h = Math.max(0.2, (maxY - minY + 1) / N);
-    // 6×6 子格掃描：將每個含不透明像素的子區塊轉成貼合輪廓的圓形碰撞體（最多保留 10 個）
+    const w = Math.max(0.24, (maxX - minX + 1) / N);
+    const h = Math.max(0.24, (maxY - minY + 1) / N);
+    // 6×6 子格掃描：為每個含不透明像素的區塊建立紮實的實體碰撞圓（覆蓋凸角、避免圖片邊緣重疊）
     const G = 6, step = N / G;
     const rawCircles = [];
     for (let gy = 0; gy < G; gy++) {
@@ -123,12 +138,12 @@ export function getItemSilhouette(im) {
             if (mask[py * N + px]) { sx += px + 0.5; sy += py + 0.5; c++; }
           }
         }
-        if (c >= 3) {
+        if (c >= 2) {
           const fillRatio = Math.sqrt(c / (step * step));
           rawCircles.push({
             x: (sx / c - cxPx) / N,
             y: (sy / c - cyPx) / N,
-            r: Math.max(0.065, (step / N) * 0.52 * Math.max(0.65, fillRatio)),
+            r: Math.max(0.095, (step / N) * 0.68 * Math.max(0.75, fillRatio)),
             c,
           });
         }
@@ -137,18 +152,21 @@ export function getItemSilhouette(im) {
     const circles = [];
     rawCircles.sort((a, b) => b.c - a.c);
     for (const rc of rawCircles) {
-      const merged = circles.find(o => Math.hypot(o.x - rc.x, o.y - rc.y) < (o.r + rc.r) * 0.48);
+      const merged = circles.find(o => Math.hypot(o.x - rc.x, o.y - rc.y) < (o.r + rc.r) * 0.42);
       if (merged) {
         const tot = merged.c + rc.c;
-        merged.x = (merged.x * merged.c + rc.x * rc.c) / tot;
-        merged.y = (merged.y * merged.c + rc.y * rc.c) / tot;
-        merged.r = Math.min(0.26, Math.max(merged.r, Math.hypot(merged.x - rc.x, merged.y - rc.y) + rc.r * 0.55));
+        const nx = (merged.x * merged.c + rc.x * rc.c) / tot;
+        const ny = (merged.y * merged.c + rc.y * rc.c) / tot;
+        const dOld = Math.hypot(nx - merged.x, ny - merged.y) + merged.r;
+        const dNew = Math.hypot(nx - rc.x, ny - rc.y) + rc.r;
+        merged.x = nx; merged.y = ny;
+        merged.r = Math.min(0.32, Math.max(dOld, dNew));
         merged.c = tot;
-      } else if (circles.length < 10) {
+      } else if (circles.length < 14) {
         circles.push({ ...rc });
       }
     }
-    if (!circles.length) circles.push({ x: 0, y: 0, r: Math.max(w, h) * 0.4 });
+    if (!circles.length) circles.push({ x: 0, y: 0, r: Math.max(w, h) * 0.46 });
     im._sil = { size: N, mask, cx, cy, w, h, circles: circles.map(({ x, y, r }) => ({ x, y, r })) };
     return im._sil;
   } catch {
