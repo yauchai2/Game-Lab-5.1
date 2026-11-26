@@ -43,7 +43,8 @@ node build.mjs              # 產生 dist/index.html、dist/lantern-vale.html、
 | `render.js` | 低解析度渲染目標、深度/法線描邊、雲影、光柱、後製 |
 | `models.js` | 角色、敵人、建築等程序化模型 |
 | `town.js` | 燈谷鎮場景與互動設施（布告欄、鐵匠、地圖桌） |
-| `loot.js` | 裝備、詞綴、稀有度、祝福、序列化、鐵匠 `FORGE` |
+| `loot.js` | 裝備（8 欄位）、詞綴、稀有度、祝福、序列化、鐵匠 `FORGE` |
+| `itemdb.js`, `physbag.js` | 物品資料庫（`data/items.json`）與圖示（`game/assets/items`）；物理背包。見 `docs/INVENTORY_ITEM_SYSTEM.md` |
 | `meta.js` | 跨局存檔 `lv_profile`：星砂、金羽毛、貝殼、每日委託、傳家寶、出發詞綴 |
 | `panels.js` | 城鎮互動面板（按 F） |
 | `settings.js` | 設定頁，存 `lv_settings` |

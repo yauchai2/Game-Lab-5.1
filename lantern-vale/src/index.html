@@ -1890,6 +1890,52 @@ body:has(#menuPop:not(.hide),[aria-modal="true"]:not(.hide)) #toasts{opacity:0}
   .ambush-trial #hud #skills #sk-r .ic{display:none}
   .ambush-trial #hud #skills #sk-r .cnt{position:static;display:block;margin:2px auto 0}
 }
+
+/* ===== 背包／英雄裝備重製（CrispPixel 奶油棕＋黃銅框，格子與提示框參考 POE2）===== */
+#bagEquipStrip{display:block!important}
+.bag-two-col{grid-template-columns:432px minmax(0,1fr)!important}
+@media(max-width:900px){.bag-two-col{grid-template-columns:1fr!important}}
+#inv .phys-cv{width:100%;height:auto;image-rendering:auto}
+.rpg-ribbon,.hero-ribbon{display:flex;align-items:center;justify-content:center;gap:10px;position:relative;
+  background:#4a2a2c;color:var(--cp-gold-hi);font-weight:900;letter-spacing:2px;font-size:15px;line-height:1;padding:7px 14px;
+  box-shadow:0 0 0 3px var(--cp-ink),inset 0 0 0 2px var(--cp-gold-sh),0 5px 0 3px rgba(36,20,28,.5);text-shadow:0 2px 0 var(--cp-ink);margin:3px 3px 6px}
+.rpg-ribbon b{background:var(--cp-ink);color:var(--cp-gold);padding:2px 7px;font-size:12px;letter-spacing:0}
+.hero-card{background:#8c4a30;padding:8px 8px 10px;box-shadow:0 0 0 3px var(--cp-ink),inset 0 0 0 3px var(--cp-wood-hi),0 5px 0 3px rgba(36,20,28,.5);margin:3px 3px 8px}
+.hero-ribbon{margin:-16px auto 8px;width:max-content;font-size:14px}
+.hero-grid{display:grid;grid-template-columns:68px 1fr 68px;gap:8px;align-items:start;background:#33191f;padding:8px;box-shadow:inset 0 0 0 2px var(--cp-ink)}
+.hero-col{display:flex;flex-direction:column;gap:8px}
+.hero-mid{display:flex;flex-direction:column;align-items:center;gap:5px;min-width:0}
+.hero-portrait{width:76px;height:76px;border-radius:50%;background:radial-gradient(circle,#5a3826 0 55%,#33191f 56%);
+  box-shadow:0 0 0 3px var(--cp-gold),0 0 0 6px var(--cp-ink),inset 0 0 0 3px var(--cp-gold-deep);display:flex;align-items:center;justify-content:center;font-size:38px;margin:4px 0 6px}
+.hero-stat{display:flex;justify-content:space-between;width:100%;max-width:130px;font-size:12px;font-weight:900;color:#e0b574;letter-spacing:1px}
+.hero-stat b{color:#fff8e4;font-variant-numeric:tabular-nums}
+.hero-stat.pow{border-top:2px solid var(--cp-gold-sh);padding-top:3px;margin-top:2px}.hero-stat.pow b{color:var(--cp-gold-hi)}
+#inv .eq-slot.eq-mini{position:relative;width:64px!important;height:64px!important;min-width:0;padding:0!important;margin:0;
+  border:0!important;border-image:none!important;border-radius:0!important;background:#4a2a2c!important;
+  box-shadow:0 0 0 3px var(--cp-ink),inset 0 0 0 3px var(--rc,#c08d54),inset 0 0 0 4px rgba(255,240,200,.18),0 4px 0 3px rgba(36,20,28,.5)!important;
+  display:flex;align-items:center;justify-content:center;overflow:visible;color:#fff4d8!important;cursor:pointer}
+#inv .eq-slot.eq-mini:hover{filter:brightness(1.18);box-shadow:0 0 0 3px var(--cp-ink),inset 0 0 0 3px #fff0a0,0 4px 0 3px rgba(36,20,28,.5)!important}
+#inv .eq-slot.eq-mini.sel{box-shadow:0 0 0 3px var(--cp-ink),inset 0 0 0 3px #fff0a0,0 0 10px 3px rgba(255,224,106,.7),0 4px 0 3px rgba(36,20,28,.5)!important}
+.eq-slot.rar-0{--rc:#c9b98f}.eq-slot.rar-1{--rc:#7fb2ff}.eq-slot.rar-2{--rc:#ffd85a}.eq-slot.rar-3{--rc:#ff9a4a}
+.eq-slot.empty{opacity:.82}
+.eq-slot .eq-art{width:52px;height:52px;object-fit:contain;pointer-events:none;filter:drop-shadow(0 2px 0 rgba(0,0,0,.45))}
+.eq-slot .eq-glyph{font-style:normal;font-size:26px;font-weight:900;color:rgba(255,240,200,.28)}
+.eq-slot .eq-name{position:absolute;bottom:3px;left:0;right:0;text-align:center;font-size:10px;color:#d8b888;letter-spacing:1px}
+.eq-slot.empty .eq-glyph{position:relative;top:-6px}
+.eq-slot .eq-tier{position:absolute;left:3px;top:2px;font-size:9px;line-height:1;text-shadow:0 1px 0 var(--cp-ink),1px 0 0 var(--cp-ink),-1px 0 0 var(--cp-ink)}
+.eq-slot .eq-enh{position:absolute;right:3px;top:2px;font-size:10px;line-height:1;color:#fff0a0;text-shadow:0 1px 0 var(--cp-ink),1px 0 0 var(--cp-ink),-1px 0 0 var(--cp-ink)}
+.eq-slot .eq-skull{position:absolute;right:3px;bottom:2px;font-size:11px;color:#ff84b6;text-shadow:0 1px 0 var(--cp-ink)}
+.eq-slot.corrupted{--rc:#c8323e}
+.eq-note{font-size:11px;font-weight:900;color:#7a4c33;letter-spacing:1px;margin-bottom:4px}
+.eq-corrupted-tag{font-size:12px;font-weight:900;color:#c8323e}.eq-corrupted-tag.dim{color:#7a4c33;opacity:.8}
+/* POE2 式物品提示：稀有度色標題帶＋大圖示＋分隔線＋藍色詞綴 */
+.tip-head{display:flex;align-items:center;gap:10px;padding:6px 8px;margin:-2px -4px 0;background:linear-gradient(#4a2a2c,#33191f);
+  box-shadow:inset 0 0 0 2px var(--cp-ink),inset 0 -3px 0 var(--hc,#c9b98f)}
+.tip-head.rar-0{--hc:#c9b98f}.tip-head.rar-1{--hc:#7fb2ff}.tip-head.rar-2{--hc:#ffd85a}.tip-head.rar-3{--hc:#ff9a4a}
+.tip-head .iname{font-size:16px;line-height:1.2}.tip-head .ibase{color:#e0c8a0!important;opacity:.95;font-size:11.5px}
+.tip-art{width:58px;height:58px;object-fit:contain;flex:none;filter:drop-shadow(0 2px 0 rgba(0,0,0,.5))}
+.tip-title{min-width:0}
+.mod-desc{font-size:12.5px;margin-top:2px}
 </style>
 </head>
 <body>
@@ -2208,8 +2254,8 @@ body:has(#menuPop:not(.hide),[aria-modal="true"]:not(.hide)) #toasts{opacity:0}
   <div class="inv-pane" id="pane-bag">
     <div class="bag-two-col">
       <div class="bag-left">
-        <div id="bagEquipStrip"></div>
-        <canvas id="bagCanvas" class="phys-cv" width="340" height="205"></canvas>
+        <div class="rpg-ribbon"><span>背包 INVENTORY</span><b id="bagCount">0</b></div>
+        <canvas id="bagCanvas" class="phys-cv" width="420" height="300"></canvas>
         <label class="item-picker" for="bagItemPicker"><span data-i18n="pickBag">選取背包物品</span><select id="bagItemPicker"></select></label>
         <div class="bag-actions">
           <button type="button" class="btn small" id="btnAutoEquip" style="background:#2f8a7e">⚡ 一鍵裝備最強</button>
@@ -2218,6 +2264,7 @@ body:has(#menuPop:not(.hide),[aria-modal="true"]:not(.hide)) #toasts{opacity:0}
         </div>
       </div>
       <div class="bag-right">
+        <div id="bagEquipStrip"></div>
         <div id="bagSelInfo" class="pz-info" style="margin:0">拖曳相容物品可物理碰撞合成；點擊物品或上方裝備檢視數值比較！</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap" id="bagBtns"></div>
         <details class="detail-fold"><summary data-i18n="characterStats">角色屬性</summary><div id="invStats"></div></details>
@@ -2233,7 +2280,7 @@ body:has(#menuPop:not(.hide),[aria-modal="true"]:not(.hide)) #toasts{opacity:0}
   </div>
   <div class="inv-pane hide" id="pane-stash">
     <div class="phys-wrap">
-      <div><canvas id="stashCanvas" class="phys-cv" width="340" height="250"></canvas><label class="item-picker" for="stashItemPicker"><span data-i18n="pickStash">選取倉庫物品</span><select id="stashItemPicker"></select></label></div>
+      <div><canvas id="stashCanvas" class="phys-cv" width="420" height="300"></canvas><label class="item-picker" for="stashItemPicker"><span data-i18n="pickStash">選取倉庫物品</span><select id="stashItemPicker"></select></label></div>
       <div class="phys-side">
         <div id="stashSelInfo" class="pz-info">倉庫與背包皆具備重力物理掉落效果，可於雙城存取！</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap" id="stashBtns"></div>

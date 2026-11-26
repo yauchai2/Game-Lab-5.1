@@ -27,6 +27,7 @@ const meleeReach = p => (p.air ? 2.9 : 2.3) * (1 + p.stats.area / 100);
 import { HOODS } from './characters.js';
 import { createModularHero, CHAR_CATALOG, normalizeCharacterLook } from './char_rig.js';
 import { VfxEngine } from './vfx_engine.js';
+import { resolveArtId, itemIconUrl } from './itemdb.js';
 import { makeItem, itemLines, itemScore, RARITY, SLOTS, rollBoons, BOONS, tierInfo, corruptItem, canEquipItem, itemReqLevel } from './loot.js';
 import { activeMountDef, buildMountMesh } from './mounts.js';
 import { rollSoulDrop, activeSouls, soulTier } from './souls.js';
@@ -125,6 +126,18 @@ const decalFS = `uniform vec3 uColor; uniform float uProg, uShape, uAlpha; varyi
     else { float d = length(vUv-0.5)*2.0; if (d>1.0) discard; a = smoothstep(0.6,1.0,d)*(1.0-smoothstep(0.95,1.0,d))*1.2; }
     gl_FragColor = vec4(uColor, a*uAlpha);
   }`;
+
+const _dropIconMats = new Map();
+function dropIconMaterial(artId) {
+  let m = _dropIconMats.get(artId);
+  if (!m) {
+    const tex = new THREE.TextureLoader().load(itemIconUrl(artId, 128));
+    tex.colorSpace = THREE.SRGBColorSpace; tex.magFilter = THREE.NearestFilter;
+    m = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, fog: false });
+    _dropIconMats.set(artId, m);
+  }
+  return m;
+}
 
 export class Game {
   constructor(pipe, ui, audio, trialOrder = null) {
@@ -324,7 +337,7 @@ export class Game {
     });
     m.root.add(heroRig.root);
     const p = {
-      m, heroRig, combatT: 0, pos: new V3(), vel: new V3(), facing: 0, hp: 100, mana: 50, equip: { staff: null, cloak: null, charm: null },
+      m, heroRig, combatT: 0, pos: new V3(), vel: new V3(), facing: 0, hp: 100, mana: 50, equip: { head: null, staff: null, body: null, cloak: null, hands: null, feet: null, charm: null, relic: null },
       boons: [], skills: { slam: false, wisp: false }, cds: { atk: 0, bolt: 0, roll: 0, slam: 0, wisp: 0 }, skillCds: [0, 0, 0, 0], hotbar: [],
       roll: 0, rollDir: new V3(), iframes: 0, flask: { charges: 1, max: 1, prog: 0 }, healOver: 0,
       statuses: { poison: 0, freeze: 0, chill: 0, burn: 0, shock: 0, overload: 0 }, statusTick: 0, castCombo: 0, castComboT: 0, prevVx: 0, prevVz: 0,
@@ -1522,10 +1535,19 @@ export class Game {
     const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.12, item.rarity >= 2 ? 6 : 2.5, 6, 1, true),
       new THREE.MeshBasicMaterial({ color: R.beam, transparent: true, opacity: item.rarity >= 2 ? 0.45 : 0.25, depthWrite: false, blending: THREE.AdditiveBlending }));
     beam.position.y = item.rarity >= 2 ? 3 : 1.25; beam.userData.noNormal = true; g.add(beam);
+    // 掉落物上方飄一張物品圖示（透明 PNG 看板），跟著寶石一起做重力彈跳
+    let icon = null;
+    const artId = resolveArtId(item);
+    if (artId) {
+      icon = new THREE.Sprite(dropIconMaterial(artId));
+      icon.scale.set(0.8, 0.8, 1); icon.position.y = 1.2;
+      icon.userData.noNormal = true; icon.userData.sharedMat = true; icon.userData.sharedGeo = true;
+      g.add(icon);
+    }
     g.position.set(x, this.world.groundY(x, z), z);
     this.scene.add(g);
     const a = Math.random() * 6.28;
-    this.drops.push({ g, gem, item, kind: 'item', vx: quiet ? 0 : Math.cos(a) * 2, vz: quiet ? 0 : Math.sin(a) * 2, vy: quiet ? 0 : 5, y: 0.5 });
+    this.drops.push({ g, gem, icon, item, kind: 'item', vx: quiet ? 0 : Math.cos(a) * 2, vz: quiet ? 0 : Math.sin(a) * 2, vy: quiet ? 0 : 5, y: 0.5 });
     if (!quiet && item.rarity >= 2) {
       this.vfx?.spawnLootBeam(x, this.world.groundY(x, z), z, R.beam, item.rarity >= 3 ? 7.5 : 4.5);
       this.ui.toast(`${RARITY[item.rarity].name}物品掉落！`, R.color);
@@ -4234,6 +4256,7 @@ export class Game {
       }
       d.gem.position.y = d.y + (d.vy === 0 ? Math.sin(this.time * 3 + d.g.id) * 0.08 : 0);
       d.gem.rotation.y += dt * 2;
+      if (d.icon) d.icon.position.y = d.gem.position.y + 0.8;
       if (d.kind === 'orb' && this.state === 'play') {
         const dx = p.pos.x - d.g.position.x, dz = p.pos.z - d.g.position.z, dist = Math.hypot(dx, dz);
         if (dist < 7.5 && d.vy === 0 && Math.abs(d.g.position.y - p.y) < 2.5) { d.g.position.x += dx / dist * dt * 13; d.g.position.z += dz / dist * dt * 13; }

@@ -3,6 +3,7 @@ import { Game } from './game.js';
 import { UI } from './ui.js';
 import { Audio } from './audio.js';
 import { ambushTrialOrder } from './ambush_trial.js';
+import { makeItem } from './loot.js';
 import { installDevDiagnostics, recordDevSlowFrame, setDevContext } from './dev_diagnostics.js';
 
 installDevDiagnostics();
@@ -22,7 +23,7 @@ if (game.ambushTrial) {
     viewport: `${innerWidth}x${innerHeight}`,
   }));
 }
-if (typeof __LV_PROD__ === 'undefined' || !__LV_PROD__) window.__game = game; // debug / screenshot hook (stripped in --prod)
+if (typeof __LV_PROD__ === 'undefined' || !__LV_PROD__) { window.__game = game; window.__makeItem = makeItem; } // debug / screenshot hook (stripped in --prod)
 game.updateCamera(0);
 pipe.render(game.scene, game.camera, game.time);
 let last = null;

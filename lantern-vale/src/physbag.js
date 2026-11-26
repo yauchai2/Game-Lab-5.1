@@ -2,6 +2,7 @@
 import { RARITY, SLOTS, serializeItem, deserializeItem, makeItem, itemScore, canEquipItem, itemReqLevel } from './loot.js';
 import { canvasUiFont } from './ui_typography.js';
 import { t } from './i18n.js';
+import { resolveArtId, loadItemImage } from './itemdb.js';
 
 // 物理碰撞合成配方（在背包中拖曳或拋撞兩個相容物件即可當場融合！）
 export const BAG_RECIPES = [
@@ -9,26 +10,26 @@ export const BAG_RECIPES = [
     id: 'berry_cider',
     match: (a, b) => (a.icon === '🍓' && b.icon === '🍺') || (a.icon === '🍺' && b.icon === '🍓'),
     label: '🍓 山谷甜莓 + 🍺 楓糖蘋果酒',
-    out: { kind: 'consumable', tier: 2, shape: 'flask', hw: 17, hh: 24, icon: '🍹', name: '微醺莓果特調', desc: '回復 80% 生命與法力、淨化全異常並提振速度！', color: '#ff70a6', r: 20, heal: 0.8, mana: 0.8, cure: true },
+    out: { kind: 'consumable', tier: 2, shape: 'flask', hw: 17, hh: 24, icon: '🍹', art: 'con_berry_cocktail', name: '微醺莓果特調', desc: '回復 80% 生命與法力、淨化全異常並提振速度！', color: '#ff70a6', r: 20, heal: 0.8, mana: 0.8, cure: true },
   },
   {
     id: 'honey_pie',
     match: (a, b) => (a.icon === '🍓' && b.icon === '🍯') || (a.icon === '🍯' && b.icon === '🍓'),
     label: '🍓 山谷甜莓 + 🍯 陳年蜂王蜜箱',
-    out: { kind: 'consumable', tier: 3, shape: 'crate', hw: 23, hh: 21, icon: '🥧', name: '旅人蜂蜜莓果派', desc: '立即回滿生命與法力、淨化全異常並獲得滿溢能量！', color: '#ffbe4a', r: 22, heal: 1, mana: 1, cure: true },
+    out: { kind: 'consumable', tier: 3, shape: 'crate', hw: 23, hh: 21, icon: '🥧', art: 'con_honey_pie', name: '旅人蜂蜜莓果派', desc: '立即回滿生命與法力、淨化全異常並獲得滿溢能量！', color: '#ffbe4a', r: 22, heal: 1, mana: 1, cure: true },
   },
   {
     id: 'tide_charm',
     match: (a, b) => (a.icon === '🐚' && b.icon === '🍺') || (a.icon === '🍺' && b.icon === '🐚'),
     label: '🐚 海風回城螺 + 🍺 楓糖蘋果酒',
-    out: { kind: 'consumable', tier: 3, shape: 'diamond', hw: 20, hh: 22, icon: '🧿', name: '星潮過載護符', desc: '立即回復 70% 法力並觸發 8 秒「魔力過載」沸騰狀態！', color: '#7ae8ff', r: 20, mana: 0.7, overload: 8 },
+    out: { kind: 'consumable', tier: 3, shape: 'diamond', hw: 20, hh: 22, icon: '🧿', art: 'con_tide_charm', name: '星潮過載護符', desc: '立即回復 70% 法力並觸發 8 秒「魔力過載」沸騰狀態！', color: '#7ae8ff', r: 20, mana: 0.7, overload: 8 },
   },
   // Phase M8B：溫馨共製盛宴物理配方（可於背包或營火旁碰撞合成高階共享料理）
   {
     id: 'feast_cocktail',
     match: (a, b) => (a.icon === '🍹' && b.icon === '🍯') || (a.icon === '🍯' && b.icon === '🍹'),
     label: '🍹 微醺莓果特調 + 🍯 陳年蜂王蜜箱',
-    out: { kind: 'consumable', tier: 4, shape: 'crate', hw: 24, hh: 22, icon: '🍗', name: '燈谷星火盛宴盒', desc: '回復 100% 生命與法力、淨化全異常並觸發 10 秒魔力過載！', color: '#ff9a40', r: 23, heal: 1, mana: 1, cure: true, overload: 10 },
+    out: { kind: 'consumable', tier: 4, shape: 'crate', hw: 24, hh: 22, icon: '🍗', art: 'con_feast_box', name: '燈谷星火盛宴盒', desc: '回復 100% 生命與法力、淨化全異常並觸發 10 秒魔力過載！', color: '#ff9a40', r: 23, heal: 1, mana: 1, cure: true, overload: 10 },
   },
   {
     id: 'star_brew',
@@ -67,14 +68,14 @@ export function shapeForItem(data) {
 export function ensurePhysicsStorage(metaP) {
   if (!Array.isArray(metaP.bagItems)) {
     metaP.bagItems = [
-      { uid: 'sup_berry', kind: 'consumable', shape: 'circle', hw: 15, hh: 15, icon: '🍓', name: '山谷甜莓', desc: '立即回復 45% 生命（可與蘋果酒或蜂王蜜撞擊合成！）', color: '#ff7a8a', r: 15, heal: 0.45 },
-      { uid: 'sup_cider', kind: 'consumable', shape: 'flask', hw: 15, hh: 23, icon: '🍺', name: '楓糖蘋果酒', desc: '立即回復 60% 法力並解除中毒（可與甜莓／回城螺撞擊合成！）', color: '#f5b041', r: 19, mana: 0.6, cure: true },
-      { uid: 'sup_scroll', kind: 'consumable', shape: 'diamond', hw: 17, hh: 19, icon: '🐚', name: '海風回城螺', desc: '使用後立即觸發快捷回城（可與蘋果酒撞擊合成護符）', color: '#7ad8e8', r: 17, recall: true },
+      { uid: 'sup_berry', kind: 'consumable', art: 'con_berry', qty: 5, shape: 'circle', hw: 15, hh: 15, icon: '🍓', name: '山谷甜莓', desc: '立即回復 45% 生命（可與蘋果酒或蜂王蜜撞擊合成！）', color: '#ff7a8a', r: 15, heal: 0.45 },
+      { uid: 'sup_cider', kind: 'consumable', art: 'con_cider', qty: 3, shape: 'flask', hw: 15, hh: 23, icon: '🍺', name: '楓糖蘋果酒', desc: '立即回復 60% 法力並解除中毒（可與甜莓／回城螺撞擊合成！）', color: '#f5b041', r: 19, mana: 0.6, cure: true },
+      { uid: 'sup_scroll', kind: 'consumable', art: 'con_conch_recall', qty: 2, shape: 'diamond', hw: 17, hh: 19, icon: '🐚', name: '海風回城螺', desc: '使用後立即觸發快捷回城（可與蘋果酒撞擊合成護符）', color: '#7ad8e8', r: 17, recall: true },
     ];
   }
   if (!Array.isArray(metaP.stashItems)) {
     metaP.stashItems = [
-      { uid: 'st_gem', kind: 'consumable', shape: 'crate', hw: 23, hh: 23, icon: '🍯', name: '陳年蜂王蜜箱', desc: '回復 100% 生命與法力並淨化所有異常', color: '#ffd85a', r: 23, heal: 1, mana: 1, cure: true },
+      { uid: 'st_gem', kind: 'consumable', art: 'con_honey_crate', shape: 'crate', hw: 23, hh: 23, icon: '🍯', name: '陳年蜂王蜜箱', desc: '回復 100% 生命與法力並淨化所有異常', color: '#ffd85a', r: 23, heal: 1, mana: 1, cure: true },
       { uid: 'st_gear1', kind: 'gear', shape: 'rect', hw: 27, hh: 21, icon: '🧥', name: '海風旅人披風', color: '#6cb8ff', r: 25, item: serializeItem(makeItem(() => 0.42, 2, 1, 'cloak')) },
       { uid: 'st_staff1', kind: 'gear', shape: 'capsule', hw: 13, hh: 30, icon: '🪄', name: '遠航旅杖', color: '#ffd85a', r: 23, item: serializeItem(makeItem(() => 0.61, 3, 2, 'staff')) },
     ];
@@ -91,7 +92,7 @@ export function addGearToBag(metaP, item) {
     kind: 'gear',
     shape: sh.shape, hw: sh.hw, hh: sh.hh,
     icon: SLOTS[item.slot]?.icon || '✨',
-    name: item.name, color: R.color, r: sh.r,
+    name: item.name, color: R.color, r: sh.r, art: item.art || null,
     item: serializeItem(item),
   });
 }
@@ -120,7 +121,8 @@ export class PhysicsContainer {
     const map = new Map(this.bodies.map(b => [b.data.uid, b]));
     const next = [];
     items.forEach((it, idx) => {
-      const sh = shapeForItem(it);
+      const sh0 = shapeForItem(it), K = 1.18;
+      const sh = { shape: sh0.shape, hw: sh0.hw * K, hh: sh0.hh * K, r: sh0.r * K };
       const old = map.get(it.uid);
       if (old) {
         old.data = it;
@@ -262,52 +264,72 @@ export class PhysicsContainer {
     }
   }
 
+  _img(b) {
+    const id = b.data._art !== undefined ? b.data._art : (b.data._art = resolveArtId(b.data));
+    if (!id) return null;
+    const im = loadItemImage(id, 128, () => { this._dirty = true; });
+    return im && im._ready ? im : null;
+  }
+
   draw() {
     const ctx = this.ctx, W = this.W, H = this.H;
-    ctx.fillStyle = this.bgTheme === 'stash' ? '#4a362a' : '#2e2524';
+    // 背景：深棕磚面＋與參考圖一致的格線（42px 一格）
+    ctx.fillStyle = this.bgTheme === 'stash' ? '#3a2422' : '#33191f';
     ctx.fillRect(0, 0, W, H);
-    ctx.strokeStyle = this.bgTheme === 'stash' ? '#8c694a' : '#6c5848';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([6, 4]);
-    ctx.strokeRect(8, 8, W - 16, H - 16);
-    ctx.setLineDash([]);
+    ctx.strokeStyle = 'rgba(247,192,64,0.07)'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = 8 + 42; x < W - 8; x += 42) { ctx.moveTo(x + .5, 8); ctx.lineTo(x + .5, H - 8); }
+    for (let y = 8 + 42; y < H - 8; y += 42) { ctx.moveTo(8, y + .5); ctx.lineTo(W - 8, y + .5); }
+    ctx.stroke();
+    // 黃銅邊框＋四角鉚釘
+    ctx.strokeStyle = '#d08622'; ctx.lineWidth = 3; ctx.strokeRect(4.5, 4.5, W - 9, H - 9);
+    ctx.strokeStyle = '#24141c'; ctx.lineWidth = 2; ctx.strokeRect(2, 2, W - 4, H - 4);
+    ctx.fillStyle = '#fff0a0';
+    for (const [x, y] of [[7, 7], [W - 10, 7], [7, H - 10], [W - 10, H - 10]]) ctx.fillRect(x, y, 3, 3);
 
     const dragged = this.drag?.body || null;
     for (const b of this.bodies) {
       const sel = b.data.uid === this.selectedUid;
       const hov = this.hover === b;
       const canFuse = dragged && dragged !== b && !!findRecipe(dragged.data, b.data);
+      const rc = canFuse || sel ? '#ffe36a' : (b.data.color || '#c99228');
       ctx.save();
       ctx.translate(b.x, b.y);
       ctx.rotate(b.ang);
-      if (canFuse) {
-        ctx.save();
-        ctx.strokeStyle = '#ffd85a'; ctx.lineWidth = 3; ctx.setLineDash([5, 3]);
-        ctx.beginPath(); ctx.arc(0, 0, b.r + 7, 0, Math.PI * 2); ctx.stroke();
-        ctx.restore();
+      const hw = b.hw, hh = b.hh;
+      // 硬陰影 → 墨色外框 → 稀有度色內框 → 深棕底（依物理形狀描邊）
+      ctx.save(); ctx.translate(3, 4); this._traceShape(ctx, b); ctx.fillStyle = 'rgba(0,0,0,0.38)'; ctx.fill(); ctx.restore();
+      this._traceShape(ctx, b);
+      ctx.fillStyle = b.shape === 'crate' ? '#5a3826' : '#4a2a2c'; ctx.fill();
+      ctx.lineJoin = 'miter';
+      ctx.lineWidth = 7; ctx.strokeStyle = '#24141c'; ctx.stroke();
+      ctx.lineWidth = 3.5; ctx.strokeStyle = rc; ctx.stroke();
+      if (hov || sel || canFuse) { ctx.lineWidth = 1.5; ctx.strokeStyle = '#fff0a0'; ctx.stroke(); }
+      if (canFuse) { ctx.setLineDash([4, 3]); ctx.lineWidth = 2; ctx.strokeStyle = '#ffd85a'; ctx.beginPath(); ctx.arc(0, 0, b.r + 9, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]); }
+      // 圖示（透明 PNG；沒有圖的物品用欄位字剪影）
+      const im = this._img(b);
+      const fit = { capsule: [2.5, 2.05], diamond: [1.55, 1.55], flask: [2.15, 2.0], circle: [1.95, 1.95] }[b.shape] || [2.0, 2.0];
+      const iw = hw * fit[0], ih = hh * fit[1];
+      if (im) {
+        const k = Math.min(iw / im.naturalWidth, ih / im.naturalHeight);
+        ctx.drawImage(im, -im.naturalWidth * k / 2, -im.naturalHeight * k / 2, im.naturalWidth * k, im.naturalHeight * k);
+      } else {
+        ctx.font = canvasUiFont(Math.round(Math.min(hw, hh) * 1.1), 900);
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillStyle = 'rgba(255,240,200,0.55)';
+        const glyph = b.data.kind === 'gear' ? (SLOTS[b.data.item?.slot]?.icon || '?') : (b.data.icon || '?');
+        ctx.fillText(glyph, 0, 1);
       }
-      ctx.save();
-      ctx.translate(2, 4);
-      this._traceShape(ctx, b);
-      ctx.fillStyle = 'rgba(0,0,0,0.34)';
-      ctx.fill();
       ctx.restore();
-      this._traceShape(ctx, b);
-      ctx.fillStyle = b.shape === 'crate' ? '#d9b07a' : b.shape === 'flask' ? '#e8f6ff' : '#fff5dc';
-      ctx.fill();
-      if (b.shape === 'crate') {
-        ctx.strokeStyle = '#9a6e42'; ctx.lineWidth = 1.5;
-        ctx.beginPath(); ctx.moveTo(-b.hw + 3, -b.hh + 3); ctx.lineTo(b.hw - 3, b.hh - 3); ctx.stroke();
+      // 堆疊數量（不隨物件旋轉，貼在格子右下角）
+      const q = b.data.qty || 1;
+      if (q > 1) {
+        const ex = this._extents(b);
+        const tx = b.x + ex.ex - 4, ty = b.y + ex.ey - 3;
+        ctx.font = canvasUiFont(12, 900); ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic';
+        ctx.lineWidth = 3; ctx.strokeStyle = '#24141c'; ctx.strokeText(String(q), tx, ty);
+        ctx.fillStyle = '#fff8e4'; ctx.fillText(String(q), tx, ty);
       }
-      this._traceShape(ctx, b);
-      ctx.lineWidth = sel ? 4 : canFuse ? 4 : hov ? 3 : 2.5;
-      ctx.strokeStyle = canFuse ? '#ffd85a' : sel ? '#ffd85a' : b.data.color || '#7a5a40';
-      ctx.stroke();
-      ctx.font = canvasUiFont(Math.round(Math.min(b.hw, b.hh) * 1.15));
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#2d1e1e';
-      ctx.fillText(b.data.icon || '📦', 0, 1);
-      ctx.restore();
     }
     // 合成火花粒子
     for (const sp of this.sparks) {
@@ -321,11 +343,11 @@ export class PhysicsContainer {
       ctx.font = canvasUiFont(12, 700);
       const tw = Math.min(W - 12, ctx.measureText(txt).width + 14);
       const tx = Math.max(6, Math.min(W - tw - 6, this.hover.x - tw / 2));
-      const ty = Math.max(6, this.hover.y - this.hover.hh - 26);
-      ctx.fillStyle = 'rgba(43,29,34,0.92)';
-      ctx.fillRect(tx, ty, tw, 20);
-      ctx.strokeStyle = '#ffd85a'; ctx.lineWidth = 1.5; ctx.strokeRect(tx, ty, tw, 20);
-      ctx.fillStyle = '#fff8e4'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      const ty = Math.max(6, this.hover.y - this.hover.hh - 28);
+      ctx.fillStyle = '#24141c'; ctx.fillRect(tx - 2, ty - 2, tw + 4, 24);
+      ctx.fillStyle = '#33191f'; ctx.fillRect(tx, ty, tw, 20);
+      ctx.strokeStyle = d.color || '#f7c040'; ctx.lineWidth = 2; ctx.strokeRect(tx + 1, ty + 1, tw - 2, 18);
+      ctx.fillStyle = '#fff0c8'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
       ctx.fillText(txt, tx + 7, ty + 10, tw - 14);
     }
   }
@@ -414,7 +436,10 @@ export function synthesizeBagItems(game, itemA, itemB, listKey = 'bagItems', sx 
   const iA = list.findIndex(x => x.uid === itemA.uid);
   const iB = list.findIndex(x => x.uid === itemB.uid);
   if (iA < 0 || iB < 0) return null;
-  for (const idx of [iA, iB].sort((x, y) => y - x)) list.splice(idx, 1);
+  for (const idx of [iA, iB].sort((x, y) => y - x)) {
+    const e = list[idx];
+    if ((e.qty || 1) > 1) e.qty--; else list.splice(idx, 1);
+  }
 
   let created = null;
   if (rec.type === 'recipe') {
@@ -431,15 +456,16 @@ export function synthesizeBagItems(game, itemA, itemB, listKey = 'bagItems', sx 
       uid: 'syn_g_' + Date.now(),
       kind: 'gear', shape: sh.shape, hw: sh.hw, hh: sh.hh, r: sh.r,
       icon: SLOTS[newGear.slot]?.icon || '✨',
-      name: newGear.name, color: R.color, item: serializeItem(newGear),
+      name: newGear.name, color: R.color, art: newGear.art || null, item: serializeItem(newGear),
       _sx: sx, _sy: sy,
     };
   }
   if (created) {
-    list.push(created);
+    const twin = created.kind === 'consumable' && list.find(x => x.kind === 'consumable' && x.name === created.name);
+    if (twin) twin.qty = (twin.qty || 1) + 1; else list.push(created);
     game.audio.sfx('synth');
     game.meta.save();
-    game.ui.toast(`⚗️ 物理碰撞合成成功：${created.icon} ${created.name}！`, '#ffd85a');
+    game.ui.toast(`⚗️ 物理碰撞合成成功：${created.name}！`, '#ffd85a');
   }
   return created;
 }
@@ -468,7 +494,7 @@ export function useBagItem(game, itemData, fromListKey) {
     return true;
   }
   if (itemData.kind === 'consumable') {
-    list.splice(idx, 1);
+    if ((itemData.qty || 1) > 1) itemData.qty--; else list.splice(idx, 1);
     if (itemData.heal) game.heal(game.player.stats.maxHp * itemData.heal, true);
     if (itemData.mana) game.player.mana = Math.min(game.player.stats.mana, game.player.mana + game.player.stats.mana * itemData.mana);
     if (itemData.cure && game.player.statuses) {
@@ -547,7 +573,8 @@ export function transferBagItem(game, itemData, fromKey, toKey) {
   const idx = from.findIndex(x => x.uid === itemData.uid);
   if (idx < 0) return false;
   const [moved] = from.splice(idx, 1);
-  to.push(moved);
+  const twin = moved.kind === 'consumable' && to.find(x => x.kind === 'consumable' && x.name === moved.name);
+  if (twin) twin.qty = (twin.qty || 1) + (moved.qty || 1); else to.push(moved);
   game.audio.sfx('ui');
   game.meta.save();
   game.ui.toast(`${moved.name} → ${toKey === 'stashItems' ? t(game.settings?.lang, 'stash') : t(game.settings?.lang, 'bag')}`, '#ffe08a');

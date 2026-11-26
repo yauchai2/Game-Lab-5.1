@@ -2,6 +2,7 @@ import { pick, rand } from './util.js';
 import { MMO_SETS, MMO_SET_IDS } from './mmo_rpg.js';
 import { getRuneDef } from './mmo_world.js';
 import { formatPotentialLines } from './mmo_endgame.js';
+import { pickCatalogGear } from './itemdb.js';
 
 export const RARITY = [
   { key: 'normal', name: '普通', color: '#e8e2d4', beam: 0xe8e2d4 },
@@ -30,9 +31,22 @@ export function canEquipItem(it, playerLevel = 1) {
 }
 
 export const SLOTS = {
-  staff: { name: '法杖', icon: '杖', bases: ['樺木短杖', '苔紋手杖', '燈芯長杖', '古橡法杖'] },
+  head:  { name: '頭部', icon: '盔', bases: ['旅人兜帽'] },
+  staff: { name: '武器', icon: '杖', bases: ['樺木短杖', '苔紋手杖', '燈芯長杖', '古橡法杖'] },
+  body:  { name: '身體', icon: '甲', bases: ['旅人獵裝'] },
   cloak: { name: '斗篷', icon: '袍', bases: ['亞麻斗篷', '羊毛披風', '雨林蓑衣', '星紋大氅'] },
+  hands: { name: '手部', icon: '手', bases: ['旅人皮手套'] },
+  feet:  { name: '腳部', icon: '靴', bases: ['旅人獵靴'] },
   charm: { name: '護符', icon: '符', bases: ['松果護符', '貝殼墜飾', '琥珀吊墜', '螢石護符'] },
+  relic: { name: '聖物', icon: '聖', bases: ['古董鑰匙串'] },
+};
+// 後加欄位（頭/身/手/腳/聖物）可出現的詞綴
+const EXTRA_SLOT_AFFIX = {
+  dmgPct: ['hands', 'relic'], atkSpd: ['hands'], crit: ['head', 'hands'], critMult: ['head'], lifeOnHit: ['hands'],
+  maxHp: ['head', 'body', 'feet'], moveSpd: ['feet'], cdr: ['head', 'feet', 'relic'], mana: ['head', 'relic'], area: ['relic'],
+  armor: ['body', 'head', 'feet'], regen: ['body', 'feet'],
+  resFire: ['head', 'body', 'hands', 'feet', 'relic'], resIce: ['head', 'body', 'hands', 'feet', 'relic'],
+  resLightning: ['body', 'head', 'relic'], resPoison: ['body', 'feet', 'relic'], allRes: ['body', 'relic'],
 };
 
 // stat keys used by player.stats
@@ -59,7 +73,14 @@ export const AFFIXES = [
   { k: 'proj', fmt: v => `餘燼彈 +${v} 發`, roll: () => 1, slots: ['staff', 'charm'], rare: true },
 ];
 
+for (const a of AFFIXES) for (const sl of EXTRA_SLOT_AFFIX[a.k] || []) a.slots.push(sl);
+
 const IMPLICIT = {
+  head: t => ({ k: 'maxHp', v: 6 + t * 4, fmt: v => `+${v} 最大生命` }),
+  body: t => ({ k: 'armor', v: 2 + t, fmt: v => `受到傷害 -${v}%` }),
+  hands: t => ({ k: 'atkSpd', v: 3 + t * 2, fmt: v => `+${v}% 攻擊速度` }),
+  feet: t => ({ k: 'moveSpd', v: 3 + t * 2, fmt: v => `+${v}% 移動速度` }),
+  relic: t => ({ k: 'cdr', v: 2 + t * 2, fmt: v => `+${v}% 冷卻縮減` }),
   staff: t => ({ k: 'baseDmg', v: 4 + t * 3, fmt: v => `基礎傷害 +${v}` }),
   cloak: t => ({ k: 'maxHp', v: 10 + t * 6, fmt: v => `+${v} 最大生命` }),
   charm: t => ({ k: 'crit', v: 2 + t, fmt: v => `+${v}% 暴擊率` }),
@@ -84,14 +105,17 @@ export function makeItem(r, depth, forceRarity = null, forceSlot = null) {
     const x = r() + depth * 0.025;
     rarity = x > 0.97 ? 3 : x > 0.72 ? 2 : x > 0.32 ? 1 : 0;
   }
+  // 新增的頭／身／手／腳／聖物欄位還沒有傳奇範本：指定這些欄位時改出稀有品
+  if (rarity === 3 && forceSlot && !UNIQUES.some(q => q.slot === forceSlot)) rarity = 2;
   if (rarity === 3) {
     const u = pick(r, forceSlot ? UNIQUES.filter(q => q.slot === forceSlot) : UNIQUES);
     const setId = r() < 0.8 ? pick(r, MMO_SET_IDS) : null;
-    return { id: _id++, slot: u.slot, rarity: 3, tier, enhance: 0, setId, name: u.name, base: u.base, special: u.special, desc: u.desc,
+    return { id: _id++, slot: u.slot, rarity: 3, tier, enhance: 0, setId, name: u.name, base: u.base, art: pickCatalogGear(r, u.slot, tier)?.id || null, special: u.special, desc: u.desc,
       implicit: IMPLICIT[u.slot](tier), mods: u.mods.map(m => ({ ...m, fmt: AFFIXES.find(a => a.k === m.k)?.fmt || (v => `基礎傷害 +${v}`) })) };
   }
   const slot = forceSlot || pick(r, Object.keys(SLOTS));
-  const base = SLOTS[slot].bases[Math.min(3, Math.floor(tier / 2))];
+  const cat = pickCatalogGear(r, slot, tier);
+  const base = cat ? cat.name : SLOTS[slot].bases[Math.min(SLOTS[slot].bases.length - 1, Math.floor(tier / 2))];
   const nMods = rarity === 0 ? 0 : rarity === 1 ? 1 + (r() < 0.5 ? 1 : 0) : 3 + (r() < 0.4 ? 1 : 0);
   const pool = AFFIXES.filter(a => a.slots.includes(slot) && (!a.rare || rarity === 2));
   const mods = [];
@@ -105,7 +129,7 @@ export function makeItem(r, depth, forceRarity = null, forceSlot = null) {
   if (rarity === 1) name = `${pick(r, PREFIX)}${base}`;
   if (rarity === 2) name = `${pick(r, PREFIX)}${pick(r, SUFFIX)}`;
   const setId = rarity >= 2 && r() < 0.5 ? pick(r, MMO_SET_IDS) : null;
-  return { id: _id++, slot, rarity, tier, enhance: 0, setId, name, base, implicit: IMPLICIT[slot](tier), mods };
+  return { id: _id++, slot, rarity, tier, enhance: 0, setId, name, base, art: cat?.id || null, implicit: IMPLICIT[slot](tier), mods };
 }
 
 export function itemLines(it) {
@@ -179,7 +203,7 @@ export function serializeItem(it) {
   return {
     slot: it.slot, rarity: it.rarity, tier: it.tier, enhance: it.enhance || 0, setId: it.setId || null, rune: it.rune || null,
     potential: it.potential ? { tier: it.potential.tier, lines: (it.potential.lines || []).map(l => ({ k: l.k, v: l.v, label: l.label })) } : null,
-    name: it.name, base: it.base, special: it.special, desc: it.desc,
+    name: it.name, base: it.base, art: it.art || null, special: it.special, desc: it.desc,
     corrupted: !!it.corrupted, bricked: !!it.bricked,
     corruptImplicit: it.corruptImplicit ? { k: it.corruptImplicit.k, v: it.corruptImplicit.v } : null,
     implicit: it.implicit ? { k: it.implicit.k, v: it.implicit.v } : null,
@@ -191,7 +215,7 @@ export function deserializeItem(o) {
   return {
     id: _id++, slot: o.slot, rarity: o.rarity, tier: o.tier || 1, enhance: o.enhance || 0, setId: o.setId || null, rune: o.rune || null,
     potential: o.potential ? { tier: o.potential.tier, lines: (o.potential.lines || []).map(l => ({ k: l.k, v: l.v, label: l.label })) } : null,
-    name: o.name, base: o.base, special: o.special, desc: o.desc, reforged: o.reforged || 0,
+    name: o.name, base: o.base, art: o.art || null, special: o.special, desc: o.desc, reforged: o.reforged || 0,
     corrupted: !!o.corrupted, bricked: !!o.bricked,
     corruptImplicit: o.corruptImplicit ? { ...o.corruptImplicit, fmt: fmtOf(o.corruptImplicit.k) } : null,
     implicit: o.implicit ? { ...o.implicit, fmt: IMP_FMT[o.implicit.k] || fmtOf(o.implicit.k) } : null,
