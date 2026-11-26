@@ -724,6 +724,23 @@ const createGuild = require('../server/guild.cjs');
   cpMock.field = 0;
   assert.equal(frontier.teleportToCheckpoint(cpMock, 1), false, 'Checkpoints cannot move players from a different scene');
 
+  const { findQuestRoute } = await import(src('quest_guide.js'));
+  const wayFrom = { x: -4, z: 0 }, wayTo = { x: 4, z: 0 };
+  const floor = { res: 0.5, half: 8, gh: () => 0, obstacles: [],
+    isWalk: (x, z) => Math.abs(x) <= 8 && Math.abs(z) <= 8 };
+  assert.deepEqual(findQuestRoute(floor, [], wayFrom, wayTo), [wayFrom, wayTo]);
+  const wall = { x: 0, z: 0, hw: 0.8, hd: 2 };
+  const aroundWall = findQuestRoute(floor, [wall], wayFrom, wayTo);
+  assert.ok(aroundWall.some(point => Math.abs(point.z) > wall.hd));
+  assert.deepEqual(aroundWall.at(-1), wayTo);
+  assert.deepEqual(findQuestRoute(floor, [{ ...wall, hd: 8 }], wayFrom, wayTo), []);
+  const shore = { ...floor, isWalk: (x, z) => floor.isWalk(x, z) && (Math.abs(x) > 1 || z > 2) };
+  assert.ok(findQuestRoute(shore, [], wayFrom, wayTo).some(point => point.z > 2));
+  const lampPost = { ...floor, obstacles: [{ ...wayTo, r: 0.7 }] };
+  const approach = findQuestRoute(lampPost, [], wayFrom, wayTo).at(-1);
+  assert.ok(Math.hypot(approach.x - wayTo.x, approach.z - wayTo.z) <= 1.65);
+  assert.notDeepEqual(approach, wayTo);
+
   const maps = await import(src('map_navigation.js'));
   const waypoint = { depth: -1, field: 0, lastTown: -1, exits: [{ type: 'run', x: 0, z: -12, on: true }],
     spots: [{ kind: 'ferry_harbor', x: 0, z: 26 }], state: 'play' };

@@ -14,6 +14,7 @@ import { RUNE_DEFS, RUNE_IDS, ensureRunes, socketRune, DAILY_CHESTS, ensureDaily
 import { POTENTIAL_TIERS, POTENTIAL_SHARD_COST, rollPotential, formatPotentialLines, MAX_TOWER_FLOOR, towerFloorSpec, computeTowerBonuses, getPartyIds, togglePartyMember, getActivePartySynergy } from './mmo_endgame.js';
 import { FIELDS } from './frontier.js';
 import { MONSTER_MATS } from './mmo_rpg.js';
+import { questNavigationTarget } from './map_navigation.js';
 import { MEADOW_CAVE, meadowCaveProgress } from './meadow_cave.js';
 import { commitCharacterReward, openingStep, openingSupport } from './opening.js';
 import { MEADOW_TIERS, availableExpeditions, expeditionRoute, meadowExpedition, meadowStage, startMeadowExpedition, claimMeadowReward, syncMeadowExpedition } from './expedition.js';
@@ -27,6 +28,21 @@ export function buildPanels(g) {
   let M;
   const head = () => { foot.innerHTML = `✦ 星砂 <b>${M.p.shards}</b>　🪶 金羽毛 <b>${M.p.feathers}</b>　🐚 貝殼 <b>${M.p.shells}</b>`; };
   const row = (html, btn) => `<div class="prow"><div class="pl">${html}</div>${btn || ''}</div>`;
+
+  const guideControls = root.querySelector('.quest-guide-controls');
+  const guideToggle = guideControls.querySelector('[data-quest-guide-toggle]');
+  const syncGuideControls = () => {
+    guideControls.hidden = !['opening', 'expedition'].includes(kind) || !questNavigationTarget(g);
+    guideToggle.textContent = g.questGuide.enabled ? '關閉光路' : '開啟光路';
+  };
+  guideControls.querySelector('[data-quest-guide-follow]').onclick = () => {
+    g.questGuide.enabled = true;
+    g.ui.closePanel();
+  };
+  guideToggle.onclick = () => {
+    g.questGuide.enabled = !g.questGuide.enabled;
+    syncGuideControls();
+  };
 
   function renderShards() {
     title.textContent = '區域分流';
@@ -293,6 +309,7 @@ export function buildPanels(g) {
           g.ui.banner(def.name, '沿指引前往目標。');
         } else {
           renderExpedition();
+          syncGuideControls();
           body.querySelector('[data-exp-warp]')?.focus();
         }
       };
@@ -746,8 +763,9 @@ export function buildPanels(g) {
   }
   g.ui.openPanel = (k, { recipeId = null } = {}) => {
     kind = k;
+    if (k === 'opening' || k === 'expedition') g.questGuide.showByDefault();
     workshopRecipe = recipeId; g.ui.guildMarketOpen = k === 'exchange';
-    g.ui.panelOpen = true; root.classList.remove('hide'); render();
+    g.ui.panelOpen = true; root.classList.remove('hide'); render(); syncGuideControls();
     if (k === 'shards' && g.net.zoneShards) g.net.send({ t: 'shard_list' });
   };
   g.ui.refreshShardPanel = request => {

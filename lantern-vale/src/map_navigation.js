@@ -1,5 +1,6 @@
 import { FIELDS } from './frontier.js';
-import { meadowObjective } from './expedition.js';
+import { MEADOW_TIERS, meadowExpedition, meadowObjective, meadowStage } from './expedition.js';
+import { openingStep } from './opening.js';
 
 export const HARBOR_PORTALS = [7, 8, 9, 10, 11, 12];
 export const mapRegionName = id => id === 0 ? '燈谷鎮' : id === 100 ? '海風港鎮' : FIELDS[id]?.name;
@@ -87,6 +88,34 @@ export function nextMapLeg(g, destination) {
   return best;
 }
 
+export function questNavigationTarget(g) {
+  if (g.state !== 'play' || g.raid || g.sailing || g.ambushTrial?.active) return null;
+  const profile = g.meta.p;
+  const active = meadowExpedition(profile).active;
+  const step = openingStep(profile);
+  const inRegion = region => !g.interior && (region === 0 ? g.depth === -1 && !g.field : g.field === region);
+  const caveExit = g.exits?.find(exit => exit.type === 'caveReturn' && exit.on);
+
+  if (g.caveRun) return step === 'badge' && caveExit
+    ? { x: caveExit.x, z: caveExit.z, label: '返回晨光草原' } : null;
+  if (active && meadowStage(active) !== 'reward') {
+    const region = MEADOW_TIERS[active.tier].field;
+    return inRegion(region) ? meadowObjective(g) : nextMapLeg(g, region);
+  }
+  if (step === 'lamp' || step === 'spar') return inRegion(1) ? meadowObjective(g) : nextMapLeg(g, 1);
+  if (step === 'resume' || (step === 'support' && profile.keys > 0)) {
+    if (!inRegion(1)) return nextMapLeg(g, 1);
+    const door = g.exits.find(exit => exit.type === 'dungeon' && exit.on);
+    return door ? { x: door.x, z: door.z, label: '草原洞窟' } : null;
+  }
+  if (step === 'badge') {
+    if (!inRegion(0)) return nextMapLeg(g, 0);
+    const forge = g.spots.find(spot => spot.kind === 'forge');
+    return forge ? { x: forge.x, z: forge.z, label: '鐵匠鋪' } : null;
+  }
+  return null;
+}
+
 export function navigationTarget(g) {
   if (g.state !== 'play' || g.sailing) return null;
   if (g.mapPin) return g.mapPin;
@@ -96,6 +125,10 @@ export function navigationTarget(g) {
   }
   const exit = g.exits?.find(x => x.type === 'caveReturn' && x.on);
   if (exit) return { x: exit.x, z: exit.z, label: '返回晨光草原' };
+  if (g.questGuide?.enabled) {
+    const quest = questNavigationTarget(g);
+    if (quest) return quest;
+  }
   if (g.interior) return null;
   const grave = g.field && g.meta.p.graves?.[g.field];
   if (grave) return { x: grave.x, z: grave.z, label: '墓碑' };

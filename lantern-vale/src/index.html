@@ -1675,6 +1675,9 @@ html{scrollbar-color:var(--cp-gold-sh) var(--cp-wood-dark);scrollbar-width:thin}
 :is(.pbody,.sbody,.inv-pane,.cx-box,.sim-card,.sim-roster-box,.acct-box) :where(small,.psmall,.hint){
   font-size:var(--ui-type-detail);line-height:1.5;
 }
+.quest-guide-controls{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-block:8px 10px}
+.quest-guide-controls[hidden]{display:none}
+@media (pointer:coarse){.quest-guide-controls .btn{min-height:44px}}
 .pbody .prow{gap:10px;align-items:center}
 .pbody .prow .pl{min-width:0}
 .pbody .prow .btn{max-width:55%;white-space:normal}
@@ -2292,7 +2295,7 @@ body:has(#menuPop:not(.hide),[aria-modal="true"]:not(.hide)) #toasts{opacity:0}
   <div class="sbody"></div>
   <div class="sfoot"><button class="btn small" id="btnClose">繼續遊戲</button><button type="button" class="btn small" id="btnSwitchChar" style="background:#5a463a">👤 切換角色／帳號</button><span class="hint">Esc 開關設定</span></div>
 </div></div>
-<div id="panelM" class="modal hide"><div class="panel setp"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px"><h3 style="margin:0"></h3><button type="button" class="modal-x" id="btnPanelX" aria-label="關閉">✕</button></div><div class="pshards"></div><div class="pbody"></div></div></div>
+<div id="panelM" class="modal hide"><div class="panel setp"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px"><h3 style="margin:0"></h3><button type="button" class="modal-x" id="btnPanelX" aria-label="關閉">✕</button></div><div class="pshards"></div><div class="quest-guide-controls" hidden><button type="button" class="btn small on" data-quest-guide-follow>✦ 跟隨燈火</button><button type="button" class="btn small" data-quest-guide-toggle>關閉光路</button></div><div class="pbody"></div></div></div>
 <div id="puzzleM" class="modal hide"><div class="panel pzp">
   <div class="pz-head"><h3>💎 技能拼圖</h3><div style="display:flex;align-items:center;gap:10px"><span class="pz-coins"></span><button type="button" class="modal-x" id="btnPuzzleX" aria-label="關閉技能拼圖">✕</button></div></div>
   <div class="pz-presets"></div>
