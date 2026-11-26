@@ -172,6 +172,7 @@ const createGuild = require('../server/guild.cjs');
   mockGame.player.equip.staff = { name: '舊木燈杖', slot: 'staff', rarity: 0, mods: [] };
   mockGame.player.equip.cloak = { name: '舊斗篷', slot: 'cloak', rarity: 0, mods: [] };
   mockGame.player.equip.charm = { name: '舊護符', slot: 'charm', rarity: 0, mods: [] };
+  for (const [slot, nm] of [['head', '舊頭盔'], ['body', '舊胸甲'], ['hands', '舊手套'], ['feet', '舊靴子'], ['relic', '舊聖物']]) mockGame.player.equip[slot] = { name: nm, slot, rarity: 0, mods: [] }; // 8 欄位都有舊裝，才確定被替換的一定進背包
   const crafted = frontier.craft(mockGame);
   assert.ok(typeof crafted === 'string' && crafted.length > 0, 'Crafting returns item name');
   assert.equal(mockGame.meta.p.goods.wood, 2);

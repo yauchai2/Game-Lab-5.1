@@ -8,8 +8,10 @@
 - 外網試玩的 HTTPS 通道已另接在 `127.0.0.1:8082` 的隔離服務。入口密碼與目前網址分別從 `server/data/remote-playtest/passcode` 和 `tunnel.log` 讀取。公開入口使用試玩密碼，正式的 8080 及區網的 8081 保持各自服務。已從外網 HTTPS 驗證瀏覽器登入、岔道伏擊開場與兩個 WSS 連線加入同一分流。停止方式見 [跨網路邀請](docs/LIVE_PLAYTEST.md#跨網路邀請)。
 - 接手時 Dev Mode 的新待審紀錄只有遊玩期間的單次 184 ms 慢幀，尚未追到穩定重現條件。
 
-## 2026-11-26 三色極簡戰鬥語彙統一、手機防長按選字、統一測試入口（`?test`）、密碼 `0000` 與內建 AI 自動打
+## 2026-11-26 合併背包與物品系統大改版（`origin/claude/project-thread-cw3h64`）＋極簡試玩入口與三色戰鬥語彙
 
+- **建置雜湊**：`game/index.html` `01cf6066110f`（2012KB）。`node tests/logic_verify.cjs`（全通過）與 `node tests/playtest_review.cjs` 全通過。
+- **合併裝備／物品系統與 UI 更新（`e22c2b7`）**：拉取並合併遠端分支 `origin/claude/project-thread-cw3h64`（PR #10），整合 8 個裝備欄（頭／武器／身／斗篷／手／腳／護符／聖物）、339 項物品企劃資料庫（`src/itemdb.js`、`data/items.json`）、84 張去背 Figma 透明物品圖示（`game/assets/items/128` 與 `256`）、英雄裝備面板、POE2 式提示框與世界掉落看板，並解決 `src/main.js` 與 `game/index.html` 合併衝突後重建發佈。
 - **極簡試玩入口頁（`src/test_hub.js`）**：針對陌生測試者重設計 `/?test` 畫面，主視覺僅保留標題、一句說明、「▶ 開始戰鬥試玩」與「進入完整遊戲」兩顆清晰按鈕；將 `AB／BA` 順序、技能風格、AI 自動打、複製連結、組隊代碼與 build 雜湊全部收合至底部「進階測試選項 ▾」。
 - **三色極簡戰鬥語彙統一（`src/game.js`）**：依手機真人實測回饋，將棘芽射手蓄力環由黃綠（`0x9bd85a`）改為鮮紅（`0xff4d5a`），徹底與金色破綻環（`0xffcf4a`）區分，全遊戲統一為「紅＝即將出招／危險（閃避或打斷）、金＝收招破綻（1.5 倍反打）、青藍＝玩家完美閃避必暴」。
 - **手機長按 UI 防選字與防呼出選單（`src/index.html`、`src/touch.js`、`src/ui.js`）**：補齊 iOS Safari／行動瀏覽器必備的 `-webkit-user-select: none`、`-webkit-touch-callout: none`、`-webkit-tap-highlight-color: transparent`、`-webkit-user-drag: none` 與 `touch-action` 設定（同時保留 `input`／`textarea` 正常輸入選字），並於搖桿、普攻、跳躍滑翔、翻滾與快捷技能槽攔截非被動 `touchstart`、`selectstart` 與 `contextmenu`，長按按鈕不再觸發系統選字放大鏡或複製選單。

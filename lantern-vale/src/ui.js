@@ -16,6 +16,7 @@ import { bindCodexUI } from './codex.js';
 import { StatusCard } from './statuscard.js';
 import { t } from './i18n.js';
 import * as THREE from 'three';
+import { resolveArtId, itemIconUrl } from './itemdb.js';
 import { RARITY, SLOTS, itemLines, itemScore, BOONS, deserializeItem, tierInfo, CORRUPT_COST, corruptItem } from './loot.js';
 import { activeMountDef, mountStatuses, unlockMountSaddle } from './mounts.js';
 import { MONSTER_SOULS, SOUL_SLOTS, ensureSouls, equipSoul, unequipSoul, soulTier } from './souls.js';
@@ -274,7 +275,8 @@ export class UI {
         info.innerHTML = (isPreview && item ? `<div style="font-size:10px;opacity:.65;margin-bottom:2px">🔍 懸停預覽對比</div>` : '') + this.itemHTML(gear, game.player.equip[gear.slot]);
       } else {
         const ti = tierInfo(targetItem.tier || 1);
-        info.innerHTML = `<div><span class="tier-tag" style="color:${ti.color}">${ti.tag} ${ti.name}</span><b>${targetItem.icon || ''} ${targetItem.name}</b></div><div style="margin-top:4px;font-size:12.5px">${targetItem.desc || '物理背包物品'}</div>`;
+        const art = this.artImg(targetItem, 256, 'tip-art');
+        info.innerHTML = `<div class="tip-head rar-0">${art}<div class="tip-title"><div class="iname"><span class="tier-tag" style="color:${ti.color}">${ti.tag}</span>${art ? '' : (targetItem.icon || '') + ' '}${targetItem.name}${(targetItem.qty || 1) > 1 ? ` <small>×${targetItem.qty}</small>` : ''}</div><div class="ibase">${ti.name} · 消耗品</div></div></div><div class="sep"></div><div class="mod-desc">${targetItem.desc || '物理背包物品'}</div>`;
       }
       if (isPreview) return;
       btns.innerHTML = '';
@@ -355,43 +357,62 @@ export class UI {
       };
     });
   }
+  // 物品圖示 <img>（透明 PNG）；沒有圖時回傳空字串由呼叫端用欄位字剪影
+  artImg(o, size = 128, cls = 'eq-art') {
+    const id = resolveArtId(o), url = id && itemIconUrl(id, size);
+    return url ? `<img class="${cls}" src="${url}" alt="" draggable="false" decoding="async">` : '';
+  }
   renderBagEquipStrip(game) {
     const el = $('bagEquipStrip'); if (!el) return;
-    const eq = game.player.equip, shards = game.meta.p.shards || 0;
-    el.innerHTML = Object.keys(SLOTS).map(k => {
-      const it = eq[k];
-      if (!it) return `<div class="eq-mini" data-eqslot="${k}"><div><b>${SLOTS[k].icon} ${SLOTS[k].name}</b></div><span style="color:#d8c2a0;opacity:.9">（空欄位）</span></div>`;
-      const ti = tierInfo(it.tier || 1), R = RARITY[it.rarity];
-      const corruptOk = canCorruptGear(game);
-      const cBtn = !it.corrupted
-        ? (corruptOk
-            ? `<button type="button" class="btn small corrupt-btn eq-corrupt" data-corrupt-slot="${k}" ${shards >= CORRUPT_COST ? '' : 'disabled'}>☠️ 腐化 ✦${CORRUPT_COST}</button>`
-            : `<span style="font-size:10px;color:#e6cfa8;opacity:.92">🔒 Lv.${CORRUPT_UNLOCK_LV} 解鎖腐化</span>`)
-        : `<span style="font-size:11px;color:#ff84b6;font-weight:700">☠️ 已腐化</span>`;
-      return `<div class="eq-mini" data-eqslot="${k}"><div><span class="tier-tag" style="color:${ti.color}">${ti.tag}</span><b style="color:${R.color}">${it.name}</b></div><small>${SLOTS[k].name} · 戰力 ${itemScore(it)}</small>${cBtn}</div>`;
-    }).join('');
+    const eq = game.player.equip, S = game.player.stats || {};
+    const cls = CLASSES[game.character?.job ?? 0] || CLASSES[0];
+    const cell = k => {
+      const it = eq[k], sl = SLOTS[k];
+      if (!it) return `<button type="button" class="eq-mini eq-slot empty" data-eqslot="${k}" aria-label="${sl.name}（空）"><i class="eq-glyph">${sl.icon}</i><small class="eq-name">${sl.name}</small></button>`;
+      const ti = tierInfo(it.tier || 1);
+      const art = this.artImg(it, 128);
+      return `<button type="button" class="eq-mini eq-slot rar-${it.rarity}${it.corrupted ? ' corrupted' : ''}" data-eqslot="${k}" aria-label="${it.name}">${art || `<i class="eq-glyph">${sl.icon}</i>`}<b class="eq-tier" style="color:${ti.color}">${ti.tag}</b>${it.enhance ? `<b class="eq-enh">+${it.enhance}</b>` : ''}${it.corrupted ? '<b class="eq-skull">☠</b>' : ''}</button>`;
+    };
+    el.innerHTML = `<div class="hero-card"><div class="hero-ribbon">英雄 HERO</div>
+      <div class="hero-grid">
+        <div class="hero-col">${['head', 'body', 'hands', 'feet'].map(cell).join('')}</div>
+        <div class="hero-mid">
+          <div class="hero-portrait"><span>${cls.icon || '🧙'}</span></div>
+          <div class="hero-stat"><span>攻擊</span><b>${Math.round((S.baseDmg || 0) + (S.addFire || 0))}</b></div>
+          <div class="hero-stat"><span>減傷</span><b>${S.armor || 0}%</b></div>
+          <div class="hero-stat"><span>移速</span><b>+${S.moveSpd || 0}%</b></div>
+          <div class="hero-stat pow"><span>戰力</span><b>${game.player.combatPower || 0}</b></div>
+        </div>
+        <div class="hero-col">${['staff', 'cloak', 'charm', 'relic'].map(cell).join('')}</div>
+      </div></div>`;
+    const shards = game.meta.p.shards || 0;
     el.querySelectorAll('.eq-mini').forEach(b => {
-      b.onclick = e => {
-        if (e.target.closest('[data-corrupt-slot]')) return;
-        const it = eq[b.dataset.eqslot], info = $('bagSelInfo'), btns = $('bagBtns');
+      b.onclick = () => {
+        const k = b.dataset.eqslot, it = eq[k], info = $('bagSelInfo'), btns = $('bagBtns');
+        el.querySelectorAll('.eq-slot.sel').forEach(x => x.classList.remove('sel'));
+        b.classList.add('sel');
         if (!info) return;
         if (btns) btns.innerHTML = '';
-        info.innerHTML = it ? `<div style="font-size:12px;color:#7a5a46;margin-bottom:3px">🛡️ 目前已穿戴裝備詳情</div>` + this.itemHTML(it) : '此裝備欄位目前為空。';
-      };
-    });
-    el.querySelectorAll('[data-corrupt-slot]').forEach(b => {
-      b.onclick = e => {
-        e.stopPropagation();
-        const k = b.dataset.corruptSlot, cur = eq[k];
-        if (!cur || cur.corrupted || (game.meta.p.shards || 0) < CORRUPT_COST) return;
-        game.meta.p.shards -= CORRUPT_COST;
-        const res = corruptItem(cur);
-        if (!res.ok) return;
-        game.player.equip[k] = res.item;
-        rememberGear(game); game.meta.save(); game.recalc();
-        game.audio.sfx(res.outcome === 'brick' ? 'corruptBrick' : res.outcome === 'godroll' ? 'corruptGod' : 'classup');
-        this.toast(res.label, res.outcome === 'brick' ? '#ff6a6a' : '#ff8ad8');
-        this.renderBagEquipStrip(game); this.renderInv(game, true);
+        info.innerHTML = it ? `<div class="eq-note">目前已穿戴</div>` + this.itemHTML(it) : `<div class="eq-note">${SLOTS[k].name}欄位目前為空。把背包裡的${SLOTS[k].name}雙擊即可裝備。</div>`;
+        if (!it || !btns) return;
+        if (it.corrupted) { btns.innerHTML = `<span class="eq-corrupted-tag">☠️ 已腐化</span>`; return; }
+        if (!canCorruptGear(game)) { btns.innerHTML = `<span class="eq-corrupted-tag dim">🔒 Lv.${CORRUPT_UNLOCK_LV} 解鎖腐化</span>`; return; }
+        const cb = document.createElement('button');
+        cb.type = 'button'; cb.className = 'btn small corrupt-btn eq-corrupt'; cb.dataset.corruptSlot = k;
+        cb.textContent = `☠️ 腐化 ✦${CORRUPT_COST}`; cb.disabled = (game.meta.p.shards || 0) < CORRUPT_COST;
+        cb.onclick = () => {
+          const cur = eq[k];
+          if (!cur || cur.corrupted || (game.meta.p.shards || 0) < CORRUPT_COST) return;
+          game.meta.p.shards -= CORRUPT_COST;
+          const res = corruptItem(cur);
+          if (!res.ok) return;
+          game.player.equip[k] = res.item;
+          rememberGear(game); game.meta.save(); game.recalc();
+          game.audio.sfx(res.outcome === 'brick' ? 'corruptBrick' : res.outcome === 'godroll' ? 'corruptGod' : 'classup');
+          this.toast(res.label, res.outcome === 'brick' ? '#ff6a6a' : '#ff8ad8');
+          this.renderBagEquipStrip(game); this.renderInv(game, true);
+        };
+        btns.appendChild(cb);
       };
     });
   }
@@ -590,6 +611,7 @@ export class UI {
     const st = ensurePhysicsStorage(game.meta.p);
     this.bagPhys?.sync(st.bag);
     this.stashPhys?.sync(st.stash);
+    const bc = $('bagCount'); if (bc) bc.textContent = String(st.bag.reduce((n, x) => n + (x.qty || 1), 0));
     for (const [id, items] of [['bagItemPicker', st.bag], ['stashItemPicker', st.stash]]) {
       const picker = $(id);
       const selected = picker.value;
@@ -1302,7 +1324,8 @@ export class UI {
       }
       cmp = `<div class="cmp ${diff >= 0 ? 'up' : 'down'}">${cur ? (diff >= 0 ? `▲ 戰力比目前好 +${diff}` : `▼ 戰力比目前差 ${diff}`) : '▲ 空欄位'}</div>${deltaHtml}<div class="hint">雙擊或點擊按鈕裝備（舊裝備自動收入物理背包）</div>`;
     }
-    return `<div class="iname" style="color:${R.color}"><span class="tier-tag" style="color:${ti.color}">${ti.tag}</span>${it.name}</div><div class="ibase">${ti.name} · ${R.name} · ${SLOTS[it.slot].name} · ${it.base} · 戰力 ${itemScore(it)}</div><div class="sep"></div>${lines}${cmp}`;
+    const art = this.artImg(it, 256, 'tip-art');
+    return `<div class="tip-head rar-${it.rarity}">${art}<div class="tip-title"><div class="iname" style="color:${R.color}"><span class="tier-tag" style="color:${ti.color}">${ti.tag}</span>${it.name}</div><div class="ibase">${ti.name} · ${R.name} · ${SLOTS[it.slot].name} · ${it.base} · 戰力 ${itemScore(it)}</div></div></div><div class="sep"></div>${lines}${cmp}`;
   }
   toggleRegionMap(g) {
     this.regionMapOpen = !this.regionMapOpen;
