@@ -1,8 +1,9 @@
 import { GOODS, craft, rememberGear, xpForNextLevel } from './frontier.js';
 import { CLASSES } from './puzzle.js';
-import { MONSTER_MATS, GEAR_RECIPES, canCraftRecipe, craftMonsterGear } from './mmo_rpg.js';
+import { MONSTER_MATS, GEAR_RECIPES, missingRecipeCosts, craftMonsterGear } from './mmo_rpg.js';
 import { RARITY, fmtOf, canEquipItem, itemReqLevel, itemScore } from './loot.js';
 import { addGearToBag } from './physbag.js';
+import { OPENING_BADGE, commitCharacterReward, craftOpeningBadge } from './opening.js';
 const labels = { slime:'苔團', thorn:'棘木靈', boar:'岩背野豬', moth:'暮光蛾', stag:'古樹鹿王' };
 const weapons = { staff:'燈杖', blades:'雙刀', bow:'短弓', shield:'守衛盾' };
 const MARKET = {
@@ -34,10 +35,10 @@ function settle(p, now) {
   }
   p.sales = pending;
 }
-export function buildLodge(g, body, title, kind) {
+export function buildLodge(g, body, title, kind, recipeId = null) {
   const p = g.meta.p, now = Date.now();
   settle(p, now); g.meta.save();
-  const refresh = () => buildLodge(g, body, title, kind);
+  const refresh = () => buildLodge(g, body, title, kind, recipeId);
   title.textContent = { market:'溪畔拍賣行', home:'旅人小屋', workshop:'素材工坊' }[kind];
   body.replaceChildren();
   const line = (label, hint) => {
@@ -45,6 +46,12 @@ export function buildLodge(g, body, title, kind) {
     const text = document.createElement('div'); text.className = 'pl'; text.textContent = label;
     if (hint) { const sub = document.createElement('small'); sub.textContent = hint; text.append(document.createElement('br'),sub); }
     row.append(text); body.append(row); return row;
+  };
+  const buyGoods = (key, quantity, unitPrice) => {
+    const cost = quantity * unitPrice;
+    if (p.coins < cost) return;
+    p.coins -= cost;
+    p.goods[key] += quantity;
   };
   const action = (row, label, enabled, fn) => {
     const b = document.createElement('button'); b.className = 'btn small'; b.textContent = label; b.disabled = !enabled;
@@ -58,26 +65,90 @@ export function buildLodge(g, body, title, kind) {
     for (const [key,name] of Object.entries(GOODS)) {
       const price = quote(key, now);
       const row = line(name + ' · ' + trendLabel(key, price), '每份 ' + price + ' 金幣 · 成交稅 8%（回收通膨）');
-      action(row,'買入',p.coins >= price,() => { p.coins -= price; p.goods[key]++; });
+      action(row,'買入',p.coins >= price,() => buyGoods(key, 1, price));
       action(row,'寄售',p.goods[key] > 0,() => { p.goods[key]--; p.sales.push({ key, price, due:Date.now()+30000 }); });
     }
     for (const lot of p.sales) line(GOODS[lot.key] + ' · 已寄售', Math.max(1,Math.ceil((lot.due-now)/1000)) + ' 秒後由商人收購');
     action(line('NPC 商人每五分鐘調價','已裝備及鍛造的物品綁定角色。'),'結算',true,()=>{});
   } else if (kind === 'workshop') {
+    if (p.opening?.badge === 'ready') {
+      const equipped = g.player.equip[OPENING_BADGE.slot];
+      const canWear = canEquipItem(OPENING_BADGE, p.level || 1);
+      const equipNow = canWear && !equipped;
+      const badge = line(OPENING_BADGE.name, `消耗草原洞窟首通材料 · 基礎傷害 +2 · ${canWear ? '可穿戴' : 'Lv.2 可穿戴'}`);
+      badge.dataset.openingBadge = 'ready';
+      const build = document.createElement('button');
+      build.type = 'button';
+      build.className = 'btn small on';
+      build.textContent = equipNow ? '打造並穿戴' : '打造入背包';
+      build.onclick = async () => {
+        build.disabled = true;
+        const meta = g.meta;
+        const crafted = await commitCharacterReward(meta, profile => profile.opening?.badge === 'crafted', () => {
+          if (g.meta !== meta || meta.p !== p) return false;
+          const item = craftOpeningBadge(p, fmtOf);
+          if (!item) return false;
+          const worn = equipNow && !g.player.equip[item.slot];
+          if (worn) {
+            g.player.equip[item.slot] = item;
+            rememberGear(g);
+          } else addGearToBag(p, item);
+          g.meta.save();
+          g.recalc();
+          g.audio?.sfx?.('classup');
+          g.ui.toast(worn ? '已穿戴巡燈徽章 · 基礎傷害 +2' : '巡燈徽章已收入背包', '#ffe08a');
+          return true;
+        });
+        if (g.meta !== meta || !build.isConnected || !g.ui.panelOpen) return;
+        if (crafted) refresh();
+        else g.ui.toast('此徽章已打造。重新進入角色可同步進度。', '#ffe08a');
+      };
+      badge.append(build);
+    } else if (p.opening?.badge === 'crafted' && !p.opening.finished) {
+      const route = line('巡燈徽章已打造', '挑戰精英或探索低語森林');
+      const next = document.createElement('button');
+      next.type = 'button';
+      next.className = 'btn small on';
+      next.textContent = '選擇下一站';
+      next.dataset.openingNext = '';
+      next.onclick = () => g.ui.openPanel('opening');
+      route.append(next);
+    }
     const mm = p.mMats || {};
-    line('📦 怪物鍛造材料庫', Object.values(MONSTER_MATS).map(m => `${m.icon}${m.name} ×${mm[m.id] || 0}`).join('　'));
-    for (const rec of GEAR_RECIPES) {
+    const materialStock = () => line('📦 怪物鍛造材料庫', Object.values(MONSTER_MATS)
+      .map(m => `${m.icon}${m.name} ×${mm[m.id] || 0}`).join('　'));
+    const preferred = GEAR_RECIPES.find(rec => rec.id === recipeId);
+    const resourceLabel = key => ({ coins: '金幣', shards: '星砂' })[key] || GOODS[key] || MONSTER_MATS[key]?.name || key;
+    const renderRecipe = rec => {
       const c = rec.cost || {};
       const gdStr = Object.entries(c.goods || {}).map(([k, n]) => `${GOODS[k] || k}×${n}`).join(' ');
       const matStr = Object.entries(c.mMats || {}).map(([k, n]) => `${MONSTER_MATS[k]?.icon || ''}${MONSTER_MATS[k]?.name || k}×${n}`).join(' ');
       const costStr = `🪙${c.coins || 0}${c.shards ? ` 💎${c.shards}` : ''}${gdStr ? ` ${gdStr}` : ''} ${matStr}`;
       const rName = RARITY[rec.rarity]?.name || '裝備';
       const reqLv = rec.reqLevel || 1;
-      const lvBadge = (p.level || 1) >= reqLv ? `Lv.${reqLv}+` : `🔒需Lv.${reqLv}`;
+      const missing = missingRecipeCosts(p, rec);
+      const shortage = missing.map(({ key, count }) => `${resourceLabel(key)} ×${count}`).join('、');
+      const levelNote = (p.level || 1) < reqLv ? `Lv.${reqLv} 才能穿戴` : `Lv.${reqLv} 裝備`;
+      const title = `${rec === preferred ? '洞窟素材配方 · ' : ''}${rec.name} · T${rec.tier} ${rName}`;
+      const row = line(title, `${shortage ? '還差 ' + shortage : '材料齊備'} · ${levelNote}`);
+      row.dataset.recipeId = rec.id;
+      const costInfo = document.createElement('small');
+      costInfo.textContent = `配方需求 ${costStr.trim()} · ${rec.desc}`;
+      row.firstElementChild.append(document.createElement('br'), costInfo);
+      if (rec === preferred) {
+        const sources = [];
+        if (missing.some(({ key }) => key === 'ore')) sources.push('星紋礦可開採或向拍賣行購買');
+        if (missing.some(({ key }) => key === 'boar_tusk')) sources.push('擊敗狂豬有機會掉落利牙，重打草原洞窟也可取得');
+        if (sources.length) {
+          const sourceInfo = document.createElement('small');
+          sourceInfo.textContent = sources.join(' · ');
+          row.firstElementChild.append(document.createElement('br'), sourceInfo);
+        }
+      }
       action(
-        line(`【T${rec.tier} ${rName} · ${lvBadge}】${rec.name}`, `${rec.desc} ｜ 需求：${costStr}`),
+        row,
         '鍛造',
-        canCraftRecipe(p, rec),
+        !missing.length,
         () => {
           const res = craftMonsterGear(p, rec.id, fmtOf);
           if (!res.ok) return;
@@ -95,7 +166,23 @@ export function buildLodge(g, body, title, kind) {
           g.audio?.sfx?.(it.rarity >= 3 ? 'corruptGod' : 'classup');
         },
       );
+    };
+    if (preferred) {
+      renderRecipe(preferred);
+      const oreMissing = (preferred.cost?.goods?.ore || 0) - (p.goods.ore || 0);
+      if (oreMissing > 0 && g.zone === 'town') {
+        const price = quote('ore', now);
+        const total = price * oreMissing;
+        const offer = line(`向拍賣行補齊星紋礦 ×${oreMissing}`,
+          p.coins < total ? `需 ${total} 金幣 · 金幣不足` : `共 ${total} 金幣`);
+        offer.dataset.recipeOre = String(oreMissing);
+        action(offer, `買入 ×${oreMissing}`, p.coins >= total, () => {
+          if (preferred.cost.goods.ore - (p.goods.ore || 0) === oreMissing) buyGoods('ore', oreMissing, price);
+        });
+      }
     }
+    materialStock();
+    for (const rec of GEAR_RECIPES) if (rec !== preferred) renderRecipe(rec);
     action(line('基礎鍛造（隨機詞綴）','香杉木 ×2、星紋礦 ×3'), '鍛造',p.goods.wood>=2 && p.goods.ore>=3,()=>{const name=craft(g); if(name) g.ui.toast('裝備了 '+name);});
     action(line('製作副本鑰石','星紋礦 ×2'), '製作',p.goods.ore>=2,()=>{p.goods.ore-=2;p.keys++;});
     action(line('鑲嵌餘燼寶石','星紋礦 ×4 · 解鎖 Q 震擊 · 附加 4 點火傷'),p.gem?'已鑲嵌':'鑲嵌',!p.gem && p.goods.ore>=4,()=>{p.goods.ore-=4;p.gem=true;});

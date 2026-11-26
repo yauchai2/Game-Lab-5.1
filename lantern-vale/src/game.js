@@ -42,7 +42,8 @@ import { computePotentialBonuses, computeTowerBonuses, computePartySynergyBonuse
 import { createAutopilotState, isAutopilotActive, manualSparkMult, toggleAutopilot, onAutopilotKill, tickAutopilot, AUTO_RATES } from './autopilot.js';
 import { installDebugger } from './debugger.js';
 import { MEADOW_CAVE, enterMeadowCave, advanceMeadowCave } from './meadow_cave.js';
-import { completeMeadowObjective, syncMeadowExpedition, meadowExpedition } from './expedition.js';
+import { completeMeadowObjective, syncMeadowExpedition, meadowExpedition, syncOpeningEncounter, lightOpeningLamp, finishOpeningPractice } from './expedition.js';
+import { openingStep, recordOpeningSupportUse } from './opening.js';
 
 function disposeObj3D(root) {
   if (!root || !root.traverse) return;
@@ -516,7 +517,7 @@ export class Game {
     if (!this.field || this.state === 'title') return;
     this.zoneStates.set(this.field, {
       savedAt: Date.now(),
-      enemies: this.enemies.filter(e => !e.dead && !e.rival && !e.expeditionId).map(e => ({
+      enemies: this.enemies.filter(e => !e.dead && !e.rival && !e.expeditionId && !e.openingPractice).map(e => ({
         type: e.type, x: e.pos.x, z: e.pos.z, hp: e.hp, maxHp: e.maxHp,
         elite: !!e.elite, spawnIndex: e.spawnIndex, level: e.level, legendary: !!e.legendary,
       })),
@@ -598,6 +599,7 @@ export class Game {
       this.ui.toast(`🔴 越級警戒：${FIELDS[id].name}（建議 Lv.${FIELDS[id].level}）敵方減傷 45% · 傷害 ×1.5`, '#ff7a7a');
     }
     syncMeadowExpedition(this);
+    syncOpeningEncounter(this);
     if (id === 1) {
       const entrance = this.exits.find(exit => exit.type === 'dungeon');
       if (entrance) this.spots.push({ kind: 'meadowCave', label: '查看草原洞窟', x: entrance.x, z: entrance.z, top: 4.4 });
@@ -811,7 +813,7 @@ export class Game {
     this.waves = [];
     if (town) {
       this.cleared = true; this.waveIdx = 0; this.waves = [];
-      this.ui.banner('燈谷鎮', '北門前往野外 · 南碼頭可乘船前往海風港鎮');
+      if (openingStep(this.meta.p) !== 'lamp') this.ui.banner('燈谷鎮', '北門前往野外 · 南碼頭可乘船前往海風港鎮');
       this.fade = 1;
     } else if (harbor) {
       this.cleared = true; this.waveIdx = 0; this.waves = [];
@@ -1067,6 +1069,7 @@ export class Game {
     return { dmg: Math.round(dmg * (0.9 + random() * 0.2)), crit, fire };
   }
   hitEnemy(e, hit, kx = 0, kz = 0, opts = {}) {
+    if (e.openingHidden) return;
     if (e.dead) return;
     const p = this.player;
     e.statuses = e.statuses || { poison: 0, freeze: 0, burn: 0, shock: 0 };
@@ -1161,6 +1164,7 @@ export class Game {
     }
     // 異常狀態附加（冰凍、中毒、灼燒、感電；潮濕敵人受寒冰命中幾乎必凍）
     if (opts.slow && e.type !== 'stag') {
+      recordOpeningSupportUse(this, 'frost', !!opts.openingFrost);
       e.slow = Math.max(e.slow || 0, opts.slow);
       const freezeChance = e.wet > 0 ? 0.85 : 0.42;
       if (Math.random() < freezeChance) { e.statuses.freeze = Math.max(e.statuses.freeze, e.wet > 0 ? 2.6 : 2.0); this.fx.burst(e.pos.x, e.pos.y + 0.6, e.pos.z, 8, { c: [0x8eeeff, 0xffffff], s: 0.12, speed: 3.5, up: 2, life: 0.4 }); }
@@ -1201,6 +1205,7 @@ export class Game {
     if (p.stats.lifeOnHit && !opts.isDoT) this.heal(p.stats.lifeOnHit, false);
     if (opts.leech && !opts.isDoT) {
       p.leechBuffT = Math.max(p.leechBuffT || 0, 3.5);
+      recordOpeningSupportUse(this, 'leech', p.hp < p.stats.maxHp && !!opts.openingLeech);
       this.heal(opts.leech, true);
       this.fx.burst(p.pos.x, p.y + 0.8, p.pos.z, 6, { c: [0xff7a9a, 0x7fe08a], s: 0.09, speed: 2.4, up: 2.2, life: 0.35 });
     } else if (!opts.isDoT && !opts.isTrigger && (p.leechBuffT || 0) > 0) {
@@ -1273,11 +1278,23 @@ export class Game {
     this.ambushTrial?.kill(e);
     e.dead = true; this.audio.sfx(e.type === 'stag' ? 'bossDie' : 'enemyDie');
     this.scene.remove(e.m.root);
+    for (const key of ['restStars', 'aimRing']) {
+      const cue = e.m[key];
+      if (cue) {
+        cue.removeFromParent();
+        disposeObj3D(cue);
+        e.m[key] = null;
+      }
+    }
     const col = { slime: [0x7fc35a, 0xb5e080], thorn: [0x8a5a3b, 0x6aa84a], boar: [0x9a6a4a, 0x5a3b2c], moth: [0xb48ae0, 0xffd27a], skyray: [0x58d4e8, 0xffe480], golem: [0x7b7874, 0x6ae8ff, 0x5f9a4a], stag: [0xffb050, 0xe8dcc8] }[e.type];
     this.puffs.burst(e.pos.x, 0.4, e.pos.z, e.type === 'stag' ? 40 : 12, { c: col, s: 0.24, speed: 4.5, up: 4.5, life: 0.8 });
     this.puffs.burst(e.pos.x, 0.3, e.pos.z, 6, { c: 0xffffff, s: 0.4, speed: 1.5, up: 1, g: -1, life: 0.8, grow: 1.4, drag: 3 });
     this.shake = Math.max(this.shake, e.type === 'stag' ? 1 : e.elite ? 0.42 : 0.22);
     if (e.elite || e.type === 'stag') this.camPunch = e.type === 'stag' ? 0.2 : 0.11;
+    if (e.openingPractice) {
+      finishOpeningPractice(this);
+      return;
+    }
     const p = this.player; p.kills++;
     if (e.expeditionId && e.expeditionTier === meadowExpedition(this.meta.p).active?.tier) {
       completeMeadowObjective(this, e.expeditionId, e.brokenWeakens?.has('spores'));
@@ -1738,7 +1755,7 @@ export class Game {
   tryAttack() {
     const p = this.player;
     if (p.cds.atk > 0 || p.roll > 0) {
-      p.inputBuf = { kind: 'attack', t: 0.12 };
+      if (p.inputBuf?.kind !== 'roll') p.inputBuf = { kind: 'attack', t: 0.12 };
       return;
     }
     const comboSpd = Math.min(18, (this.combo?.count || 0) * 1.2);
@@ -1894,6 +1911,7 @@ export class Game {
         this.hitEnemy(e, ringHit, (e.pos.x - x) * k * 0.3, (e.pos.z - z) * k * 0.3, {
           stun, slow: opts.slow, leech: opts.leech,
           triggerOnHit: opts.triggerOnHit, triggerOnCrit: opts.triggerOnCrit,
+          openingFrost: opts.openingFrost, openingLeech: opts.openingLeech,
           isTrigger: opts.isTrigger, isReaction: opts.isReaction,
         });
       }
@@ -1908,7 +1926,7 @@ export class Game {
       return;
     }
     if ((p.skillCds[slotIdx] || 0) > 0 || p.roll > 0) {
-      p.inputBuf = { kind: 'skill', slot: slotIdx, t: 0.12 };
+      if (p.inputBuf?.kind !== 'roll') p.inputBuf = { kind: 'skill', slot: slotIdx, t: 0.12 };
       return;
     }
     const { def, mod } = sk;
@@ -1959,7 +1977,9 @@ export class Game {
     const slow = mod.frost ? 2.2 : 0, leech = mod.leech || 0;
     const areaMul = (1 + p.stats.area / 100) * (1 + mod.area);
     const dmgMul = mod.dmgMult * scale;
-    const trigOpts = isTrigger ? { isTrigger: true } : { triggerOnHit: mod.triggerOnHit || [], triggerOnCrit: mod.triggerOnCrit || [] };
+    const trigOpts = isTrigger ? { isTrigger: true } : { triggerOnHit: mod.triggerOnHit || [], triggerOnCrit: mod.triggerOnCrit || [],
+      openingFrost: mod.supports?.some(s => s.id === 'frost'), openingLeech: mod.supports?.some(s => s.id === 'leech'),
+    };
     if (id === 'bolt') {
       this.audio.sfx('bolt');
       const n = p.stats.proj + mod.multi, spread = 0.18;
@@ -2265,6 +2285,7 @@ export class Game {
       p.inputBuf = { kind: 'roll', t: 0.12 };
       return;
     }
+    if (p.inputBuf?.kind === 'roll') p.inputBuf = null;
     this.audio.sfx('roll');
     this.vfx?.spawnTwirlDash(p.pos.x, p.y, p.pos.z, 'wind');
     const mv = this.moveInput();
@@ -2710,6 +2731,7 @@ export class Game {
       return true;
     }
     if (s.kind === 'expedition_lamp') {
+      if (s.expeditionId === 'opening-lamp') return lightOpeningLamp(this);
       if (completeMeadowObjective(this, s.expeditionId)) {
         if (s.ignition) {
           this.spawnGroundZone('poison', s.x, s.z, 1.75, 1, 0.4);
@@ -3750,13 +3772,17 @@ export class Game {
     const p = this.player, W = this.world;
     const playing = this.state === 'play';
     const cullSq = this.field ? 48 * 48 : 99999;
+    const practice = this.field === 1 && openingStep(this.meta.p);
+    const lamp = (practice === 'lamp' || practice === 'spar') && this.meadowLocations?.['opening-lamp'];
+    const nearPractice = lamp && Math.hypot(lamp.x - p.pos.x, lamp.z - p.pos.z) < 16;
     for (const e of this.enemies) {
       if (e.dead) continue;
       let dt = baseDt;
       // 遠距魔物距離剔除（Distance Culling）：超大野外地圖上 >48m 外的魔物暫停 AI 與渲染，大幅提升 FPS
       const rdx = p.pos.x - e.pos.x, rdz = p.pos.z - e.pos.z;
       const distSq = rdx * rdx + rdz * rdz;
-      if (distSq > cullSq && !e.legendary && e.type !== 'stag') {
+      e.openingHidden = !!nearPractice && !e.openingPractice;
+      if (e.openingHidden || (distSq > cullSq && !e.legendary && e.type !== 'stag')) {
         if (e.m?.root) e.m.root.visible = false;
         continue;
       }
@@ -3904,12 +3930,16 @@ export class Game {
             if (e.expeditionName) e.lastMeadowMove = 'charge';
             e.state = 'wind'; e.t = 0; e.cdir = dirP.clone();
             this.ambushTrial?.beginCharge(e, p);
-            e.dec = this.addDecal('rect', e.pos.x, e.pos.z, { w: 1.2 * e.m.root.scale.x, l: 6.4 }, 0xff5040, 0.75, Math.atan2(e.cdir.x, e.cdir.y));
+            e.dec = this.addDecal('rect', e.pos.x, e.pos.z, { w: 1.2 * e.m.root.scale.x, l: 6.4 }, 0xff5040, e.chargeWindS ?? 0.75, Math.atan2(e.cdir.x, e.cdir.y));
+            if (e.openingPractice && !e.openingWindShown) {
+              e.openingWindShown = true;
+              this.ui.toast('看到直線預警時，向旁邊閃開', '#ffe08a');
+            }
             if (e.expeditionName) e.dec.mesh.position.y = this.world.gh(e.pos.x, e.pos.z) + 0.16;
           }
         } else if (e.state === 'wind') {
           e.m.body.position.x = Math.sin(e.t * 60) * 0.05;
-          if (e.t > 0.75) { e.state = 'charge'; e.t = 0; }
+          if (e.t > (e.chargeWindS ?? 0.75)) { e.state = 'charge'; e.t = 0; }
         } else if (e.state === 'charge') {
           const x = e.pos.x, z = e.pos.z;
           const progress = Math.min(1, e.t / 0.6);
@@ -3920,7 +3950,13 @@ export class Game {
           // A shorter simulation step should not be mistaken for hitting an obstacle.
           const blocked = step > 0 && Math.hypot(e.pos.x - x, e.pos.z - z) < step * 0.1;
           const ended = e.t >= 0.6 || blocked;
-          if (ended) { e.state = 'rest'; e.t = 0; }
+          if (ended) {
+            e.state = 'rest'; e.t = 0;
+            if (e.openingPractice && !e.openingRestShown) {
+              e.openingRestShown = true;
+              this.ui.toast('狂豬收招了 · 現在反擊', '#ffe08a');
+            }
+          }
           const trialCharge = e.ambushCharge;
           if (dist < e.r + 0.5) {
             if (trialCharge && p.roll > 0) trialCharge.rollContact = true;
@@ -4253,13 +4289,13 @@ export class Game {
       const blocked = hitsAmbushCover(cover, fromX, y, fromZ, x, z);
       if (blocked) pr.life = 0;
       for (const e of blocked ? [] : this.enemies) {
-        if (e.dead || pr.hit.has(e)) continue;
+        if (e.dead || e.openingHidden || pr.hit.has(e)) continue;
         const d = Math.hypot(e.pos.x - pr.mesh.position.x, e.pos.z - pr.mesh.position.z);
         const vTol = e.flying ? 3.8 : 2.4;
         if (d < e.r + (pr.wave ? 0.8 : 0.25) && Math.abs(pr.mesh.position.y - (e.pos.y + 0.6)) < vTol) {
           pr.hit.add(e);
           const n = new V2(pr.vx, pr.vz).normalize();
-          this.hitEnemy(e, this.rollDamage(pr.mult, pr.fire), n.x * 3, n.y * 3, { hitPos: pr.mesh.position, hitstop: 0.02, slow: pr.slow, leech: pr.leech, poison: pr.poison, shock: pr.shock, aerial: !!pr.airShot, triggerOnHit: pr.triggerOnHit, triggerOnCrit: pr.triggerOnCrit, isTrigger: pr.isTrigger });
+          this.hitEnemy(e, this.rollDamage(pr.mult, pr.fire), n.x * 3, n.y * 3, { hitPos: pr.mesh.position, hitstop: 0.02, slow: pr.slow, leech: pr.leech, poison: pr.poison, shock: pr.shock, aerial: !!pr.airShot, triggerOnHit: pr.triggerOnHit, triggerOnCrit: pr.triggerOnCrit, openingFrost: pr.openingFrost, openingLeech: pr.openingLeech, isTrigger: pr.isTrigger });
           if (pr.split) {
             for (let i = 0; i < 3; i++) { const a = Math.atan2(n.y, n.x) + (i - 1) * 0.7; this.fireProj(pr.mesh.position, new V2(Math.cos(a), Math.sin(a)), { speed: 12, mult: 0.45, fire: true, color: 0xffd27a, size: 0.1, life: 0.5, hit0: e, isTrigger: true }); }
             this.projs[this.projs.length - 1].hit?.add(e);

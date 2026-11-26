@@ -6,7 +6,7 @@ import { RARITY, SLOTS, itemLines, FORGE, forgeItem, CORRUPT_COST, corruptItem }
 import { canCorruptGear, CORRUPT_UNLOCK_LV } from './progression.js';
 import { isFeatureEnabled } from './mmo_protocol.js';
 import { MODS, MOD_MAX } from './meta.js';
-import { CLASSES, ALL_GEMS, addGemToBag, applySupportFit, suggestSupportFit } from './puzzle.js';
+import { CLASSES, ALL_GEMS, addGemToBag, applySupportFit, linkedSupportSkills, suggestSupportFit } from './puzzle.js';
 import { SECOND_CLASSES, findSecondClass, checkAscendEligibility, performAscend } from './world_alive.js';
 import { SANCTUARY_TALENTS, ensureTalents, talentCost, buyTalent, respecTalents, getBloodEclipseField } from './survivor.js';
 import { enhanceInfo, enhanceItem, computeEnhanceResonance, AI_COMPANIONS, getCompanionBondInfo, spawnCompanion3D, recordStoryEvent, GUILD_BOUNTIES, claimGuildBounty, getGuildRepInfo, ADVENTURER_RANKS, computeAdventurerRank, claimRankReward } from './mmo_rpg.js';
@@ -15,6 +15,7 @@ import { POTENTIAL_TIERS, POTENTIAL_SHARD_COST, rollPotential, formatPotentialLi
 import { FIELDS } from './frontier.js';
 import { MONSTER_MATS } from './mmo_rpg.js';
 import { MEADOW_CAVE, meadowCaveProgress } from './meadow_cave.js';
+import { commitCharacterReward, openingStep, openingSupport } from './opening.js';
 import { MEADOW_TIERS, availableExpeditions, expeditionRoute, meadowExpedition, meadowStage, startMeadowExpedition, claimMeadowReward, syncMeadowExpedition } from './expedition.js';
 
 const $ = id => document.getElementById(id);
@@ -72,19 +73,28 @@ export function buildPanels(g) {
 
   function renderExpeditionReward(result) {
     head();
-    const fit = suggestSupportFit(M.p, result.gem.id);
-    title.textContent = '遠征獎勵已領取';
-    body.innerHTML = `<p><b>${result.gem.icon} ${result.gem.name}</b> · 鑰石 +${result.keys}</p>
+    const bagGem = M.p.puzzle?.bag?.some(gem => gem.uid === result.gemUid && gem.id === result.gem.id);
+    const puzzle = M.p.puzzle;
+    const placed = puzzle?.presets?.[puzzle.activePreset]?.some(gem => gem.uid === result.gemUid && gem.id === result.gem.id);
+    const fit = bagGem && suggestSupportFit(M.p, result.gem.id);
+    const linked = placed ? linkedSupportSkills(M.p, result.gemUid) : [];
+    const caveProgress = meadowCaveProgress(M.p);
+    const caveTier = caveProgress.active?.tier || 'normal';
+    title.textContent = result.keys ? '遠征獎勵已領取' : '繼續首趟旅程';
+    body.innerHTML = `<p><b>${result.gem.icon} ${result.gem.name}</b>${result.keys ? ' · 鑰石 +' + result.keys : ''}</p>
       <p>${result.gem.desc}</p>`
       + (materialText(result.materials) ? `<p>${materialText(result.materials)} 已放入素材包，可帶到鎮上鐵匠鋪。</p>` : '')
       + (fit ? row(
         `<div>可連結 ${fit.skills.join('、')}</div><small>使用目前構築的空格</small>`,
-        '<button type="button" class="btn small" data-exp-fit>裝上寶石</button>',
-      ) : '<p>寶石已放進背包。可在拼圖選另一組構築或整理空格。</p>')
+        '<button type="button" class="btn small on" data-exp-fit>裝上寶石</button>',
+      ) : linked.length ? `<p>已連結 ${linked.join('、')}</p>` : placed ? '<p>寶石已放在目前構築，可在拼圖調整連結。</p>' : '<p>可在技能拼圖查看寶石及調整構築。</p>')
       + row('<div>挑戰下一段遠征，或用鑰石探索區域洞窟。</div>',
         '<button type="button" class="btn small" data-exp-next>查看遠征</button>')
       + (materialText(result.materials) ? row('<div><b>直達燈谷鎮工坊鍛造</b></div><small>省去跑圖，立即查看剛獲得的素材配方</small>', '<button type="button" class="btn small" data-exp-forge>前往工坊</button>') : '')
-      + ((M.p.keys || 0) >= 1 && !g.caveRun ? row('<div><b>立即挑戰草原洞窟</b></div><small>消耗 1 枚鑰石直接測試剛入手的新寶石構築</small>', '<button type="button" class="btn small on" data-exp-cave>進入洞窟</button>') : '')
+      + (!g.caveRun && (M.p.keys > 0 || caveProgress.active) && (result.tier === 1 || !result.keys || g.field === 1)
+        ? row(`<div><b>${caveProgress.active ? '繼續草原洞窟' : '帶著寶石挑戰草原洞窟'}</b></div><small>${caveProgress.active ? '沿用已使用的鑰石及段落進度' : '消耗 1 枚鑰石 · 完成一段即可存檔'}</small>`,
+          `<button type="button" class="btn small${fit ? '' : ' on'}" data-exp-cave>進入洞窟</button>`)
+        : (!caveProgress.clears.normal ? '<p class="psmall">可從野外精英或下一段遠征取得鑰石。</p>' : ''))
       + '<button type="button" class="btn small" data-exp-puzzle>開啟技能拼圖</button>';
     body.querySelector('[data-exp-next]').onclick = renderExpedition;
     body.querySelector('[data-exp-puzzle]').onclick = openRewardPuzzle;
@@ -95,7 +105,7 @@ export function buildPanels(g) {
       g.ui.wipe(() => { g.enterTown(); g.ui.openPanel('workshop'); });
     };
     const expCaveBtn = body.querySelector('[data-exp-cave]');
-    if (expCaveBtn) expCaveBtn.onclick = () => { g.startMeadowCaveDirect('normal'); };
+    if (expCaveBtn) expCaveBtn.onclick = () => { g.startMeadowCaveDirect(caveTier); };
     const fitButton = body.querySelector('[data-exp-fit]');
     if (fitButton) fitButton.onclick = () => {
       const applied = applySupportFit(M.p, result.gemUid);
@@ -103,9 +113,81 @@ export function buildPanels(g) {
       M.save();
       g.recalc();
       g.audio.sfx('pickup');
-      fitButton.closest('.prow').querySelector('.pl').textContent = '已連結 ' + applied.skills.join('、');
-      fitButton.remove();
+      renderExpeditionReward(result);
+      body.querySelector('[data-exp-cave], [data-exp-next]')?.focus();
     };
+  }
+
+  function travelToField(field) {
+    g.ui.closePanel();
+    g.state = 'transition';
+    g.audio.sfx('warp');
+    g.ui.wipe(() => g.enterField(field));
+  }
+
+  function openOpeningWorkshop() {
+    if (g.zone === 'town') {
+      g.ui.openPanel('workshop', { recipeId: 'rec_tusk_staff' });
+      return;
+    }
+    g.ui.closePanel();
+    g.state = 'transition';
+    g.audio.sfx('warp');
+    g.ui.wipe(() => { g.enterTown(); g.ui.openPanel('workshop', { recipeId: 'rec_tusk_staff' }); });
+  }
+
+  function renderOpening() {
+    const step = openingStep(M.p);
+    title.textContent = '巡燈旅程';
+    if (step === 'lamp' || step === 'spar') {
+      const lamp = step === 'lamp';
+      const task = lamp ? '點亮南門路燈' : '擊退幼狂豬';
+      const hint = lamp ? '沿指引走到燈旁並互動。' : '看到直線預警時側閃，等牠收招再反擊。';
+      body.innerHTML = row(`<b>${task}</b><br><small>${hint}</small>`,
+        `<button type="button" class="btn small on" data-opening-practice>${g.field === 1 ? '繼續練習' : '前往南門'}</button>`)
+        + '<button type="button" class="btn small" data-opening-skip>略過練習</button>';
+      body.querySelector('[data-opening-practice]').onclick = () => {
+        if (g.field === 1) g.ui.closePanel();
+        else travelToField(1);
+      };
+      body.querySelector('[data-opening-skip]').onclick = () => {
+        M.p.opening.practice = 'done';
+        const boar = g.enemies.find(enemy => enemy.openingPractice && !enemy.dead);
+        if (boar) g.killEnemy(boar);
+        M.save();
+        g.ui.openPanel('expedition');
+      };
+      return;
+    }
+    const support = step === 'support' && openingSupport(M.p);
+    if (support) { renderExpeditionReward(support); return; }
+    if (step === 'resume') { renderCaveRetry(); return; }
+    if (step === 'badge') {
+      body.innerHTML = row('<b>打造巡燈徽章</b><br><small>消耗首通材料 · 基礎傷害 +2</small>',
+        '<button type="button" class="btn small on" data-opening-workshop>前往工坊</button>');
+      body.querySelector('[data-opening-workshop]').onclick = openOpeningWorkshop;
+      return;
+    }
+    if (step === 'next') {
+      const canPlay = M.p.keys > 0;
+      body.innerHTML = row('<b>挑戰草原洞窟精英</b><br><small>建議 Lv.5 · 雙線衝鋒 · 消耗 1 枚鑰石</small>',
+        `<button type="button" class="btn small" data-opening-elite ${canPlay ? '' : 'disabled'}>${canPlay ? '挑戰精英' : '鑰石不足'}</button>`)
+        + row('<b>前往低語森林</b><br><small>建議 Lv.5 · 閃避落根圈與棘刺</small>',
+          '<button type="button" class="btn small on" data-opening-forest>探索森林</button>');
+      body.querySelector('[data-opening-elite]').onclick = () => {
+        M.p.opening.finished = true;
+        if (!g.startMeadowCaveDirect('elite')) M.p.opening.finished = false;
+      };
+      body.querySelector('[data-opening-forest]').onclick = () => {
+        if (!startMeadowExpedition(M.p, 3, 'survey')) { g.ui.openPanel('expedition'); return; }
+        M.p.opening.finished = true;
+        M.save();
+        if (g.field === 2) { syncMeadowExpedition(g); g.ui.closePanel(); }
+        else travelToField(2);
+      };
+      return;
+    }
+    renderExpedition();
   }
 
   function renderMeadowCave() {
@@ -140,12 +222,16 @@ export function buildPanels(g) {
     title.textContent = res.firstClear ? '草原洞窟首通' : '草原洞窟通關';
     body.innerHTML = `<p><b>經驗 +${res.xp} · 金幣 +${res.coins}</b></p>
       <p>狂豬利牙 ×${res.materials}、荊棘硬木 ×${res.materials} 已收入素材包（剩餘鑰石 ${M.p.keys || 0} 枚）。</p>`
+      + (openingStep(M.p) === 'badge' ? row('<b>打造巡燈徽章</b><br><small>首通材料已取得。基礎傷害 +2，Lv.2 可穿戴。</small>',
+        '<button type="button" class="btn small on" data-opening-workshop>前往工坊</button>') : '')
       + row(`<div><b>${nextTier === 'elite' && res.tier === 'normal' ? '挑戰精英難度' : `再打一場（${nextSpec.name}）`}</b></div><small>建議 Lv.${nextSpec.level} · 消耗 1 枚鑰石直接開打</small>`,
         `<button type="button" class="btn small${canContinue ? ' on' : ''}" data-cc-next ${canContinue ? '' : 'disabled'}>${canContinue ? '立即出發' : '鑰石不足'}</button>`)
       + row('<div><b>查看狂豬利牙戰杖</b></div><small>用洞窟素材鍛造，查看目前還差哪些材料。</small>',
         '<button type="button" class="btn small" data-cc-forge>查看配方</button>')
       + row('<div><b>調整技能拼圖</b></div><small>更換寶石構築後再挑戰下一場</small>',
         '<button type="button" class="btn small" data-cc-puzzle>開啟拼圖</button>');
+    const openingWorkshop = body.querySelector('[data-opening-workshop]');
+    if (openingWorkshop) openingWorkshop.onclick = openOpeningWorkshop;
     body.querySelector('[data-cc-next]').onclick = () => { if (!g.startMeadowCaveDirect(nextTier)) renderCaveClear(); };
     body.querySelector('[data-cc-forge]').onclick = () => {
       g.ui.closePanel();
@@ -226,13 +312,24 @@ export function buildPanels(g) {
           return row(`<div><b>${gem.icon} ${gem.name}</b></div><small>${gem.desc}${preview}</small>`,
             `<button type="button" class="btn small" data-exp-gem="${id}">選擇${gem.name}</button>`);
         }).join('');
-      for (const button of body.querySelectorAll('[data-exp-gem]')) button.onclick = () => {
-        const result = claimMeadowReward(M.p, button.dataset.expGem);
-        if (!result) return;
-        grantExperience(g, result.xp);
-        M.save();
+      for (const button of body.querySelectorAll('[data-exp-gem]')) button.onclick = async () => {
+        const meta = M;
+        for (const choice of body.querySelectorAll('[data-exp-gem]')) choice.disabled = true;
+        const result = await commitCharacterReward(meta, profile => !!profile.meadowExpedition?.cleared?.[active.tier], () => {
+          if (g.meta !== meta || meta.p.meadowExpedition?.active !== active) return false;
+          const reward = claimMeadowReward(meta.p, button.dataset.expGem);
+          if (!reward) return false;
+          grantExperience(g, reward.xp);
+          meta.save();
+          return reward;
+        });
+        if (g.meta !== meta || !button.isConnected || !g.ui.panelOpen) return;
+        if (!result) {
+          g.ui.toast('此獎勵已結算。重新進入角色可同步進度。', '#ffe08a');
+          return;
+        }
         g.audio.sfx('classup');
-        renderExpeditionReward(result);
+        renderExpeditionReward({ ...result, tier: active.tier });
       };
       return;
     }
@@ -628,10 +725,11 @@ export function buildPanels(g) {
 
   function render() {
     M = g.meta;
-    foot.hidden = ['map', 'shards', 'expedition', 'meadowCave', 'caveClear', 'caveRetry', 'field_quest'].includes(kind);
+    foot.hidden = ['map', 'shards', 'expedition', 'opening', 'meadowCave', 'caveClear', 'caveRetry', 'field_quest'].includes(kind);
     head();
     if (kind === 'shards') { renderShards(); return; }
     if (kind === 'expedition') { renderExpedition(); return; }
+    if (kind === 'opening') { renderOpening(); return; }
     if (kind === 'meadowCave') { renderMeadowCave(); return; }
     if (kind === 'caveClear') { renderCaveClear(); return; }
     if (kind === 'caveRetry') { renderCaveRetry(); return; }

@@ -1,3 +1,5 @@
+import { creditOpeningClear } from './opening.js';
+
 // A paid expedition ticket stays tied to the character until the run is cleared.
 export const MEADOW_CAVE = {
   normal: {
@@ -52,5 +54,6 @@ export function advanceMeadowCave(profile, run, stage) {
   }
   progress.clears[run.tier] = (progress.clears[run.tier] || 0) + 1;
   progress.active = null;
+  if (run.tier === 'normal' && firstClear) creditOpeningClear(profile);
   return { complete: true, firstClear, coins, materials, xp: spec.xp };
 }

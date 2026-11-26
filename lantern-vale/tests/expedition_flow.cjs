@@ -7,7 +7,7 @@ const { chromium } = require('playwright');
   const screenshotDir = process.env.LV_SCREENSHOT_DIR;
   const browser = await chromium.launch({
     channel: process.env.LV_CHROMIUM_CHANNEL || 'chrome',
-    args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
+    args: process.env.LV_SOFTWARE_GL === '0' ? [] : ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
   });
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, hasTouch: true });
@@ -16,7 +16,10 @@ const { chromium } = require('playwright');
     page.on('pageerror', error => { errors.push(error.stack); console.error(error.stack); });
     const openTracker = async () => {
       const details = page.locator('#touchDetails');
-      if (await details.isVisible() && await details.getAttribute('aria-expanded') === 'false') await details.tap();
+      if (await details.isVisible() && !await page.locator('#questTracker').isVisible()) {
+        await details.tap();
+        if (await page.locator('#panelM').isVisible()) return;
+      }
       await page.locator('#questTracker').click();
     };
     const start = async () => {
@@ -60,15 +63,27 @@ const { chromium } = require('playwright');
     await start();
     console.log('Started character');
     await openTracker();
+    await page.locator('[data-opening-skip]').click();
     await page.locator('[data-exp-tier="1"][data-exp-route="survey"]').click();
-    await enter('run', 'field:1');
+    await page.locator('[data-exp-warp]').click();
+    await page.waitForFunction(() => __game.zone === 'field:1' && __game.state === 'play');
     await lamp('lamp-0');
     await lamp('lamp-1');
     await defeat();
     console.log('Completed grassland objectives');
     await openTracker();
     await page.locator('[data-exp-gem="leech"]').click();
+    await page.locator('[data-exp-fit]').waitFor();
+    const receipt = await page.evaluate(() => [__game.meta.p.coins, __game.meta.p.keys, __game.meta.p.meadowExpedition.cleared[1].gemUid]);
+    await page.keyboard.press('Escape');
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await start();
+    await openTracker();
+    assert.deepEqual(await page.evaluate(() => [__game.meta.p.coins, __game.meta.p.keys, __game.meta.p.meadowExpedition.cleared[1].gemUid]), receipt);
     await page.locator('[data-exp-fit]').click();
+    await page.keyboard.press('Escape');
+    await openTracker();
+    assert.equal(await page.locator('[data-exp-fit]').count(), 0);
     assert.equal(await page.evaluate(() => __game.meta.p.puzzle.presets[0].filter(g => g.id === 'leech').length), 1);
     await page.locator('[data-exp-next]').click();
 
@@ -79,7 +94,8 @@ const { chromium } = require('playwright');
     if (screenshotDir) await page.screenshot({ path: path.join(screenshotDir, 'lantern-expedition-mobile.png') });
     await forestRoute.tap();
     await page.waitForFunction(() => document.getElementById('qtDesc').textContent === '前往低語森林');
-    await enter('nextField', 'field:2');
+    await page.locator('[data-exp-warp]').tap();
+    await page.waitForFunction(() => __game.zone === 'field:2' && __game.state === 'play');
     await lamp('lamp-0');
     console.log('Reached forest and repaired one lamp');
 

@@ -584,6 +584,9 @@ body.holding-gem,body.holding-gem *{cursor:grabbing!important}
 /* 影片同款：底部 ◀ 職業名 ▶ 切換條＋編號點 */
 .cr-stage-bar{position:absolute;bottom:20px;left:32%;transform:translateX(-50%);z-index:5;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none}
 #title.mode-dressup .cr-stage-bar{display:none}
+#btnQuickStart{pointer-events:auto;min-height:44px;padding:5px 16px}
+#title.mode-focus #btnQuickStart{display:none}
+#questTracker[data-stage=opening] .qt-bar{display:none}
 .cr-pins{display:flex;gap:8px;pointer-events:auto}
 .hero-pin-btn{width:28px;height:28px;border-radius:50%!important;border:2px solid #fff!important;background:rgba(43,29,34,.72);color:#fff8e4;font:inherit;font-size:12px;font-weight:900;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.35)!important;transition:transform .15s,background .15s}
 .hero-pin-btn.on,.hero-pin-btn:hover{background:#e8734a;transform:scale(1.16);border-color:#ffd85a!important}
@@ -2175,6 +2178,7 @@ body:has(#menuPop:not(.hide),[aria-modal="true"]:not(.hide)) #toasts{opacity:0}
       <span id="heroPillName">1. 🛡 守燈衛士 · Fighter</span>
       <button type="button" id="btnHeroNext" aria-label="下一位英雄">▶</button>
     </div>
+    <button type="button" class="btn small on" id="btnQuickStart" data-i18n="start">提燈出發</button>
   </div>
 
   <!-- Stage 1 右側：極簡輕量英雄卡（僅聚焦英雄時優雅滑入，總覽時保持純淨大視野） -->

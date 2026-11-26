@@ -10,6 +10,7 @@ const createGuild = require('../server/guild.cjs');
   const lodge = await import(src('lodge.js'));
 
   const expedition = await import(src('expedition.js'));
+  const opening = await import(src('opening.js'));
   let traveler = { level: 1, coins: 10, keys: 0 };
   assert.equal(expedition.startMeadowExpedition(traveler, 2, 'hunt'), false);
   assert.equal(expedition.startMeadowExpedition(traveler, 1, 'survey'), true);
@@ -25,6 +26,8 @@ const createGuild = require('../server/guild.cjs');
   assert.equal(expedition.claimMeadowReward(traveler, 'haste'), null);
   assert.equal(expedition.claimMeadowReward(traveler, 'frost').xp, 240);
   assert.equal(expedition.claimMeadowReward(traveler, 'leech'), null);
+  assert.equal(opening.openingStep(traveler), 'support');
+  assert.equal(opening.openingSupport(traveler).gemUid, traveler.puzzle.bag[0].uid);
   assert.deepEqual([traveler.keys, traveler.coins, traveler.puzzle.bag.map(g => g.id)], [1, 95, ['frost']]);
   assert.equal(expedition.startMeadowExpedition(traveler, 1, 'hunt'), false);
   assert.equal(expedition.startMeadowExpedition(traveler, 2, 'hunt'), true);
@@ -56,6 +59,21 @@ const createGuild = require('../server/guild.cjs');
   assert.equal(cave.advanceMeadowCave(delver, repeat, 2).materials, 1);
   assert.equal(cave.enterMeadowCave(delver, 'elite').stage, 0);
   assert.equal(delver.keys, 0);
+
+  const firstRun = { level: 1, keys: 1, coins: 15 };
+  opening.beginOpening(firstRun);
+  assert.equal(opening.openingStep(firstRun), 'lamp');
+  const firstTicket = cave.enterMeadowCave(firstRun, 'normal');
+  assert.equal(opening.openingStep(firstRun), 'resume');
+  for (const stage of [0, 1, 2]) cave.advanceMeadowCave(firstRun, firstTicket, stage);
+  assert.equal(opening.openingStep(firstRun), 'badge');
+  const openingBadge = opening.craftOpeningBadge(firstRun, () => String);
+  assert.equal(openingBadge.implicit.v, 2);
+  assert.equal(openingBadge.reqLevel, 2);
+  assert.equal(opening.craftOpeningBadge(firstRun), null);
+  assert.equal(opening.openingStep(firstRun), 'next');
+  assert.equal(opening.openingStep(delver), 'resume');
+  assert.equal(delver.opening, undefined, 'Existing cave clears are not retroactively awarded');
 
   const skills = await import(src('puzzle.js'));
   const veteran = { level: 5, puzzle: skills.defaultPuzzle(2), meadowExpedition: {
@@ -1267,6 +1285,14 @@ const createGuild = require('../server/guild.cjs');
   assert.ok(t1Rec && t1Rec.cost.goods?.wood > 0 && t1Rec.cost.mMats?.slime_gel > 0, 'T1 recipe requires wood + slime_gel');
   assert.equal(mmoRpg.canCraftRecipe({ coins: 500, goods: { wood: 0 }, mMats: { slime_gel: 5 } }, t1Rec), false, 'Cannot craft T1 without required tier goods (wood)');
   assert.equal(mmoRpg.canCraftRecipe({ coins: 500, goods: { wood: 2 }, mMats: { slime_gel: 3 } }, t1Rec), true, 'Can craft T1 with exact tier materials');
+  const tuskRecipe = mmoRpg.GEAR_RECIPES.find(r => r.id === 'rec_tusk_staff');
+  const firstClear = { level: 3, coins: 215, goods: { ore: 0 }, mMats: { boar_tusk: 3, thorn_bark: 3 } };
+  assert.deepEqual(mmoRpg.missingRecipeCosts(firstClear, tuskRecipe), [
+    { key: 'ore', count: 2 }, { key: 'boar_tusk', count: 1 },
+  ], 'First cave clear exposes the exact recipe shortfall');
+  firstClear.goods.ore = 2;
+  firstClear.mMats.boar_tusk = 4;
+  assert.ok(mmoRpg.canCraftRecipe(firstClear, tuskRecipe), 'Materials unlock crafting before Lv.5');
   const pbSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'physbag.js'), 'utf8');
   assert.ok(pbSrc.includes('canEquipItem(gear, p.level') && pbSrc.includes('canEquipItem(g, p.level'), 'physbag useBagItem & autoEquipBest enforce gear level gates');
 
