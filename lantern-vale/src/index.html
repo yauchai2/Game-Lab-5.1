@@ -334,6 +334,8 @@ html,body{image-rendering:pixelated;-webkit-font-smoothing:none;font-smooth:neve
 @keyframes questRewardGlow{from{box-shadow:0 0 4px #ffd85a55}to{box-shadow:0 0 10px #ffd85aaa}}
 #questTracker .qt-head{display:flex;justify-content:space-between;align-items:center;font-weight:900;color:#ffd85a;margin-bottom:3px}
 #questTracker .qt-desc{font-size:11px;color:#f4e6cc;line-height:1.35;margin-bottom:4px}
+#questTracker .qt-region{display:block;color:#9fd8ff}
+#questTracker .qt-region[hidden]{display:none}
 #questTracker .qt-bar{height:7px;background:#241818;border:2px solid #2b1812;overflow:hidden}
 #questTracker .qt-fill{height:100%;width:0%;background:linear-gradient(90deg,#7fe08a,#ffd85a);transition:width .2s}
 #worldBossBanner{position:fixed;top:52px;left:50%;transform:translateX(-50%);z-index:114;background:rgba(92,28,36,.94);color:#fff8e6;border:3px solid #ffcf4a;box-shadow:3px 3px 0 #2b1812;padding:4px 14px;font-weight:900;font-size:12.5px;cursor:pointer;pointer-events:auto;white-space:nowrap}
@@ -2108,6 +2110,7 @@ body:has(#menuPop:not(.hide),[aria-modal="true"]:not(.hide)) #toasts{opacity:0}
     <button type="button" id="questTracker" class="panel hide">
       <span class="qt-head"><span id="qtTitle">主線任務</span></span>
       <span class="qt-desc" id="qtDesc"></span>
+      <span class="qt-desc qt-region" id="qtRegion" hidden></span>
       <span class="qt-bar"><span class="qt-fill" id="qtFill"></span></span>
     </button>
     <div id="autoHud" class="panel hide">

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { regionNpcs, LORE_FIELDS } from './lore.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { part, toonMat } from './world.js';
 import { buildPlayer } from './models.js';
@@ -145,6 +146,12 @@ export const FIELD_NPCS = {
   12: { name: '紅楓大匠 鐵楓', col: 1, lines: ['白樺楓紅下打鐵最講究火候！', '這裡的星晶巨像會掉落頂級高階裝備喔。'], quest: { id: 'q_f12', title: '紅楓工坊巨像試煉', desc: '在紅楓工坊谷擊敗 6 隻魔物', need: 6, rewardCoins: 75, rewardXp: 210 } },
 };
 
+// Beaconfall Phase 3: regions 1-6 take their first NPC's name and one-liners from data/lore.json (the legacy quest stays).
+for (const f of LORE_FIELDS) {
+  const n = regionNpcs(f)[0];
+  if (n && FIELD_NPCS[f]) Object.assign(FIELD_NPCS[f], { name: n.name, lines: n.lines, loreId: n.id });
+}
+
 // ======================== 4. 特設副本入口地標 ========================
 export function buildDungeonLandmark(biome, fieldId) {
   const g = new THREE.Group();
@@ -247,6 +254,15 @@ export function spawnSkyFeatures(g) {
     g.bots.push(bot.id);
     g.spots.push({ kind: 'field_quest', label: `與 ${npcDef.name} 接取野外委託`, x: pos.x, z: pos.z, top: bot.y + 2.4, npcDef, bot });
   }
+  // Region lore NPCs beyond the first: one-liners plus a 'talk' for the quest layer (see talkLoreNpc in frontier.js).
+  regionNpcs(g.field).slice(1).forEach((n, i) => {
+    const pos = g.world.randomWalkable(r, g.player.pos, 7 + i * 4);
+    const bot = g.addRemote('lore_npc_' + g.field + '_' + n.id, n.name, (g.field + i + 2) % 8);
+    bot.bot = true; bot.loreNpc = n.id; bot.lines = n.lines;
+    bot.x = bot.tx = pos.x; bot.z = bot.tz = pos.z; bot.y = g.world.gh(pos.x, pos.z);
+    bot.home = [pos.x, pos.z, 1.5]; bot.wait = 5 + i;
+    g.bots.push(bot.id);
+  });
 }
 
 export function tickSkyFeatures(g, dt) {

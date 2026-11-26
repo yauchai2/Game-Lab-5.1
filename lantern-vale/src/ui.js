@@ -1,4 +1,5 @@
 import { FIELDS, rememberGear, xpForNextLevel } from './frontier.js';
+import { trackerLine } from './lore.js';
 import { bindTouch } from './touch.js';
 import { cleanPartyCode } from './net.js';
 import { bindWorldMap } from './worldmap.js';
@@ -1227,6 +1228,12 @@ export class UI {
           if (qFl) qFl.style.width = '100%';
         }
       }
+    }
+    const qr = $('qtRegion');
+    if (qr) {
+      const rl = (g.state === 'play' && !g.interior && !g.photoMode && !g.caveRun) ? trackerLine(g.meta?.p || {}, g.field || 0) : null;
+      if (rl) { const t = `🗺️ ${rl.title} · ${rl.text}`; if (qr.textContent !== t) qr.textContent = t; }
+      qr.hidden = !rl;
     }
     $('quickTideUlt').hidden = !(g.field && g.state === 'play' && !g.interior && !g.photoMode && g.tide?.ultCharge >= 100);
     if (th) {

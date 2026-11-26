@@ -21,4 +21,5 @@ Alan approved "go with recommendations". These are final unless Alan changes the
 - Phase 2: done (Flame, light radius, lantern respawn, Dimming). API and tuning guide: `docs/beaconfall/FLAME.md`, numbers in `data/flame.json`. Phase 4 hooks in through `player.flameWick` and `onFlame()`.
 - Phase 4: done for class wicks (5) and advancement stances (10) with the altar vow scene. Guide: `docs/beaconfall/WICKS.md`, numbers and story text in `data/wicks.json`.
 - Phase 6.5 (music direction): done. Region themes, title theme, Ember Tide layers, Dimming filter, lamp cues, all synthesized. See `docs/beaconfall/AUDIO.md`. `finale` theme is defined for Phase 8 but not wired.
-- Not changed yet: zone/island/boss names, NPC text, quests, class/skill names, items (Phases 3–5).
+- Phase 3 (partial, six regions): region lore, region bosses, quest lines, NPC one-liners and Lore Fragments are in `data/lore.json` (see `docs/beaconfall/LORE.md`). Still open: 14 outer islands, main-story chapter rewrite, Ember Tide beats, in-game zone renames.
+- Not changed yet: class/skill names (Phase 4 wicks done), items (Phase 5).

@@ -12,6 +12,7 @@ import { addGearToBag } from './physbag.js';
 import { milestoneText } from './progression.js';
 import { getFieldHotspot } from './mmo_protocol.js';
 import { markLanternLit } from './flame.js';
+import { loreHook, loreEnterRegion, registerLoreXp, bossDisplayName } from './lore.js';
 import { grantLifeXp, getLifeSkillInfo, addDailyActivity } from './mmo_world.js';
 
 export const GOODS = { wood: '香杉木', ore: '星紋礦', fish: '溪銀魚' };
@@ -91,6 +92,8 @@ export function grantExperience(g, amount) {
   if (p.level === 30) p.xp = 0;
 }
 
+registerLoreXp((g, xp) => grantExperience(g, xp));
+
 export function awardKill(g, enemy) {
   const p = g.meta.p;
   const autoOn = !!(g.autopilot && g.autopilot.mode !== 'off');
@@ -141,6 +144,7 @@ export function awardKill(g, enemy) {
   }
   if (autoOn) g.onAutoKill?.({ xp: xpGain, coins: coinGain, mats: matGain });
   g.meta.save();
+  if (g.field) loreHook(g, { kind: 'kill', elite: !!enemy.elite, boss: !!(enemy.legendary && enemy.type === 'stag') });
 }
 export function fieldBiome(i) {
   const field = FIELDS[i], base = BIOMES[field.biome];
@@ -526,6 +530,7 @@ export function setupField(g, restored = false) {
   // 記錄已探索區域（供坐騎里程碑解鎖判定）
   g.meta.p.visitedFields = g.meta.p.visitedFields || [];
   if (!g.meta.p.visitedFields.includes(g.field)) { g.meta.p.visitedFields.push(g.field); g.meta.save(); }
+  loreEnterRegion(g);
   // 高密度刷怪爽感：依藍圖聚落或面積生成 55–95 隻魔物
   const spawns = [];
   if (bp) {
@@ -642,7 +647,7 @@ export function tickField(g, dt) {
     e.statusAffinity = f.status || 'poison';
     const rankScale=1+(e.level-f.level)*.08;
     e.hp=Math.ceil(e.hp*rankScale);e.maxHp=e.hp;e.dmg*=rankScale;
-    if (legendary) g.ui.bossBar(true, FIELD_BOSS_SPEC[g.field]?.name || (f.name + '守護獸'));
+    if (legendary) g.ui.bossBar(true, bossDisplayName(g.field) || FIELD_BOSS_SPEC[g.field]?.name || (f.name + '守護獸'));
   });
   for (const spot of g.spots) if (GOODS[spot.kind]) spot.mesh.visible = !(g.meta.p.timers[g.field + ':' + spot.kind] > now);
   // 自動解鎖靠近的藍光傳送檢查點並寫入存檔
@@ -653,6 +658,7 @@ export function tickField(g, dt) {
       const list = Array.isArray(g.meta.p.unlockedCps[g.field]) ? g.meta.p.unlockedCps[g.field] : [0];
       if (!list.includes(cp.idx)) { list.push(cp.idx); g.meta.p.unlockedCps[g.field] = list; }
       markLanternLit(g, g.field, cp.idx); g.meta.save();
+      loreHook(g, { kind: 'lantern', idx: cp.idx });
       g.audio?.sfx?.('lanternLit');
       g.fx?.burst?.(cp.x, cp.y + 1.5, cp.z, 20, { c: [0x38d0ff, 0xffffff, 0x9cf2ff], s: 0.14, speed: 5, up: 4, life: 0.65 });
       g.ui?.toast?.(`🔵 已解鎖傳送檢查點：${cp.name}`, '#6ae8ff');
@@ -679,6 +685,15 @@ export function teleportToCheckpoint(g, cpIdx) {
   return true;
 }
 
+// Region lore NPCs (the extra NPC of each region): speak a one-liner and report the talk to the quest layer.
+function talkLoreNpc(g, bot) {
+  const lines = bot.lines || [];
+  if (lines.length) g.say(bot.id, lines[(Math.random() * lines.length) | 0]);
+  bot.tf = Math.atan2(g.player.pos.x - bot.x, g.player.pos.z - bot.z); bot.wait = Math.max(bot.wait || 0, 4);
+  g.audio.sfx('ui');
+  loreHook(g, { kind: 'talk', npc: bot.loreNpc });
+  return true;
+}
 export function useFieldSpot(g,s) {
   const p = g.meta.p;
   if (s.kind === 'checkpoint') {
@@ -690,6 +705,7 @@ export function useFieldSpot(g,s) {
       const list = Array.isArray(p.unlockedCps[g.field]) ? p.unlockedCps[g.field] : [0];
       if (!list.includes(cur.idx)) { list.push(cur.idx); p.unlockedCps[g.field] = list; }
       markLanternLit(g, g.field, cur.idx); g.meta.save();
+      loreHook(g, { kind: 'lantern', idx: cur.idx });
     }
     const unlocked = cps.filter(c => c.unlocked);
     if (unlocked.length <= 1) {
@@ -730,8 +746,10 @@ export function useFieldSpot(g,s) {
     return true;
   }
   if (s.kind === 'chest') return openHighChest(g, s);
+  if (s.kind === 'talk' && s.bot?.loreNpc) return talkLoreNpc(g, s.bot);
   if (s.kind === 'field_quest') {
     g._activeFieldNpc = s.npcDef;
+    if (s.npcDef?.loreId) loreHook(g, { kind: 'talk', npc: s.npcDef.loreId });
     if (s.bot) { s.bot.tf = Math.atan2(g.player.pos.x - s.bot.x, g.player.pos.z - s.bot.z); s.bot.wait = 6; }
     g.audio.sfx('ui'); g.ui.openPanel('field_quest'); return true;
   }
@@ -777,6 +795,7 @@ export function useFieldSpot(g,s) {
         if (!st.done) { st.have++; p.fieldQuests.q_f1 = st; }
       }
       g.meta.save();
+      loreHook(g, { kind: 'gather' });
     };
     if (typeof document !== 'undefined' && document.getElementById('gatherMini')) {
       g.player.swing = 1; g.player.swingT = 0.25;
