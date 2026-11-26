@@ -123,6 +123,7 @@ export function performAscend(profile, scId, devOn = false) {
     profile.shards = Math.max(0, (profile.shards || 0) - ASCEND_REQ.shards);
   }
   profile.secondClass = sc.id;
+  profile.vow = { sc: sc.id, at: Date.now() };       // Phase 4: the story choice made at the altar (optional field, schema v3 unchanged)
   if (sc.title) profile.activeTitle = sc.title;
   addGemToBag(profile, sc.gem);
   return { ok: true, sc };
