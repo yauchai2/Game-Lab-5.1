@@ -1,4 +1,5 @@
 // Beaconfall 百科資料庫（PoE2 / 自走勇者風格）、更新日誌與贊助支持視窗
+import { classWickByJob, stanceById } from './wick.js';
 import { CLASSES, ACTIVE_GEMS, SUPPORT_GEMS } from './puzzle.js';
 import { SECOND_CLASSES } from './world_alive.js';
 import { FIELDS } from './frontier.js';
@@ -185,9 +186,9 @@ export function bindCodexUI(game) {
           desc: g.desc, color: g.color,
         }));
       } else if (wikiTab === 'classes') {
-        CLASSES.forEach(c => cards.push({ icon: c.icon, name: c.name, sub: '一轉基礎職業', desc: c.summary, color: '#d4a44a' }));
+        CLASSES.forEach(c => { const w = classWickByJob(c.id); cards.push({ icon: c.icon, name: c.name, sub: '一轉基礎職業', desc: c.summary + (w ? `　🕯️ 燈芯「${w.name}」：${w.desc}` : ''), color: '#d4a44a' }); });
         Object.entries(SECOND_CLASSES).forEach(([, list]) => {
-          list.forEach(sc => cards.push({ icon: sc.icon, name: sc.name, sub: '二轉覺醒職業', desc: sc.desc, color: '#9c7ae8' }));
+          list.forEach(sc => { const st = stanceById(sc.id); cards.push({ icon: sc.icon, name: sc.name, sub: '二轉覺醒職業', desc: sc.desc + (st ? `　${st.vow} 🕯️ ${st.gain} 🌑 ${st.price}` : ''), color: '#9c7ae8' }); });
         });
       } else if (wikiTab === 'mounts') {
         MOUNTS.forEach(m => cards.push({ icon: m.icon, name: `[T${m.tier}] ${m.name}`, sub: `解鎖里程碑：${m.milestone}`, desc: m.perk + '（遊戲中按 G 鍵召喚／收起）', color: '#ffd85a' }));

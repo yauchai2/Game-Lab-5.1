@@ -1,0 +1,194 @@
+{
+  "_doc": "Beaconfall class wicks (Phase 4) and advancement stances. Every number the wick system uses lives here; src/wick.js reads nothing else. A class wick is how a class lights the lamp. A stance is the player's story choice at the awakening altar (one per advanced class) and is merged on top of the class wick: multiplier keys multiply, number keys add, tiers are concatenated. Tests assert invariants only.",
+  "_keys": {
+    "flameWick": "gainMul, costMul, drainMul, lightRegenMul, killGainMul multiply; maxBonus adds. gainMul/costMul/maxBonus/drainMul feed player.flameWick (see docs/beaconfall/FLAME.md).",
+    "perDim": "bonus per Dimming stack: dmgPct, crit, armor (added) and speedOffset (fraction of the Dimming slow that is cancelled, 0-0.9)",
+    "tiers": "[{ when: flameAbove|flameBelow|inLight|inDark, at: 0-1 (flame pct, for flameAbove/flameBelow), dmgPct, crit, armor, manaRegen, speedOffset }]",
+    "moveGainPerSec": "Flame per second gained while moving in the dark (outside all light)",
+    "onEnterLight": "{ healPct (of max HP), flame, classRes } when the player steps into light from the dark",
+    "onMechFull": "{ flame (gain), spend (burn if affordable), mana, healPct } when the class mechanic (classMech) fills"
+  },
+  "limits": { "dmgPctMin": -30, "dmgPctMax": 60, "critMax": 30, "armorMax": 30, "speedOffsetMax": 0.9, "healPctMax": 0.35 },
+  "classes": {
+    "warden": {
+      "job": 0, "id": "keeper", "icon": "🛡️", "name": "守燈芯", "nameEn": "Keeper's Wick",
+      "tagline": "燈不能滅，人先站著。",
+      "desc": "守燈衛士把燈芯壓得又短又穩：燈油更耐燒，被魔物打中時燒得更少。Flame 過七成時護甲 +6；堅壁戰意滿層時回補 15 Flame。",
+      "flameWick": { "maxBonus": 25, "drainMul": 0.6, "costMul": 0.8 },
+      "tiers": [{ "when": "flameAbove", "at": 0.7, "armor": 6 }],
+      "onMechFull": { "flame": 15 }
+    },
+    "ranger": {
+      "job": 1, "id": "windlit", "icon": "🪶", "name": "風燈芯", "nameEn": "Windlit Wick",
+      "tagline": "風會吹熄燈，所以我跑得比風快。",
+      "desc": "林風遊俠的燈芯靠風養火：在黑暗中奔跑時，每秒補 0.8 Flame，Dimming 的減速只剩一半。順風連羽滿層時回補 10 Flame。",
+      "flameWick": { "drainMul": 0.9 },
+      "moveGainPerSec": 0.8,
+      "perDim": { "speedOffset": 0.5 },
+      "onMechFull": { "flame": 10 }
+    },
+    "mystic": {
+      "job": 2, "id": "twin", "icon": "🔵", "name": "雙焰芯", "nameEn": "Twin Wick",
+      "tagline": "金焰向外燒，藍焰向內藏。",
+      "desc": "餘燼秘術師的燈芯有兩種火：Flame 過六成是熾金焰，傷害 +12%；掉到三成五以下是幽藍焰，回魔 +35%。取得 Flame 更快，但燒得更兇。雙焰共鳴滿層時燒 10 Flame 換回 20 法力。",
+      "flameWick": { "gainMul": 1.2, "costMul": 1.3 },
+      "tiers": [
+        { "when": "flameAbove", "at": 0.6, "dmgPct": 12 },
+        { "when": "flameBelow", "at": 0.35, "manaRegen": 35 }
+      ],
+      "onMechFull": { "spend": 10, "mana": 20 }
+    },
+    "strider": {
+      "job": 3, "id": "shaded", "icon": "🌙", "name": "暗燈芯", "nameEn": "Shaded Wick",
+      "tagline": "我不怕黑，黑是我的刀鞘。",
+      "desc": "影刃行者把燈罩住，在黑暗裡燈油只燒四成，每層 Dimming 反而讓傷害 +6%、暴擊 +4%，且只受六成的減速。代價是站在光裡補 Flame 較慢。暗影印記引爆時回補 8 Flame。",
+      "flameWick": { "drainMul": 0.4, "lightRegenMul": 0.8 },
+      "perDim": { "dmgPct": 6, "crit": 4, "speedOffset": 0.6 },
+      "onMechFull": { "flame": 8 }
+    },
+    "monk": {
+      "job": 4, "id": "lotus", "icon": "🪷", "name": "蓮燈芯", "nameEn": "Lotus Wick",
+      "tagline": "燈火入心，亂意歸蓮。",
+      "desc": "禪燈武僧走進光裡就能淨心：從黑暗回到光中時回復 10% 生命並多得 1 枚蓮印，站在光裡補 Flame 快 40%。蓮華禪韻綻放時回補 20 Flame。",
+      "flameWick": { "gainMul": 1.1, "lightRegenMul": 1.4 },
+      "onEnterLight": { "healPct": 0.1, "classRes": 1 },
+      "onMechFull": { "flame": 20 }
+    }
+  },
+  "stances": {
+    "bastion": {
+      "icon": "⚜", "name": "庇護之誓", "nameEn": "Oath of Shelter", "pair": "warden",
+      "stance": "燈是避難所，我守在燈前。",
+      "scene": "祭壇的星燈只剩一點火星。你把盾立在燈前，風從四面八方灌進來，光卻沒有再晃動。身後傳來旅人們鬆一口氣的聲音。",
+      "vow": "「我不離開燈。誰要過這道門，先過我。」",
+      "gain": "最大 Flame +15、被打中燒得更少、站在光裡補 Flame 快 25%，Flame 過七成時護甲再 +4。",
+      "price": "每層 Dimming 傷害 -3%：離開光之後你就不再是最強的那個人。",
+      "epilogue": "燈亮著，人們都記得盾後面的那一圈光。你只是站在那裡，沒有人再問你為什麼不走。",
+      "mods": {
+        "flameWick": { "maxBonus": 15, "costMul": 0.8, "lightRegenMul": 1.25 },
+        "perDim": { "dmgPct": -3 },
+        "tiers": [{ "when": "flameAbove", "at": 0.7, "armor": 4 }]
+      }
+    },
+    "earthwalker": {
+      "icon": "⛰", "name": "扎根之誓", "nameEn": "Oath of Roots", "pair": "warden",
+      "stance": "燈是種子，我把光帶進黑暗。",
+      "scene": "你把盾插進祭壇旁的泥地，沒有立刻拔出。盾緣長出一圈細小的綠芽，朝著燈火照不到的方向蔓延。",
+      "vow": "「光不該只留在鎮上。我走到哪，哪裡就是燈。」",
+      "gain": "黑暗中燈油只燒七成，每層 Dimming 傷害 +4%、護甲 +2。",
+      "price": "站在光裡補 Flame 只剩七成：你坐不住，也不該坐著。",
+      "epilogue": "鎮上的人說你像是被風吹出去的種子。多年後，你走過的路邊，每隔一段就有一盞自己亮起來的小燈。",
+      "mods": {
+        "flameWick": { "drainMul": 0.7, "lightRegenMul": 0.7 },
+        "perDim": { "dmgPct": 4, "armor": 2 }
+      }
+    },
+    "skywarden": {
+      "icon": "🪽", "name": "歸風之誓", "nameEn": "Oath of the Tailwind", "pair": "ranger",
+      "stance": "燈是歸途，風會帶我回來。",
+      "scene": "你把一根風羽綁在燈柱頂端。風從高空轉了一圈，羽毛筆直指向鎮子，像是在告訴所有迷路的人：往這邊。",
+      "vow": "「我飛得再遠，也只為了找到回來的路。」",
+      "gain": "黑暗中奔跑補 Flame 再 +0.6/s，Dimming 減速再少 30%。",
+      "price": "擊殺只給七成 Flame：你不為獵物停留。",
+      "epilogue": "天空群島的領航員把你的風羽畫在海圖角落。他們說，只要那根羽毛還指著北方，燈就沒有滅。",
+      "mods": {
+        "moveGainPerSec": 0.6,
+        "perDim": { "speedOffset": 0.3 },
+        "flameWick": { "killGainMul": 0.7 }
+      }
+    },
+    "starhunter": {
+      "icon": "🌠", "name": "烙痕之誓", "nameEn": "Oath of the Brand", "pair": "ranger",
+      "stance": "燈是烙印，獵物自會顯形。",
+      "scene": "你把一支箭在燈焰上燒紅，射向祭壇外的夜空。箭尾拖出的光痕沒有散去，而是在遠處的黑暗裡慢慢亮起了一個個眼睛般的點。",
+      "vow": "「讓牠們看見我，也讓我看見牠們。」",
+      "gain": "擊殺給的 Flame +50%，Flame 過五成時暴擊 +8%。",
+      "price": "黑暗中燈油多燒三成：烙印要靠燃料維持。",
+      "epilogue": "獵人公會開始用你的箭痕標記危險的巢穴。你每射出一箭，夜裡就多一顆星。",
+      "mods": {
+        "flameWick": { "killGainMul": 1.5, "drainMul": 1.3 },
+        "tiers": [{ "when": "flameAbove", "at": 0.5, "crit": 8 }]
+      }
+    },
+    "starcaller": {
+      "icon": "☄", "name": "燃盡之誓", "nameEn": "Oath of Burning Out", "pair": "mystic",
+      "stance": "燈油是用來燒的，不是用來存的。",
+      "scene": "星燈在你面前搖晃，像是在等你的答案。你伸手把整瓶燈油倒進火裡。火焰竄上屋頂，把祭壇照得比白天還亮，也比白天更短。",
+      "vow": "「與其留著一點暗光過一輩子，不如亮一次讓全世界記得。」",
+      "gain": "取得 Flame 再快 20%，Flame 過五成時傷害 +10%。",
+      "price": "黑暗中燈油多燒四成：你的火總是在最亮的時候快要沒了。",
+      "epilogue": "有人說你的法術是用壽命換的。你只是笑著看火光映在對方眼裡：「那就別浪費。」",
+      "mods": {
+        "flameWick": { "gainMul": 1.2, "drainMul": 1.4 },
+        "tiers": [{ "when": "flameAbove", "at": 0.5, "dmgPct": 10 }]
+      }
+    },
+    "frostweaver": {
+      "icon": "❄", "name": "留火之誓", "nameEn": "Oath of the Kept Ember", "pair": "mystic",
+      "stance": "冷焰要留到最後一刻。",
+      "scene": "你用霜把燈火封進一顆水晶，放進掌心。火焰不再跳動，卻也不再有熱度。你知道它還活著，因為水晶中心有一點極小的藍光。",
+      "vow": "「我不急著燒盡。總得有人留到天亮。」",
+      "gain": "黑暗中燈油只燒六成、被打中燒得更少，Flame 低於三成五時回魔再 +25%。",
+      "price": "取得 Flame 慢 15%：你太謹慎，連火都不敢多借。",
+      "epilogue": "旅人們都說你的燈永遠亮得不夠，卻也永遠不會滅。最後一支隊伍回到鎮上時，是你點著最後的藍火。",
+      "mods": {
+        "flameWick": { "drainMul": 0.6, "costMul": 0.8, "gainMul": 0.85 },
+        "tiers": [{ "when": "flameBelow", "at": 0.35, "manaRegen": 25 }]
+      }
+    },
+    "crimsonblade": {
+      "icon": "🌙", "name": "迎光之誓", "nameEn": "Oath of the Glare", "pair": "strider",
+      "stance": "我在燈光下起舞，要讓所有人看見。",
+      "scene": "你走到祭壇正中，讓燈火直直照在刀身上。血紅的月光與金色的燈光在刃面交錯，你第一次沒有把影子藏起來。",
+      "vow": "「影子是膽小鬼的藏身處。我要站在光裡戰鬥。」",
+      "gain": "站在光裡時傷害 +8%、暴擊 +5%。",
+      "price": "黑暗中燈油多燒兩成：你不屬於夜晚，夜晚也不歡迎你。",
+      "epilogue": "鎮上的孩子在燈柱旁模仿你的劍步。你的影子很短，卻是整個廣場上最顯眼的一個。",
+      "mods": {
+        "flameWick": { "drainMul": 1.2 },
+        "tiers": [{ "when": "inLight", "dmgPct": 8, "crit": 5 }]
+      }
+    },
+    "mistphantom": {
+      "icon": "🌫", "name": "化影之誓", "nameEn": "Oath of the Unseen", "pair": "strider",
+      "stance": "我成為黑暗，讓牠們找不到我。",
+      "scene": "你吹熄了身旁最後一盞燭火。夜霧從地面升起，包住你的雙腿、雙手、雙眼。再睜開時，祭壇裡的人都找不到你站在哪裡。",
+      "vow": "「讓牠們看不見我，直到太遲。」",
+      "gain": "在黑暗中暴擊 +6%，Dimming 減速再少 40%。",
+      "price": "站在光裡補 Flame 只剩八成：燈光讓你覺得被注視。",
+      "epilogue": "有人說夜裡的霧比以前更濃了，也有人說他們看見過一個沒有影子的旅人。你只是點點頭，再也沒有回到燈下。",
+      "mods": {
+        "flameWick": { "lightRegenMul": 0.8 },
+        "tiers": [{ "when": "inDark", "crit": 6, "speedOffset": 0.4 }]
+      }
+    },
+    "lotussage": {
+      "icon": "🪷", "name": "護蓮之誓", "nameEn": "Oath of Tending", "pair": "monk",
+      "stance": "燈是需要照顧的小生命。",
+      "scene": "你跪在燈前，用雙手護住火焰，像是護著一朵會在風裡閉合的蓮。火光透過指縫，照亮你的臉，也照亮身後排隊等治療的人。",
+      "vow": "「我不爭，不搶，只把大家都帶回有光的地方。」",
+      "gain": "從黑暗回到光中時再多回復 8% 生命，站在光裡補 Flame 再快 20%。",
+      "price": "擊殺只給八成 Flame：你不為殺戮點燈。",
+      "epilogue": "每一盞鎮上新點亮的燈，旁邊都放著一朵你折的紙蓮。沒有人說過，但每個人都知道是誰放的。",
+      "mods": {
+        "flameWick": { "lightRegenMul": 1.2, "killGainMul": 0.8 },
+        "onEnterLight": { "healPct": 0.08 }
+      }
+    },
+    "thunderfist": {
+      "icon": "⚡", "name": "擊火之誓", "nameEn": "Oath of the Spark", "pair": "monk",
+      "stance": "燈是火花，要用拳頭打出來。",
+      "scene": "你一拳砸在祭壇邊的燈柱上，燈火炸開成無數火花，卻沒有熄滅。它們圍著你的拳頭旋轉，像是在回應某種節奏。",
+      "vow": "「靜坐無法讓火燃起，只有出拳可以。」",
+      "gain": "取得 Flame 再快 25%，Flame 過八成時傷害 +12%，蓮華綻放時多燒 10 Flame 換 12% 生命。",
+      "price": "從黑暗回到光中時的回復少 6% 生命：你不太靜得下來。",
+      "epilogue": "武館的牆上多了一道拳印，裡面有一圈焦黑的蓮花。師弟們說：那是師兄第一次被自己的火燒到。",
+      "mods": {
+        "flameWick": { "gainMul": 1.25 },
+        "tiers": [{ "when": "flameAbove", "at": 0.8, "dmgPct": 12 }],
+        "onEnterLight": { "healPct": -0.06 },
+        "onMechFull": { "spend": 10, "healPct": 0.12 }
+      }
+    }
+  }
+}
