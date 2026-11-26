@@ -1,4 +1,5 @@
 // 旅人卡：HP（彈簧液體）、MP（燈火光點）、體力羽毛、經驗條，全部像素平塗＋物理效果
+import { xpForNextLevel } from './frontier.js';
 // 條內 Canvas 以低解析度繪製後 2 倍放大；飛濺／碎片／光點／羽毛畫在全螢幕 hudFx 畫布上。
 const BW = 100, BH = 10;          // 條內部像素解析度（顯示為 200×20）
 const FX = 2;                      // 全螢幕特效畫布縮放（像素感）
@@ -97,7 +98,7 @@ export class StatusCard {
     this.drawFeathers(p);
     this.stepFx(dt);
     const xp = this.el.querySelector('.pc-xp i'), pr = g.meta.p;
-    if (xp) xp.style.width = (pr.level >= 30 ? 100 : Math.min(100, pr.xp / (pr.level * 40) * 100)) + '%';
+    if (xp) xp.style.width = (pr.level >= 30 ? 100 : Math.min(100, pr.xp / xpForNextLevel(pr.level) * 100)) + '%';
   }
 
   drawHp(f, low) {

@@ -11,6 +11,7 @@ import { buildZoneLandmarks } from './harbor.js';
 import { addGearToBag } from './physbag.js';
 import { milestoneText } from './progression.js';
 import { getFieldHotspot } from './mmo_protocol.js';
+import { grantLifeXp, getLifeSkillInfo, addDailyActivity } from './mmo_world.js';
 
 export const GOODS = { wood: '香杉木', ore: '星紋礦', fish: '溪銀魚' };
 export const FIELDS = [
@@ -74,6 +75,24 @@ export function restoreGear(g, player) {
     if (item && Object.hasOwn(player.equip, slot)) player.equip[slot] = deserializeItem(item);
   }
 }
+export function xpForNextLevel(lv = 1) {
+  const n = Math.max(1, Math.round(lv || 1));
+  return Math.round(120 + n * 95 + n * n * 14);
+}
+export function grantExperience(g, amount) {
+  const p = g.meta.p;
+  p.xp += amount;
+  while (p.level < 30 && p.xp >= xpForNextLevel(p.level)) {
+    p.xp -= xpForNextLevel(p.level); p.level++;
+    g.vfx?.spawnKiAscension(g.player.pos.x, g.player.y || 0, g.player.pos.z, 'holy');
+    g.ui.toast('旅人等級提升至 ' + p.level, '#ffdc80');
+    const milestone = milestoneText(p.level);
+    if (milestone) g.ui.toast(milestone, '#7fe08a');
+    g.recalc();
+  }
+  if (p.level === 30) p.xp = 0;
+}
+
 export function awardKill(g, enemy) {
   const p = g.meta.p;
   const autoOn = !!(g.autopilot && g.autopilot.mode !== 'off');
@@ -84,10 +103,12 @@ export function awardKill(g, enemy) {
   const hotspotMul = (!autoOn && g.field && g.hotspots && getFieldHotspot(g.field, g.hotspots)?.kind === 'gold_tide') ? 1.4 : 1;
   const ferryMul = ((p.ferryBuffUntil || 0) > Date.now()) ? 1.1 : 1;
   const mult = (g.isNight ? 1.25 : 1) * (p.guildName ? 1.1 : 1) * (autoOn ? 0.30 : sparkMul) * upwardMul * hotspotMul * ferryMul;
-  const xpGain = Math.max(1, Math.round((10 + level * (enemy.elite ? 4 : 2)) * mult));
+  // 經典慢熱 MMORPG 練等曲線：前期不再打 3 隻怪就升級，需紮實狩獵累積！
+  const xpGain = Math.max(1, Math.round((6 + level * (enemy.elite ? 3 : 1.2)) * mult));
   const rawCoins = enemy.elite ? 5 : 2;
-  const coinGain = autoOn ? (Math.random() < 0.30 ? Math.max(1, Math.round(rawCoins * 0.5)) : 0) : Math.round(rawCoins * sparkMul);
-  p.xp += xpGain;
+  const greedMul = 1 + (g.player?.runeBonuses?.coinBonus || 0) / 100;
+  const coinGain = autoOn ? (Math.random() < 0.30 ? Math.max(1, Math.round(rawCoins * 0.5)) : 0) : Math.round(rawCoins * sparkMul * greedMul);
+  grantExperience(g, xpGain);
   p.coins += coinGain;
   p.species[enemy.type] = (p.species[enemy.type] || 0) + 1;
   if (g.field && FIELD_NPCS[g.field]) {
@@ -96,29 +117,25 @@ export function awardKill(g, enemy) {
     const st = p.fieldQuests[qid] || { have: 0, done: false };
     if (!st.done) { st.have++; p.fieldQuests[qid] = st; }
   }
-  while (p.level < 30 && p.xp >= p.level * 40) {
-    p.xp -= p.level * 40; p.level++;
-    g.ui.toast('旅人等級提升至 ' + p.level, '#ffdc80');
-    const ms = milestoneText(p.level);
-    if (ms) g.ui.toast(ms, '#7fe08a');
-    g.recalc();
-  }
-  if (p.level === 30) p.xp = 0;
   let matGain = 0;
   if (g.field) {
     const material = ['wood','ore','fish'][(enemy.spawnIndex ?? 0) % 3];
     if (!autoOn) {
-      matGain = enemy.elite ? 3 : 1;
-      p.goods[material] += matGain;
-      if (enemy.elite || enemy.legendary) {
-        p.keys++;
-        const pool = Object.keys(ALL_GEMS);
-        const gemId = pool[Math.floor(Math.random() * pool.length)];
-        addGemToBag(p, gemId);
-        g.ui.toast(`獲得拼圖寶石：${ALL_GEMS[gemId].name}`, '#c08cff');
+      // 素材與鑰石掉率大幅下修（普通怪 18% 掉 1 素材、精英 45% 掉 1–2 素材與 15% 鑰石），鼓勵採集、懸賞與交易！
+      const dropMat = enemy.elite ? (Math.random() < 0.45) : (Math.random() < 0.18);
+      if (dropMat) {
+        matGain = enemy.elite ? (Math.random() < 0.5 ? 2 : 1) : 1;
+        p.goods[material] += matGain;
       }
-      g.ui.toast(GOODS[material] + (enemy.elite ? ' +3 · 鑰石 +1' : ' +1'), '#ffe5a5');
-    } else if (Math.random() < 0.35) {
+      let gotKey = false;
+      if ((enemy.elite || enemy.legendary) && Math.random() < 0.15) {
+        p.keys++;
+        gotKey = true;
+      }
+      if (matGain > 0 || gotKey) {
+        g.ui.toast((matGain > 0 ? `${GOODS[material]} +${matGain}` : '') + (gotKey ? (matGain > 0 ? ' · 鑰石 +1' : '鑰石 +1') : ''), '#ffe5a5');
+      }
+    } else if (Math.random() < 0.08) {
       matGain = 1;
       p.goods[material] += 1;
     }
@@ -523,7 +540,7 @@ export function setupField(g, restored = false) {
         const dist = k === 0 ? 0 : 2.0 + r() * 4.2;
         const px = center.x + Math.cos(ang) * dist, pz = center.z + Math.sin(ang) * dist;
         const valid = g.world.isLand(px, pz) ? { x: px, z: pz } : center;
-        spawns.push({ ...valid, campLeader: k === 0, dense: true });
+        spawns.push({ ...valid, campLeader: k === 0, dense: true, campSlot: k });
       }
     }
     const bossPoi = (bp.pois || []).find(p => p.k === 'boss');
@@ -556,7 +573,7 @@ export function setupField(g, restored = false) {
     g.meta.p.unlockedCps[g.field] = saved;
     bp.checkpoints.forEach(([cu, cv, cpName], idx) => {
       const w = uvToWorld(cu, cv, g.world.half);
-      const pt = g.world.isLand(w.x, w.z) ? w : g.world.randomWalkable(r, g.player.pos, 8);
+      const pt = g.world.isWalk(w.x, w.z) ? w : g.world.randomWalkable(r, g.player.pos, 8);
       const mesh = marker('checkpoint');
       const y = g.world.gh(pt.x, pt.z);
       mesh.position.set(pt.x, y, pt.z);
@@ -598,24 +615,33 @@ export function setupField(g, restored = false) {
       : `【常駐超大地圖】Lv.${f.level}+ · ${spawns.length} 隻魔物聚落出沒`;
   g.ui.banner(f.name, sub);
 }
+const MEADOW_PACK = ['boar', 'slime', 'thorn', 'slime', 'boar', 'slime', 'thorn', 'slime'];
+
 export function tickField(g, dt) {
   g.fieldClock -= dt;
   if (g.fieldClock > 0) return;
   g.fieldClock = 1;
   const f = FIELDS[g.field], now = Date.now();
+  const meadowGate = g.field === 1 && g.exits.find(ex => ex.type === 'town');
   const active = Math.floor(now / 60000) % 3 === g.field % 3;
   if (active !== g.worldEvent) {
     g.worldEvent = active;
     if (active) g.ui.toast(g.field===4?'暴風雪來臨 · 採集量提升':'山谷豐收 · 採集量提升', '#fff1ae');
     if (g.scene.fog && g.scene.fog.isFog) { g.scene.fog.near = active ? 28 : 38; g.scene.fog.far = active ? 88 : 112; }
   }
+  const occupied = new Set(g.enemies.filter(e => !e.dead && e.spawnIndex != null).map(e => e.spawnIndex));
   g.fieldSpawns.forEach((pos,i) => {
-    if (g.enemies.some(e => !e.dead && e.spawnIndex === i) || g.meta.p.timers[g.field + ':mob:' + i] > now) return;
+    if (occupied.has(i) || g.meta.p.timers[g.field + ':mob:' + i] > now) return;
     const legendary = !!pos.legendary;
     const isSky = !legendary && (f.beast === 'skyray' || i % 5 === 2);
     const isElite = legendary || !!pos.campLeader;
-    const e = g.spawnEnemy(legendary ? 'stag' : isSky ? 'skyray' : f.beast, pos, isElite);
-    e.spawnIndex = i; e.legendary = legendary; e.level = Math.min(30, f.level + Math.floor(i / 4));
+    const meadowGrade = meadowGate && !legendary ? Math.min(3, Math.floor(Math.hypot(pos.x - meadowGate.x, pos.z - meadowGate.z) / 55)) : null;
+    const meadowType = meadowGrade >= 2 && pos.campSlot === 5 ? 'skyray' : (MEADOW_PACK[pos.campSlot] || 'slime');
+    const type = legendary ? 'stag' : meadowGrade != null ? meadowType : isSky ? 'skyray' : f.beast;
+    const e = g.spawnEnemy(type, pos, isElite);
+    e.spawnIndex = i; e.legendary = legendary;
+    e.level = meadowGrade != null ? f.level + meadowGrade : Math.min(30, f.level + Math.floor(i / 4));
+    if (g.field === 1 && type === 'slime') e.meadowPounce = true;
     e.statusAffinity = f.status || 'poison';
     const rankScale=1+(e.level-f.level)*.08;
     e.hp=Math.ceil(e.hp*rankScale);e.maxHp=e.hp;e.dmg*=rankScale;
@@ -638,12 +664,19 @@ export function tickField(g, dt) {
 
 export function teleportToCheckpoint(g, cpIdx) {
   const cp = (g.checkpoints || []).find(c => c.idx === cpIdx);
-  if (!cp || !cp.unlocked) return false;
-  g.player.pos.set(cp.x + 1.6, cp.y, cp.z + 1.6);
-  g.player.y = g.world.gh(cp.x + 1.6, cp.z + 1.6);
-  g.camPos?.set?.(cp.x + 1.6, 0, cp.z + 1.6);
+  if (!g.field || g.interior || g.sailing || !cp?.unlocked) return false;
+  const { x, z } = g.world.isWalk(cp.x + 1.6, cp.z + 1.6) ? { x: cp.x + 1.6, z: cp.z + 1.6 } : cp;
+  const y = g.world.gh(x, z);
+  g.player.pos.set(x, y, z);
+  g.player.y = y;
+  g.player.vel?.set(0, 0, 0);
+  g.player.vy = 0;
+  g.player.air = g.player.climbing = g.player.gliding = false;
+  g.player.roll = 0;
+  g.player.lastLow?.set(x, y, z);
+  g.camPos?.set?.(x, 0, z);
   g.audio?.sfx?.('wisp');
-  g.fx?.burst?.(cp.x + 1.6, g.player.y + 1.2, cp.z + 1.6, 22, { c: [0x38d0ff, 0xffffff, 0xa8f2ff], s: 0.14, speed: 5, up: 4, life: 0.6 });
+  g.fx?.burst?.(x, y + 1.2, z, 22, { c: [0x38d0ff, 0xffffff, 0xa8f2ff], s: 0.14, speed: 5, up: 4, life: 0.6 });
   g.ui?.toast?.(`🔵 瞬移至「${cp.name}」`, '#6ae8ff');
   return true;
 }
@@ -673,6 +706,7 @@ export function useFieldSpot(g,s) {
   }
   if (s.kind.startsWith('shrine_')) {
     s.mesh.visible = false;
+    g.vfx?.spawnLifeSkillFx('shrine', s.x, g.world?.gh?.(s.x, s.z) || 0, s.z);
     g.shrineBuffs = g.shrineBuffs || { fury: 0, frost: 0, gold: 0, sheep: 0 };
     if (s.kind === 'shrine_fury') {
       g.shrineBuffs.fury = 25;
@@ -712,19 +746,31 @@ export function useFieldSpot(g,s) {
     const key = g.field + ':' + s.kind;
     if (!GOODS[s.kind] || p.timers[key] > Date.now() || g.gatherActive) return false;
     const collect = (perfect) => {
+      const lsInfo = getLifeSkillInfo(p, s.kind);
+      const bonusDouble = Math.random() < (lsInfo.doubleChance || 0);
       const base = (g.worldEvent ? 4 : 3) + (p.guildName ? 1 : 0);
-      const yieldCount = perfect ? base * 2 : base;
+      const yieldCount = (perfect ? base * 2 : base) * (bonusDouble ? 2 : 1);
       p.goods[s.kind] += yieldCount; p.timers[key] = Date.now() + 30000; s.mesh.visible = false;
+      p.bountyProg = p.bountyProg || {};
+      p.bountyProg.gathers = (p.bountyProg.gathers || 0) + 1;
+      g.vfx?.spawnLifeSkillFx(s.kind, s.x, g.world?.gh?.(s.x, s.z) || 0, s.z);
+      const lifeUp = grantLifeXp(p, s.kind, perfect ? 22 : 12);
+      addDailyActivity(p, 5);
+      const dblTxt = bonusDouble ? '（副職暴擊 ×2！）' : '';
       if (perfect) {
         p.coins += 5;
         if (s.kind === 'ore' && Math.random() < 0.5) {
           const pool = Object.keys(ALL_GEMS); const gid = pool[Math.floor(Math.random() * pool.length)];
-          addGemToBag(p, gid); g.ui.toast(`✨ 完美採集！${GOODS[s.kind]} +${yieldCount} · 寶石「${ALL_GEMS[gid].name}」`, '#ffd85a');
+          addGemToBag(p, gid); g.ui.toast(`✨ 完美採集！${GOODS[s.kind]} +${yieldCount}${dblTxt} · 寶石「${ALL_GEMS[gid].name}」`, '#ffd85a');
         } else {
-          g.ui.toast(`✨ 完美採集！${GOODS[s.kind]} +${yieldCount} · 金幣 +5`, '#ffd85a');
+          g.ui.toast(`✨ 完美採集！${GOODS[s.kind]} +${yieldCount}${dblTxt} · 金幣 +5`, '#ffd85a');
         }
       } else {
-        g.ui.toast(GOODS[s.kind] + ' +' + yieldCount, '#ffe08a');
+        g.ui.toast(GOODS[s.kind] + ' +' + yieldCount + dblTxt, '#ffe08a');
+      }
+      if (lifeUp) {
+        g.recalc?.(); g.audio?.sfx?.('classup');
+        g.ui.toast(`🎉 生活副職升級！【${lifeUp.def.icon} ${lifeUp.def.name} Lv.${lifeUp.lv}】永久屬性與雙倍採集率提升！`, '#7fe08a');
       }
       if (g.field === 1 && FIELD_NPCS[1]) {
         p.fieldQuests = p.fieldQuests || {};

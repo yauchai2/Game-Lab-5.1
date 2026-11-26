@@ -1,11 +1,14 @@
-import { FIELDS, rememberGear } from './frontier.js';
+import { FIELDS, rememberGear, xpForNextLevel } from './frontier.js';
 import { bindTouch } from './touch.js';
+import { cleanPartyCode } from './net.js';
 import { bindWorldMap } from './worldmap.js';
 import { bindCharacters } from './characters.js';
 import { buildPanels } from './panels.js';
 import { loadSettings, applySettings, buildSettingsUI, syncHotbarKeyLabels } from './settings.js';
 import { CLASSES, bindPuzzleUI } from './puzzle.js';
-import { dayInfo, findSecondClass, drawRegionMap } from './world_alive.js';
+import { dayInfo, findSecondClass } from './world_alive.js';
+import { bindRegionMap } from './region_map.js';
+import { navigationTarget, describeMapTarget } from './map_navigation.js';
 import { COSMETICS } from './harbor.js';
 import { applyCosmetics } from './models.js';
 import { PhysicsContainer, ensurePhysicsStorage, useBagItem, transferBagItem, synthesizeBagItems, autoEquipBest, salvageTrashGear } from './physbag.js';
@@ -14,16 +17,32 @@ import { StatusCard } from './statuscard.js';
 import { t } from './i18n.js';
 import * as THREE from 'three';
 import { RARITY, SLOTS, itemLines, itemScore, BOONS, deserializeItem, tierInfo, CORRUPT_COST, corruptItem } from './loot.js';
-import { mountStatuses } from './mounts.js';
+import { activeMountDef, mountStatuses, unlockMountSaddle } from './mounts.js';
 import { MONSTER_SOULS, SOUL_SLOTS, ensureSouls, equipSoul, unequipSoul, soulTier } from './souls.js';
 import { DENSITY_TIERS, LEAGUE_MECHANICS, ensureAtlas, setAtlasDensity, toggleAtlasMechanic, computeAtlasSummary, atlasCraftCost } from './atlas.js';
-import { TIDE_PHASES, ULTIMATES, MICRO_BUFFS, lootMultForTide, castUltimate, cycleUltimate } from './tide.js';
+import { TIDE_PHASES, ULTIMATES, MICRO_BUFFS, lootMultForTide, castUltimate, cycleUltimate, activateCurseShrine } from './tide.js';
+import { getKillStreakTier, getEscalationProfile } from './survivor.js';
+import { STAT_DEFS, ensureMmoState, availableStatPoints, allocateStat, resetStatPoints, getCurrentChapter, claimChapterReward, BESTIARY_DEFS, bestiaryRank, computeEnhanceResonance, getGuildRepInfo, getCompanionBondInfo, AI_COMPANIONS } from './mmo_rpg.js';
+import { LIFE_SKILLS, LIFE_SKILL_IDS, getLifeSkillInfo, TITLE_DEFS, ensureTitles, equipTitle, computeTitleBonuses, spawnWorldBoss, getSimAdventurers, getSimConfig, DEFAULT_SIM_COUNT, setSimConfig, triggerSimEvent, assistSimTask } from './mmo_world.js';
+import { spawnDynamicEvent, getPartyIds, getActivePartySynergy, computeTowerBonuses } from './mmo_endgame.js';
+import { ALL_GEMS, addGemToBag } from './puzzle.js';
+import { MEADOW_CAVE } from './meadow_cave.js';
+import { MEADOW_TIERS, expeditionRoute, isMeadowIntro, meadowExpedition, meadowStage } from './expedition.js';
+import { getActiveAccount, slotKeys } from './account.js';
 import { canCorruptGear, CORRUPT_UNLOCK_LV, nextMilestone } from './progression.js';
 import { applyHudIcons } from './icons.js';
+import { installHoverSystem } from './hover.js';
 import { computeCozyMvps, getWeeklySpireInfo, contributeLighthouse, getLighthouseTitle, getClassTeamRole, isFeatureEnabled } from './mmo_protocol.js';
 
 const $ = id => document.getElementById(id);
+import { bindGameLayers, openTextDialog } from './ui_layers.js';
+
 const v3 = new THREE.Vector3();
+
+function showExpeditionTracker(g) {
+  const profile = g.meta.p;
+  return isMeadowIntro(profile) && (!!meadowExpedition(profile).active || g.field === 1 || g.depth < 0);
+}
 
 export class UI {
   constructor() {
@@ -37,36 +56,84 @@ export class UI {
     this.atStash = false;
     this.status = new StatusCard(this);
     applyHudIcons();
+    this.hover = installHoverSystem(game);
+    this.refreshRegionMap = bindRegionMap(game);
     game.settings = loadSettings(); buildPanels(game); buildSettingsUI(game); applySettings(game);
     const menuBtn = $('btnMenu'), menuPop = $('menuPop');
-    if (menuBtn && menuPop) {
-      menuBtn.onclick = e => { e.stopPropagation(); game.audio.sfx('ui'); menuPop.classList.toggle('hide'); };
-      menuPop.addEventListener('click', () => menuPop.classList.add('hide'));
-      addEventListener('click', e => { if (!menuPop.contains(e.target) && e.target !== menuBtn) menuPop.classList.add('hide'); });
-    }
+    const menuPages = [...menuPop.querySelectorAll('[data-menu-page]')];
+    const showMenuPage = page => {
+      for (const button of menuPages) {
+        const active = button.dataset.menuPage === page;
+        button.setAttribute('aria-pressed', String(active));
+        $(button.getAttribute('aria-controls')).hidden = !active;
+      }
+    };
+    for (const button of menuPages) button.onclick = () => showMenuPage(button.dataset.menuPage);
+    const setMenu = (open, restore = false) => {
+      if (open) showMenuPage('adventure');
+      menuPop.classList.toggle('hide', !open);
+      menuBtn.setAttribute('aria-expanded', String(open));
+      if (restore) menuBtn.focus({ preventScroll: true });
+    };
+    menuBtn.onclick = () => {
+      game.audio.sfx('ui');
+      setMenu(menuPop.classList.contains('hide'));
+    };
+    menuPop.addEventListener('click', event => {
+      if (event.target.closest('.menu-section button')) setMenu(false, true);
+    }, true);
+    addEventListener('click', event => {
+      if (!menuPop.contains(event.target) && !menuBtn.contains(event.target)) setMenu(false);
+    });
+    addEventListener('keydown', event => {
+      if (menuPop.classList.contains('hide') || document.querySelector('dialog[open]')) return;
+      if (event.key === 'Tab') {
+        event.stopImmediatePropagation();
+        return;
+      }
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      setMenu(false, true);
+    }, true);
     $('btnMute').onclick = () => { game.audio.init(); const m = game.audio.toggleMute(); $('btnMute').textContent = m ? '🔇 音效：關' : '🔊 音效：開'; };
     const dbgBtn = $('btnDebug'); if (dbgBtn) dbgBtn.onclick = () => { $('menuPop')?.classList.add('hide'); game.dbg?.toggle?.(); };
+    const rosBtn = $('btnSimRoster'); if (rosBtn) rosBtn.onclick = () => { $('menuPop')?.classList.add('hide'); this.toggleSimRoster(game); };
+    $('btnZoneShards').onclick = () => this.openPanel('shards');
+    const netBox = $('netBox'); if (netBox) netBox.onclick = () => {
+      game.audio?.sfx?.('ui');
+      if (game.net.zoneShards) this.openPanel('shards');
+      else this.toggleSimRoster(game);
+    };
+    const inspX = $('btnSimInspClose'); if (inspX) inspX.onclick = () => this.closeSimInspect();
+    const rosX = $('btnSimRosterClose'); if (rosX) rosX.onclick = () => this.closeSimRoster();
     // Phase M4C：1 秒網址拉人組隊（?join=CODE）＋一鍵複製組隊邀請連結
     try {
       const joinCode = new URLSearchParams(location.search).get('join');
       if (joinCode && $('inParty')) {
-        const cleanCode = joinCode.trim().slice(0, 12);
+        const cleanCode = cleanPartyCode(joinCode);
         $('inParty').value = cleanCode;
         game.party = cleanCode;
         setTimeout(() => this.toast(`🏮 已透過邀請連結加入小隊「${cleanCode}」`, '#ffd85a'), 400);
       }
     } catch (e) { /* ignore */ }
     const invBtn = $('btnInvite');
-    if (invBtn) invBtn.onclick = () => {
-      const code = (game.party || $('inParty')?.value?.trim() || ('LV-' + Math.floor(1000 + Math.random() * 9000))).slice(0, 12);
+    if (invBtn) invBtn.onclick = async () => {
+      const code = cleanPartyCode(game.party || $('inParty')?.value) || ('LV-' + Math.floor(1000 + Math.random() * 9000));
       game.party = code;
       if ($('inParty')) $('inParty').value = code;
       const url = `${location.origin}${location.pathname}?join=${encodeURIComponent(code)}`;
-      navigator.clipboard?.writeText?.(url).catch(() => {});
-      this.toast(`🔗 已複製小隊連結（代碼 ${code}）！貼給朋友 5 秒入隊`, '#7fe08a');
+      try {
+        await navigator.clipboard.writeText(url);
+        this.toast(`已複製小隊連結（代碼 ${code}）`, '#7fe08a');
+      } catch (_) {
+        openTextDialog({ title: '小隊邀請', description: '複製連結給隊友。', value: url, readOnly: true });
+      }
     };
     $('btnMute').textContent = game.audio.muted ? '🔇 音效：關' : '🔊 音效：開';
     bindWorldMap(game); bindTouch(game); bindPuzzleUI(game); bindCodexUI(game);
+    $('btnChatSend').onclick = () => this.finishChat(true);
+    $('btnChatClose').onclick = () => this.finishChat(false);
     const pzBtn = $('sk-puzzle'); if (pzBtn) pzBtn.onclick = () => { if (this.puzzleOpen) this.closePuzzle(); else this.openPuzzle(); };
     const pzX = $('btnPuzzleX'); if (pzX) pzX.onclick = () => this.closePuzzle?.();
     const pnX = $('btnPanelX'); if (pnX) pnX.onclick = () => this.closePanel?.();
@@ -74,12 +141,48 @@ export class UI {
     const apModeBtn = $('apToggleMode'); if (apModeBtn) apModeBtn.onclick = () => { const ap = game.autopilot; if (ap) game.toggleAutopilot?.(ap.mode === 'full' ? 'assist' : 'full'); };
     const apSalvBtn = $('apToggleSalv'); if (apSalvBtn) apSalvBtn.onclick = () => { const ap = game.autopilot; if (ap) { ap.autoSalvage = !ap.autoSalvage; game.ui.toast(ap.autoSalvage ? '♻️ 已開啟掛機自動分解白／綠裝' : '♻️ 已關閉掛機自動分解', '#e8dcc8'); } };
     const apCozyBtn = $('apToggleCozy'); if (apCozyBtn) apCozyBtn.onclick = () => { const ap = game.autopilot; if (ap) { ap.cozyCam = !ap.cozyCam; ap.idleT = 0; game.ui.toast(ap.cozyCam ? '🎥 已開啟桌寵觀賞鏡頭（20秒無操作啟動）' : '🎥 已關閉桌寵觀賞鏡頭', '#e8dcc8'); } };
+    $('quickTideUlt').onclick = () => $('btnTideUlt').click();
     const apStopBtn = $('apStop'); if (apStopBtn) apStopBtn.onclick = () => game.toggleAutopilot?.('off');
     const bagBtn = $('sk-bag'); if (bagBtn) bagBtn.onclick = () => this.toggleInv(game, 'bag');
+    const lvBtn = $('pcLv'); if (lvBtn) lvBtn.onclick = () => { game.audio.sfx('ui'); this.toggleInv(game, 'bag'); };
+    const flBtn = $('sk-r'); if (flBtn) flBtn.onclick = () => game.tryFlask?.();
     const recBtn = $('sk-recall'); if (recBtn) recBtn.onclick = () => game.startRecall?.();
     const mntBtn = $('sk-mount'); if (mntBtn) mntBtn.onclick = () => game.toggleMount?.();
     const tuBtn = $('btnTideUlt'); if (tuBtn) tuBtn.onclick = () => castUltimate(game);
     const tcBtn = $('btnTideCycle'); if (tcBtn) tcBtn.onclick = () => cycleUltimate(game);
+    const csBtn = $('btnCurse'); if (csBtn) csBtn.onclick = () => activateCurseShrine(game);
+    const wbBan = $('worldBossBanner');
+    if (wbBan) wbBan.onclick = () => {
+      if (game.field && !game.worldBoss?.active) spawnWorldBoss(game);
+      else if (game.worldBoss?.active) this.toast(`🐉 世界王正在野外肆虐，快前往討伐累積 S 級貢獻！`, '#ffd85a');
+    };
+    const deBan = $('dynEventBanner');
+    if (deBan) deBan.onclick = () => {
+      if (game.field && !game.dynEvent?.active) spawnDynamicEvent(game);
+      else if (game.dynEvent?.active) this.toast(`⚡ 動態奇遇【${game.dynEvent.def?.name}】進行中！快完成目標領魔方大獎！`, '#ffd85a');
+    };
+    const swBtn = $('btnSwitchChar'); if (swBtn) swBtn.onclick = () => { game.audio?.sfx?.('ui'); this.returnToCharSelect?.(); };
+    const qtEl = $('questTracker');
+    $('btnMeadowExpedition').onclick = () => this.openPanel('expedition');
+    if (qtEl) qtEl.onclick = () => {
+      if (showExpeditionTracker(game)) {
+        this.openPanel('expedition');
+        return;
+      }
+      const cur = getCurrentChapter(game.meta?.p);
+      if (!cur || !cur.done) return;
+      const rew = claimChapterReward(game.meta.p);
+      if (!rew) return;
+      let gemMsg = '';
+      if (rew.gem && ALL_GEMS[rew.gem]) {
+        addGemToBag(game.meta.p, rew.gem);
+        gemMsg = ` · 寶石【${ALL_GEMS[rew.gem].icon}${ALL_GEMS[rew.gem].name}】`;
+      }
+      game.meta.save();
+      game.recalc();
+      game.audio.sfx('classup');
+      this.banner(`🎉 主線完成！`, `+🪙${rew.coins} · +💎${rew.shards} 星砂 · +${rew.xp} XP${gemMsg}`);
+    };
     const dayBtn = $('dayInfo'); if (dayBtn) dayBtn.onclick = () => {
       if (game.net?.ok && !game.photoMode) {
         game.ui.toast('🌐 線上模式採全服統一晝夜時鐘（開啟 P 拍照模式可本地預覽光影）', '#ffe08a');
@@ -87,20 +190,48 @@ export class UI {
       }
       game.dayTime = ((game.dayTime || 0) + 0.25) % 1; const d = dayInfo(game.dayTime); game.ui.toast(`時間推進至 ${d.icon} ${d.label}`, '#ffe9a0');
     };
-    for (let i = 0; i < 4; i++) { const el = $('sk-s' + i); if (el) el.onclick = () => { if (!game.player.hotbar?.[i]) { game.audio.sfx('ui'); this.openPuzzle?.(); } else game.castHotbar(i); }; }
+    for (let i = 0; i < 4; i++) {
+      const slot = $('sk-s' + i);
+      slot.onclick = event => {
+        const touch = event.pointerType === 'touch' || matchMedia('(pointer: coarse)').matches;
+        if (touch && (game.raid || !game.canUseTouchControls())) return;
+        if (!game.player.hotbar?.[i] && !(i === 0 && (touch || game.ambushTrial))) {
+          game.audio.sfx('ui');
+          this.openPuzzle?.();
+        } else {
+          if (touch) game.aimForTouch();
+          game.castHotbar(i);
+        }
+      };
+    }
     // 點擊彈窗外部深色遮罩即可快速關閉
-    [['inv', () => this.invOpen && this.toggleInv(game)], ['puzzleM', () => this.puzzleOpen && this.closePuzzle?.()], ['panelM', () => this.panelOpen && this.closePanel?.()], ['settings', () => this.setOpen && this.closeSettings?.()], ['codexModal', () => this.codexOpen && this.closeCodex?.()]].forEach(([mid, fn]) => {
+    [['inv', () => this.invOpen && this.toggleInv(game)], ['puzzleM', () => this.puzzleOpen && this.closePuzzle?.()], ['panelM', () => this.panelOpen && this.closePanel?.()], ['settings', () => this.setOpen && this.closeSettings?.()], ['codexModal', () => this.codexOpen && this.closeCodex?.()], ['simInspectModal', () => this.simInspectOpen && this.closeSimInspect()], ['simRosterModal', () => this.simRosterOpen && this.closeSimRoster()]].forEach(([mid, fn]) => {
       const m = $(mid); if (m) m.addEventListener('click', e => { if (e.target === m) fn(); });
     });
     this._bindInvTabs(game);
-    const enterCharacter = bindCharacters(game);
+    const enterCharacter = game.ambushTrial ? null : bindCharacters(game);
     $('btnTown2').onclick = () => { $('dead').classList.add('hide'); game.party = ''; game.enterTown(); };
     $('btnTown3').onclick = () => { $('win').classList.add('hide'); game.enterTown(); };
+    bindGameLayers(game, [
+      ['settings', () => { if (!this.cancelSettingsRebind()) this.closeSettings(); }, '#btnSettingsX'],
+      ['panelM', () => this.closePanel(), '#btnPanelX'],
+      ['puzzleM', () => this.closePuzzle(), '#btnPuzzleX', ['KeyK', 'KeyR']],
+      ['inv', () => this.toggleInv(game), '[data-invtab].on', ['KeyI']],
+      ['codexModal', () => this.closeCodex(), '#btnCodexClose'],
+      ['simRosterModal', () => this.closeSimRoster(), '#btnSimRosterClose'],
+      ['simInspectModal', () => this.closeSimInspect(), '#btnSimInspClose'],
+      ['accountModal', () => $('btnAcctClose').click(), '#acctUser'],
+      ['delCharModal', () => $('btnDelCancel').click(), '#btnDelCancel'],
+      ['boons', null, null, ['Digit1', 'Digit2', 'Digit3']],
+      ['dead', null, '#btnRetry'],
+      ['win', null, '#btnAgain'],
+    ]);
     $('btnStart').onclick = () => {
+      if (!enterCharacter) return;
       game.audio.init(); game.audio.sfx('ui');
-      game.playerName = ($('inName').value.trim() || '旅人').slice(0, 12); game.party = $('inParty').value.trim().slice(0, 12);
+      game.playerName = ($('inName').value.trim() || '旅人').slice(0, 12); game.party = cleanPartyCode($('inParty').value);
       enterCharacter();
-      game.net.connect(game.playerName, game.hoodIdx);
+      game.net.connect(game.playerName, game.hoodIdx, game.party);
       $('title').classList.add('hide'); $('hud').classList.remove('hide'); game.enterTown();
       syncHotbarKeyLabels(game);
     };
@@ -114,8 +245,12 @@ export class UI {
   _bindInvTabs(game) {
     const bagCv = $('bagCanvas'), stashCv = $('stashCanvas');
     const selMap = { bagItems: null, stashItems: null };
+    const itemPickers = { bagItems: $('bagItemPicker'), stashItems: $('stashItemPicker') };
     const showSel = (boxId, btnsId, item, fromKey, isPreview = false) => {
-      if (!isPreview) selMap[fromKey] = item;
+      if (!isPreview) {
+        selMap[fromKey] = item;
+        itemPickers[fromKey].value = item?.uid == null ? '' : String(item.uid);
+      }
       const targetItem = item || selMap[fromKey];
       const info = $(boxId), btns = $(btnsId);
       if (!info || !btns) return;
@@ -142,6 +277,13 @@ export class UI {
         btns.appendChild(mv);
       }
     };
+    for (const [key, picker] of Object.entries(itemPickers)) {
+      const bag = key === 'bagItems';
+      picker.onchange = () => {
+        const item = game.meta.p[key]?.find(candidate => String(candidate.uid) === picker.value);
+        showSel(bag ? 'bagSelInfo' : 'stashSelInfo', bag ? 'bagBtns' : 'stashBtns', item || null, key);
+      };
+    }
     if (bagCv) {
       this.bagPhys = new PhysicsContainer(bagCv, {
         theme: 'bag',
@@ -170,16 +312,22 @@ export class UI {
         game.audio.sfx('ui'); this.toast('目前身上已是背包中戰力最高的裝備', '#ffe08a');
       }
     };
-    const sv = $('btnSalvageBag'); if (sv) sv.onclick = () => {
-      const res = salvageTrashGear(game);
-      if (res.count > 0) {
-        game.audio.sfx('synth');
-        this.syncPhysBags(game); this.renderInv(game, true);
-        this.toast(`♻️ 已分解 ${res.count} 件低階裝備，獲得 ✦ 星砂 +${res.shards}！`, '#ffd85a');
-      } else {
-        game.audio.sfx('ui'); this.toast('背包中沒有可分解的多餘白／藍裝備', '#ffe08a');
-      }
-    };
+    const sv = $('btnSalvageBag'); if (sv) sv.onclick = () => openTextDialog({
+      title: '分解低階裝備',
+      description: '背包中分數低於同欄已裝備物品的白色與藍色裝備會轉成星砂。腐化裝備保留。',
+      action: '分解裝備',
+      danger: true,
+      submit() {
+        const res = salvageTrashGear(game);
+        if (res.count > 0) {
+          game.audio.sfx('synth');
+          game.ui.syncPhysBags(game); game.ui.renderInv(game, true);
+          game.ui.toast(`♻️ 已分解 ${res.count} 件低階裝備，獲得 ✦ 星砂 +${res.shards}！`, '#ffd85a');
+        } else {
+          game.audio.sfx('ui'); game.ui.toast('背包中沒有可分解的多餘白／藍裝備', '#ffe08a');
+        }
+      },
+    });
     const sb = $('btnShakeBag'); if (sb) sb.onclick = () => { this.bagPhys?.shake(); game.audio.sfx('roll'); };
     const ss = $('btnShakeStash'); if (ss) ss.onclick = () => { this.stashPhys?.shake(); game.audio.sfx('roll'); };
     const bc = $('btnInvClose'); if (bc) bc.onclick = () => this.toggleInv(game);
@@ -199,14 +347,14 @@ export class UI {
     const eq = game.player.equip, shards = game.meta.p.shards || 0;
     el.innerHTML = Object.keys(SLOTS).map(k => {
       const it = eq[k];
-      if (!it) return `<div class="eq-mini" data-eqslot="${k}"><div><b>${SLOTS[k].icon} ${SLOTS[k].name}</b></div><span style="opacity:.6">（空欄位）</span></div>`;
+      if (!it) return `<div class="eq-mini" data-eqslot="${k}"><div><b>${SLOTS[k].icon} ${SLOTS[k].name}</b></div><span style="color:#d8c2a0;opacity:.9">（空欄位）</span></div>`;
       const ti = tierInfo(it.tier || 1), R = RARITY[it.rarity];
       const corruptOk = canCorruptGear(game);
       const cBtn = !it.corrupted
         ? (corruptOk
             ? `<button type="button" class="btn small corrupt-btn eq-corrupt" data-corrupt-slot="${k}" ${shards >= CORRUPT_COST ? '' : 'disabled'}>☠️ 腐化 ✦${CORRUPT_COST}</button>`
-            : `<span style="font-size:10px;opacity:.65">🔒 Lv.${CORRUPT_UNLOCK_LV} 解鎖腐化</span>`)
-        : `<span style="font-size:11px;color:#c82868;font-weight:700">☠️ 已腐化</span>`;
+            : `<span style="font-size:10px;color:#e6cfa8;opacity:.92">🔒 Lv.${CORRUPT_UNLOCK_LV} 解鎖腐化</span>`)
+        : `<span style="font-size:11px;color:#ff84b6;font-weight:700">☠️ 已腐化</span>`;
       return `<div class="eq-mini" data-eqslot="${k}"><div><span class="tier-tag" style="color:${ti.color}">${ti.tag}</span><b style="color:${R.color}">${it.name}</b></div><small>${SLOTS[k].name} · 戰力 ${itemScore(it)}</small>${cBtn}</div>`;
     }).join('');
     el.querySelectorAll('.eq-mini').forEach(b => {
@@ -237,15 +385,23 @@ export class UI {
   renderMounts(game) {
     const root = $('mountsRoot'); if (!root) return;
     const list = mountStatuses(game.meta.p);
-    const curId = game.meta.p.mountId || list.find(m => m.status.unlocked)?.id;
-    root.innerHTML = `<div style="margin-bottom:10px;font-size:13px;color:#5a3826">達成對應冒險里程碑即可永久解鎖坐騎！遊戲中按 <b>G 鍵</b>（或下方坐騎鈕）隨時召喚／收起。</div><div class="mount-grid">${list.map(m => {
-      const u = m.status.unlocked, on = u && curId === m.id;
-      return `<div class="mount-card ${on ? 'on' : ''} ${u ? '' : 'locked'}">
-        <div style="display:flex;align-items:center;gap:8px"><span style="font-size:28px">${m.icon}</span><div><span class="tier-tag" style="color:#ffd85a">T${m.tier}</span><b>${m.name}</b><div style="font-size:11px;color:#7a5a46">${m.status.text}</div></div></div>
+    const curId = activeMountDef(game.meta.p)?.id;
+    root.innerHTML = `<div style="margin-bottom:10px;font-size:13px;color:#5a3826">達成全部冒險里程碑並支付鞍具鍛造材料即可永久馴養坐騎！按 <b>G 鍵</b>隨時召喚／收起。</div><div class="mount-grid">${list.map(m => {
+      const u = m.status.unlocked, owned = m.owned, usable = owned && u, on = curId === m.id;
+      const chkHtml = (m.status.checks || []).map(c => `<span style="display:inline-block;margin-right:6px;font-size:11px;color:${c.ok ? '#267346' : '#a83434'};font-weight:700">${c.ok ? '✔' : '✖'} ${c.label}</span>`).join('');
+      let actHtml = '<span style="font-size:12px;opacity:.7">🔒 尚未達成全部里程碑</span>';
+      if (usable) {
+        actHtml = `<button type="button" class="btn small ${on ? 'on' : ''}" data-mid="${m.id}">${on ? '✓ 使用中（點此召喚）' : '選擇並召喚'}</button>`;
+      } else if (u) {
+        actHtml = `<button type="button" class="btn small ${m.canCraft ? 'on' : ''}" data-craft-mid="${m.id}" ${m.canCraft ? '' : 'disabled'}>🔨 馴養／鍛造鞍具（${m.saddleText}）</button>`;
+      }
+      return `<div class="mount-card ${on ? 'on' : ''} ${usable ? '' : 'locked'}">
+        <div style="display:flex;align-items:center;gap:8px"><span style="font-size:28px">${m.icon}</span><div><span class="tier-tag" style="color:#ffd85a">T${m.tier}</span><b>${m.name}</b><div style="font-size:11px;color:#7a5a46">${usable ? '✔ 已馴養持有' : m.status.text}</div></div></div>
         <div class="mount-prog"><i style="width:${Math.round(m.status.prog * 100)}%"></i></div>
-        <div style="font-size:12px"><b>里程碑：</b>${m.milestone}</div>
+        <div>${chkHtml}</div>
+        <div style="font-size:11.5px;color:#8a4f1f"><b>鞍具材料：</b>${m.saddleText}</div>
         <div style="font-size:12px;color:#2c5a9a"><b>坐騎特性：</b>${m.perk}</div>
-        <div>${u ? `<button type="button" class="btn small" data-mid="${m.id}">${on ? '✓ 使用中（點此召喚）' : '選擇並召喚'}</button>` : '<span style="font-size:12px;opacity:.7">🔒 尚未達成里程碑</span>'}</div>
+        <div>${actHtml}</div>
       </div>`;
     }).join('')}</div>`;
     root.querySelectorAll('[data-mid]').forEach(b => {
@@ -254,6 +410,15 @@ export class UI {
         if (game.mount) game.toggleMount(true);
         this.toggleInv(game);
         game.toggleMount();
+      };
+    });
+    root.querySelectorAll('[data-craft-mid]').forEach(b => {
+      b.onclick = () => {
+        const res = unlockMountSaddle(game.meta.p, b.dataset.craftMid);
+        if (!res.ok) { this.toast(res.reason || '鞍具材料不足', '#ff8a8a'); return; }
+        game.meta.save(); game.audio.sfx('classup');
+        this.toast(`🎉 馴養成功！獲得坐騎「${res.mount.icon} ${res.mount.name}」（按 G 鍵召喚）`, '#ffd85a');
+        this.renderMounts(game);
       };
     });
   }
@@ -270,21 +435,21 @@ export class UI {
     const slotBar = Object.entries(SOUL_SLOTS).map(([slotKey, meta]) => {
       const eqId = s.equipped[slotKey], eqDef = eqId ? MONSTER_SOULS[eqId] : null;
       return `<div class="soul-card ${eqDef ? 'on' : ''}">
-        <div><b>${meta.icon} ${meta.name}</b> <small style="color:#7a5a46">（${meta.desc}）</small></div>
+        <div><b>${meta.icon} ${meta.name}</b> <small style="color:#4e2e20">（${meta.desc}）</small></div>
         ${eqDef ? `<div><b style="color:${eqDef.color};text-shadow:0 1px 0 #2b1d22">${eqDef.icon} ${eqDef.name} — ${eqDef.title}</b><div style="font-size:12px;margin-top:3px">${eqDef.desc}</div></div>
           <button type="button" class="btn small" data-unequip-soul="${slotKey}">卸下靈魂</button>`
-          : '<div style="opacity:.65;font-size:12px">尚未鑲嵌靈魂（擊敗魔物吸收後點擊下方卡片即可鑲嵌）</div>'}
+          : '<div style="color:#4e2e20;font-size:12px">尚未鑲嵌靈魂（擊敗魔物吸收後點擊下方卡片即可鑲嵌）</div>'}
       </div>`;
     }).join('');
     const cards = Object.values(MONSTER_SOULS).map(def => {
       const owned = s.owned.includes(def.id);
       const isEq = s.equipped[def.slot] === def.id;
       const st = owned ? soulTier(game.meta.p, def.id) : null;
-      const starLine = st ? `<span style="color:#d9921c;font-weight:900">${'★'.repeat(st.tier)}${'☆'.repeat(5 - st.tier)}</span> <small style="opacity:.75">${st.nextNeed ? `碎片 ${st.shards}/${st.nextNeed}` : '滿階覺醒 ×2.2'}</small>` : '';
+      const starLine = st ? `<span style="color:#b86b08;font-weight:900">${'★'.repeat(st.tier)}${'☆'.repeat(5 - st.tier)}</span> <small style="color:#4e2e20">${st.nextNeed ? `碎片 ${st.shards}/${st.nextNeed}` : '滿階覺醒 ×2.2'}</small>` : '';
       return `<div class="soul-card ${isEq ? 'on' : ''} ${owned ? '' : 'locked'}">
-        <div style="display:flex;align-items:center;gap:8px"><span style="font-size:26px">${def.icon}</span><div><b>${def.name}</b><div style="font-size:11px;color:#7a5a46">${SOUL_SLOTS[def.slot].icon} ${SOUL_SLOTS[def.slot].name} ${starLine}</div></div></div>
-        <div style="font-size:12px;color:#5a3826"><b>${def.title}</b>：${def.desc}</div>
-        <div>${isEq ? '<span style="color:#7a4ac0;font-weight:900">✔ 鑲嵌生效中</span>' : owned ? `<button type="button" class="btn small" data-equip-soul="${def.id}">鑲嵌至${SOUL_SLOTS[def.slot].name}</button>` : '<span style="font-size:12px;opacity:.7">🔒 擊敗對應魔物吸收取得</span>'}</div>
+        <div style="display:flex;align-items:center;gap:8px"><span style="font-size:26px">${def.icon}</span><div><b>${def.name}</b><div style="font-size:11px;color:#4e2e20">${SOUL_SLOTS[def.slot].icon} ${SOUL_SLOTS[def.slot].name} ${starLine}</div></div></div>
+        <div style="font-size:12px;color:#3b2218"><b>${def.title}</b>：${def.desc}</div>
+        <div>${isEq ? '<span style="color:#ffe89a;font-weight:900">✔ 鑲嵌生效中</span>' : owned ? `<button type="button" class="btn small" data-equip-soul="${def.id}">鑲嵌至${SOUL_SLOTS[def.slot].name}</button>` : '<span style="font-size:12px;color:#5a3826">🔒 擊敗對應魔物吸收取得</span>'}</div>
       </div>`;
     }).join('');
     root.innerHTML = `<div style="margin-bottom:8px;font-size:13px;color:#5a3826">「怪物即技能」青魔道士系統：擊敗魔物機率吸收靈魂，鑲嵌後直接改造你的移動或攻擊模組！（已收集 <b>${s.owned.length}/${Object.keys(MONSTER_SOULS).length}</b>）</div>
@@ -388,7 +553,11 @@ export class UI {
     this.invTab = tab;
     const stBtn = document.querySelector('[data-invtab="stash"]');
     if (stBtn) stBtn.style.display = this.atStash ? '' : 'none';
-    document.querySelectorAll('[data-invtab]').forEach(b => b.classList.toggle('on', b.dataset.invtab === tab));
+    document.querySelectorAll('[data-invtab]').forEach(button => {
+      const selected = button.dataset.invtab === tab;
+      button.classList.toggle('on', selected);
+      button.setAttribute('aria-pressed', String(selected));
+    });
     ['bag', 'souls', 'atlas', 'style', 'stash'].forEach(k => {
       const pane = $('pane-' + k);
       if (pane) pane.classList.toggle('hide', k !== tab);
@@ -408,6 +577,15 @@ export class UI {
     const st = ensurePhysicsStorage(game.meta.p);
     this.bagPhys?.sync(st.bag);
     this.stashPhys?.sync(st.stash);
+    for (const [id, items] of [['bagItemPicker', st.bag], ['stashItemPicker', st.stash]]) {
+      const picker = $(id);
+      const selected = picker.value;
+      picker.replaceChildren(new Option(t(game.settings?.lang, items.length ? 'chooseItem' : 'noItems'), ''));
+      for (const item of items) picker.add(new Option(item.name || '物品', String(item.uid)));
+      if (items.some(item => String(item.uid) === selected)) picker.value = selected;
+      else if (selected) picker.dispatchEvent(new Event('change'));
+      picker.disabled = items.length === 0;
+    }
   }
   renderCosmetics(game) {
     const root = $('cosmeticsRoot'); if (!root) return;
@@ -434,10 +612,128 @@ export class UI {
   netStatus(s) {
     const el = $('netStat');
     if (s.ok) { el.textContent = '● 線上'; el.className = 'net on'; el.classList.remove('hide'); }
-    else if (s.reason === 'no-server') { el.classList.add('hide'); }
+    else if (s.reason === 'no-server' || s.reason === 'idle') { el.classList.add('hide'); }
     else { el.textContent = '○ 連線中斷'; el.className = 'net off'; el.classList.remove('hide'); if (s.reason === 'closed') this.addChat('', '與伺服器的連線中斷了', true); }
   }
-  setOnline(n) { $('onlineN').textContent = `線上 ${n} 人`; }
+  setOnline(n) {
+    const { ok, shard } = this.game.net;
+    $('onlineN').textContent = !ok ? '離線' : shard ? `${shard.number} 線 · ${shard.count ?? 1} 人` : `線上 ${n} 人`;
+  }
+  openSimInspect(game, adv) {
+    if (!adv) return;
+    this.simInspectOpen = true;
+    const modal = $('simInspectModal'), title = $('simInspTitle'), body = $('simInspBody');
+    if (!modal || !body) return;
+    const d = adv.def, tk = adv.task;
+    const pct = tk ? Math.round((tk.have / Math.max(1, tk.need)) * 100) : 0;
+    if (title) title.textContent = `${d.name} · Lv.${d.lv}`;
+    body.innerHTML = `<div class="pitem" style="margin:6px 0">
+      <b>[${d.title}] ${d.name}</b> <small>&lt;${d.guild}&gt;</small>
+      <div class="mod">職業：${d.job}（${d.role === 'melee' ? '近戰前排' : '遠程輸出'}）</div>
+      <div class="spc">招牌裝備：${d.gear}</div>
+    </div>
+    <div class="sim-meta-grid">
+      <div class="sim-meta-cell"><small>戰鬥力評分</small><b>⚔️ ${d.cp} CP</b></div>
+      <div class="sim-meta-cell"><small>已完成委託</small><b>📜 ${adv.tasksDone || 0} 個${adv.squadId ? ` · 小隊 #${adv.squadId}` : ''}</b></div>
+    </div>
+    ${tk ? `<div class="prow" style="margin:6px 0;flex-direction:column;align-items:stretch;gap:4px">
+      <div><b>${tk.icon} 進行中任務：${tk.name}</b> <small>（${tk.have}/${tk.need}）</small></div>
+      <div class="pbar" style="width:100%"><i style="width:${pct}%"></i></div>
+    </div>` : ''}
+    <div class="sim-actions">
+      <button type="button" class="btn small" id="simActWave">👋 打招呼</button>
+      <button type="button" class="btn small ${adv.following ? 'on' : ''}" id="simActFollow">${adv.following ? '✔ 跟隨中' : '👥 邀請同行'}</button>
+      <button type="button" class="btn small" id="simActAssist">🤝 協助任務</button>
+    </div>`;
+    modal.classList.remove('hide');
+    const bW = $('simActWave'), bF = $('simActFollow'), bA = $('simActAssist');
+    if (bW) bW.onclick = () => {
+      adv.hopT = 0.45;
+      adv.f = Math.atan2(game.player.pos.x - adv.x, game.player.pos.z - adv.z);
+      const reply = d.lines[Math.floor(Math.random() * d.lines.length)];
+      if (adv.bub) { adv.bub.textContent = `👋 ${reply}`; adv.sayT = 4.5; }
+      this.addChat(`[${d.guild}] ${d.name}`, `👋 嗨 ${game.playerName || '旅人'}！${reply}`, false, 'world');
+      game.audio?.sfx?.('emote');
+    };
+    if (bF) bF.onclick = () => {
+      adv.following = !adv.following;
+      adv.hopT = 0.45;
+      if (adv.bub) { adv.bub.textContent = adv.following ? '👥 收到！我跟著你一起冒險！' : '👋 好的，我先自由探索囉～'; adv.sayT = 4.2; }
+      this.toast(adv.following ? `👥 ${d.name} 已加入同行跟隨！` : `已讓 ${d.name} 恢復自由行動`, adv.following ? '#7fe08a' : '#ffe08a');
+      game.audio?.sfx?.('ui');
+      this.openSimInspect(game, adv);
+    };
+    if (bA) bA.onclick = () => {
+      assistSimTask(game, adv);
+      this.openSimInspect(game, adv);
+    };
+  }
+  closeSimInspect() { this.simInspectOpen = false; $('simInspectModal')?.classList.add('hide'); }
+  toggleSimRoster(game, force) {
+    this.simRosterOpen = typeof force === 'boolean' ? force : !this.simRosterOpen;
+    const modal = $('simRosterModal');
+    if (!modal) return;
+    modal.classList.toggle('hide', !this.simRosterOpen);
+    if (this.simRosterOpen) this.renderSimRoster(game);
+  }
+  closeSimRoster() { this.simRosterOpen = false; $('simRosterModal')?.classList.add('hide'); }
+  renderSimRoster(game) {
+    const raw = game.interior ? [] : getSimAdventurers(game);
+    const count = getSimConfig(game).count ?? DEFAULT_SIM_COUNT;
+    const pPos = game.player?.pos || { x: 0, z: 0 };
+    const sorted = raw.map((a, idx) => ({ a, idx, dist: Math.round(Math.hypot(a.x - pPos.x, a.z - pPos.z)) })).sort((u, v) => u.dist - v.dist);
+    const title = $('simRosterTitle'), ctrl = $('simRosterCtrl'), box = $('simRosterList');
+    if (title) title.textContent = `虛擬冒險者 · 本區 ${raw.length} 人`;
+    if (ctrl) {
+      const counts = [0, 12, 24, 36, 48];
+      ctrl.innerHTML = `<span style="font-size:12px;font-weight:700">每區人數</span>`
+        + counts.map(n => `<button type="button" class="btn small ${count === n ? 'on' : ''}" data-sim-n="${n}">${n === 0 ? '關閉' : n + '人'}</button>`).join('')
+        + `<button type="button" class="btn small" data-sim-ev="enhance_wave">✨ 強化金光</button>`
+        + `<button type="button" class="btn small" data-sim-ev="wave_me">👋 附近靠攏</button>`;
+      ctrl.querySelectorAll('[data-sim-n]').forEach(b => b.onclick = () => {
+        setSimConfig(game, { count: Number(b.dataset.simN) });
+        this.renderSimRoster(game);
+      });
+      ctrl.querySelectorAll('[data-sim-ev]').forEach(b => b.onclick = () => {
+        triggerSimEvent(game, b.dataset.simEv);
+        this.closeSimRoster();
+      });
+    }
+    if (box) {
+      if (!sorted.length) {
+        box.textContent = count === 0 ? '虛擬 MMO 已關閉。' : '虛擬冒險者會在城鎮和野外出現。';
+      } else {
+        box.innerHTML = sorted.map(({ a, idx, dist }) => `<div class="prow">
+          <div class="pl"><b>${a.def.name}</b> <small>Lv.${a.def.lv} · ${a.def.job} · &lt;${a.def.guild}&gt; · 距 ${dist}m</small><br><small>${a.activity}${a.following ? ' · 💚跟隨中' : ''}</small></div>
+          <div style="display:flex;gap:4px">
+            <button type="button" class="btn small" data-ros-go="${idx}" title="瞬移至該冒險者旁巡視其任務">⚡ 旁觀</button>
+            <button type="button" class="btn small" data-ros-insp="${idx}">檢視</button>
+            <button type="button" class="btn small ${a.following ? 'on' : ''}" data-ros-fol="${idx}">${a.following ? '✔同行' : '同行'}</button>
+          </div>
+        </div>`).join('');
+        box.querySelectorAll('[data-ros-go]').forEach(b => b.onclick = () => {
+          const a = raw[Number(b.dataset.rosGo)];
+          if (!a || !game.player) return;
+          const tx = a.x + 2.2, tz = a.z + 2.2;
+          const y = game.world?.isLand(tx, tz) ? game.world.gh(tx, tz) : a.y;
+          game.player.pos.set(tx, y, tz); game.player.y = y;
+          game.audio?.sfx?.('warp');
+          this.toast(`⚡ 已瞬移至 ${a.def.name} 身旁（${a.activity}）`, '#48f0c8');
+          this.closeSimRoster();
+        });
+        box.querySelectorAll('[data-ros-insp]').forEach(b => b.onclick = () => {
+          const a = raw[Number(b.dataset.rosInsp)];
+          this.closeSimRoster(); this.openSimInspect(game, a);
+        });
+        box.querySelectorAll('[data-ros-fol]').forEach(b => b.onclick = () => {
+          const a = raw[Number(b.dataset.rosFol)];
+          if (!a) return;
+          a.following = !a.following; a.hopT = 0.4;
+          this.renderSimRoster(game);
+        });
+      }
+    }
+  }
   addChat(name, text, sys, zone) {
     const log = $('chatLog'); const d = document.createElement('div'); d.className = 'cl' + (sys ? ' sys' : '');
     if (sys) d.textContent = text; else { const b = document.createElement('b'); b.textContent = name + '：'; d.append(b, document.createTextNode(text)); }
@@ -446,13 +742,26 @@ export class UI {
   }
   focusChat() { const i = $('chatIn'); i.classList.remove('hide'); i.focus(); $('chatLog').classList.add('open'); return true; }
   chatKey(e) {
+    if (e.isComposing) return;
+    this.finishChat(e.code === 'Enter');
+    e.preventDefault();
+  }
+  finishChat(send) {
     const i = $('chatIn');
-    if (e.code === 'Enter') { const t = i.value.trim(); i.value = ''; if (t) this.game.sendChat(t); }
-    i.blur(); i.classList.add('hide'); $('chatLog').classList.remove('open'); e.preventDefault();
+    if (send) {
+      const message = i.value.trim();
+      i.value = '';
+      if (message) this.game.sendChat(message);
+    }
+    i.blur(); i.classList.add('hide'); $('chatLog').classList.remove('open');
   }
   screenPos(x, y, z) {
     v3.set(x, y, z).project(this.game.camera);
     return [(v3.x * 0.5 + 0.5) * innerWidth, (-v3.y * 0.5 + 0.5) * innerHeight];
+  }
+  clearDamageNumbers() {
+    for (const number of this.nums) number.el.remove();
+    this.nums.length = 0;
   }
   dmgNum(x, y, z, val, cls) {
     if (this.game && this.game.settings && !this.game.settings.dmg) return;
@@ -463,11 +772,26 @@ export class UI {
     this.nums.push({ el, x: x + (Math.random() - 0.5) * 0.6, y, z, t: 0 });
   }
   toast(text, color = '#fff') {
-    const box = $('toasts'); if (!box) return;
-    while (box.children.length >= 2) box.firstChild.remove();
-    const el = document.createElement('div'); el.className = 'toast'; el.textContent = text; el.style.color = color;
-    box.appendChild(el);
-    setTimeout(() => el.remove(), 2600);
+    const box = $('toasts');
+    if (!box) return;
+    this.toastQueue ||= [];
+    if ([...box.children].some(el => el.textContent === text) ||
+      this.toastQueue.some(item => item.text === text)) return;
+    if (this.toastQueue.length >= 4) this.toastQueue.shift();
+    this.toastQueue.push({ text, color });
+    this.flushToasts(box);
+  }
+
+  flushToasts(box) {
+    while (box.children.length < 2 && this.toastQueue.length) {
+      const { text, color } = this.toastQueue.shift();
+      const el = document.createElement('div');
+      el.className = 'toast';
+      el.textContent = text;
+      el.style.setProperty('--toast-tone', color);
+      box.appendChild(el);
+      setTimeout(() => { el.remove(); this.flushToasts(box); }, Math.min(5500, 2800 + text.length * 32));
+    }
   }
   banner(title, sub) {
     const b = $('banner'); b.querySelector('h2').textContent = title; b.querySelector('p').textContent = sub;
@@ -498,7 +822,7 @@ export class UI {
     if ((g.exitCooldown || 0) > 0) { el.style.display = 'none'; return; }
     let near = null;
     for (const x of g.exits) if (x.on && Math.hypot(g.player.pos.x - x.x, g.player.pos.z - x.z) < 5) near = x;
-    if (!near) { el.style.display = 'none'; return; }
+    if (!near || (g.field === 1 && near.type === 'dungeon')) { el.style.display = 'none'; return; }
     const [sx, sy] = this.screenPos(near.x, 4.4, near.z);
     el.style.display = 'block'; el.style.left = sx + 'px'; el.style.top = sy + 'px';
     const nextF = FIELDS[(g.field || 1) + 1];
@@ -508,7 +832,9 @@ export class UI {
       run: '前往晨光草原（常駐普通地圖）', town: '返回燈谷鎮（免清怪）',
       prevField: prevF ? `返回上一區：${prevF.name}（Lv.${prevF.level}）` : '返回燈谷鎮',
       nextField: nextF ? `前往下一區：${nextF.name}（Lv.${nextF.level}）` : '返回海風港鎮',
+      nextTower: `🗼 前往試煉之塔第 ${(g.towerFloor || 1) + 1} 層`,
       dungeon: '消耗 1 鑰石 · 進入副本地圖',
+      caveReturn: '返回晨光草原',
     }[near.type] || '傳送門';
     if (near.type === 'dungeon' && FIELDS[g.field]) el.textContent = '【副本地圖】' + FIELDS[g.field].dungeon + ' · 鑰石 ×1';
     el.className = 'exitHint ' + near.type;
@@ -534,6 +860,7 @@ export class UI {
     }
   }
   update(g) {
+    const lang = g.settings?.lang || 'zh-TW';
     // 物理背包／倉庫 60fps 重力模擬
     if (this.invOpen) {
       if (this.invTab === 'bag' && this.bagPhys) { this.bagPhys.step(1 / 60); this.bagPhys.draw(); }
@@ -545,14 +872,14 @@ export class UI {
       this._ebPool = this._ebPool || [];
       const showBars = g.state === 'play' && !g.interior && !this.invOpen && !this.puzzleOpen && !this.panelOpen && !this.setOpen;
       const pPos = g.player?.pos;
-      const visibleEnemies = (showBars && pPos) ? g.enemies.filter(e => !e.dead && e.type !== 'stag' && (e.hp < e.maxHp || e.elite || (e.parts?.length && e.pos.distanceTo(pPos) < 9)) && e.pos.distanceTo(pPos) < 16).slice(0, 8) : [];
+      const visibleEnemies = (showBars && pPos) ? g.enemies.filter(e => !e.dead && e.type !== 'stag' && ((e.state === 'rest' && e.t < e.chargeRecoveryS) || e.hp < e.maxHp || e.elite || (e.parts?.length && e.pos.distanceTo(pPos) < 9)) && e.pos.distanceTo(pPos) < 16).slice(0, 8) : [];
       for (let i = 0; i < visibleEnemies.length; i++) {
         const e = visibleEnemies[i];
         let node = this._ebPool[i];
         if (!node) {
           node = document.createElement('div');
           node.className = 'ebar';
-          node.innerHTML = '<div class="ebar-affix"></div><div class="ebar-parts"></div><div class="ebar-track"><div class="ebar-fill"></div></div>';
+          node.innerHTML = '<div class="ebar-recovery" hidden><span></span><i></i></div><div class="ebar-affix"></div><div class="ebar-parts"></div><div class="ebar-track"><div class="ebar-fill"></div></div>';
           ebRoot.appendChild(node);
           this._ebPool.push(node);
         }
@@ -561,6 +888,12 @@ export class UI {
         node.style.transform = `translate(${sx}px, ${sy}px) translate(-50%,-100%)`;
         node.className = 'ebar' + (e.elite ? ' elite' : '');
         node.querySelector('.ebar-fill').style.width = Math.max(0, Math.min(100, (e.hp / e.maxHp) * 100)) + '%';
+        const recovery = node.firstElementChild;
+        recovery.hidden = e.state !== 'rest' || !(e.t < e.chargeRecoveryS);
+        if (!recovery.hidden) {
+          const progress = Math.max(0, 1 - e.t / e.chargeRecoveryS);
+          recovery.lastElementChild.style.transform = `scaleX(${progress})`;
+        }
         const aEl = node.querySelector('.ebar-affix');
         const aHtml = e.eliteMod ? `<span class="eaffix">${e.eliteMod.name}</span>` : '';
         if (aEl._last !== aHtml) { aEl.innerHTML = aHtml; aEl._last = aHtml; }
@@ -630,12 +963,16 @@ export class UI {
       const c = el.querySelector('.cd'); if (c) c.style.height = (max > 0 ? Math.min(1, cur / max) * 100 : 0) + '%';
     };
     const hotbar = p.hotbar || [];
-    const lang = g.settings?.lang || 'zh-TW';
     for (let i = 0; i < 4; i++) {
       const el = $('sk-s' + i); if (!el) continue;
       const sk = hotbar[i];
+      const trialBolt = g.ambushTrial && i === 0 && !sk;
+      el.hidden = !(sk || trialBolt);
       const ic = el.querySelector('.ic'), sn = el.querySelector('.sname'), sup = el.querySelector('.sup');
-      if (sk) {
+      if (trialBolt) {
+        ic.textContent = '🔥'; sn.textContent = '餘燼彈'; sup.hidden = true; el.title = '餘燼彈';
+        cd('sk-s0', p.cds.bolt, 0.78 / (1 + S.atkSpd / 200), p.mana < 8);
+      } else if (sk) {
         ic.textContent = sk.def.icon; sn.textContent = sk.def.short;
         const sc = sk.mod.supports.length;
         sup.hidden = !sc; if (sc) sup.textContent = '+' + sc;
@@ -660,36 +997,171 @@ export class UI {
       }
     }
     const stage = Math.floor(g.depth / 3) + 1, room = g.depth % 3 + 1;
-    const cls = CLASSES[g.character?.job ?? 0] || CLASSES[0];
-    const sc2 = findSecondClass(g.meta.p.secondClass);
-    const roleTag = sc2 ? `${sc2.icon}${sc2.name}` : `${cls.icon}${cls.name}`;
-    $('roomInfo').textContent = g.sailing ? '⛵ 航行於海灣中' : g.interior ? `🏠 ${g.interior.kind === 'tavern' ? '楓的蘋果酒館' : '旅人小屋'}（室內）` : g.depth === -2 ? `⛵ 海風港鎮 · ${roleTag} Lv.${g.meta.p.level}` : g.field ? `【常駐區】${g.biome.name} · ${roleTag} Lv.${g.meta.p.level}` : g.depth < 0 ? `燈谷鎮 · ${roleTag} Lv.${g.meta.p.level}` : g.depth === 9 ? '【副本最終】鹿王林地' : `【副本】${g.biome.name} ${stage}-${room}`;
+    $('roomInfo').textContent = g.raid ? '共鳴樹庭' : g.sailing ? '航行中'
+      : g.interior ? (g.interior.kind === 'tavern' ? '楓的蘋果酒館' : '旅人小屋')
+      : g.field ? g.biome.name : g.depth === -2 ? '海風港鎮' : g.depth < 0 ? '燈谷鎮'
+      : g.caveRun ? `草原洞窟 · ${MEADOW_CAVE[g.caveRun.tier].name}`
+      : g.depth === 9 ? '鹿王林地' : `副本 · ${stage}-${room}`;
     const dayEl = $('dayInfo'); if (dayEl) { const di = dayInfo(g.dayTime || 0.3); dayEl.textContent = `${di.icon} ${di.label}`; }
-    if (this.regionMapOpen) {
-      this._rmT = (this._rmT || 0) + 1;
-      if (this._rmT % 4 === 0) {
-        const rmt = $('rmTitle'); if (rmt) rmt.textContent = g.interior ? '室內平面圖' : g.depth === -2 ? '海風港鎮 · 地區地圖' : g.field ? `${g.biome.name} · 地區地圖` : g.depth < 0 ? '燈谷鎮 · 地區地圖' : '副本房間地圖';
-        drawRegionMap(g, $('regionMapCanvas'));
-      }
+    if (this.regionMapOpen && g.time >= (this._nextMapDraw || 0)) {
+      this._nextMapDraw = g.time + 0.12;
+      this.refreshRegionMap();
     }
     $('killInfo').textContent = `${t(lang, 'kills')} ${p.kills}`;
     const th = $('tideHud');
+    const svClock = $('svClock'), dv = $('dangerVig'), qt = $('questTracker'), wbEl = $('worldBossBanner');
+    if (wbEl) {
+      const showWb = !!(g.field && g.state === 'play' && !g.interior && !g.photoMode && g.worldBoss);
+      wbEl.classList.toggle('hide', !showWb);
+      if (showWb) {
+        const wb = g.worldBoss;
+        wbEl.classList.toggle('active', !!(wb.active && wb.enemy && !wb.enemy.dead));
+        if (wb.active && wb.enemy && !wb.enemy.dead) {
+          const hpPct = Math.max(1, Math.ceil((wb.enemy.hp / Math.max(1, wb.enemy.maxHp)) * 100));
+          const dist = Math.round(Math.hypot(wb.enemy.pos.x - p.pos.x, wb.enemy.pos.z - p.pos.z));
+          wbEl.textContent = `${wb.def.icon} ${wb.def.name} · HP ${hpPct}% · 距 ${dist}m`;
+        } else {
+          const sec = Math.max(0, Math.ceil(wb.timer || 0));
+          wbEl.textContent = `📯 下隻野外世界王 ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}（點擊立即召喚）`;
+        }
+      }
+    }
+    // ⚡ 野外動態奇遇追蹤條（FATEs）
+    const deEl = $('dynEventBanner');
+    if (deEl) {
+      const showDe = !!(g.field && g.state === 'play' && !g.interior && !g.photoMode && g.dynEvent);
+      deEl.classList.toggle('hide', !showDe);
+      if (showDe) {
+        const de = g.dynEvent;
+        deEl.classList.toggle('active', !!de.active);
+        if (de.active && de.def) {
+          const rem = Math.max(0, Math.ceil(de.timeLeft || 0));
+          deEl.textContent = `${de.def.icon} ${de.def.name} · 進度 ${de.killed}/${de.total} · 剩 ${rem}s`;
+        } else {
+          const cdSec = Math.max(0, Math.ceil(de.timer || 0));
+          deEl.textContent = `⚡ 野外奇遇倒數 ${Math.floor(cdSec / 60)}:${String(cdSec % 60).padStart(2, '0')}（點擊立即觸發）`;
+        }
+      }
+    }
+    // 👥 左側 MMORPG 3 人小隊狀態框架
+    const phEl = $('partyHud');
+    if (phEl) {
+      const pids = getPartyIds(g.meta?.p);
+      const showPh = !!(g.state === 'play' && !g.interior && !g.photoMode && pids.length > 0);
+      phEl.classList.toggle('hide', !showPh);
+      if (showPh) {
+        const syn = getActivePartySynergy(g.meta?.p);
+        const phKey = `${pids.join(',')}|${Math.ceil(p.hp)}/${S.maxHp}|${syn?.id || ''}`;
+        if (phEl._lastKey !== phKey) {
+          phEl._lastKey = phKey;
+          const memHtml = pids.map(cid => {
+            const cd = AI_COMPANIONS.find(c => c.id === cid);
+            const bd = getCompanionBondInfo(g.meta?.p, cid);
+            return `<div class="ph-row"><span>${cd?.icon || '👥'} ${cd?.name?.split(' · ')[0] || cid}</span><b style="color:#7fe08a">絆Lv.${bd.lv}</b></div>`;
+          }).join('');
+          phEl.innerHTML = `<div class="ph-head"><span>👥 冒險小隊 (${pids.length + 1}/3)</span><span>⚔️${p.combatPower || 100}</span></div>` + memHtml + (syn ? `<div class="ph-syn">${syn.icon} ${syn.name}</div>` : '');
+        }
+      }
+    }
+    if (dv) dv.classList.toggle('on', !!(g.state === 'play' && g.depth >= 0 && p.stats?.maxHp > 0 && (p.hp / p.stats.maxHp) < 0.35));
+    const activity = $('worldActivity');
+    activity.hidden = g.state !== 'play' || !!g.photoMode;
+    $('qtRank').textContent = `${p.advRank?.rank || 'F'}級 · ⚔️${p.combatPower || 100}`;
+    const activityTitle = $('worldActivityTitle');
+    const activityLabel = t(lang, g.worldBoss?.active ? 'worldBossLiving' : g.dynEvent?.active ? 'worldEventActive' : g.field ? 'worldActivity' : 'travelStatus');
+    if (activityTitle.textContent !== activityLabel) activityTitle.textContent = activityLabel;
+    if (qt) {
+      const showQt = !!(g.state === 'play' && !g.interior && !g.photoMode);
+      qt.classList.toggle('hide', !showQt);
+      if (showQt) {
+        const curCh = getCurrentChapter(g.meta?.p);
+        const showExpedition = showExpeditionTracker(g);
+        qt.disabled = !!g.caveRun || (!showExpedition && !curCh?.done);
+        const qTi = $('qtTitle'), qDs = $('qtDesc'), qFl = $('qtFill');
+        if (g.caveRun) {
+          const cave = MEADOW_CAVE[g.caveRun.tier];
+          const stage = g.caveRun.stage;
+          qt.classList.toggle('done', g.cleared);
+          qt.dataset.stage = 'cave';
+          qt.title = '';
+          qTi.textContent = `草原洞窟 · ${cave.name}`;
+          qDs.textContent = g.cleared ? '通關 · 前往返程門' : `${stage + 1}/${cave.stages.length} · ${cave.stages[stage].name}`;
+          qFl.style.width = `${g.cleared ? 100 : stage * 100 / cave.stages.length}%`;
+        } else if (showExpedition) {
+          const { active } = meadowExpedition(g.meta.p);
+          const stage = meadowStage(active);
+          const def = MEADOW_TIERS[active?.tier || 1];
+          const route = active && expeditionRoute(active.tier, active.route);
+          qt.classList.toggle('done', stage === 'reward');
+          qt.title = def.name;
+          qt.dataset.stage = stage;
+          qTi.textContent = stage === 'reward' ? '遠征獎勵' : '區域遠征';
+          qDs.textContent = stage === 'choose' ? '選擇清剿前哨或重燃路燈'
+            : g.field !== def.field && stage !== 'reward' ? `前往${FIELDS[def.field].name}`
+            : stage === 'route' ? `${route.title} · ${active.completed.length}/${route.need}`
+            : stage === 'champion' ? `討伐${def.champion}` : '選一顆寶石並領取鑰石';
+          qFl.style.width = stage === 'route' ? `${(active.completed.length / route.need) * 65}%`
+            : stage === 'champion' ? '65%' : stage === 'reward' ? '100%' : '0%';
+        } else if (curCh) {
+          qt.title = '';
+          qt.dataset.stage = 'story';
+          qt.classList.toggle('done', !!curCh.done);
+          if (qTi) qTi.textContent = curCh.done ? `✨ 點擊領獎：${curCh.def.title}` : `📜 ${curCh.def.title}`;
+          if (qDs) qDs.textContent = `${curCh.def.desc}（${curCh.have}/${curCh.def.need}）`;
+          if (qFl) qFl.style.width = `${Math.min(100, (curCh.have / Math.max(1, curCh.def.need)) * 100)}%`;
+        } else {
+          qt.title = '';
+          qt.dataset.stage = 'complete';
+          qt.classList.remove('done');
+          if (qTi) qTi.textContent = '👑 主線全章節通關';
+          if (qDs) qDs.textContent = `目標：挑戰高危星穹島嶼、衝裝 +10 與 S 級冒險者！`;
+          if (qFl) qFl.style.width = '100%';
+        }
+      }
+    }
+    $('quickTideUlt').hidden = !(g.field && g.state === 'play' && !g.interior && !g.photoMode && g.tide?.ultCharge >= 100);
     if (th) {
       const td = g.tide;
       const showTide = !!(g.field && g.state === 'play' && !g.interior && td);
       th.classList.toggle('hide', !showTide);
+      if (svClock) svClock.classList.toggle('hide', !showTide);
       if (showTide) {
+        if (td.sv) {
+          const s = Math.floor(td.sv.survivalSec || 0);
+          const tmEl = $('scTime');
+          if (tmEl) tmEl.textContent = `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+          const esc = getEscalationProfile(s);
+          const stgEl = $('scStage');
+          if (stgEl) stgEl.textContent = esc.label;
+          const cpEl = $('scCp');
+          if (cpEl) cpEl.textContent = `⚔️ 戰力 ${p.combatPower || 100}`;
+        }
         const ph = td.lullTimer > 0 ? { name: `🌿 潮退休整 ${Math.ceil(td.lullTimer)}s`, color: '#7fe08a' }
           : td.apexTimer > 0 ? { name: `🔥 熾炎巔峰 ${Math.ceil(td.apexTimer)}s`, color: '#ff5a68' }
           : (TIDE_PHASES[td.phase] || TIDE_PHASES[0]);
         const phEl = $('tdPhase');
         if (phEl) { phEl.textContent = (td.waveStreak > 1 ? `W${td.waveStreak} · ` : '') + ph.name; phEl.style.color = ph.color; }
         const mlEl = $('tdMult');
-        if (mlEl) mlEl.textContent = `掉寶 ×${lootMultForTide(td)}`;
+        if (mlEl) mlEl.textContent = `戰利品 ×${lootMultForTide(td, g.meta?.p)}`;
         const flEl = $('tdFill');
         if (flEl) {
           const pct = td.lullTimer > 0 ? (td.lullTimer / 25) * 100 : td.apexTimer > 0 ? (td.apexTimer / 35) * 100 : td.heat;
           flEl.style.width = `${Math.max(0, Math.min(100, pct))}%`;
+        }
+        const sv = td.sv;
+        if (sv) {
+          const stEl = $('tdStreak');
+          if (stEl) {
+            const st = getKillStreakTier(sv.streakKills || 0);
+            stEl.textContent = sv.streakKills >= 10 ? `${st.label || '連殺'} ${sv.streakKills}` : (sv.curseStacks ? `👁 詛咒 ×${sv.curseStacks}` : '');
+            stEl.style.color = st.color || '#ffd85a';
+          }
+          const spEl = $('tdSpoils');
+          if (spEl) {
+            const hasSp = (sv.spoils?.coins || 0) > 0 || (sv.spoils?.shards || 0) > 0;
+            const spHtml = hasSp ? `<span>🎒 戰利品袋：🪙${Math.round(sv.spoils.coins)} 💎${Math.round(sv.spoils.shards)}</span><span>陣亡掉一半</span>` : '';
+            if (spEl._last !== spHtml) { spEl.innerHTML = spHtml; spEl._last = spHtml; }
+          }
         }
         const u = ULTIMATES[td.ultIndex % ULTIMATES.length];
         const ub = $('btnTideUlt');
@@ -710,6 +1182,7 @@ export class UI {
     const ah = $('autoHud');
     const ap = g.autopilot;
     const autoOn = !!(ap && ap.mode !== 'off' && g.state === 'play');
+    $('apStop').hidden = !autoOn || !!g.photoMode;
     const skAuto = $('sk-auto');
     if (skAuto) skAuto.classList.toggle('on', autoOn);
     if (ah) {
@@ -751,7 +1224,7 @@ export class UI {
       if (!enemy.dead && d < distance) { nearest = enemy; distance = d; }
     }
     target.hidden = !nearest;
-    if (nearest) target.textContent = (nearest.rival ? '演武旅人' : nearest.legendary ? '傳奇' : nearest.elite ? '精英' : '普通') + ' · Lv.' + nearest.level + '　' + Math.ceil(nearest.hp) + ' / ' + Math.ceil(nearest.maxHp);
+    if (nearest) target.textContent = (nearest.expeditionName || (nearest.rival ? '演武旅人' : nearest.legendary ? '傳奇' : nearest.elite ? '精英' : '普通')) + ' · Lv.' + nearest.level + '　' + Math.ceil(nearest.hp) + ' / ' + Math.ceil(nearest.maxHp);
     const M = g.meta, pr = M.p;
     $('shardInfo').textContent = `✦ ${pr.shards}${M.runShards ? ` (+${M.runShards})` : ''}` + (g.depth >= 0 && pr.mods.length ? ' · ' + M.activeMods().map(m => m.name).join('') : '');
     const coinEl = $('coinInfo'); if (coinEl) coinEl.textContent = `🪙 ${pr.coins}`;
@@ -767,28 +1240,18 @@ export class UI {
       if (parts.length) mealEl.textContent = parts.join(' · ');
     }
     const compass = $('fieldCompass');
-    if (compass) {
-      if (g.waypoint) {
-        compass.hidden = false;
-        compass.textContent = `🧭 導航：${g.waypoint.name} · ${g.waypoint.route}`;
-      } else if (g.field && g.state === 'play') {
-        const grave = pr.graves[g.field];
-        const poi = grave ? { x: grave.x, z: grave.z, label: '🪦 墓碑' }
-          : (g.exits[0] ? { x: g.exits[0].x, z: g.exits[0].z, label: '⛩ ' + FIELDS[g.field].dungeon } : null);
-        if (poi) {
-          const dx = poi.x - p.pos.x, dz = poi.z - p.pos.z, d = Math.round(Math.hypot(dx, dz));
-          const dirs = ['東', '東南', '南', '西南', '西', '西北', '北', '東北'];
-          const dir = dirs[Math.round(Math.atan2(dz, dx) / (Math.PI / 4) + 8) % 8];
-          compass.hidden = false;
-          compass.textContent = `${poi.label} · ${dir} ${d}m`;
-        } else compass.hidden = true;
-      } else compass.hidden = true;
+    const destination = navigationTarget(g);
+    compass.hidden = !destination;
+    if (destination) {
+      const label = `${destination.label} · ${describeMapTarget(p.pos, destination)}`;
+      if (compass.textContent !== label) compass.textContent = label;
     }
-    // ground item tooltip
-    const d = g.state === 'play' && !this.invOpen ? g.nearestDrop() : null;
+    // ground item tooltip（支援懸停任一掉落裝備即時展開完整對比卡，或靠近自動顯示）
+    const d = g.state === 'play' && !this.invOpen ? (g.hoveredDrop || g.nearestDrop()) : null;
     const tip = $('tip');
     if (d) { tip.classList.remove('hide'); if (tip.dataset.id != d.item.id) { tip.dataset.id = d.item.id; tip.innerHTML = this.itemHTML(d.item, p.equip[d.item.slot]); } }
     else { tip.classList.add('hide'); tip.dataset.id = ''; }
+    if ((this._hovTick = (this._hovTick || 0) + 1) % 15 === 0) this.hover?.refreshActive?.();
     if (this.invOpen && this.invTab === 'bag') this.renderInv(g);
   }
   itemHTML(it, cur) {
@@ -830,8 +1293,17 @@ export class UI {
   }
   toggleRegionMap(g) {
     this.regionMapOpen = !this.regionMapOpen;
-    const el = $('regionMap'); if (el) el.classList.toggle('hide', !this.regionMapOpen);
-    if (this.regionMapOpen) drawRegionMap(g, $('regionMapCanvas'));
+    const el = $('regionMap');
+    el.classList.toggle('hide', !this.regionMapOpen);
+    if (this.regionMapOpen) {
+      this._regionMapReturnFocus = document.activeElement;
+      this.refreshRegionMap();
+      $('btnRegionMapClose').focus({ preventScroll: true });
+    } else if (el.contains(document.activeElement) || document.activeElement === document.body) {
+      const previous = this._regionMapReturnFocus;
+      const trigger = previous?.getClientRects().length && previous !== document.body ? previous : $('btnMenu');
+      trigger.focus({ preventScroll: true });
+    }
   }
   toggleInv(g, tab) {
     if (tab && this.invOpen && this.invTab !== tab) { this.setInvTab(g, tab); return; }
@@ -846,22 +1318,85 @@ export class UI {
     const eqEl = $('invEquip');
     if (eqEl) eqEl.innerHTML = '';
     const progress = g.meta.p, cls = CLASSES[g.character?.job ?? 0] || CLASSES[0], sc2 = findSecondClass(progress.secondClass);
+    const curAcct = getActiveAccount();
     const rows = [
+      ['帳號 / 角色', `${curAcct.isGuest ? '👤 訪客' : '👤 ' + curAcct.username} · ${g.playerName || '旅人'}`],
       ['職業', sc2 ? `${cls.icon} ${cls.name} → ${sc2.icon} ${sc2.name}` : `${cls.icon} ${cls.name}`],
-      ['公會', progress.guildName || '未加入（可至公會大廳創立）'],
+      ['公會 / 聲望', `${progress.guildName || '未加入'} · Lv.${getGuildRepInfo(progress).lv} ${getGuildRepInfo(progress).title}`],
+      ['全身強化共鳴', (() => { const er = computeEnhanceResonance(p.equip); return er.active ? `${er.active.icon} ${er.active.name}` : `未啟動（最低 +${er.minLv}）`; })()],
+      ['冒險小隊', (() => { const pids = getPartyIds(progress); if (!pids.length) return '無（可至公會大廳編入 2 名隊友）'; const syn = getActivePartySynergy(progress); return pids.map(id => { const cd = AI_COMPANIONS.find(c => c.id === id); return `${cd?.icon || ''}${cd?.name?.split(' · ')[0] || id}`; }).join(' + ') + (syn ? ` · ${syn.icon}${syn.name}` : ''); })()],
+      ['試煉之塔 / 魔方', (() => { const tw = computeTowerBonuses(progress); return `最高 ${tw.best}F（全傷 +${tw.dmgPct}%）· 🎲魔方 ${progress.cubes || 0}`; })()],
       ['職業被動', cls.summary],
       ['團隊光環', `${getClassTeamRole(cls.id).icon} ${getClassTeamRole(cls.id).name}（${getClassTeamRole(cls.id).desc}）`],
-      ['等級 / 經驗', progress.level === 30 ? '30 · 滿級' : progress.level + ' · ' + progress.xp + '/' + (progress.level * 40)],
+      ['等級 / 經驗', progress.level === 30 ? '30 · 滿級' : progress.level + ' · ' + progress.xp + '/' + xpForNextLevel(progress.level)],
       ...(nextMilestone(progress.level) ? [['下一里程碑', `Lv.${nextMilestone(progress.level).lv} · ${nextMilestone(progress.level).title}`]] : []),
       ['金幣 / 鑰石', progress.coins + ' / ' + progress.keys],
       ['木材 / 礦石 / 魚', progress.goods.wood + ' / ' + progress.goods.ore + ' / ' + progress.goods.fish],
       ['生命', `${Math.ceil(p.hp)} / ${S.maxHp}`], ['法力', `${S.mana}`], ['基礎傷害', `${S.baseDmg + S.addFire}`], ['傷害加成', `+${S.dmgPct}%`],
       ['攻擊速度', `+${S.atkSpd}%`], ['暴擊', `${S.crit}% × ${S.critMult}%`], ['範圍', `+${S.area}%`], ['移動速度', `+${S.moveSpd}%`],
       ['冷卻縮減', `${S.cdr}%`], ['減傷', `${S.armor}%`], ['擊中回復', `${S.lifeOnHit}`], ['餘燼彈數', `${S.proj}`],
+      ['🔥 火抗 / ❄️ 冰抗', `${S.resFire || 0}% / ${S.resIce || 0}%`],
+      ['⚡ 雷抗 / ☠️ 毒抗', `${S.resLightning || 0}% / ${S.resPoison || 0}%`],
     ];
     $('invStats').innerHTML = rows.map((r, i) => `<div${i < 3 ? ' class="wide"' : ''}><span>${r[0]}</span><b>${r[1]}</b></div>`).join('');
-    const counts = {}; p.boons.forEach(b => counts[b] = (counts[b] || 0) + 1);
-    $('invBoons').innerHTML = Object.entries(counts).map(([id, n]) => { const b = BOONS.find(x => x.id === id); return `<span class="chip" title="${b.desc}">${b.icon} ${b.name}${n > 1 ? ' ×' + n : ''}</span>`; }).join('') || '<span class="empty">尚無天賦</span>';
+    // 經典 MMORPG 四維屬性配點（STR/DEX/INT/VIT）＋ 套裝效果 ＋ 圖鑑精通
+    const boonsEl = $('invBoons');
+    if (boonsEl) {
+      const mmoP = ensureMmoState(progress);
+      const availPt = availableStatPoints(mmoP);
+      const rk = p.advRank || { rank: 'F', name: '見習旅人' };
+      const setsHtml = (p.activeSets || []).length
+        ? (p.activeSets.map(s => `<span class="chip" style="border-color:${s.def.color}">${s.def.icon} ${s.def.name} (${s.count}/3)${s.full ? ' ★全套' : ''}</span>`).join(''))
+        : '<span class="empty">尚未啟動裝備套裝（穿戴同套裝 2–3 件啟動）</span>';
+      const bestHtml = Object.entries(BESTIARY_DEFS).map(([k, d]) => {
+        const kc = mmoP.bestiary?.[k] || 0;
+        const lv = bestiaryRank(k, kc);
+        return `<span class="chip" title="${d.bonusText}">${d.icon}${d.name} Lv.${lv} (${kc})</span>`;
+      }).join('');
+      const allocRows = STAT_DEFS.map(st => {
+        const val = mmoP.allocStats?.[st.id] || 0;
+        return `<div class="mmo-stat-row" title="${st.desc}"><span><b>${st.icon} ${st.name}</b>：${val}</span><button type="button" class="mmo-stat-btn" data-alloc="${st.id}" ${availPt <= 0 ? 'disabled' : ''}>+1</button></div>`;
+      }).join('');
+      const lifeHtml = LIFE_SKILL_IDS.map(lid => {
+        const li = getLifeSkillInfo(progress, lid);
+        return `<div class="mmo-stat-row" title="${li.def.desc}"><span><b>${li.def.icon} ${li.def.name}</b> Lv.${li.lv}</span><small style="opacity:.8">${li.need ? `${li.xp}/${li.need}` : 'MAX'}</small></div>`;
+      }).join('');
+      const tState = ensureTitles(progress);
+      const tBon = computeTitleBonuses(progress);
+      const titlesHtml = TITLE_DEFS.map(td => {
+        const has = tState.unlocked.includes(td.id), eqOn = tState.active === td.id;
+        return `<button type="button" class="chip" data-title-id="${td.id}" title="${td.cond}" style="cursor:${has ? 'pointer' : 'not-allowed'};opacity:${has ? 1 : .45};background:${eqOn ? '#ffd85a' : ''};font-weight:${eqOn ? 900 : 600}">${td.icon} ${td.name}${eqOn ? ' ✔' : ''}</button>`;
+      }).join('');
+      boonsEl.innerHTML = `<div class="mmo-alloc" style="width:100%">
+        <div class="mmo-alloc-head"><span>⚔️ 四維屬性配點（剩餘 <b style="color:#c85418">${availPt}</b> 點 · ${rk.rank}級 ${rk.name}）</span><button type="button" class="mmo-stat-btn" id="btnResetAlloc">♻️ 免費重置</button></div>
+        <div class="mmo-alloc-grid">${allocRows}</div>
+        <div style="margin-top:8px;font-weight:900;font-size:12px">⛏️ 四大生活副職業專精（採集／鍛造升級，永久加成戰力與成功率）</div>
+        <div class="mmo-alloc-grid" style="margin-top:4px">${lifeHtml}</div>
+        <div style="margin-top:8px;font-weight:900;font-size:12px">🏷️ 稱號收藏館（已解鎖 ${tBon.count}/${TITLE_DEFS.length} · 永久全傷 +${tBon.dmgPct}% · 生命 +${tBon.maxHp} · 點擊佩戴）</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${titlesHtml}</div>
+        <div style="margin-top:8px;font-weight:900;font-size:12px">🛡️ 已啟動裝備套裝</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${setsHtml}</div>
+        <div style="margin-top:8px;font-weight:900;font-size:12px">📖 怪物圖鑑精通（永久賬號屬性）</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${bestHtml}</div>
+      </div>`;
+      boonsEl.querySelectorAll('[data-alloc]').forEach(btn => {
+        btn.onclick = () => {
+          const r = allocateStat(g.meta.p, btn.dataset.alloc, 1);
+          if (r.ok) { g.meta.save(); g.recalc(); g.audio.sfx('ui'); this.renderInv(g, true); }
+        };
+      });
+      boonsEl.querySelectorAll('[data-title-id]').forEach(btn => {
+        btn.onclick = () => {
+          const resT = equipTitle(g.meta.p, btn.dataset.titleId);
+          if (!resT.ok) { this.toast(resT.reason || '尚未解鎖此稱號', '#ff8a8a'); return; }
+          g.meta.save(); g.audio.sfx('ui');
+          this.toast(`🏷️ 已佩戴頭頂稱號：【${resT.def.icon} ${resT.def.name}】`, '#ffd85a');
+          this.renderInv(g, true);
+        };
+      });
+      const rBtn = $('btnResetAlloc');
+      if (rBtn) rBtn.onclick = () => { resetStatPoints(g.meta.p); g.meta.save(); g.recalc(); g.audio.sfx('ui'); this.renderInv(g, true); };
+    }
   }
   showBoons(g, choices) {
     this.boonChoices = choices;
@@ -890,7 +1425,7 @@ export class UI {
   }
   saveBest(g, won) {
     try {
-      const key = g.slot ? 'lv_best_' + g.slot : 'lv_best';
+      const key = slotKeys(g.slot || 0).bestKey;
       const best = JSON.parse(localStorage.getItem(key) || '{"depth":0,"wins":0}');
       best.depth = Math.max(best.depth, g.depth); if (won) best.wins++;
       localStorage.setItem(key, JSON.stringify(best));

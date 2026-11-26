@@ -2,14 +2,22 @@ import * as THREE from 'three';
 import { toonMat } from './world.js';
 import { clamp, lerp, pick } from './util.js';
 import { makeItem } from './loot.js';
-import { FIELDS } from './frontier.js';
+import { FIELDS, xpForNextLevel } from './frontier.js';
+import {
+  createSurvivorState, computeSurvivorStatBonuses, computeTalentBonuses,
+  pickFormation, spawnSwarmFormation,
+  recordSpoils, cashOutSpoils, updateDifficultyDirector,
+  getKillStreakTier, assignEliteAffixes, recordBestTide, getBloodEclipseField,
+  getEscalationProfile,
+} from './survivor.js';
 
 export const TIDE_PHASES = [
-  { id: 0, key: 'calm',   name: '晨光巡遊', minHeat: 0,   lootMult: 1.0,  color: '#7fe08a', spawnInterval: 0,   maxSwarm: 0,  waveSize: 0,  zoomBonus: 0 },
-  { id: 1, key: 'spark',  name: '火星躁動', minHeat: 25,  lootMult: 1.35, color: '#ffd85a', spawnInterval: 4.4, maxSwarm: 14, waveSize: 5,  zoomBonus: 0.04 },
-  { id: 2, key: 'surge',  name: '餘燼狂潮', minHeat: 55,  lootMult: 1.9,  color: '#ff8a3a', spawnInterval: 3.0, maxSwarm: 26, waveSize: 10, zoomBonus: 0.09 },
-  { id: 3, key: 'apex',   name: '熾炎巔峰', minHeat: 100, lootMult: 2.6,  color: '#ff4858', spawnInterval: 2.4, maxSwarm: 34, waveSize: 14, zoomBonus: 0.15 },
+  { id: 0, key: 'calm',   name: '晨光巡遊', minHeat: 0,   lootMult: 1.0,  color: '#7fe08a', spawnInterval: 0,   maxSwarm: 0,  waveSize: 0,  maxWaves: 0, zoomBonus: 0 },
+  { id: 1, key: 'spark',  name: '火星躁動', minHeat: 40,  lootMult: 1.3,  color: '#ffd85a', spawnInterval: 6.0, maxSwarm: 10, waveSize: 4,  maxWaves: 2, zoomBonus: 0.04 },
+  { id: 2, key: 'surge',  name: '餘燼狂潮', minHeat: 75,  lootMult: 1.75, color: '#ff8a3a', spawnInterval: 4.5, maxSwarm: 18, waveSize: 7,  maxWaves: 3, zoomBonus: 0.09 },
+  { id: 3, key: 'apex',   name: '熾炎巔峰', minHeat: 100, lootMult: 2.3,  color: '#ff4858', spawnInterval: 4.0, maxSwarm: 22, waveSize: 8,  maxWaves: 2, zoomBonus: 0.14 },
 ];
+export const MAX_WAVE_STREAK = 3;
 
 export const ULTIMATES = [
   { id: 'dragon',     icon: '🐉', name: '蒼炎神龍吐息', shout: 'DRAGON BREATH!', color: '#ff8a3a', classJob: 0, desc: '【衛士專屬】召喚動態 3D 神龍頭朝前方噴吐烈焰扇形橫掃並灼燒地面！' },
@@ -32,7 +40,7 @@ export const APEX_DURATION = 35;
 export const LULL_DURATION = 25;
 
 // ---------------- pure state & logic (Node.js testable) ----------------
-export function createTideState() {
+export function createTideState(profile = null) {
   return {
     heat: 0,
     phase: 0,
@@ -43,14 +51,19 @@ export function createTideState() {
     bossSlain: false,
     ultCharge: 0,
     ultIndex: 0,
-    spawnCd: 1.5,
+    spawnCd: 2.5,
     decayIdleT: 0,
+    phaseWaves: { 1: 0, 2: 0, 3: 0 },
     zoomBonus: 0,
     microBuffs: { dice20: 0, bouncer: 0, cyclone: 0 },
     bouncerCd: 0,
     cycloneCd: 0,
+    sv: createSurvivorState(profile),
     // runtime 3D entities
     xpGems: [],
+    chests: [],
+    miracles: [],
+    vacuumTimer: 0,
     storms: [],
     hounds: [],
     suns: [],
@@ -63,16 +76,18 @@ export function phaseForHeat(heat, state = null) {
   if (state && state.lullTimer > 0) return -1;
   if (state && state.apexTimer > 0) return 3;
   if (heat >= 100) return 3;
-  if (heat >= 55) return 2;
-  if (heat >= 25) return 1;
+  if (heat >= 75) return 2;
+  if (heat >= 40) return 1;
   return 0;
 }
 
-export function lootMultForTide(state) {
+export function lootMultForTide(state, profile = null) {
   if (!state) return 1.0;
   const p = TIDE_PHASES[Math.max(0, state.phase)] || TIDE_PHASES[0];
   const streakBonus = state.waveStreak > 1 ? 1 + (state.waveStreak - 1) * 0.45 : 1;
-  return +(p.lootMult * streakBonus).toFixed(2);
+  const svBonus = state.sv ? computeSurvivorStatBonuses(state.sv).lootMult : 1;
+  const talBonus = profile ? computeTalentBonuses(profile).greedLootMult : 1;
+  return +(p.lootMult * streakBonus * svBonus * talBonus).toFixed(2);
 }
 
 export function recordTideKill(state, opts = {}) {
@@ -103,12 +118,14 @@ export function recordTideKill(state, opts = {}) {
   }
 
   if (state.apexTimer <= 0) {
-    const heatGain = isBoss ? 28 : isElite ? 16 : isSwarmlet ? 4.5 : 8;
+    // 大幅拉高狂潮門檻：平時慢慢練等不會誤觸，必須主動高強度連殺才會點燃狂潮！
+    const heatGain = isBoss ? 16 : isElite ? 7 : isSwarmlet ? 1.0 : 2.5;
     state.heat = Math.min(100, state.heat + heatGain);
     if (state.heat >= 100) {
       state.apexTimer = APEX_DURATION;
       state.bossSpawned = false;
       state.bossSlain = false;
+      if (state.phaseWaves) state.phaseWaves[3] = 0;
     }
   }
 
@@ -138,6 +155,7 @@ export function stepTideTimers(state, dt) {
       state.waveStreak = 1;
       state.bossSpawned = false;
       state.bossSlain = false;
+      state.phaseWaves = { 1: 0, 2: 0, 3: 0 };
       lullEnded = true;
     }
   } else if (state.apexTimer > 0) {
@@ -151,10 +169,12 @@ export function stepTideTimers(state, dt) {
     }
   } else {
     state.decayIdleT += dt;
-    if (state.decayIdleT > 4.5 && state.heat > 0) {
-      const decayRate = state.phase >= 2 ? 3.2 : 2.2;
+    // 停止戰鬥 3 秒後熱度快速消退，避免玩家打不過還一直被狂潮追殺
+    if (state.decayIdleT > 3.0 && state.heat > 0) {
+      const decayRate = state.phase >= 2 ? 6.0 : 4.5;
       state.heat = Math.max(0, state.heat - decayRate * dt);
       state.phase = phaseForHeat(state.heat, state);
+      if (state.heat <= 0) state.phaseWaves = { 1: 0, 2: 0, 3: 0 };
     }
   }
 
@@ -171,14 +191,16 @@ export function consumeUltimate(state) {
 
 export function applyRekindle(state) {
   if (!state || state.lullTimer <= 0) return false;
+  if ((state.waveStreak || 1) >= MAX_WAVE_STREAK) return false;
   state.lullTimer = 0;
-  state.waveStreak = Math.min(5, (state.waveStreak || 1) + 1);
-  state.heat = 60;
+  state.waveStreak = Math.min(MAX_WAVE_STREAK, (state.waveStreak || 1) + 1);
+  state.heat = 78;
   state.phase = 2;
   state.apexTimer = 0;
   state.bossSpawned = false;
   state.bossSlain = false;
-  state.spawnCd = 0.6;
+  state.phaseWaves = { 1: 0, 2: 0, 3: 0 };
+  state.spawnCd = 1.2;
   return true;
 }
 
@@ -215,7 +237,20 @@ export function resetTide(g) {
     for (const h of g.tide.hounds || []) dropTideObj(g, h.mesh);
     for (const s of g.tide.suns || []) dropTideObj(g, s.mesh);
   }
-  g.tide = createTideState();
+  g.tide = createTideState(g.meta?.p);
+}
+
+export function activateCurseShrine(g) {
+  if (!g.tide) g.tide = createTideState(g.meta?.p);
+  const td = g.tide, sv = td.sv;
+  if (!sv) return;
+  sv.curseStacks = Math.min(3, (sv.curseStacks || 0) + 1);
+  td.heat = Math.max(td.heat, 58);
+  td.phase = phaseForHeat(td.heat, td);
+  g.audio.sfx('curseShrine');
+  g.recalc();
+  g.ui.banner(`👁 貪婪詛咒 ×${sv.curseStacks} 啟動！`, `怪海強度與生怪大增 · 戰利品倍率提升至 ×${lootMultForTide(td, g.meta?.p)}`);
+  spawnSwarmFormation(g, pickFormation(Math.max(2, td.phase), td.waveStreak));
 }
 
 export function cycleUltimate(g) {
@@ -244,7 +279,7 @@ export function spawnXpGems(g, x, z, count = 2) {
     const sp = 1.6 + Math.random() * 2.2;
     mesh.position.set(x, y0 + 0.45, z);
     g.scene.add(mesh);
-    g.tide.xpGems.push({ mesh, x, z, y: y0 + 0.45, vx: Math.cos(a) * sp, vz: Math.sin(a) * sp, vy: 4.2 + Math.random() * 1.8, life: 18, xp: 6, col });
+    g.tide.xpGems.push({ mesh, x, z, y: y0 + 0.45, vx: Math.cos(a) * sp, vz: Math.sin(a) * sp, vy: 4.2 + Math.random() * 1.8, life: 18, xp: 2, col });
   }
 }
 
@@ -299,17 +334,21 @@ function enterLullVisuals(g, bossSlain = false) {
   g.scene.add(grp);
   td.lullCamp = grp;
 
-  const spot = {
-    kind: 'rekindle_lantern',
-    label: `🔥 點燃續燃燈籠 · 挑戰第 ${td.waveStreak + 1} 波狂潮（掉寶 ×${(2.6 * (1 + td.waveStreak * 0.45)).toFixed(1)}）`,
-    x: fx, z: fz, top: 2.8,
-  };
-  g.spots.push(spot);
-  td.lullSpot = spot;
+  if ((td.waveStreak || 1) < MAX_WAVE_STREAK) {
+    const spot = {
+      kind: 'rekindle_lantern',
+      label: `🔥 點燃續燃燈籠 · 挑戰第 ${td.waveStreak + 1}/${MAX_WAVE_STREAK} 波狂潮（戰利品 ×${(2.3 * (1 + td.waveStreak * 0.45)).toFixed(1)}）`,
+      x: fx, z: fz, top: 2.8,
+    };
+    g.spots.push(spot);
+    td.lullSpot = spot;
+  }
 
   g.ui.banner(
     bossSlain ? '🎉 潮汐王擊破！潮退休整期' : '🌿 潮退休整期（25 秒）',
-    '靠近營火快速回血 · 按 [F] 點燃續燃燈籠可直推下一波高倍率狂潮',
+    (td.waveStreak || 1) >= MAX_WAVE_STREAK
+      ? `🏆 已完成本次狂潮全部 ${MAX_WAVE_STREAK} 波上限！靠近營火安心休整結算`
+      : '靠近營火快速回血 · 按 [F] 點燃續燃燈籠可續推下一波（上限 3 波）',
   );
   g.ui.toast('🌿 怪海暫歇 25 秒！可安心撿裝休息，或點燃續燃燈籠挑戰下一波', '#7fe08a');
 }
@@ -322,6 +361,7 @@ function spawnSwarmWave(g, count, includeElite = false) {
   const toSpawn = Math.min(count, Math.max(0, maxSwarm - curSwarm));
   if (toSpawn <= 0) return;
 
+  const esc = getEscalationProfile(td.sv?.survivalSec || 0);
   const types = g.field >= 6 ? ['slime', 'boar', 'moth', 'thorn'] : ['slime', 'slime', 'boar', 'thorn'];
   for (let i = 0; i < toSpawn; i++) {
     const ang = (i / Math.max(1, toSpawn)) * Math.PI * 2 + (Math.random() - 0.5) * 0.45;
@@ -335,14 +375,19 @@ function spawnSwarmWave(g, count, includeElite = false) {
     if (!e) continue;
     e.isSwarmlet = !isEl;
     e.tideAggro = true;
-    e.level = FIELDS[g.field]?.level || 1;
+    e.tideLife = isEl ? 34 : 24; // 狂潮怪物限時存在，打不過撤退或時間到會自然消散！
+    e.level = (FIELDS[g.field]?.level || 1) + Math.floor(esc.min / 2);
     if (!isEl) {
-      // 狂潮小怪：低血量、高移速、割草爽感
-      e.hp = Math.max(14, Math.round(e.hp * 0.48));
+      // 硬核狂潮小怪：不再軟弱，隨生存時鐘逐分鐘升溫，兼具走位壓迫感！
+      e.hp = Math.max(24, Math.round(e.hp * 0.85 * esc.hpMult));
       e.maxHp = e.hp;
-      e.spd *= 1.32;
-      e.dmg *= 0.72;
-      e.m.root.scale.setScalar(0.84);
+      e.spd *= 1.25 * esc.spdMult;
+      e.dmg = Math.round(e.dmg * 1.08 * esc.dmgMult);
+      e.m.root.scale.setScalar(0.88);
+    } else {
+      e.hp = Math.round(e.hp * 1.15 * esc.hpMult);
+      e.maxHp = e.hp;
+      e.dmg = Math.round(e.dmg * 1.15 * esc.dmgMult);
     }
   }
 }
@@ -350,37 +395,46 @@ function spawnSwarmWave(g, count, includeElite = false) {
 function spawnTideBoss(g) {
   const p = g.player, td = g.tide;
   td.bossSpawned = true;
-  const ang = Math.random() * Math.PI * 2;
-  let bx = p.pos.x + Math.cos(ang) * 11, bz = p.pos.z + Math.sin(ang) * 11;
-  if (!g.world.isLand(bx, bz)) { const q = g.world.randomWalkable(Math.random, p.pos, 9); bx = q.x; bz = q.z; }
-  const isSlimeKing = Math.random() < 0.55;
-  const e = g.spawnEnemy(isSlimeKing ? 'slime' : 'boar', { x: bx, z: bz }, true);
-  if (!e) return;
-  e.isTideBoss = true;
-  e.tideAggro = true;
-  e.level = (FIELDS[g.field]?.level || 1) + 2;
-  e.hp = Math.round(e.hp * (2.6 + (td.waveStreak - 1) * 0.7));
-  e.maxHp = e.hp;
-  e.spd *= 1.12;
-  e.m.root.scale.setScalar(2.15);
-  e.r *= 1.5;
-  // 黃金王冠模型
-  const crown = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.32, 0.24, 0.28, 6),
-    new THREE.MeshBasicMaterial({ color: 0xffd85a }),
-  );
-  crown.position.y = 1.18;
-  e.m.root.add(crown);
-  const title = isSlimeKing ? '👑 史萊姆王 · 餘燼潮主' : '👑 雷鳴野豬王 · 餘燼潮主';
+  const twinCount = td.waveStreak >= 3 ? 2 : 1;
+  let lastTitle = '';
+  for (let bIdx = 0; bIdx < twinCount; bIdx++) {
+    const ang = Math.random() * Math.PI * 2 + bIdx * Math.PI;
+    let bx = p.pos.x + Math.cos(ang) * 11.5, bz = p.pos.z + Math.sin(ang) * 11.5;
+    if (!g.world.isLand(bx, bz)) { const q = g.world.randomWalkable(Math.random, p.pos, 9); bx = q.x; bz = q.z; }
+    const isSlimeKing = bIdx === 0 ? Math.random() < 0.55 : false;
+    const e = g.spawnEnemy(isSlimeKing ? 'slime' : (bIdx === 1 ? 'moth' : 'boar'), { x: bx, z: bz }, true);
+    if (!e) continue;
+    e.isTideBoss = true;
+    e.tideAggro = true;
+    e.tideLife = APEX_DURATION + 12; // 狂潮結束後潮汐王亦會自然退場，絕不永久堵路！
+    e.level = (FIELDS[g.field]?.level || 1) + 2 + Math.max(0, td.waveStreak - 1);
+    e.hp = Math.round(e.hp * (2.6 + (td.waveStreak - 1) * 0.75));
+    e.maxHp = e.hp;
+    e.spd *= 1.12;
+    e.m.root.scale.setScalar(2.15);
+    e.r *= 1.5;
+    assignEliteAffixes(e, Math.max(18, e.level), td.waveStreak);
+    const crown = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.32, 0.24, 0.28, 6),
+      new THREE.MeshBasicMaterial({ color: 0xffd85a }),
+    );
+    crown.position.y = 1.18;
+    e.m.root.add(crown);
+    lastTitle = isSlimeKing ? '👑 史萊姆王 · 餘燼潮主' : (bIdx === 1 ? '👑 幻影毒蛾王 · 雙生潮主' : '👑 雷鳴野豬王 · 餘燼潮主');
+    g.ui.dmgNum(bx, g.world.gh(bx, bz) + 3.0, bz, isSlimeKing ? 'THE SLIME KING!' : 'TIDE LORD!', 'comic');
+  }
   g.audio.sfx('tideHorn');
-  g.ui.banner(`🔥 ${title} 入侵！`, `熾炎巔峰 35 秒 · 掉寶 ×${lootMultForTide(td)} · 擊破立即進入休整期`);
-  g.ui.dmgNum(bx, g.world.gh(bx, bz) + 3.0, bz, isSlimeKing ? 'THE SLIME KING!' : 'BOAR KING!', 'comic');
+  g.ui.banner(
+    twinCount > 1 ? '👑👑 雙王夾擊！雙生餘燼潮主入侵！' : `🔥 ${lastTitle} 入侵！`,
+    `熾炎巔峰 35 秒 · 掉寶 ×${lootMultForTide(td, g.meta?.p)} · 擊破必掉黃金輪盤寶箱`,
+  );
 }
 
 export function onTideKill(g, e) {
   if (!g.field || g.state !== 'play') return;
-  if (!g.tide) g.tide = createTideState();
+  if (!g.tide) g.tide = createTideState(g.meta?.p);
   const td = g.tide;
+  const sv = td.sv || (td.sv = createSurvivorState(g.meta?.p));
   const res = recordTideKill(td, {
     isSwarmlet: !!e.isSwarmlet,
     isElite: !!e.elite,
@@ -388,18 +442,37 @@ export function onTideKill(g, e) {
     isTideBoss: !!e.isTideBoss,
   });
 
+  // 動態難度導演 ＋ 連殺狂熱計數
+  updateDifficultyDirector(sv, g.time || 0, true);
+  const prevTier = getKillStreakTier(sv.streakKills || 0).tier;
+  sv.streakKills = (sv.streakKills || 0) + 1;
+  sv.streakTimer = 8.0;
+  const newTier = getKillStreakTier(sv.streakKills);
+  if (newTier.tier > prevTier) {
+    g.audio.sfx('evolve');
+    g.recalc();
+    g.ui.toast(`${newTier.label}！（${sv.streakKills} 連殺 · 移速 +${newTier.moveSpd}% / 暴擊 +${newTier.crit}%）`, newTier.color);
+  }
+
+  // 狂潮期間累積「未結算戰利品袋」（撤離風險收益）＋血月蝕世界事件倍率
+  const eclipse = getBloodEclipseField();
+  const eclipseMul = (eclipse.active && eclipse.fieldId === g.field) ? 2.5 : 1;
+  if (td.phase >= 1) {
+    const mult = lootMultForTide(td, g.meta?.p) * eclipseMul;
+    const cGain = Math.round((e.isTideBoss ? 35 : e.elite ? 12 : 2) * mult);
+    const sGain = Math.round((e.isTideBoss ? 12 : e.elite ? 4 : 0.4) * mult);
+    recordSpoils(sv, cGain, sGain, e.isTideBoss ? 1 : 0);
+  }
+  recordBestTide(g.meta?.p, td.waveStreak, sv.streakKills, sv.tideLv);
+
   // 掉落磁吸彩色經驗晶石
-  const gemCount = e.isTideBoss ? 10 : e.elite ? 5 : (td.phase >= 1 ? 2 : 1);
+  const gemCount = e.isTideBoss ? 12 : e.elite ? 6 : (td.phase >= 1 ? 2 : 1);
   spawnXpGems(g, e.pos.x, e.pos.z, gemCount);
 
-  // 狂潮高倍率額外掉寶（精英與潮汐王必掉稀有裝）
-  if (e.isTideBoss) {
-    for (let i = 0; i < 2; i++) {
-      g.dropItem(e.pos.x + (i ? 1.2 : -1.2), e.pos.z, makeItem(Math.random, Math.floor(g.meta.p.level / 3) + td.waveStreak, 3));
-    }
-    grantRandomMicroBuff(g);
-  } else if (e.elite && td.phase >= 1) {
-    grantRandomMicroBuff(g);
+  // 狂潮首領掉裝大幅調低（20% 機率掉 1 件精良/稀有裝，讓每件裝都極為珍貴！）
+  if ((e.isTideBoss || e.isTimedMiniBoss) && Math.random() < 0.20) {
+    const capR = (e.isTideBoss && Math.random() < 0.15) ? 3 : 2;
+    g.dropItem(e.pos.x, e.pos.z, makeItem(Math.random, Math.floor((g.meta.p.level || 1) / 3) + Math.min(2, td.waveStreak - 1), capR));
   }
 
   if (res.ultReadyNow) {
@@ -413,10 +486,10 @@ export function onTideKill(g, e) {
     enterLullVisuals(g, true);
   } else if (res.phaseChanged && td.phase === 1) {
     g.audio.sfx('tideHorn');
-    g.ui.toast('🔥 餘燼熱度升溫 → 【火星躁動】外圍怪群開始匯聚！', '#ffd85a');
+    g.ui.toast('🔥 餘燼熱度升溫 → 【火星躁動】高危敵群與戰術陣型逼近！', '#ffd85a');
   } else if (res.phaseChanged && td.phase === 2) {
     g.audio.sfx('tideHorn');
-    g.ui.banner('🔥🔥 餘燼狂潮來襲！', '360° 怪海包圍 · 擊殺快速充能 [V] 溫馨荒誕大絕');
+    g.ui.banner('🔥🔥 餘燼狂潮來襲！', '360° 高壓怪海與雙詞綴精英包圍 · 謹慎走位求生！');
   }
 }
 
@@ -580,15 +653,53 @@ export function castUltimate(g) {
 
 export function tickTide(g, dt) {
   if (!g.field || g.state !== 'play' || g.interior) return;
-  if (!g.tide) g.tide = createTideState();
+  if (!g.tide) g.tide = createTideState(g.meta?.p);
   const td = g.tide, p = g.player;
+  const sv = td.sv || (td.sv = createSurvivorState(g.meta?.p));
 
   const { enteredLull, lullEnded } = stepTideTimers(td, dt);
   if (enteredLull) enterLullVisuals(g, false);
   if (lullEnded) {
     clearLullCamp(g);
-    g.ui.toast('🌤 餘燼潮汐已平息，恢復平靜的晨光巡遊', '#bfe8ff');
+    const cashed = cashOutSpoils(sv, g.meta?.p);
+    if (cashed.coins > 0 || cashed.shards > 0) {
+      g.meta.save();
+      g.audio.sfx('jackpotWin');
+      g.ui.toast(`💰 潮汐結算成功！戰利品袋安全入帳：+${cashed.coins} 金幣 · +${cashed.shards} 星砂`, '#ffd85a');
+    } else {
+      g.ui.toast('🌤 餘燼潮汐已平息，恢復平靜的晨光巡遊', '#bfe8ff');
+    }
   }
+
+  // 連殺狂熱倒數
+  if (sv.streakTimer > 0) {
+    sv.streakTimer -= dt;
+    if (sv.streakTimer <= 0) {
+      const hadTier = getKillStreakTier(sv.streakKills).tier > 0;
+      sv.streakKills = 0;
+      if (hadTier) g.recalc();
+    }
+  }
+
+  // 生存計時與紀錄更新（移除無條件強制空降計時 Boss，只有玩家主動觸發狂潮才出狂潮王！）
+  sv.survivalSec = (sv.survivalSec || 0) + dt;
+  recordBestTide(g.meta?.p, td.waveStreak, sv.streakKills || 0, Math.floor(sv.survivalSec / 60));
+
+  // 狂潮怪物限時自然消散（時間到或熱度完全冷卻回平靜時，狂潮怪化作煙霧退場，避免卡死玩家！）
+  let dispersed = false;
+  for (const e of g.enemies) {
+    if (e.dead || e.tideLife == null) continue;
+    // 若玩家拉開距離或狂潮已冷卻至 Phase 0，加速消散
+    const coolMul = (td.phase === 0 && td.heat < 10) ? 3.5 : 1.0;
+    e.tideLife -= dt * coolMul;
+    if (e.tideLife <= 0) {
+      e.dead = true;
+      dispersed = true;
+      g.scene.remove(e.m.root);
+      g.puffs.burst(e.pos.x, 0.5, e.pos.z, 6, { c: [0xd8d2c5, 0xffd85a], s: 0.22, speed: 2.2, up: 2.5, life: 0.5 });
+    }
+  }
+  if (dispersed) g.enemies = g.enemies.filter(e => !e.dead);
 
   // 休整營火回血回魔光環
   if (td.lullTimer > 0 && td.lullCamp) {
@@ -600,19 +711,32 @@ export function tickTide(g, dt) {
     }
   }
 
-  // 狂潮生怪節奏（Phase 1/2/3）
+  // 狂潮生怪節奏（嚴格波數上限：每階段僅生 maxWaves 波，打完即止，絕不無限死循環！）
   if (td.phase >= 1) {
     const def = TIDE_PHASES[td.phase];
-    td.spawnCd -= dt;
-    if (td.spawnCd <= 0 && def.spawnInterval > 0) {
-      td.spawnCd = def.spawnInterval / (1 + (td.waveStreak - 1) * 0.14);
-      const count = Math.round(def.waveSize * (1 + (td.waveStreak - 1) * 0.18));
-      spawnSwarmWave(g, count, td.phase >= 2 && Math.random() < 0.55);
+    td.phaseWaves = td.phaseWaves || { 1: 0, 2: 0, 3: 0 };
+    const spawnedSoFar = td.phaseWaves[td.phase] || 0;
+    const maxW = def.maxWaves || 2;
+    if (spawnedSoFar < maxW) {
+      const tb = computeTalentBonuses(g.meta?.p);
+      const pressureMul = 1 + (sv.directorLevel || 0) * 0.12 + (sv.curseStacks || 0) * 0.20;
+      td.spawnCd -= dt;
+      if (td.spawnCd <= 0 && def.spawnInterval > 0) {
+        td.phaseWaves[td.phase] = spawnedSoFar + 1;
+        td.spawnCd = def.spawnInterval / ((1 + (td.waveStreak - 1) * 0.12) * pressureMul);
+        const count = Math.round(def.waveSize * (1 + (td.waveStreak - 1) * 0.15) * tb.greedDensityMult);
+        spawnSwarmWave(g, count, td.phase >= 2 && td.phaseWaves[td.phase] === maxW);
+        if (td.phase >= 2 && td.phaseWaves[td.phase] === 2) {
+          spawnSwarmFormation(g, pickFormation(td.phase, td.waveStreak).id);
+        }
+      }
     }
     if (td.phase === 3 && !td.bossSpawned) spawnTideBoss(g);
   }
 
-  // 磁吸經驗晶石更新
+  // 磁吸經驗晶石更新（純 MMO 經驗與星幣成長，無免費 3 選 1 抽卡與寶箱！）
+  const tbMag = computeTalentBonuses(g.meta?.p).magnetMult;
+  const pullRange = td.lullTimer > 0 ? 22 : 6.5 * tbMag;
   for (const gem of td.xpGems) {
     gem.life -= dt;
     gem.mesh.rotation.y += dt * 5;
@@ -623,24 +747,24 @@ export function tickTide(g, dt) {
       if (gem.y < gh + 0.35) { gem.y = gh + 0.35; gem.vy = 0; gem.vx = gem.vz = 0; }
     }
     const dx = p.pos.x - gem.x, dz = p.pos.z - gem.z, dist = Math.hypot(dx, dz);
-    if (dist < 8.5 && gem.vy === 0) {
-      const pull = (14 + (8.5 - dist) * 2.2) * dt;
+    if (dist < pullRange && gem.vy === 0) {
+      const pull = (14 + (pullRange - dist) * 1.8) * dt;
       gem.x += (dx / Math.max(dist, 0.05)) * pull;
       gem.z += (dz / Math.max(dist, 0.05)) * pull;
       gem.y = lerp(gem.y, p.y + 0.65, Math.min(1, dt * 10));
     }
     gem.mesh.position.set(gem.x, gem.y + Math.sin(g.time * 6 + gem.x) * 0.06, gem.z);
-    if (dist < 0.95) {
+    if (dist < 1.05) {
       gem.taken = true;
       dropTideObj(g, gem.mesh);
       g.audio.sfx('xpGem');
       g.meta.p.coins = (g.meta.p.coins || 0) + 1;
       g.meta.p.xp = (g.meta.p.xp || 0) + gem.xp;
-      const need = (g.meta.p.level || 1) * 40;
+      const need = xpForNextLevel(g.meta.p.level || 1);
       if (g.meta.p.level < 30 && g.meta.p.xp >= need) {
         g.meta.p.xp -= need; g.meta.p.level++; g.recalc();
         g.audio.sfx('classup');
-        g.ui.toast(`🎉 升級至 Lv.${g.meta.p.level}！`, '#ffd85a');
+        g.ui.toast(`🎉 角色升級至 Lv.${g.meta.p.level}！`, '#ffd85a');
       }
     } else if (gem.life <= 0) {
       gem.taken = true;

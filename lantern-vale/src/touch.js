@@ -1,39 +1,88 @@
 export function bindTouch(g) {
-  if (!matchMedia('(pointer: coarse)').matches) return;
-  const hud=document.getElementById('hud');
-  const pad=document.createElement('button');pad.className='travel-pad';pad.setAttribute('aria-label','拖曳移動');
-  const knob=document.createElement('span');pad.append(knob);hud.append(pad);
-  const interact=document.createElement('button');interact.className='touch-action';interact.textContent='互動';hud.append(interact);
-  const clear=()=>{for(const k of ['w','a','s','d'])g.keys[k]=false;knob.style.transform='';};
-  const move=e=>{
-    const r=pad.getBoundingClientRect();
-    const dx=(e.clientX-r.left-r.width/2)/(r.width/2),dz=(e.clientY-r.top-r.height/2)/(r.height/2);
-    const scale=Math.max(1,Math.hypot(dx,dz));
-    knob.style.transform='translate('+dx/scale*20+'px,'+dz/scale*20+'px)';
-    g.keys.a=dx<-.23;g.keys.d=dx>.23;g.keys.w=dz<-.23;g.keys.s=dz>.23;
-  };
-  pad.onpointerdown=e=>{pad.setPointerCapture(e.pointerId);move(e);};
-  pad.onpointermove=e=>{if(pad.hasPointerCapture(e.pointerId))move(e);};
-  pad.onlostpointercapture=clear;
-  const key=(code,down)=>window.dispatchEvent(new KeyboardEvent(down?'keydown':'keyup',{code,bubbles:true}));
-  interact.onclick=()=>{if(g.raid){g.net.send({t:'raidLeave'});return;}key('KeyF',true);key('KeyF',false);};
-  const actions={lmb:'attack',s0:'bolt',s1:'KeyQ',s2:'KeyE',s3:'KeyC',roll:'Space',r:'KeyR'};
-  for(const [id,action] of Object.entries(actions)) {
-    const el=document.getElementById('sk-'+id);
-    if (!el) continue;
-    el.onpointerdown=e=>{
-      e.preventDefault();el.setPointerCapture(e.pointerId);
-      if(action==='attack'||action==='bolt') {
-        let target=null,distance=Infinity;
-        for(const enemy of g.enemies){const d=enemy.pos.distanceTo(g.player.pos);if(!enemy.dead&&d<distance){target=enemy;distance=d;}}
-        if(target){const [x,y]=g.ui.screenPos(target.pos.x,target.pos.y,target.pos.z);g.mouse.x=x;g.mouse.y=y;}
-        g.mouse[action==='attack'?'l':'r']=true;
-      } else key(action,true);
-    };
-    el.onlostpointercapture=()=>{
-      if(action==='attack'||action==='bolt')g.mouse[action==='attack'?'l':'r']=false;
-      else key(action,false);
-    };
+  const el = id => document.getElementById(id);
+  const hud = el('hud');
+  const pad = el('touchMove'), knob = pad.firstElementChild;
+  const interact = g.touchInteract = el('touchInteract');
+  const input = g.touchInput = { x: 0, z: 0, attack: false, glide: false };
+
+  function hold(button, start, stop, move = null) {
+    let pointer = null;
+    function release(e) {
+      if (pointer === null || (e?.pointerId != null && e.pointerId !== pointer)) return;
+      const id = pointer;
+      pointer = null;
+      button.classList.remove('held');
+      stop();
+      if (button.hasPointerCapture(id)) button.releasePointerCapture(id);
+    }
+    button.addEventListener('pointerdown', e => {
+      if (pointer !== null || e.button !== 0 || !g.canUseTouchControls()) return;
+      e.preventDefault();
+      pointer = e.pointerId;
+      button.setPointerCapture(pointer);
+      button.classList.add('held');
+      start(e);
+    });
+    if (move) button.addEventListener('pointermove', e => { if (e.pointerId === pointer) move(e); });
+    for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) button.addEventListener(type, release);
+    return release;
   }
-  g.touchInteract=interact;
+
+  function move(e) {
+    const r = pad.getBoundingClientRect();
+    const x = (e.clientX - r.left - r.width / 2) / (r.width * 0.38);
+    const z = (e.clientY - r.top - r.height / 2) / (r.height * 0.38);
+    const distance = Math.hypot(x, z);
+    const strength = Math.max(0, Math.min(1, (distance - 0.13) / 0.87));
+    input.x = distance ? x / distance * strength : 0;
+    input.z = distance ? z / distance * strength : 0;
+    knob.style.transform = `translate(${input.x * 25}px, ${input.z * 25}px)`;
+  }
+
+  function attack() {
+    if (g.raid) return;
+    g.audio.init();
+    g.aimForTouch();
+    g.tryAttack();
+  }
+  function jump() {
+    if (g.raid) return;
+    g.audio.init();
+    g.tryJump();
+  }
+
+  const releaseMove = hold(pad, move, () => { input.x = input.z = 0; knob.style.transform = ''; }, move);
+  const releaseAttack = hold(el('touchAttack'), () => { input.attack = true; attack(); }, () => { input.attack = false; });
+  const releaseJump = hold(el('touchJump'), () => { input.glide = !g.raid; jump(); }, () => { input.glide = false; });
+  const reset = () => { releaseMove(); releaseAttack(); releaseJump(); };
+  g.clearTouchInput = reset;
+  window.addEventListener('blur', reset);
+  document.addEventListener('visibilitychange', reset);
+  matchMedia('(any-pointer: coarse)').addEventListener('change', reset);
+
+  el('touchAttack').onclick = e => { if (e.detail === 0 && g.canUseTouchControls()) attack(); };
+  el('touchJump').onclick = e => { if (e.detail === 0 && g.canUseTouchControls()) jump(); };
+  el('touchRoll').onclick = () => {
+    if (g.raid || !g.canUseTouchControls()) return;
+    g.aimForTouch();
+    g.tryRoll();
+  };
+  interact.onclick = () => {
+    if (g.raid) { g.net.send({ t: 'raidLeave' }); return; }
+    if (g.gatherActive) { g.gatherActive.trigger(); return; }
+    if (g.canUseTouchControls() && !g.tryInteract()) g.tryPickup();
+  };
+
+  const details = el('touchDetails');
+  details.onclick = () => {
+    const open = hud.classList.toggle('touch-details-open');
+    details.setAttribute('aria-expanded', String(open));
+    reset();
+  };
+  el('btnRegionMap').onclick = () => g.ui.toggleRegionMap(g);
+  el('btnRegionMapClose').onclick = () => g.ui.toggleRegionMap(g);
+  el('btnChatTouch').onclick = () => g.ui.focusChat();
+  for (const button of document.querySelectorAll('[data-hud-action]')) {
+    button.onclick = () => { el(button.dataset.hudAction).click(); };
+  }
 }

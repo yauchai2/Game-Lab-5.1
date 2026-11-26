@@ -30,7 +30,9 @@ export function formatKey(k, lang = 'zh-TW') {
 
 export function loadSettings() {
   let s = {}; try { s = JSON.parse(localStorage.getItem('lv_settings') || '{}'); } catch (e) { /* ignore */ }
-  return { ...DEFAULTS, ...s, keybinds: { ...DEFAULTS.keybinds, ...(s.keybinds || {}) } };
+  const merged = { ...DEFAULTS, ...s, keybinds: { ...DEFAULTS.keybinds, ...(s.keybinds || {}) } };
+  merged.camAngle = merged.camAngle ? 1 : 0;
+  return merged;
 }
 export function saveSettings(s) { try { localStorage.setItem('lv_settings', JSON.stringify(s)); } catch (e) { /* ignore */ } }
 
@@ -70,7 +72,7 @@ function getRows(lang) {
     video: [
       ['difficulty', '遊戲難度模式', ['cozy', 'standard', 'veteran']],
       ['pixel', t(lang, 'rowPixel'), ['', lang === 'en' ? 'Off (HD)' : lang === 'ja' ? 'オフ（高画質）' : '關閉（高清）', t(lang, 'optFine'), t(lang, 'optStd'), t(lang, 'optCoarse')]],
-      ['camAngle', t(lang, 'rowCamAngle'), [t(lang, 'cam45'), t(lang, 'cam55'), t(lang, 'cam36')]],
+      ['camAngle', t(lang, 'rowCamAngle'), [off, on]],
       ['wind', t(lang, 'rowWind'), [off, t(lang, 'optBreeze'), t(lang, 'optGale')]],
       ['water', t(lang, 'rowWater'), [off, on]],
       ['shafts', t(lang, 'rowShafts'), [off, on]],
@@ -115,20 +117,32 @@ export function buildSettingsUI(g) {
   let tab = 'video', listeningKey = null;
   const set = (k, v) => { g.settings[k] = v; saveSettings(g.settings); applySettings(g); g.audio.sfx('ui'); render(); };
   const onRebind = e => {
-    if (!listeningKey) return;
+    if (!listeningKey || e.isComposing) return;
     e.preventDefault(); e.stopPropagation();
     const k = e.key === ' ' ? ' ' : e.key.toLowerCase();
     if (k !== 'escape') {
       g.settings.keybinds[listeningKey] = k;
       saveSettings(g.settings); syncHotbarKeyLabels(g); g.audio.sfx('pickup');
     }
+    cancelRebind();
+  };
+  const cancelRebind = () => {
+    if (!listeningKey) return false;
+    const binding = listeningKey;
     listeningKey = null;
     removeEventListener('keydown', onRebind, true);
     render();
+    body.querySelector(`[data-binding="${binding}"]`)?.focus();
+    return true;
   };
+  g.ui.cancelSettingsRebind = cancelRebind;
   const render = () => {
     const lang = g.settings.lang || 'zh-TW';
-    tabs.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
+    tabs.querySelectorAll('button').forEach(button => {
+      const selected = button.dataset.tab === tab;
+      button.classList.toggle('on', selected);
+      button.setAttribute('aria-pressed', String(selected));
+    });
     body.innerHTML = '';
     if (tab === 'keys') {
       const preRow = document.createElement('div');
@@ -145,6 +159,7 @@ export function buildSettingsUI(g) {
         const cur = g.settings.keybinds[id];
         r.innerHTML = `<span class="sl">${label}</span><span class="sv"></span>`;
         const b = document.createElement('button'); b.className = 'arr wide';
+        b.dataset.binding = id;
         b.textContent = listeningKey === id ? t(lang, 'pressKey') : formatKey(cur, lang);
         b.onclick = () => {
           listeningKey = id; render();
@@ -204,10 +219,11 @@ export function buildSettingsUI(g) {
     }
   };
   tabs.querySelectorAll('button').forEach(b => b.onclick = () => { tab = b.dataset.tab; g.audio.sfx('ui'); render(); });
-  const open = (v) => { g.ui.setOpen = v; root.classList.toggle('hide', !v); if (v) { g.audio.init(); g.audio.sfx('ui'); render(); } };
+  const open = (v) => { if (!v) cancelRebind(); g.ui.setOpen = v; root.classList.toggle('hide', !v); if (v) { g.audio.init(); g.audio.sfx('ui'); render(); } };
   document.getElementById('btnClose').onclick = () => open(false);
+  document.getElementById('btnSettingsX').onclick = () => open(false);
   g.ui.toggleSettings = () => open(!g.ui.setOpen);
   g.ui.closeSettings = () => open(false);
-  ['btnSet', 'btnSetTitle'].forEach(id => { const el = document.getElementById(id); if (el) el.onclick = () => { open(!g.ui.setOpen); el.blur(); }; });
+  ['btnSet', 'btnSetTitle'].forEach(id => { const el = document.getElementById(id); if (el) el.onclick = () => open(!g.ui.setOpen); });
   render();
 }

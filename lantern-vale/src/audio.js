@@ -115,7 +115,7 @@ export class Audio {
   sfx(name, v = 1) {
     if (!this.ctx || this.muted) return;
     const now = this.ctx.currentTime;
-    const lim = { hit: 0.04, step: 0.18, enemyDie: 0.05, crit: 0.05 }[name]; // rate limit
+    const lim = { hit: 0.04, step: 0.18, enemyDie: 0.05, crit: 0.05, hover: 0.075 }[name]; // rate limit
     if (lim && this.last[name] && now - this.last[name] < lim) return; this.last[name] = now;
     const t = now;
     switch (name) {
@@ -160,6 +160,7 @@ export class Audio {
       case 'exit': [440, 554, 659, 880].forEach((f, i) => this.tone('sine', f, f, 0.4, 0.09, i * 0.08)); break;
       case 'warp': this.tone('sine', 200, 1200, 0.5, 0.12); this.noise(t, 0.5, 0.2, 2000); break;
       case 'ui': this.tone('square', 600, 800, 0.05, 0.07); break;
+      case 'hover': this.tone('triangle', 520 + Math.random() * 55, 680, 0.032, 0.026); break;
       case 'chat': this.tone('sine', 900, 900, 0.06, 0.07); this.tone('sine', 1200, 1200, 0.08, 0.06, 0.06); break;
       case 'emote': this.tone('triangle', 500, 900, 0.15, 0.1); break;
       case 'warn': this.tone('square', 330, 330, 0.07, 0.07); break;
@@ -222,8 +223,31 @@ export class Audio {
         [392, 523, 659, 784, 1047, 1319].forEach((f, i) => this.tone('sine', f, f * 1.02, 0.55, 0.13, i * 0.05));
         this.noise(t + 0.1, 0.45, 0.25, 2200);
         break;
-      case 'xpGem':
-        this.tone('sine', 780 + Math.random() * 260, 1180 + Math.random() * 200, 0.08, 0.07);
+      case 'xpGem': {
+        const now = performance.now();
+        if (this._xpLastT && (now - this._xpLastT) < 550) this._xpStep = Math.min(11, (this._xpStep || 0) + 1);
+        else this._xpStep = 0;
+        this._xpLastT = now;
+        const penta = [523, 587, 659, 784, 880, 1047, 1175, 1319, 1568, 1760, 2093, 2349];
+        const f = penta[this._xpStep % penta.length];
+        this.tone('sine', f, f * 1.12, 0.09, 0.075);
+        break;
+      }
+      case 'jackpotTick':
+        this.tone('triangle', 640 + Math.random() * 240, 880, 0.055, 0.09);
+        break;
+      case 'jackpotWin':
+        [523, 659, 784, 1047, 1319, 1568].forEach((f, i) => this.tone('triangle', f, f * 1.03, 0.34, 0.13, i * 0.055));
+        break;
+      case 'evolve':
+        [392, 523, 659, 784, 1047, 1319, 1568].forEach((f, i) => this.tone('sawtooth', f, f * 1.02, 0.42, 0.11, i * 0.048));
+        this.noise(t + 0.08, 0.45, 0.22, 2600);
+        break;
+      case 'revive':
+        [330, 440, 554, 659, 880].forEach((f, i) => this.tone('sine', f, f * 1.04, 0.5, 0.14, i * 0.06));
+        break;
+      case 'curseShrine':
+        [240, 196, 165, 130].forEach((f, i) => this.tone('sawtooth', f, f * 0.92, 0.32, 0.12, i * 0.07));
         break;
       case 'lullCalm':
         [523, 659, 784, 659].forEach((f, i) => this.tone('sine', f, f, 0.48, 0.1, i * 0.11));

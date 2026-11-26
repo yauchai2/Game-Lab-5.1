@@ -68,8 +68,7 @@ export const PART_DEFS = {
   ],
 };
 
-export function initParts(enemy) {
-  const defs = PART_DEFS[enemy.type];
+export function initParts(enemy, defs = PART_DEFS[enemy.type]) {
   if (!defs) { enemy.parts = []; return []; }
   const maxHp = Math.max(10, enemy.maxHp || enemy.hp || 100);
   enemy.parts = defs.map(d => ({
@@ -103,6 +102,7 @@ export function resolveHitPart(enemy, hitX, hitZ) {
     else if (part.hitSide === 'left') score = -localRight;
     // 兼顧空間距離權重
     const dist = Math.hypot(localRight - part.localOffset.x, localFwd - part.localOffset.z);
+    if (part.minSide !== undefined && score < part.minSide) continue;
     const total = score * 1.4 - dist * 0.5;
     if (total > bestScore) { bestScore = total; best = part; }
   }
@@ -134,7 +134,7 @@ export function damagePart(enemy, part, dmg) {
     part.broken = true;
     enemy.brokenWeakens = enemy.brokenWeakens || new Set();
     enemy.brokenWeakens.add(part.weaken);
-    return { hit: true, broken: true, part, dropItem: buildPartDropItem(part) };
+    return { hit: true, broken: true, part, dropItem: part.drop ? buildPartDropItem(part) : null };
   }
   return { hit: true, broken: false, part };
 }

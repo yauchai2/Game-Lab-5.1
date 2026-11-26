@@ -95,32 +95,50 @@ class ZoneTide {
  * 動態分流指派（Dynamic Sharding）
  * 15–25 人合流，超過 30 人自動開啟新分流，並優先將同隊友配至同一分流
  */
-function assignShard(shardsMap, baseZone, partyCode = '') {
+function countParty(shard, partyCode, delta) {
+  if (!partyCode) return;
+  const count = (shard.parties.get(partyCode) || 0) + delta;
+  if (count > 0) shard.parties.set(partyCode, count);
+  else shard.parties.delete(partyCode);
+}
+
+function assignShard(shardsMap, baseZone, partyCode = '', requestedId = null) {
   let list = shardsMap.get(baseZone);
-  if (!list) {
-    list = [{ id: `${baseZone}#1`, count: 0, parties: new Set() }];
-    shardsMap.set(baseZone, list);
+  if (requestedId && !list?.some(s => s.id === requestedId && s.count < SHARD_HARD_CAP)) return null;
+  if (!list) { list = []; shardsMap.set(baseZone, list); }
+  let shard = requestedId
+    ? list.find(s => s.id === requestedId)
+    : list.find(s => partyCode && s.parties.has(partyCode) && s.count < SHARD_HARD_CAP)
+      || list.find(s => s.count < SHARD_SOFT_CAP);
+  if (!shard) {
+    const occupiedNumbers = new Set(list.map(s => s.number));
+    let number = 1;
+    while (occupiedNumbers.has(number)) number++;
+    shard = { id: `${baseZone}#${number}`, number, count: 0, parties: new Map() };
+    list.push(shard);
   }
-  // 1. 優先與同小隊隊友進入同分流（未達硬上限 30 人）
-  if (partyCode) {
-    const mateShard = list.find(s => s.parties.has(partyCode) && s.count < SHARD_HARD_CAP);
-    if (mateShard) {
-      mateShard.count++;
-      return mateShard.id;
-    }
-  }
-  // 2. 優先填入未滿 25 人的現有分流，避免人口稀釋（鬼服感）
-  const open = list.find(s => s.count < SHARD_SOFT_CAP);
-  if (open) {
-    open.count++;
-    if (partyCode) open.parties.add(partyCode);
-    return open.id;
-  }
-  // 3. 所有現有分流皆滿載，建立新分流
-  const next = { id: `${baseZone}#${list.length + 1}`, count: 1, parties: new Set() };
-  if (partyCode) next.parties.add(partyCode);
-  list.push(next);
-  return next.id;
+  shard.count++;
+  countParty(shard, partyCode, 1);
+  return shard.id;
+}
+
+function changeShardParty(shardsMap, baseZone, shardId, previous, next) {
+  const shard = shardsMap.get(baseZone)?.find(s => s.id === shardId);
+  if (!shard || previous === next) return;
+  countParty(shard, previous, -1);
+  countParty(shard, next, 1);
+}
+
+function releaseShard(shardsMap, baseZone, shardId, partyCode = '') {
+  const list = shardsMap.get(baseZone);
+  const index = list?.findIndex(s => s.id === shardId) ?? -1;
+  if (index < 0) return false;
+  const shard = list[index];
+  countParty(shard, partyCode, -1);
+  if (--shard.count > 0) return false;
+  list.splice(index, 1);
+  if (!list.length) shardsMap.delete(baseZone);
+  return true;
 }
 
 /**
@@ -149,5 +167,7 @@ module.exports = {
   SpatialGrid,
   ZoneTide,
   assignShard,
+  changeShardParty,
+  releaseShard,
   pickHotspots,
 };

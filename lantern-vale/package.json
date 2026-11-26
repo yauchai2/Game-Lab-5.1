@@ -5,9 +5,10 @@
   "main": "index.js",
   "scripts": {
     "build": "node build.mjs",
-    "test": "node tests/logic_verify.cjs",
+    "test": "node tests/logic_verify.cjs && node tests/playtest_review.cjs && node tests/shards.cjs && node tests/playtest_gate.cjs",
     "review:once": "node tests/review_watch.cjs --once",
-    "review:watch": "node tests/review_watch.cjs --watch"
+    "review:watch": "node tests/review_watch.cjs --watch",
+    "playtest:live": "node scripts/live_playtest.cjs"
   },
   "keywords": [],
   "author": "",
@@ -16,5 +17,8 @@
     "esbuild": "^0.24.0",
     "three": "^0.170.0",
     "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "playwright": "1.65.1"
   }
 }

@@ -1,0 +1,72 @@
+const assert = require('node:assert/strict');
+const { mkdtemp, writeFile, rm } = require('node:fs/promises');
+const { tmpdir } = require('node:os');
+const path = require('node:path');
+const { spawn } = require('node:child_process');
+const { once } = require('node:events');
+const { randomBytes } = require('node:crypto');
+const WebSocket = require('ws');
+
+(async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'lantern-gate-'));
+  const file = path.join(dir, 'pass');
+  const pass = randomBytes(18).toString('base64url');
+  await writeFile(file, pass, { mode: 0o600 });
+  const server = spawn(process.execPath, ['server/server.js'], {
+    cwd: path.join(__dirname, '..'), env: {
+      ...process.env, HOST: '127.0.0.1', PORT: '0', LV_DATABASE: ':memory:', LV_PLAYTEST_PASS_FILE: file,
+    }, stdio: ['ignore', 'pipe', 'inherit'],
+  });
+
+  try {
+    const port = await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(Error('Playtest server did not start')), 5000);
+      server.once('error', error => { clearTimeout(timeout); reject(error); });
+      server.stdout.on('data', chunk => {
+        const match = String(chunk).match(/localhost:(\d+)/);
+        if (match) { clearTimeout(timeout); resolve(match[1]); }
+      });
+    });
+    const base = `http://127.0.0.1:${port}`;
+    const trial = '/?playtest=ambush&order=BA';
+    const image = '/assets/ui/crisp_pixel/wood/panel.png';
+    const login = value => fetch(base + trial, {
+      method: 'POST', body: new URLSearchParams({ pass: value }), redirect: 'manual',
+    });
+    assert.match(await (await fetch(base + trial)).text(), /試玩密碼/);
+    assert.equal((await fetch(base + image)).status, 401);
+    assert.equal((await login('wrong')).status, 401);
+    const access = await login(pass);
+    assert.equal(access.status, 303);
+    assert.equal(access.headers.get('location'), trial);
+    const cookie = access.headers.get('set-cookie');
+    assert.match(cookie, /HttpOnly; Secure; SameSite=Strict/);
+    const headers = { cookie: cookie.split(';')[0] };
+    assert.match(await (await fetch(base + trial, { headers })).text(), /window\.LV_SERVER=true/);
+    assert.equal((await fetch(base + image, { headers })).headers.get('cache-control'), 'private, no-store');
+    assert.equal((await fetch(base + '/__dev/events', { headers })).status, 404);
+
+    const socket = extra => new WebSocket(`ws://127.0.0.1:${port}/ws`, { ...extra, handshakeTimeout: 5000 });
+    const anonymous = socket();
+    try {
+      const [, response] = await Promise.race([
+        once(anonymous, 'unexpected-response'),
+        once(anonymous, 'open').then(() => { throw Error('Anonymous WebSocket accepted'); }),
+      ]);
+      assert.equal(response.statusCode, 401);
+    } finally { anonymous.terminate(); }
+    const invited = socket({ headers });
+    try {
+      const [data] = await once(invited, 'message');
+      assert.equal(JSON.parse(data).t, 'welcome');
+    } finally { invited.close(); }
+    console.log('Passed remote playtest passcode, asset access, Dev isolation, and WebSocket access.');
+  } finally {
+    if (server.exitCode === null && server.signalCode === null) {
+      const done = once(server, 'exit');
+      server.kill();
+      await done;
+    }
+    await rm(dir, { recursive: true });
+  }
+})().catch(error => { console.error(error); process.exitCode = 1; });

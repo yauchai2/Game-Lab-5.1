@@ -5,6 +5,7 @@ import { part, toonMat } from './world.js';
 import { attachLandmarkGlb } from './assets.js';
 import { buildHouse, buildStall } from './models.js';
 import { mulberry32 } from './util.js';
+import { HARBOR_PORTALS } from './map_navigation.js';
 
 // ======================== 1. 外觀造型系統（Cosmetics） ========================
 export const COSMETICS = {
@@ -170,12 +171,12 @@ export function buildHarborTown(g) {
     { kind: 'open_cosmetics', label: '海鷗造型工坊（更換外觀造型）', x: -8.5, z: 6.2, top: 2.5 },
     { kind: 'market', label: '海風漁市拍賣行', x: 7.2, z: 5.8, top: 2.4 },
     { kind: 'guild', label: '港口公會分部', x: -6.8, z: -4.2, top: 2.5 },
-    { kind: 'goto_field_7', label: '前往 浮空遺跡群（Lv.12）', x: -12.5, z: -10.5, top: 2.6 },
-    { kind: 'goto_field_8', label: '前往 珊瑚潮汐灣（Lv.18）', x: 0, z: -13.0, top: 2.6 },
-    { kind: 'goto_field_9', label: '前往 沉沒電光都（Lv.24）', x: 12.5, z: -10.5, top: 2.6 },
-    { kind: 'goto_field_10', label: '前往 🌸 櫻花水都（Lv.14）', x: -15.5, z: -3.5, top: 2.6 },
-    { kind: 'goto_field_11', label: '前往 🌀 蒼穹巨環谷（Lv.22）', x: -6.5, z: -14.2, top: 2.6 },
-    { kind: 'goto_field_12', label: '前往 🍁 紅楓工坊谷（Lv.28）', x: 6.5, z: -14.2, top: 2.6 },
+    { kind: `goto_field_${HARBOR_PORTALS[0]}`, label: '前往 浮空遺跡群（Lv.12）', x: -12.5, z: -10.5, top: 2.6 },
+    { kind: `goto_field_${HARBOR_PORTALS[1]}`, label: '前往 珊瑚潮汐灣（Lv.18）', x: 0, z: -13.0, top: 2.6 },
+    { kind: `goto_field_${HARBOR_PORTALS[2]}`, label: '前往 沉沒電光都（Lv.24）', x: 12.5, z: -10.5, top: 2.6 },
+    { kind: `goto_field_${HARBOR_PORTALS[3]}`, label: '前往 🌸 櫻花水都（Lv.14）', x: -15.5, z: -3.5, top: 2.6 },
+    { kind: `goto_field_${HARBOR_PORTALS[4]}`, label: '前往 🌀 蒼穹巨環谷（Lv.22）', x: -6.5, z: -14.2, top: 2.6 },
+    { kind: `goto_field_${HARBOR_PORTALS[5]}`, label: '前往 🍁 紅楓工坊谷（Lv.28）', x: 6.5, z: -14.2, top: 2.6 },
   ];
 
   // 六座出海探索指示木牌（直達全 6 張海灣與新大陸區域）

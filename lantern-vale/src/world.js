@@ -327,6 +327,33 @@ export function pondMat() {
   });
 }
 
+function findConnectedEastGate(world, start, exits) {
+  const startCell = world.idx(start.x, start.z);
+  if (!world.walk[startCell]) return null;
+  const queue = [startCell];
+  const seen = new Uint8Array(world.walk.length);
+  seen[startCell] = 1;
+  let best, bestScore = Infinity;
+  for (const cell of queue) {
+    const adjacent = [cell - 1, cell + 1, cell - GW, cell + GW];
+    for (const next of adjacent) {
+      if (seen[next] || !world.walk[next] || Math.abs(world.height[next] - world.height[cell]) > 0.9) continue;
+      seen[next] = 1;
+      queue.push(next);
+    }
+    if (world.bpCell[cell] < 2) continue;
+    const x = -world.half + (cell % GW) * world.res;
+    const z = -world.half + Math.floor(cell / GW) * world.res;
+    if (exits.some(exit => Math.hypot(exit.x - x, exit.z - z) < 7)) continue;
+    const clearance = adjacent.every(next => world.walk[next]);
+    const score = Math.hypot(x - world.half * 0.72, z) + (clearance ? 0 : 12);
+    if (score >= bestScore) continue;
+    bestScore = score;
+    best = { x, z, dir: 'east' };
+  }
+  return best || null;
+}
+
 export class World {
   constructor(scene) {
     this.scene = scene; this.half = HALF; this.res = RES;
@@ -411,6 +438,44 @@ export class World {
     this.bpCell = null;
     this.occludables = [];
     this.buoys = [];
+  }
+
+  generateAmbush(biome, spawn, cover) {
+    this.clear();
+    this.P = biome;
+    this.half = 15;
+    this.res = 2 * this.half / (GW - 1);
+    this.RR = new Float32Array(GW * GW);
+    this.T = new Uint8Array(GW * GW);
+    this.height.fill(0);
+    for (let j = 0; j < GW; j++) {
+      for (let i = 0; i < GW; i++) {
+        const k = j * GW + i;
+        const x = i * this.res - this.half, z = j * this.res - this.half;
+        const inside = Math.abs(x) < 11 && Math.abs(z) < 11;
+        const blocked = cover && Math.abs(x - cover.x) < cover.hw + 0.35
+          && Math.abs(z - cover.z) < cover.hd + 0.35;
+        this.RR[k] = inside ? 0 : 1;
+        this.walk[k] = this.land[k] = inside && !blocked ? 1 : 0;
+        this.T[k] = inside ? 1 : 0;
+      }
+    }
+    const floor = new THREE.Mesh(new THREE.BoxGeometry(22, 0.35, 22), new THREE.MeshLambertMaterial({ color: 0x7f8690 }));
+    floor.position.y = -0.175;
+    floor.receiveShadow = true;
+    this.group.add(floor);
+    const grid = new THREE.GridHelper(22, 11, 0x606874, 0x717985);
+    grid.position.y = 0.008;
+    this.group.add(grid);
+    if (cover) {
+      const block = new THREE.Mesh(new THREE.BoxGeometry(cover.hw * 2, cover.height, cover.hd * 2),
+        new THREE.MeshLambertMaterial({ color: 0x485263 }));
+      block.position.set(cover.x, cover.height / 2, cover.z);
+      block.castShadow = block.receiveShadow = true;
+      this.group.add(block);
+    }
+    this.spawn = spawn;
+    return { spawn, exits: [] };
   }
 
   generate(seed, biome, opts = {}) {
@@ -533,14 +598,20 @@ export class World {
         const w = uvToWorld(southPoi.x, southPoi.y, this.half);
         exits.push({ ...snapWalk(w.x, w.z), dir: 'south' });
       }
-      if (eastPoi && (opts.exitCount ?? 3) >= 3) {
-        const w = uvToWorld(eastPoi.x, eastPoi.y, this.half);
-        exits.push({ ...snapWalk(w.x, w.z), dir: 'east' });
-      }
       if (exits.length === 0) exits.push({ x: 0, z: -6, dir: 'north' });
-      this.exits = exits;
       const spRef = bp.checkpoints?.[0] ? uvToWorld(bp.checkpoints[0][0], bp.checkpoints[0][1], this.half) : (exits[1] || exits[0]);
       spawn = snapWalk(spRef.x, spRef.z);
+      if ((opts.exitCount ?? 3) >= 3) {
+        if (eastPoi) {
+          const w = uvToWorld(eastPoi.x, eastPoi.y, this.half);
+          exits.push({ ...snapWalk(w.x, w.z), dir: 'east' });
+        } else {
+          const exit = findConnectedEastGate(this, exits[1] || spawn, exits)
+            || findConnectedEastGate(this, spawn, exits);
+          if (exit) exits.push(exit);
+        }
+      }
+      this.exits = exits;
       this.spawn = spawn;
       // 藍圖小徑折線轉為泥土路段落
       for (const tr of bp.trails || []) {
@@ -844,7 +915,7 @@ export class World {
 
     const areaScale = Math.max(1, (this.half / 30) * 1.4);
     const propTries = Math.min(6800, Math.round(2600 * areaScale));
-    const treeRate = bp ? (bp.family === 'open' ? 0.018 : bp.family === 'linear' ? 0.028 : 0.026) : (opts.size >= 200 ? 0.055 : 0.03);
+    const treeRate = opts.cave ? 0 : bp ? (bp.family === 'open' ? 0.018 : bp.family === 'linear' ? 0.028 : 0.026) : (opts.size >= 200 ? 0.055 : 0.03);
     for (let tries = 0; tries < propTries; tries++) {
       const x = rand(r, -this.half + 1, this.half - 1), z = rand(r, -this.half + 1, this.half - 1);
       const k = this.idx(x, z); if (k < 0) continue;
@@ -854,7 +925,7 @@ export class World {
         // dense canopy on plateaus — only on flat tops
         const kk = [k + 1, k - 1, k + GW, k - GW, k + 2, k - 2, k + 2 * GW, k - 2 * GW];
         if (kk.some(q2 => T[q2] !== t)) continue;
-        const plateauTreeChance = bp?.family === 'open' ? 0.16 : bp ? 0.24 : 0.5;
+        const plateauTreeChance = opts.cave ? 0 : bp?.family === 'open' ? 0.16 : bp ? 0.24 : 0.5;
         if (r() < plateauTreeChance) {
           const s = 0.75 + r() * 0.65;
           const isPine = r() < pineBias;
@@ -863,7 +934,7 @@ export class World {
           this.obstacles.push({ x, z, r: 0.4 * s + 0.15, h: y });
           this.trees.push({ x, y, z, r: 1.45 * s, leafCol: isPine ? P.pine[0] : P.leaf[0], rustleT: 0 });
         } else if (r() < 0.5) rocks.push({ x, y, z, s: 0.7 + r() * 1.1, ry: r() * 6 });
-        else bushes.push({ x, y, z, s: 0.85 + r() * 0.65, ry: r() * 6 });
+        else if (!opts.cave) bushes.push({ x, y, z, s: 0.85 + r() * 0.65, ry: r() * 6 });
       } else if (t === 1 && rr < 1.0) {
         const isW = walk[k];
         if (opts.town && Math.hypot(x, z) < 20) continue;
@@ -882,15 +953,16 @@ export class World {
           const s = 0.6 + r() * 1.15;
           rocks.push({ x, y, z, s, ry: r() * 6 });
           if (isW && s > 0.8) this.obstacles.push({ x, z, r: 0.5 * s, h: y });
-        } else if (roll < treeRate + 0.11) bushes.push({ x, y, z, s: 0.65 + r() * 0.6, ry: r() * 6 });
-        else if (roll < treeRate + 0.13 && !occupied(x, z, 1.1)) {
-          if (P.key === 'ember' || r() < 0.5) { pillars.push({ x, y, z, s: 0.95 + r() * 0.4, ry: r() * 6 }); if (isW) this.obstacles.push({ x, z, r: 0.5, h: y }); }
+        } else if (roll < treeRate + 0.11) {
+          if (!opts.cave) bushes.push({ x, y, z, s: 0.65 + r() * 0.6, ry: r() * 6 });
+        } else if (roll < treeRate + 0.13 && !occupied(x, z, 1.1)) {
+          if (opts.cave || P.key === 'ember' || r() < 0.5) { pillars.push({ x, y, z, s: 0.95 + r() * 0.4, ry: r() * 6 }); if (isW) this.obstacles.push({ x, z, r: 0.5, h: y }); }
           else { logs.push({ x, y, z, s: 0.95, ry: r() * 6 }); }
         } else if (roll < treeRate + 0.15) shrooms.push({ x, y, z, s: 0.85 + r() * 0.85, ry: r() * 6 });
       }
     }
     // 聚落式森林群組（Art-directed Forest Groves：每群 4~7 棵樹＋白樺楓紅點綴＋林下灌木與野花，消除空曠感）
-    if (!opts.town && !opts.raid) {
+    if (!opts.town && !opts.raid && !opts.cave) {
       const groveCount = bp
         ? (bp.family === 'open' ? 10 : bp.family === 'linear' ? 14 : 12)
         : Math.min(54, Math.round(9 * areaScale));
@@ -916,7 +988,7 @@ export class World {
       }
     }
     // grass & flowers in clumps (scaled with map area for lush A Short Hike vibe)
-    const clumpCount = Math.min(1150, Math.round(320 * areaScale));
+    const clumpCount = opts.cave ? 0 : Math.min(1150, Math.round(320 * areaScale));
     for (let i = 0; i < clumpCount; i++) {
       const cx = rand(r, -this.half + 2, this.half - 2), cz = rand(r, -this.half + 2, this.half - 2);
       const k = this.idx(cx, cz); if (k < 0 || T[k] === 0 || RR[k] > 0.96) continue;

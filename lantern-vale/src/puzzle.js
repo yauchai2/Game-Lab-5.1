@@ -129,6 +129,9 @@ export const SUPPORT_GEMS = {
   orbit:    { id: 'orbit',    type: 'support', name: '環繞軌道核',   short: '軌道', icon: '🪐', color: '#3ec6d8', price: 24, shape: [[0,0],[1,0]], desc: '【魔杖改造】相鄰投射物改為環繞角色高速旋轉的軌道切割彈幕！' },
   bluefire: { id: 'bluefire', type: 'support', name: '幽藍魂火轉化', short: '藍火', icon: '🔵', color: '#2a98f0', price: 22, shape: [[0,0]], desc: '【視覺演化】將相鄰主動技能轉化為幽藍魂火特效，耗魔 -25% 且傷害 +18%！' },
   vortex:   { id: 'vortex',   type: 'support', name: '聚能引力核',   short: '聚怪', icon: '🌀', color: '#8a5cf0', price: 24, shape: [[0,0],[0,1]], desc: '【視覺演化】相鄰範圍技能命中時產生向心引力，將周圍怪海拉向中心！' },
+  sv_ember_core:  { id: 'sv_ember_core',  type: 'support', name: '餘燼火種核', short: '火種核', icon: '☄️', color: '#ff6a30', price: 32, shape: [[0,0],[1,0]], desc: '【倖存者聯動】裝備於拼盤時，狂潮開局自帶 Lv.2 餘燼飛彈且超武傷害 +25%！' },
+  sv_resonance:   { id: 'sv_resonance',   type: 'support', name: '超武共鳴核', short: '共鳴核', icon: '🌟', color: '#ffd85a', price: 36, shape: [[0,0],[0,1]], desc: '【倖存者聯動】裝備於拼盤時，擁有至少 2 把超武時觸發星穹共鳴（暴傷 +40%、冷卻 -15%）！' },
+  sv_magnet_core: { id: 'sv_magnet_core', type: 'support', name: '貪婪星磁核', short: '星磁核', icon: '🧲', color: '#c87aff', price: 34, shape: [[0,0]], desc: '【倖存者聯動】裝備於拼盤時，狂潮開局自帶 Lv.1 貪婪金杯與星磁懷錶！' },
 };
 
 export const ALL_GEMS = { ...ACTIVE_GEMS, ...SUPPORT_GEMS };
@@ -161,13 +164,14 @@ export function rotateCells(shape, rot = 0) {
 export function defaultPuzzle(classId = 0) {
   const cls = CLASSES[classId] || CLASSES[0];
   let uid = 1;
-  const placed = cls.starter.map(s => ({ uid: uid++, id: s.id, x: s.x, y: s.y, rot: s.rot || 0 }));
-  const bag = cls.bag.map(id => ({ uid: uid++, id, rot: 0 }));
+  // 硬核循序成長：Lv.1 僅攜帶 1 顆職業基礎主動技，0 顆輔助寶石、背包 0 顆免費贈送；其餘技能皆需透過討伐精英／首領、委託或購買取得！
+  const firstActive = cls.starter[0] || { id: 'bolt', x: 1, y: 1, rot: 0 };
+  const placed = [{ uid: uid++, id: firstActive.id, x: firstActive.x, y: firstActive.y, rot: firstActive.rot || 0 }];
   return {
     activePreset: 0,
     nextUid: uid,
     presets: [placed, [], []],
-    bag,
+    bag: [],
     initializedClass: cls.id,
   };
 }
@@ -300,6 +304,48 @@ export function computeBoard(placed, partyGemId = null) {
     skills.push({ uid: item.uid, id: def.id, def, mod });
   }
   return skills;
+}
+
+// Propose a fit for one support gem. Existing pieces and other presets stay in place.
+export function suggestSupportFit(profile, gemId) {
+  const puzzle = profile.puzzle;
+  const placed = puzzle?.presets[puzzle.activePreset];
+  if (!placed?.length || !SUPPORT_GEMS[gemId]) return null;
+  const occupied = occupiedMap(placed);
+  const level = profile.level || 1;
+  const alreadyLinked = new Set(computeBoard(placed, puzzle.partyGem?.id)
+    .filter(skill => skill.mod.supports.some(support => support.id === gemId))
+    .map(skill => skill.uid));
+  let best = null;
+  for (let rot = 0; rot < 4; rot++) {
+    const cells = rotateCells(SUPPORT_GEMS[gemId].shape, rot);
+    for (let y = 0; y < GRID; y++) for (let x = 0; x < GRID; x++) {
+      if (!canPlace(placed, gemId, x, y, rot, level)) continue;
+      const linked = new Map();
+      for (const [dx, dy] of cells) {
+        const cx = x + dx, cy = y + dy;
+        for (const [nx, ny] of [[cx - 1, cy], [cx + 1, cy], [cx, cy - 1], [cx, cy + 1]]) {
+          const item = occupied.get(nx + ',' + ny);
+          if (item && ACTIVE_GEMS[item.id] && !alreadyLinked.has(item.uid)) linked.set(item.uid, ACTIVE_GEMS[item.id].name);
+        }
+      }
+      if (linked.size && linked.size > (best?.skills.length || 0)) best = { x, y, rot, skills: [...linked.values()] };
+    }
+  }
+  return best;
+}
+
+export function applySupportFit(profile, uid) {
+  const puzzle = profile.puzzle;
+  const index = puzzle?.bag.findIndex(gem => gem.uid === uid) ?? -1;
+  if (index < 0) return null;
+  const entry = puzzle.bag[index];
+  const fit = suggestSupportFit(profile, entry.id);
+  if (!fit) return null;
+  const { x, y, rot } = fit;
+  puzzle.presets[puzzle.activePreset].push({ ...entry, x, y, rot });
+  puzzle.bag.splice(index, 1);
+  return fit;
 }
 
 // 一鍵推薦構築：自動將現有棋盤＋背包寶石以最高邏輯電路與輔助相鄰度排入解鎖格
@@ -500,7 +546,7 @@ export function bindPuzzleUI(g) {
     const anchorSeen = new Set();
     const cellEls = new Map();
     const clearPreview = () => {
-      for (const el of cellEls.values()) el.classList.remove('preview-ok', 'preview-bad');
+      for (const el of cellEls.values()) el.classList.remove('preview-ok', 'preview-bad', 'pz-hover-hl');
     };
     const showPreview = (ax, ay) => {
       clearPreview();
@@ -564,7 +610,16 @@ export function bindPuzzleUI(g) {
             g.audio.sfx('pickup'); g.meta.save(); g.recalc(); render();
           };
         }
-        cell.onmouseenter = () => showPreview(x, y);
+        cell.onmouseenter = () => {
+          showPreview(x, y);
+          if (!holding && item) {
+            for (const c of gridEl.querySelectorAll('.pz-hover-hl')) c.classList.remove('pz-hover-hl');
+            for (const [k2, el2] of cellEls.entries()) {
+              const o2 = occ.get(k2);
+              if (o2 && o2.uid === item.uid) el2.classList.add('pz-hover-hl');
+            }
+          }
+        };
         cell.oncontextmenu = e => {
           e.preventDefault();
           if (holding) { holding.rot = (holding.rot + 1) % 4; g.audio.sfx('ui'); render(); }
@@ -719,7 +774,6 @@ export function bindPuzzleUI(g) {
   };
   modal.querySelectorAll('[data-pztab]').forEach(b => b.onclick = () => { modeTab = b.dataset.pztab; g.audio.sfx('ui'); render(); });
   modal.querySelectorAll('[data-pzflt]').forEach(b => b.onclick = () => { gemFilter = b.dataset.pzflt; g.audio.sfx('ui'); render(); });
-  modal.querySelector('#btnPuzzleClose').onclick = () => g.ui.closePuzzle();
 
   g.ui.openPuzzle = () => {
     if (g.state !== 'play') return;

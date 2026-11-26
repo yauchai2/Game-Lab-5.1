@@ -2,14 +2,16 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { Meta } from './meta.js';
-import { CLASSES, ALL_GEMS, ensurePuzzle } from './puzzle.js';
+import { getActiveAccount, listAccounts, loginAccount, registerAccount, logoutAccount, deleteCharacterSlot, slotKeys, slotHasData, getAccountSummary, exportAccountData, importAccountData } from './account.js';
+import { CLASSES, ALL_GEMS, defaultPuzzle, ensurePuzzle } from './puzzle.js';
 import { CHAR_CATALOG, JOB_ARCHETYPES, normalizeCharacterLook, createModularHero, preloadAllCharacterAnims } from './char_rig.js';
+import { openTextDialog } from './ui_layers.js';
 import { VfxEngine } from './vfx_engine.js';
 
 export const HOODS = [[0x2f8a7e,0x23695f],[0xd9543a,0xa83f2c],[0x6a6ad0,0x4a4aa0],[0xe0a030,0xb07f20],[0xc060b0,0x904488],[0x58a858,0x3f823f],[0x4aa0d8,0x3478a8],[0x8a6a50,0x65503c]];
 
 const $ = id => document.getElementById(id);
-const key = slot => slot === 0 ? 'lv_prof' : 'lv_prof_' + slot;
+const key = slot => slotKeys(slot).charKey;
 function read(id) { try { return JSON.parse(localStorage.getItem(id)); } catch { return null; } }
 function clampIdx(value, count) { return Number.isInteger(value) && value >= 0 && value < count ? value : 0; }
 
@@ -23,17 +25,235 @@ const ISLAND_SPOTS = [
   { job: 4, x: -0.82, y: 0.62, z:  0.82, rotY:  0.18, camAng: -0.18, focusDist: 4.10, focusY: 1.22, en: 'Monk',        pose: null },
 ];
 
-// 載入 Low Poly Locations Ultimate Pack 的《Location mountain ship》實景 GLB＋延伸海洋底面
+// 手繪卡通動態海水 Shader（參考 Zelda Wind Waker / A Short Hike：明亮蔚藍海面＋有機流動浪花輪廓＋岸邊白沫＋點擊漣漪）
+function createCreatorOceanMaterial() {
+  return new THREE.ShaderMaterial({
+    transparent: false,
+    uniforms: {
+      uTime: { value: 0 },
+      uRipple: { value: new THREE.Vector4(0, 0, -99, 0) }, // x, z, startTime, strength
+    },
+    vertexShader: `
+      uniform float uTime;
+      varying vec3 vWorldPos;
+      varying float vWave;
+      void main() {
+        vec4 wp = modelMatrix * vec4(position, 1.0);
+        float dist = length(wp.xz);
+        float shoreDamp = smoothstep(2.2, 6.2, dist);
+        float w1 = sin(wp.x * 0.55 + uTime * 1.45) * cos(wp.z * 0.48 + uTime * 1.15);
+        float w2 = sin((wp.x * 0.35 - wp.z * 0.42) + uTime * 1.85);
+        float wave = (w1 * 0.085 + w2 * 0.05) * (0.28 + 0.72 * shoreDamp);
+        wp.y += wave;
+        vWorldPos = wp.xyz;
+        vWave = wave;
+        gl_Position = projectionMatrix * viewMatrix * wp;
+      }
+    `,
+    fragmentShader: `
+      uniform float uTime;
+      uniform vec4 uRipple;
+      varying vec3 vWorldPos;
+      varying float vWave;
+
+      float hash21(vec2 p) {
+        p = fract(p * vec2(123.34, 456.21));
+        p += dot(p, p + 45.32);
+        return fract(p.x * p.y);
+      }
+
+      float vnoise(vec2 p) {
+        vec2 i = floor(p);
+        vec2 f = fract(p);
+        f = f * f * (3.0 - 2.0 * f);
+        float a = hash21(i);
+        float b = hash21(i + vec2(1.0, 0.0));
+        float c = hash21(i + vec2(0.0, 1.0));
+        float d = hash21(i + vec2(1.0, 1.0));
+        return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+      }
+
+      float fbm(vec2 p) {
+        float v = 0.0;
+        v += 0.58 * vnoise(p);
+        v += 0.28 * vnoise(p * 2.05 + vec2(4.1, 1.7));
+        v += 0.14 * vnoise(p * 4.10 - vec2(2.3, 5.2));
+        return v;
+      }
+
+      void main() {
+        vec2 uv = vWorldPos.xz;
+        float dist = length(uv);
+
+        // 雙層有機扭曲海流場（重現手繪卡通海浪輪廓線！）
+        vec2 drift1 = uv * 0.24 + vec2(uTime * 0.09, uTime * 0.055);
+        vec2 warp = vec2(fbm(drift1 + vec2(1.7, 9.2)), fbm(drift1 + vec2(8.3, 2.8)));
+        float field = fbm(uv * 0.28 + warp * 1.35 - vec2(uTime * 0.06, -uTime * 0.045));
+
+        // 基礎色帶：近岸碧綠淺海 → 明亮蔚藍 → 遠海柔和天際漸層
+        vec3 shallowCol = vec3(0.24, 0.72, 0.92);
+        vec3 midCol     = vec3(0.14, 0.56, 0.85);
+        vec3 deepCol    = vec3(0.11, 0.48, 0.78);
+        vec3 horizonCol = vec3(0.68, 0.88, 0.96);
+
+        vec3 col = mix(shallowCol, midCol, smoothstep(3.0, 8.5, dist));
+        col = mix(col, deepCol, smoothstep(10.0, 26.0, dist));
+
+        // 柔和深藍水波區塊層次
+        float patchMask = smoothstep(0.54, 0.58, field);
+        col = mix(col, col * 0.90, patchMask * 0.55);
+
+        // 卡通手繪淺藍／純白浪花輪廓線（雙等高線條帶）
+        float band1 = 1.0 - smoothstep(0.018, 0.036, abs(field - 0.52));
+        float band2 = 1.0 - smoothstep(0.010, 0.022, abs(field - 0.66));
+        float rim1  = 1.0 - smoothstep(0.005, 0.014, abs(field - 0.52));
+        vec3 foamCyan  = vec3(0.56, 0.86, 0.98);
+        vec3 foamWhite = vec3(0.86, 0.97, 1.00);
+        col = mix(col, foamCyan, clamp(band1 * 0.85 + band2 * 0.65, 0.0, 1.0));
+        col = mix(col, foamWhite, rim1 * 0.75);
+
+        // 岸邊呼吸白浪圈（貼合沉船小島與周邊礁岩）
+        float shoreWave = sin(dist * 3.6 - uTime * 2.3 + warp.x * 2.2);
+        float shoreMask = (1.0 - smoothstep(3.2, 6.4, dist)) * smoothstep(2.1, 3.3, dist);
+        float shoreFoam = smoothstep(0.52, 0.78, shoreWave) * shoreMask;
+        col = mix(col, foamWhite, shoreFoam * 0.85);
+
+        // 零星海面日照小亮點
+        float glint = step(0.986, hash21(floor(uv * 2.2 + vec2(floor(uTime * 1.5) * 0.13, 0.0))));
+        col = mix(col, vec3(1.0), glint * 0.55 * (1.0 - smoothstep(14.0, 32.0, dist)));
+
+        // 點擊海面擴散卡通水波漣漪
+        float ripAge = uTime - uRipple.z;
+        if (ripAge >= 0.0 && ripAge < 1.8 && uRipple.w > 0.01) {
+          float rDist = length(uv - uRipple.xy);
+          float rRad = ripAge * 3.2;
+          float rRing = 1.0 - smoothstep(0.08, 0.24, abs(rDist - rRad));
+          float rRing2 = 1.0 - smoothstep(0.06, 0.18, abs(rDist - max(0.0, rRad - 0.55)));
+          float fade = (1.0 - ripAge / 1.8) * uRipple.w;
+          col = mix(col, vec3(0.95, 0.99, 1.0), clamp((rRing + rRing2 * 0.65) * fade, 0.0, 1.0));
+        }
+
+        // 遠景天際線柔焦融合（消除平面方形邊界）
+        float fog = smoothstep(24.0, 68.0, dist);
+        col = mix(col, horizonCol, fog);
+
+        gl_FragColor = vec4(col, 1.0);
+      }
+    `,
+  });
+}
+
+// 載入 Low Poly Locations Ultimate Pack 的《Location mountain ship》實景 GLB＋動態卡通海洋＋可互動島嶼物件
 function buildMountainShipStage(onReady) {
   const grp = new THREE.Group();
 
-  // 無縫延伸碧藍熱帶海洋材質（GLB 水面與外延海洋共用同一材質，色澤鮮亮零接縫！）
-  const seaMat = new THREE.MeshStandardMaterial({ color: 0x3eb4e6, roughness: 0.72, metalness: 0.0 });
-  const seaPlane = new THREE.Mesh(new THREE.PlaneGeometry(220, 220), seaMat);
+  // 會動的卡通海洋（細分網格支撐海浪起伏＋有機浪花輪廓＋點擊漣漪）
+  const seaMat = createCreatorOceanMaterial();
+  const seaPlane = new THREE.Mesh(new THREE.PlaneGeometry(180, 180, 92, 92), seaMat);
   seaPlane.rotation.x = -Math.PI / 2;
-  seaPlane.position.y = -0.025;
-  seaPlane.receiveShadow = true;
+  seaPlane.position.y = 0.015;
+  seaPlane.userData.interactKind = 'ocean';
   grp.add(seaPlane);
+
+  // 島嶼動態物件註冊表（持續微風動畫＋點擊彈性互動！）
+  const animItems = [];
+  const interactMeshes = [seaPlane];
+
+  // 山頂瞭望塔暖金星燈（呼吸搖擺＋點擊爆亮信號光柱）
+  const towerLanternGrp = new THREE.Group();
+  const lanternCore = new THREE.Mesh(
+    new THREE.OctahedronGeometry(0.18, 0),
+    new THREE.MeshBasicMaterial({ color: 0xffe478 }),
+  );
+  const lanternHalo = new THREE.Mesh(
+    new THREE.SphereGeometry(0.28, 10, 8),
+    new THREE.MeshBasicMaterial({ color: 0xffc84a, transparent: true, opacity: 0.35, depthWrite: false }),
+  );
+  const lanternLight = new THREE.PointLight(0xffcf6a, 1.8, 7.5, 1.4);
+  towerLanternGrp.add(lanternCore, lanternHalo, lanternLight);
+  towerLanternGrp.position.set(0.75, 4.35, -1.65);
+  towerLanternGrp.visible = false; // GLB 載入後對齊瞭望塔頂位置再顯示
+  grp.add(towerLanternGrp);
+
+  // 3 隻高空盤旋 Low Poly 海鷗（雙翅拍動＋點擊加速翻滾灑羽毛）
+  const gulls = [];
+  const gullMat = new THREE.MeshStandardMaterial({ color: 0xfffaf0, roughness: 0.8 });
+  const beakMat = new THREE.MeshStandardMaterial({ color: 0xf08c30, roughness: 0.7 });
+  for (let i = 0; i < 3; i++) {
+    const gRoot = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.32, 5), gullMat);
+    body.rotation.x = Math.PI / 2;
+    const beak = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.1, 4), beakMat);
+    beak.rotation.x = Math.PI / 2; beak.position.z = 0.2;
+    const wingL = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.03, 0.12), gullMat);
+    wingL.position.set(-0.16, 0.02, 0);
+    const wingR = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.03, 0.12), gullMat);
+    wingR.position.set(0.16, 0.02, 0);
+    const hitG = new THREE.Mesh(new THREE.SphereGeometry(0.35, 6, 6), new THREE.MeshBasicMaterial({ visible: false }));
+    hitG.userData.interactKind = 'gull';
+    hitG.userData.gullIdx = i;
+    gRoot.add(body, beak, wingL, wingR, hitG);
+    grp.add(gRoot);
+    interactMeshes.push(hitG);
+    gulls.push({
+      root: gRoot, wingL, wingR,
+      radius: 3.1 + i * 0.95,
+      height: 4.1 + i * 0.65,
+      speed: 0.42 + i * 0.11,
+      ang: (i / 3) * Math.PI * 2,
+      flapPh: i * 2.1,
+      boostT: 0,
+    });
+  }
+
+  // 4 朵低面蓬鬆漂浮白雲（營造 A Short Hike / 風之律動明信片層次感！）
+  const clouds = [];
+  const cloudMat = new THREE.MeshStandardMaterial({ color: 0xfffcf4, roughness: 0.95, metalness: 0.0 });
+  const cloudSpecs = [
+    { x: -6.2, y: 5.6, z: -7.5, s: 1.05, spd: 0.24 },
+    { x:  4.8, y: 6.3, z: -9.0, s: 1.25, spd: 0.18 },
+    { x: -1.5, y: 6.8, z: -10.5, s: 0.95, spd: 0.21 },
+    { x:  7.8, y: 5.2, z: -6.5, s: 0.85, spd: 0.26 },
+  ];
+  for (const cs of cloudSpecs) {
+    const cg = new THREE.Group();
+    const puffs = [
+      [0, 0, 0, 0.72], [-0.62, -0.08, 0.08, 0.52], [0.64, -0.06, -0.05, 0.55], [0.18, 0.26, 0.04, 0.48],
+    ];
+    for (const [px, py, pz, r] of puffs) {
+      const m = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 1), cloudMat);
+      m.position.set(px, py, pz);
+      cg.add(m);
+    }
+    cg.scale.setScalar(cs.s);
+    cg.position.set(cs.x, cs.y, cs.z);
+    grp.add(cg);
+    clouds.push({ group: cg, baseY: cs.y, spd: cs.spd, ph: Math.random() * Math.PI * 2 });
+  }
+
+  // 2 座隨海浪起伏的紅白航海浮標（可點擊濺起水花！）
+  const buoys = [];
+  const buoyRed = new THREE.MeshStandardMaterial({ color: 0xd95442, roughness: 0.75 });
+  const buoyCream = new THREE.MeshStandardMaterial({ color: 0xfff4dc, roughness: 0.8 });
+  const buoyCoords = [[-4.8, 2.2], [4.9, 1.6]];
+  buoyCoords.forEach(([bx, bz], idx) => {
+    const bg = new THREE.Group();
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.28, 0.34, 8), buoyRed);
+    base.position.y = 0.08;
+    const stripe = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, 0.22, 8), buoyCream);
+    stripe.position.y = 0.34;
+    const lamp = new THREE.Mesh(new THREE.OctahedronGeometry(0.11, 0), new THREE.MeshBasicMaterial({ color: 0xffe478 }));
+    lamp.position.y = 0.56;
+    const hitB = new THREE.Mesh(new THREE.SphereGeometry(0.45, 6, 6), new THREE.MeshBasicMaterial({ visible: false }));
+    hitB.position.y = 0.28;
+    hitB.userData.interactKind = 'buoy';
+    hitB.userData.buoyIdx = idx;
+    bg.add(base, stripe, lamp, hitB);
+    bg.position.set(bx, 0.04, bz);
+    grp.add(bg);
+    interactMeshes.push(hitB);
+    buoys.push({ group: bg, x: bx, z: bz, ph: idx * 2.4, bounceT: 0 });
+  });
 
   const SCENE_SCALE = 0.22;
   const loader = new GLTFLoader();
@@ -44,30 +264,80 @@ function buildMountainShipStage(onReady) {
     // 旋轉 -0.66 rad 使船首、瞭望塔、沙灘與參考圖完全同角呈現！
     model.rotation.y = -0.66;
     const walkMeshes = [];
+    let towerObj = null;
+
     model.traverse(obj => {
       if (!obj.isMesh) return;
       const n = (obj.name || '').toLowerCase();
       const isWater = n.includes('water');
-      obj.castShadow = !isWater;
-      obj.receiveShadow = true;
       if (isWater) {
-        obj.material = seaMat;
-      } else if (obj.material) {
+        // 隱藏原 GLB 靜止平面水層，統一由動態卡通海浪 Shader 呈現零穿模！
+        obj.visible = false;
+        return;
+      }
+      obj.castShadow = true;
+      obj.receiveShadow = true;
+      if (obj.material) {
         obj.material.roughness = 0.88;
         obj.material.metalness = 0.0;
       }
-      // 僅將島嶼沙灘、山坡、船體與階梯加入貼地 Raycast 目標（略過棕櫚葉、灌木與水面）
+      // 僅將島嶼沙灘、山坡、船體與階梯加入貼地 Raycast 目標
       if (n.includes('island') || n.includes('mountain') || n.includes('ship') || n.includes('steps') || n.includes('stair')) {
-        if (!isWater) walkMeshes.push(obj);
+        walkMeshes.push(obj);
+      }
+
+      // 依物件種類自動綁定持續自然動畫與點擊互動標籤！
+      let kind = null;
+      if (n.includes('palm')) kind = 'palm';
+      else if (n.includes('tree')) kind = 'tree';
+      else if (n.includes('shrub')) kind = 'shrub';
+      else if (n.includes('barrel')) kind = 'barrel';
+      else if (n.includes('box')) kind = 'box';
+      else if (n.includes('rope')) kind = 'rope';
+      else if (n.includes('observation') || n.includes('tower')) { kind = 'tower'; towerObj = obj; }
+      else if (n.includes('destroyed ship') || n.includes('ship')) kind = 'ship';
+
+      if (kind) {
+        const entry = {
+          obj, kind,
+          baseRotX: obj.rotation.x, baseRotY: obj.rotation.y, baseRotZ: obj.rotation.z,
+          basePosY: obj.position.y,
+          baseScaleX: obj.scale.x, baseScaleY: obj.scale.y, baseScaleZ: obj.scale.z,
+          phase: Math.random() * Math.PI * 2,
+          shakeT: 0,
+          bounceT: 0,
+        };
+        animItems.push(entry);
+        obj.userData.interactKind = kind;
+        obj.userData.animEntry = entry;
+        interactMeshes.push(obj);
       }
     });
+
     grp.add(model);
     model.updateMatrixWorld(true);
-    onReady?.(walkMeshes);
+
+    // 將暖金星燈精準對齊山頂紅頂瞭望塔頂端
+    if (towerObj) {
+      const box = new THREE.Box3().setFromObject(towerObj);
+      const center = new THREE.Vector3();
+      box.getCenter(center);
+      towerLanternGrp.position.set(center.x, box.max.y + 0.12, center.z);
+      towerLanternGrp.visible = true;
+    }
+
+    onReady?.(walkMeshes, { animItems, interactMeshes, towerLanternGrp });
   }, undefined, err => {
     console.warn('[CreatorScene] Failed to load creator_mountain_ship.glb:', err);
   });
 
+  grp.userData.oceanMat = seaMat;
+  grp.userData.animItems = animItems;
+  grp.userData.interactMeshes = interactMeshes;
+  grp.userData.gulls = gulls;
+  grp.userData.clouds = clouds;
+  grp.userData.buoys = buoys;
+  grp.userData.towerLantern = { group: towerLanternGrp, core: lanternCore, halo: lanternHalo, light: lanternLight, flareT: 0 };
   return grp;
 }
 
@@ -120,14 +390,33 @@ export function bindCharacters(game) {
 
   preloadAllCharacterAnims();
 
-  let slot = clampIdx(read('lv_active_slot'), 3);
-  if (slotsSel) {
-    slotsSel.innerHTML = '';
-    for (let i = 0; i < 3; i++) {
-      slotsSel.add(new Option(read(key(i))?.name || ('旅人欄位 ' + (i + 1)), i));
+  let slot = clampIdx(read(slotKeys(0).activeSlotKey), 3);
+  function refreshSlotsUI(keepSlot = true) {
+    const acct = getActiveAccount();
+    const acctBtn = $('btnAccount');
+    if (acctBtn) {
+      acctBtn.textContent = acct.isGuest ? '👤 訪客登入' : `👤 ${acct.username}`;
+      acctBtn.style.background = acct.isGuest ? '#5a463a' : '#2f7a58';
     }
-    slotsSel.value = slot;
+    if (!keepSlot) slot = clampIdx(read(slotKeys(0).activeSlotKey), 3);
+    if (slotsSel) {
+      slotsSel.innerHTML = '';
+      for (let i = 0; i < 3; i++) {
+        const sk = slotKeys(i);
+        const savedChar = read(sk.charKey);
+        const savedProf = read(sk.profileKey);
+        const lvTag = savedProf?.level ? ` Lv.${savedProf.level}` : '';
+        const label = savedChar?.name
+          ? `${savedChar.name}${lvTag}`
+          : savedProf?.level
+            ? `旅人欄位 ${i + 1}${lvTag}`
+            : `旅人欄位 ${i + 1}（空）`;
+        slotsSel.add(new Option(label, i));
+      }
+      slotsSel.value = slot;
+    }
   }
+  refreshSlotsUI(true);
 
   // 統一 A Short Hike 像素渲染管線（關閉抗鋸齒＋依遊戲像素倍率縮放＋pixelated 清晰放大！）
   const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false, preserveDrawingBuffer: true });
@@ -241,13 +530,19 @@ export function bindCharacters(game) {
   dressupStage.add(duSparks);
   let duSparkLife = 0;
 
-  // 選中腳底暖金發光環
+  // 選中腳底暖金發光環 ＋ 柔和聖光聚焦光柱（取代拉近縮放，讓被選中英雄一眼聚焦又保留全島美感！）
   const selRing = new THREE.Mesh(
-    new THREE.RingGeometry(0.46, 0.62, 28),
-    new THREE.MeshBasicMaterial({ color: 0xffdf6a, side: THREE.DoubleSide, transparent: true, opacity: 0.88 })
+    new THREE.RingGeometry(0.46, 0.64, 28),
+    new THREE.MeshBasicMaterial({ color: 0xffdf6a, side: THREE.DoubleSide, transparent: true, opacity: 0.92 })
   );
   selRing.rotation.x = -Math.PI / 2;
   islandStage.add(selRing);
+  const selBeam = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.28, 0.62, 4.4, 16, 1, true),
+    new THREE.MeshBasicMaterial({ color: 0xffe896, transparent: true, opacity: 0.18, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending })
+  );
+  selBeam.visible = false;
+  islandStage.add(selBeam);
 
   // 狀態控制
   let stageMode = 'overview'; // 'overview' | 'focus' | 'dressup'
@@ -258,8 +553,9 @@ export function bindCharacters(game) {
   let running = true;
   let inTownWardrobe = false;
 
-  // 平滑電影運鏡（Camera Dolly & Orbit）— 總覽寬闊俯瞰整座沉船海島（含完整桅桿、紅頂瞭望塔與周圍島礁），聚焦維持舒適中景全身比例！
+  // 鎖定黃金明信片視角（禁止拖曳旋轉島嶼角度，點擊角色不縮近、僅優雅微移鏡頭＋滑鼠微視差！）
   let orbitYaw = 0.0, orbitVel = 0, dressRotY = 0;
+  let mouseNdcX = 0, mouseNdcY = 0;
   const camCurPos = new THREE.Vector3(0.0, 7.65, 14.35);
   const camCurTarget = new THREE.Vector3(0.0, 2.08, -0.15);
   const camGoalPos = new THREE.Vector3(0.0, 7.65, 14.35);
@@ -275,20 +571,13 @@ export function bindCharacters(game) {
     }
     if (stageMode === 'focus') {
       const sp = ISLAND_SPOTS[selectedJob] || ISLAND_SPOTS[0];
-      const cos = Math.cos(orbitYaw), sin = Math.sin(orbitYaw);
-      const wx = sp.x * cos + sp.z * sin;
-      const wz = -sp.x * sin + sp.z * cos;
-      // 沿各英雄專屬無遮擋外向通道 camAng 推近至舒適全身中景（保留沉船島景深！）
-      const worldCamAng = (sp.camAng ?? sp.rotY) + orbitYaw;
-      const fx = Math.sin(worldCamAng), fz = Math.cos(worldCamAng);
-      // 略微右偏讓英雄全身居於黃金左中位置，右側留給輕量英雄卡
-      const rx = fz * 0.42, rz = -fx * 0.42;
-      camGoalTarget.set(wx + rx, sp.focusY, wz + rz);
-      camGoalPos.set(wx + rx + fx * sp.focusDist, sp.focusY + 0.95, wz + rz + fz * sp.focusDist);
-      camGoalFov = 32;
+      // 不縮近！保持完整沉船海島構圖，只輕微向左讓出右側卡片空間＋極柔和朝向選中英雄的微鏡頭傾斜
+      camGoalTarget.set(1.05 + sp.x * 0.14, 2.02 + (sp.y - 0.3) * 0.15, -0.12 + sp.z * 0.08);
+      camGoalPos.set(1.05 + sp.x * 0.22, 7.45, 13.85);
+      camGoalFov = 31.2;
       return;
     }
-    // Overview：寬闊俯瞰整座沉船海島（完整桅桿黑旗、紅頂瞭望塔、周圍島礁與 5 位英雄）！
+    // Overview：寬闊俯瞰整座沉船海島（完整桅桿黑旗、紅頂瞭望塔、藍海浮標、漂浮白雲與 5 位英雄）！
     camGoalTarget.set(0.0, 2.08, -0.15);
     camGoalPos.set(0.0, 7.65, 14.35);
     camGoalFov = 32;
@@ -299,6 +588,7 @@ export function bindCharacters(game) {
     if (h) {
       h.hero.setLook(activeSlotLook, CLASSES[selectedJob]?.weapon || 'staff');
       selRing.position.set(h.x, h.y + 0.04, h.z);
+      selBeam.position.set(h.x, h.y + 2.2, h.z);
     }
     dressHero.setLook(activeSlotLook, CLASSES[selectedJob]?.weapon || 'staff');
     game.character = { ...activeSlotLook };
@@ -316,12 +606,13 @@ export function bindCharacters(game) {
       }, selectedJob);
     }
     stageMode = 'focus';
-    // 旋轉小島讓焦點英雄面向鏡頭中心，鏡頭再平滑飛近（完全還原影片順滑感！）
-    const sp = ISLAND_SPOTS[selectedJob];
-    orbitYaw = -(sp.camAng ?? sp.rotY) * 0.35;
+    orbitYaw = 0;
     orbitVel = 0;
     syncHeroMeshes();
     if (triggerAnim) {
+      const sp = ISLAND_SPOTS[selectedJob];
+      const hObj = islandHeroes[selectedJob];
+      if (hObj) hObj.hopT = 0.55; // 可愛雀躍小跳反應！
       // Phase V5：選角聚焦時於英雄腳下綻放專屬 Piloto 3D 法陣與招牌迷你特效（不再播跳躍 Buff 導致彈跳或歸零硬直！）
       const th = CLASSES[selectedJob]?.auraTheme || 'holy';
       theaterVfx.spawnDecal(selectedJob === 4 || selectedJob === 0 ? 'holy_ring' : 'magic_circle', sp.x, sp.y, sp.z, { theme: th, scaleStart: 0.8, scaleEnd: 1.75, dur: 1.2, spinY: 1.8 });
@@ -383,36 +674,37 @@ export function bindCharacters(game) {
     if (pill) pill.textContent = `${selectedJob + 1}. ${cls.icon} ${cls.name} · ${sp.en}`;
     document.querySelectorAll('.hero-pin-btn,.hero-pin-3d').forEach((b, i) => b.classList.toggle('on', i === selectedJob));
     selRing.visible = stageMode === 'focus';
+    selBeam.visible = stageMode === 'focus';
     computeCameraGoal();
   }
 
   // ---------------- 右側 Stage 1：冒險手帳（參考圖 1） ----------------
   function renderScrapbook() {
     const cls = CLASSES[selectedJob] || CLASSES[0];
-    const sp = ISLAND_SPOTS[selectedJob] || ISLAND_SPOTS[0];
     const tag = $('sbClassTag');
-    if (tag) tag.textContent = `${cls.icon} ${cls.name} · ${sp.en}`;
+    if (tag) tag.textContent = `${cls.icon} ${cls.name}`;
     const desc = $('sbClassDesc');
     if (desc) desc.textContent = cls.desc;
 
-    // 三格膠帶貼紙屬性徽章（防禦 / 輸出特性 / 初始拼圖）
+    const startingPuzzle = defaultPuzzle(cls.id);
+    const gemIds = [...startingPuzzle.presets[0], ...startingPuzzle.bag].map(gem => gem.id);
+    // 三格顯示職業特色與實際初始寶石。
     const statsEl = $('sbStats');
     if (statsEl) {
       const b = cls.bonuses || {};
-      const stat1 = b.armor ? `🛡️ +${b.armor}%` : b.maxHp ? `❤️ +${b.maxHp}` : b.mana ? `💧 +${b.mana}` : '🛡️ 標準';
+      const stat1 = b.armor ? `🛡️ +${b.armor}%` : b.maxHp ? `❤️ +${b.maxHp}` : b.mana ? `💧 +${b.mana}` : b.moveSpd ? `➜ +${b.moveSpd}%` : '—';
       const stat2 = b.atkSpd ? `⚔️ +${b.atkSpd}%` : b.crit ? `🎯 +${b.crit}%` : b.addFire ? `🔥 +${b.addFire}` : b.regen ? `🪷 +${b.regen}/s` : '⚔️ 均衡';
-      const stat3 = `💎 ×${(cls.starter?.length || 0) + (cls.bag?.length || 0)}`;
+      const stat3 = `💎 ×${gemIds.length}`;
       statsEl.innerHTML = `
-        <div class="sb-stat"><span class="sb-st-val">${stat1}</span><small>體質特色</small></div>
-        <div class="sb-stat"><span class="sb-st-val">${stat2}</span><small>戰鬥專長</small></div>
-        <div class="sb-stat"><span class="sb-st-val">${stat3}</span><small>初始寶石</small></div>`;
+        <div class="sb-stat"><span class="sb-st-val">${stat1}</span><small>體質</small></div>
+        <div class="sb-stat"><span class="sb-st-val">${stat2}</span><small>專長</small></div>
+        <div class="sb-stat"><span class="sb-st-val">${stat3}</span><small>起始</small></div>`;
     }
 
     // 4×2 初始拼圖寶石網格（點擊看底部紙條說明，呼應圖 1！）
     const grid = $('sbGemGrid');
     const note = $('sbGemNote');
     if (grid) {
-      const gemIds = [...(cls.starter || []).map(s => s.id), ...(cls.bag || [])].slice(0, 8);
       if (!activeGemDetail || !gemIds.includes(activeGemDetail)) activeGemDetail = gemIds[0];
       grid.innerHTML = gemIds.map(gid => {
         const gDef = ALL_GEMS[gid];
@@ -563,25 +855,68 @@ export function bindCharacters(game) {
     }
   }
 
-  // ---------------- 滑鼠 360° 旋轉 ＋ 3D 點擊選英雄 ----------------
+  // ---------------- 島嶼互動粒子池（落葉、金幣、水花、羽毛、螢火） ----------------
+  const islFxPool = [];
+  const islFxGeo = new THREE.OctahedronGeometry(0.085, 0);
+  function burstIslandFx(worldPt, colors, count = 12, spread = 2.0, up = 2.6) {
+    const localPt = islandStage.worldToLocal(worldPt.clone());
+    for (let i = 0; i < count; i++) {
+      if (islFxPool.length >= 90) {
+        const old = islFxPool.shift();
+        islandStage.remove(old.mesh);
+        old.mesh.material.dispose();
+      }
+      const c = colors[i % colors.length];
+      const m = new THREE.Mesh(islFxGeo, new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 1 }));
+      m.position.copy(localPt);
+      m.position.y += 0.15;
+      const a = Math.random() * Math.PI * 2;
+      const sp = (0.4 + Math.random() * 0.8) * spread;
+      islandStage.add(m);
+      islFxPool.push({
+        mesh: m,
+        vx: Math.cos(a) * sp,
+        vy: up * (0.65 + Math.random() * 0.65),
+        vz: Math.sin(a) * sp,
+        life: 0.75 + Math.random() * 0.45,
+        maxLife: 1.0,
+      });
+    }
+  }
+
+  // ---------------- 滑鼠 360° 旋轉 ＋ 3D 點擊選英雄 ＋ 島嶼物件互動 ----------------
   const raycaster = new THREE.Raycaster();
   const ptr = new THREE.Vector2();
   let drag = null;
+  let oceanClock = 0;
+  let hoverCheckCd = 0;
   canvas.addEventListener('pointerdown', e => {
     drag = { x: e.clientX, y: e.clientY, lx: e.clientX, moved: false };
     canvas.setPointerCapture?.(e.pointerId);
   });
   canvas.addEventListener('pointermove', e => {
-    if (!drag) return;
+    const rect = canvas.getBoundingClientRect();
+    mouseNdcX = ((e.clientX - rect.left) / Math.max(1, rect.width)) * 2 - 1;
+    mouseNdcY = -((e.clientY - rect.top) / Math.max(1, rect.height)) * 2 + 1;
+    if (!drag) {
+      // 懸停偵測：指到英雄或可互動島嶼物件時顯示手型游標（選角頁鎖定視角，不顯示抓手）
+      if (stageMode !== 'dressup' && (performance.now() - hoverCheckCd) > 70) {
+        hoverCheckCd = performance.now();
+        ptr.set(mouseNdcX, mouseNdcY);
+        raycaster.setFromCamera(ptr, camera);
+        const heroHit = raycaster.intersectObjects(islandHeroes.map(h => h.hitBox), false);
+        const propMeshes = (islandGeo.userData.interactMeshes || []).filter(m => m.userData.interactKind !== 'ocean');
+        const propHit = heroHit.length ? heroHit : raycaster.intersectObjects(propMeshes, false);
+        canvas.style.cursor = propHit.length ? 'pointer' : 'default';
+      }
+      return;
+    }
     const dx = e.clientX - drag.lx;
     if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 6) drag.moved = true;
     drag.lx = e.clientX;
+    // 僅在換裝間允許旋轉檢視角色；選角島嶼頁鎖定最佳美感構圖，禁止拖曳移動角度！
     if (stageMode === 'dressup') {
       dressRotY += dx * 0.012;
-    } else {
-      orbitYaw += dx * 0.0085;
-      orbitVel = dx * 0.004;
-      computeCameraGoal();
     }
   });
   canvas.addEventListener('pointerup', e => {
@@ -594,8 +929,64 @@ export function bindCharacters(game) {
       if (hits.length) {
         const job = hits[0].object.userData.heroJob;
         if (Number.isInteger(job)) { game.audio?.sfx?.('ui'); focusHero(job, true); }
-      } else if (stageMode === 'focus') {
-        setOverview();
+      } else {
+        // 偵測點擊島上可互動元件（木桶、木箱、棕櫚樹、闊葉樹、灌木、沉船、瞭望塔、海鷗、動態海面！）
+        const propHits = raycaster.intersectObjects(islandGeo.userData.interactMeshes || [], false);
+        const hit = propHits[0];
+        if (hit) {
+          const kind = hit.object.userData.interactKind;
+          const entry = hit.object.userData.animEntry;
+          const pt = hit.point;
+          if (kind === 'barrel' || kind === 'box') {
+            if (entry) entry.bounceT = 1.0;
+            burstIslandFx(pt, [0xffd85a, 0xffe89a, 0xffffff], 14, 1.8, 2.8);
+            game.audio?.sfx?.('pickup');
+          } else if (kind === 'palm' || kind === 'tree') {
+            if (entry) entry.shakeT = 1.25;
+            burstIslandFx(pt, [0x7fe06a, 0xa8ec78, 0xffd85a], 15, 2.1, 2.2);
+            game.audio?.sfx?.('perfect');
+          } else if (kind === 'shrub') {
+            if (entry) entry.bounceT = 1.0;
+            burstIslandFx(pt, [0x8ef08a, 0xfff07a, 0x98f8ff], 12, 1.6, 2.4);
+            game.audio?.sfx?.('xpGem');
+          } else if (kind === 'ship' || kind === 'rope') {
+            if (entry) entry.shakeT = 1.1;
+            burstIslandFx(pt, [0xffffff, 0x8eeeff, 0xffd85a], 16, 2.4, 2.6);
+            game.audio?.sfx?.('tideHorn');
+            // 船上英雄開心揮手／蓄力回應
+            islandHeroes[4]?.hero?.play?.('buff', { once: true, force: true });
+          } else if (kind === 'tower') {
+            if (entry) entry.bounceT = 0.85;
+            const tl = islandGeo.userData.towerLantern;
+            if (tl) tl.flareT = 1.6;
+            const tlWorld = tl?.group ? tl.group.getWorldPosition(new THREE.Vector3()) : pt;
+            burstIslandFx(tlWorld, [0xffe87a, 0xffa83a, 0xffffff], 18, 2.2, 3.2);
+            theaterVfx.spawnDecal('holy_ring', tlWorld.x, tlWorld.y - 0.1, tlWorld.z, { theme: 'holy', scaleStart: 0.4, scaleEnd: 1.8, dur: 1.0 });
+            game.audio?.sfx?.('ultReady');
+          } else if (kind === 'gull') {
+            const gItem = (islandGeo.userData.gulls || [])[hit.object.userData.gullIdx];
+            if (gItem) gItem.boostT = 1.5;
+            burstIslandFx(pt, [0xffffff, 0xfff8e6, 0x8eeeff], 12, 1.8, 1.8);
+            game.audio?.sfx?.('ui');
+          } else if (kind === 'buoy') {
+            const bItem = (islandGeo.userData.buoys || [])[hit.object.userData.buoyIdx];
+            if (bItem) bItem.bounceT = 1.1;
+            const oceanMat = islandGeo.userData.oceanMat;
+            if (oceanMat?.uniforms?.uRipple) oceanMat.uniforms.uRipple.value.set(pt.x, pt.z, oceanClock, 1.0);
+            burstIslandFx(pt, [0xffffff, 0xaef6ff, 0xffe478], 14, 1.8, 2.5);
+            game.audio?.sfx?.('pickup');
+          } else if (kind === 'ocean') {
+            const oceanMat = islandGeo.userData.oceanMat;
+            if (oceanMat?.uniforms?.uRipple) {
+              oceanMat.uniforms.uRipple.value.set(pt.x, pt.z, oceanClock, 1.0);
+            }
+            burstIslandFx(pt, [0xffffff, 0xaef6ff, 0x62d8ff], 14, 1.9, 2.5);
+            game.audio?.sfx?.('xpGem');
+            if (stageMode === 'focus') setOverview();
+          }
+        } else if (stageMode === 'focus') {
+          setOverview();
+        }
       }
     }
     drag = null;
@@ -675,6 +1066,195 @@ export function bindCharacters(game) {
   }
   if (slotsSel) slotsSel.onchange = selectSlot;
   selectSlot();
+
+  // ---------------- 帳號登入／註冊／切換／備份彈窗 ----------------
+  let acctMode = 'login'; // 'login' | 'register'
+  const syncDelBtn = () => {
+    const bd = $('btnDelChar');
+    if (!bd) return;
+    const has = slotHasData(slot);
+    bd.disabled = !has;
+    bd.title = has ? '永久刪除此欄位角色存檔' : '目前欄位為空白存檔';
+  };
+  const origSelectSlot = selectSlot;
+  if (slotsSel) slotsSel.onchange = () => { origSelectSlot(); syncDelBtn(); };
+  syncDelBtn();
+
+  const setAcctMode = (mode) => {
+    acctMode = mode;
+    $('tabAcctLogin')?.classList.toggle('on', mode === 'login');
+    $('tabAcctReg')?.classList.toggle('on', mode === 'register');
+    $('acctPass2Wrap')?.classList.toggle('hide', mode !== 'register');
+    const sub = $('btnAcctSubmit');
+    if (sub) sub.textContent = mode === 'register' ? '✨ 註冊並登入' : '🔑 登入帳號';
+    if ($('acctMsg')) $('acctMsg').textContent = '';
+  };
+
+  const renderAccountChips = () => {
+    const box = $('acctList');
+    if (!box) return;
+    const all = Object.values(listAccounts());
+    const cur = getActiveAccount();
+    if (!all.length) {
+      box.innerHTML = '<span style="font-size:11.5px;color:#7a5a42">尚無本地註冊帳號，點「註冊新帳號」建立專屬存檔空間！</span>';
+      return;
+    }
+    box.innerHTML = all.map(a => {
+      const isMe = !cur.isGuest && cur.username.toLowerCase() === a.username.toLowerCase();
+      return `<button type="button" class="acct-chip${isMe ? ' on' : ''}" data-pickacct="${a.username}">👤 ${a.username}${isMe ? ' (目前)' : ''}</button>`;
+    }).join('');
+    box.querySelectorAll('[data-pickacct]').forEach(btn => {
+      btn.onclick = () => {
+        setAcctMode('login');
+        if ($('acctUser')) $('acctUser').value = btn.dataset.pickacct;
+        $('acctPass')?.focus?.();
+      };
+    });
+  };
+
+  function refreshAccountStatus() {
+    const sum = getAccountSummary();
+    $('acctStatus').textContent = sum.isGuest
+      ? `訪客 · ${sum.usedSlots} / 3 個角色`
+      : `${sum.username} · ${sum.usedSlots} / 3 個角色`;
+    syncDelBtn();
+    return sum;
+  }
+
+  const openAccountModal = () => {
+    const acctModal = $('accountModal');
+    if (!acctModal) return;
+    const sum = refreshAccountStatus();
+    const lo = $('btnAcctLogout');
+    if (lo) lo.classList.toggle('hide', sum.isGuest);
+    setAcctMode('login');
+    renderAccountChips();
+    if ($('acctUser')) $('acctUser').value = sum.isGuest ? '' : sum.username;
+    if ($('acctPass')) $('acctPass').value = '';
+    if ($('acctPass2')) $('acctPass2').value = '';
+    acctModal.classList.remove('hide');
+    $('acctUser')?.focus?.();
+  };
+  const closeAccountModal = () => { $('accountModal')?.classList.add('hide'); };
+  const onAccountChanged = (msg) => {
+    refreshSlotsUI(false);
+    selectSlot();
+    syncDelBtn();
+    game.zoneStates?.clear?.();
+    game.meta = new Meta(slot);
+    closeAccountModal();
+    game.audio?.sfx?.('classup');
+    game.ui?.toast?.(msg, '#7fe08a');
+  };
+
+  const btnAcct = $('btnAccount'); if (btnAcct) btnAcct.onclick = () => { game.audio?.sfx?.('ui'); openAccountModal(); };
+  const btnAcctClose = $('btnAcctClose'); if (btnAcctClose) btnAcctClose.onclick = closeAccountModal;
+  $('accountModal')?.addEventListener('click', e => { if (e.target === $('accountModal')) closeAccountModal(); });
+  $('tabAcctLogin')?.addEventListener('click', () => { game.audio?.sfx?.('ui'); setAcctMode('login'); });
+  $('tabAcctReg')?.addEventListener('click', () => { game.audio?.sfx?.('ui'); setAcctMode('register'); });
+
+  const doAcctSubmit = () => {
+    const u = $('acctUser')?.value || '';
+    const p1 = $('acctPass')?.value || '';
+    const p2 = $('acctPass2')?.value || '';
+    const msgEl = $('acctMsg');
+    if (acctMode === 'register') {
+      if (p1 !== p2) { if (msgEl) msgEl.textContent = '兩次輸入的密碼不一致，請重新確認'; game.audio?.sfx?.('ui'); return; }
+      const res = registerAccount(u, p1);
+      if (!res.ok) { if (msgEl) msgEl.textContent = res.reason; game.audio?.sfx?.('ui'); return; }
+      onAccountChanged(`✨ 帳號「${res.account.username}」註冊並登入成功！`);
+    } else {
+      const res = loginAccount(u, p1);
+      if (!res.ok) { if (msgEl) msgEl.textContent = res.reason; game.audio?.sfx?.('ui'); return; }
+      onAccountChanged(`👤 歡迎回來，${res.account.username}！已載入專屬角色存檔`);
+    }
+  };
+  $('btnAcctSubmit')?.addEventListener('click', doAcctSubmit);
+  $('acctPass')?.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) doAcctSubmit(); });
+  $('acctPass2')?.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) doAcctSubmit(); });
+  $('btnAcctLogout')?.addEventListener('click', () => {
+    logoutAccount();
+    onAccountChanged('已登出帳號，切換回訪客模式');
+  });
+  $('btnAcctExport')?.addEventListener('click', async () => {
+    const dump = exportAccountData();
+    try {
+      await navigator.clipboard.writeText(dump);
+      $('acctMsg').textContent = '已複製存檔備份碼。';
+    } catch (_) {
+      openTextDialog({ title: '匯出存檔', description: '複製備份碼並留在安全的位置。', value: dump, readOnly: true });
+    }
+  });
+  $('btnAcctImport')?.addEventListener('click', () => {
+    openTextDialog({
+      title: '還原存檔',
+      description: '貼上先前匯出的備份碼。備份內有資料的角色欄位會覆蓋目前的存檔。',
+      value: '',
+      action: '還原角色欄位',
+      danger: true,
+      submit(raw) {
+        if (!raw.trim()) return '請貼上備份碼。';
+        const res = importAccountData(raw);
+        if (!res.ok) return res.reason;
+        onAccountChanged(`已還原 ${res.restored} 個角色欄位。`);
+      },
+    });
+  });
+
+  // ---------------- 刪除角色確認彈窗 ----------------
+  const openDelModal = () => {
+    const delModal = $('delCharModal');
+    if (!delModal) return;
+    if (!slotHasData(slot)) {
+      game.audio?.sfx?.('ui');
+      game.ui?.toast?.(`欄位 #${slot + 1} 目前已是空白角色，無需刪除`, '#ffd85a');
+      return;
+    }
+    const sk = slotKeys(slot);
+    const savedChar = read(sk.charKey);
+    const savedProf = read(sk.profileKey);
+    const cname = savedChar?.name || `旅人欄位 ${slot + 1}`;
+    const clsDef = CLASSES[clampIdx(savedChar?.job, CLASSES.length)] || CLASSES[0];
+    const lvStr = savedProf?.level ? `${clsDef.icon}${clsDef.name} · Lv.${savedProf.level} · 🪙${savedProf.coins || 0} · 💎${savedProf.shards || 0}` : `${clsDef.icon}${clsDef.name}`;
+    const info = $('delCharInfo');
+    if (info) info.textContent = `目標欄位：#${slot + 1} ${cname}（${lvStr}）`;
+    delModal.classList.remove('hide');
+  };
+  const closeDelModal = () => { $('delCharModal')?.classList.add('hide'); };
+  const btnDel = $('btnDelChar'); if (btnDel) btnDel.onclick = () => { game.audio?.sfx?.('ui'); openDelModal(); };
+  $('btnDelCancel')?.addEventListener('click', closeDelModal);
+  $('btnDelCancelTop')?.addEventListener('click', closeDelModal);
+  $('delCharModal')?.addEventListener('click', e => { if (e.target === $('delCharModal')) closeDelModal(); });
+  $('btnDelConfirm')?.addEventListener('click', () => {
+    deleteCharacterSlot(slot);
+    game.zoneStates?.clear?.();
+    if (game._companionMesh) { game.scene?.remove?.(game._companionMesh.root); game._companionMesh = null; }
+    refreshSlotsUI(true);
+    selectSlot();
+    refreshAccountStatus();
+    game.meta = new Meta(slot);
+    closeDelModal();
+    game.audio?.sfx?.('corruptBrick');
+    $('acctMsg').textContent = `已刪除欄位 #${slot + 1} 的角色存檔。`;
+  });
+
+  // 允許遊戲內從設定頁一鍵返回 3D 選角／帳號登入畫面！
+  game.ui.returnToCharSelect = () => {
+    game.meta?.save?.();
+    game.net.disconnect();
+    game.ui.closeSettings?.();
+    inTownWardrobe = false;
+    titleEl.classList.remove('hide', 'wardrobe-overlay');
+    $('hud')?.classList.add('hide');
+    refreshSlotsUI(true);
+    selectSlot();
+    syncDelBtn();
+    stageMode = 'overview';
+    updateStageClasses();
+    running = true;
+    lastT = performance.now();
+    requestAnimationFrame(loop);
+  };
   // 支援 ?preview=focus|dressup|town|field&job=0..4 快速預覽指定舞台或進遊戲實景
   try {
     const qs = new URLSearchParams(location.search);
@@ -760,7 +1340,10 @@ export function bindCharacters(game) {
     const h = Math.max(150, Math.round(rect.height / pxScale));
     if (canvas.width !== w || canvas.height !== h) {
       renderer.setSize(w, h, false);
-      camera.aspect = rect.width / Math.max(1, rect.height);
+    }
+    const aspect = rect.width / Math.max(1, rect.height);
+    if (aspect > 0 && camera.aspect !== aspect) {
+      camera.aspect = aspect;
       camera.updateProjectionMatrix();
     }
   }
@@ -772,24 +1355,106 @@ export function bindCharacters(game) {
     lastT = now;
     resize();
 
-    if (stageMode === 'overview' && !drag) {
-      // 輕柔微幅正面擺動（始終展示英雄可愛正面，玩家拖曳仍可自由 360° 旋轉）
-      orbitYaw += orbitVel * dt;
-      orbitVel *= Math.exp(-dt * 4);
-      islandStage.rotation.y = orbitYaw + Math.sin(now * 0.00045) * 0.10;
-      computeCameraGoal();
-    } else if (stageMode === 'focus' && !drag) {
-      orbitYaw += orbitVel * dt;
-      orbitVel *= Math.exp(-dt * 6);
-      islandStage.rotation.y = orbitYaw;
-      computeCameraGoal();
-    } else {
-      islandStage.rotation.y = orbitYaw;
-    }
-    // 沉船島嶼保持穩固不動（移除上下彈跳，避免島面穿過角色雙腳）
+    // 選角島嶼鎖定黃金構圖角度（不可旋轉，畫面穩重優雅）
+    islandStage.rotation.y = 0;
     islandGeo.position.y = 0;
     sparks.rotation.y += dt * 0.16;
-    selRing.scale.setScalar(1 + Math.sin(now * 0.004) * 0.04);
+    selRing.scale.setScalar(1 + Math.sin(now * 0.004) * 0.05);
+    if (selBeam.visible) {
+      selBeam.rotation.y += dt * 0.6;
+      selBeam.material.opacity = 0.15 + Math.sin(now * 0.0035) * 0.04;
+    }
+
+    // 1. 動態卡通海水 Shader 時間驅動（持續海浪起伏＋浪花輪廓流動＋點擊漣漪）
+    oceanClock += dt;
+    const oceanMat = islandGeo.userData.oceanMat;
+    if (oceanMat?.uniforms?.uTime) oceanMat.uniforms.uTime.value = oceanClock;
+
+    // 2. 島嶼物件自然風吹動畫＋點擊彈性回饋動畫
+    const breeze = 0.75 + 0.35 * Math.sin(oceanClock * 0.65);
+    for (const it of islandGeo.userData.animItems || []) {
+      const o = it.obj;
+      if (it.shakeT > 0) it.shakeT = Math.max(0, it.shakeT - dt);
+      if (it.bounceT > 0) it.bounceT = Math.max(0, it.bounceT - dt);
+      const shakeOsc = it.shakeT > 0 ? Math.sin(it.shakeT * 28) * it.shakeT * 0.16 : 0;
+      const bSq = it.bounceT > 0 ? Math.sin(it.bounceT * Math.PI * 3) * it.bounceT * 0.22 : 0;
+
+      if (it.kind === 'palm' || it.kind === 'tree') {
+        const amp = it.kind === 'palm' ? 0.048 : 0.026;
+        o.rotation.z = it.baseRotZ + Math.sin(oceanClock * 1.85 + it.phase) * amp * breeze + shakeOsc;
+        o.rotation.x = it.baseRotX + Math.cos(oceanClock * 1.45 + it.phase) * (amp * 0.6) * breeze;
+      } else if (it.kind === 'shrub') {
+        o.rotation.z = it.baseRotZ + Math.sin(oceanClock * 2.4 + it.phase) * 0.035 * breeze;
+        o.scale.set(it.baseScaleX * (1 + bSq * 0.7), it.baseScaleY * (1 - bSq * 0.6), it.baseScaleZ * (1 + bSq * 0.7));
+      } else if (it.kind === 'rope') {
+        o.rotation.z = it.baseRotZ + Math.sin(oceanClock * 2.2 + it.phase) * 0.04 * breeze + shakeOsc * 0.6;
+      } else if (it.kind === 'ship') {
+        o.rotation.z = it.baseRotZ + Math.sin(oceanClock * 1.1) * 0.008 + shakeOsc * 0.25;
+      } else if (it.kind === 'barrel' || it.kind === 'box') {
+        o.position.y = it.basePosY + Math.max(0, Math.sin(it.bounceT * Math.PI * 2) * it.bounceT * 1.6);
+        o.scale.set(it.baseScaleX * (1 - bSq * 0.45), it.baseScaleY * (1 + bSq * 0.65), it.baseScaleZ * (1 - bSq * 0.45));
+      } else if (it.kind === 'tower') {
+        o.scale.set(it.baseScaleX * (1 - bSq * 0.12), it.baseScaleY * (1 + bSq * 0.16), it.baseScaleZ * (1 - bSq * 0.12));
+      }
+    }
+
+    // 3. 山頂瞭望塔暖金星燈呼吸＋點擊信號爆發
+    const tl = islandGeo.userData.towerLantern;
+    if (tl?.group?.visible) {
+      if (tl.flareT > 0) tl.flareT = Math.max(0, tl.flareT - dt);
+      const pulse = 1 + Math.sin(oceanClock * 3.4) * 0.12 + tl.flareT * 0.85;
+      tl.core.rotation.y += dt * (2.0 + tl.flareT * 8);
+      tl.halo.scale.setScalar(pulse);
+      tl.light.intensity = 1.8 + Math.sin(oceanClock * 3.4) * 0.35 + tl.flareT * 3.5;
+    }
+
+    // 4. 高空盤旋海鷗（雙翅拍動＋點擊翻滾加速）
+    for (const gu of islandGeo.userData.gulls || []) {
+      if (gu.boostT > 0) gu.boostT = Math.max(0, gu.boostT - dt);
+      const spdMul = 1 + gu.boostT * 1.6;
+      gu.ang += dt * gu.speed * spdMul;
+      const x = Math.cos(gu.ang) * gu.radius;
+      const z = Math.sin(gu.ang) * gu.radius;
+      const y = gu.height + Math.sin(oceanClock * 1.6 + gu.flapPh) * 0.28 + gu.boostT * 0.35;
+      gu.root.position.set(x, y, z);
+      gu.root.rotation.y = -gu.ang;
+      gu.root.rotation.z = gu.boostT > 0 ? Math.sin(gu.boostT * 12) * 0.65 : 0.14;
+      const flap = Math.sin(oceanClock * (8.5 + gu.boostT * 7) + gu.flapPh) * 0.48;
+      gu.wingL.rotation.z = flap;
+      gu.wingR.rotation.z = -flap;
+    }
+
+    // 5. 漂浮白雲與海面紅白浮標動畫
+    for (const cl of islandGeo.userData.clouds || []) {
+      cl.group.position.x += dt * cl.spd;
+      if (cl.group.position.x > 11.5) cl.group.position.x = -11.5;
+      cl.group.position.y = cl.baseY + Math.sin(oceanClock * 0.7 + cl.ph) * 0.14;
+    }
+    for (const bu of islandGeo.userData.buoys || []) {
+      if (bu.bounceT > 0) bu.bounceT = Math.max(0, bu.bounceT - dt);
+      const bob = Math.sin(oceanClock * 2.1 + bu.ph) * 0.09 + Math.max(0, Math.sin(bu.bounceT * Math.PI * 3) * bu.bounceT * 0.35);
+      bu.group.position.y = 0.04 + bob;
+      bu.group.rotation.z = Math.sin(oceanClock * 1.6 + bu.ph) * 0.12;
+      bu.group.rotation.x = Math.cos(oceanClock * 1.3 + bu.ph) * 0.08;
+    }
+
+    // 6. 島嶼互動粒子物理更新
+    for (let i = islFxPool.length - 1; i >= 0; i--) {
+      const pt = islFxPool[i];
+      pt.life -= dt;
+      pt.vy -= 6.5 * dt;
+      pt.mesh.position.x += pt.vx * dt;
+      pt.mesh.position.y += pt.vy * dt;
+      pt.mesh.position.z += pt.vz * dt;
+      pt.mesh.rotation.x += dt * 5;
+      pt.mesh.rotation.y += dt * 6;
+      pt.mesh.material.opacity = Math.max(0, pt.life / pt.maxLife);
+      if (pt.life <= 0) {
+        islandStage.remove(pt.mesh);
+        pt.mesh.material.dispose();
+        islFxPool.splice(i, 1);
+      }
+    }
 
     if (stageMode === 'dressup') {
       dressHero.root.rotation.y += (dressRotY - dressHero.root.rotation.y) * Math.min(1, dt * 10);
@@ -808,16 +1473,27 @@ export function bindCharacters(game) {
         duSparkMat.opacity = 0;
       }
     } else {
-      for (const h of islandHeroes) h.hero.update(dt);
+      for (const h of islandHeroes) {
+        h.hero.update(dt);
+        if (h.hopT > 0) {
+          h.hopT = Math.max(0, h.hopT - dt);
+          const hopY = Math.sin((h.hopT / 0.55) * Math.PI) * 0.28;
+          h.hero.root.position.y = h.y + hopY;
+        } else {
+          h.hero.root.position.y = h.y;
+        }
+      }
       theaterVfx.update(dt, camera);
     }
 
-    // 絲滑運鏡插值（0.65s 電影飛近聚焦感）
-    const k = 1 - Math.exp(-dt * 6.5);
+    // 絲滑運鏡插值 ＋ 輕微電影感滑鼠視差與呼吸微動（點擊角色不縮近！）
+    const k = 1 - Math.exp(-dt * 5.2);
+    const parX = stageMode === 'dressup' ? 0 : (mouseNdcX * 0.32 + Math.sin(oceanClock * 0.45) * 0.12);
+    const parY = stageMode === 'dressup' ? 0 : (mouseNdcY * 0.14 + Math.cos(oceanClock * 0.38) * 0.06);
     camCurPos.lerp(camGoalPos, k);
     camCurTarget.lerp(camGoalTarget, k);
     camCurFov += (camGoalFov - camCurFov) * k;
-    camera.position.copy(camCurPos);
+    camera.position.set(camCurPos.x + parX, camCurPos.y + parY, camCurPos.z);
     camera.lookAt(camCurTarget);
     if (Math.abs(camera.fov - camCurFov) > 0.02) {
       camera.fov = camCurFov;
@@ -846,6 +1522,7 @@ export function bindCharacters(game) {
 
   return () => {
     running = false;
+    game.toggleMount(true);
     game.slot = slot;
     game.meta = new Meta(slot);
     game.character = { ...activeSlotLook, job: selectedJob };
@@ -855,7 +1532,7 @@ export function bindCharacters(game) {
     if (isNew) { game.meta.p.weapon = cls.weapon; game.meta.save(); }
     try {
       localStorage.setItem(key(slot), JSON.stringify({ ...game.character, name: game.playerName, hood: game.hoodIdx }));
-      localStorage.setItem('lv_active_slot', JSON.stringify(slot));
+      localStorage.setItem(slotKeys(0).activeSlotKey, JSON.stringify(slot));
     } catch { /* ignore */ }
   };
 }

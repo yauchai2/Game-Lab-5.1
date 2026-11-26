@@ -46,27 +46,39 @@ export function dayInfo(dayTime) {
   };
 }
 
-// ======================== 2. 十大原創二轉覺醒職業（Phase V4：解鎖 3D 召喚大招與專屬腳底法陣） ========================
+// ======================== 2. 十大原創二轉覺醒職業（MMORPG 嚴格試煉：Lv.12 + 擊殺 + 精英 + 專屬試煉 + 覺醒儀式費用） ========================
+export const ASCEND_REQ = {
+  level: 12,
+  kills: 40,
+  elites: 3,
+  coins: 300,
+  shards: 45,
+};
+
+function eliteCountOf(p) {
+  return Math.max(p?.totalElites || 0, p?.bountyProg?.eliteKills || 0);
+}
+
 export const SECOND_CLASSES = {
   0: [
-    { id: 'bastion', name: '聖光堡壘', icon: '⚜', aura: 0xffe07a, auraTheme: 'holy', gem: 'spear_cage', trial: 'Lv.10 或完成 1 次完美採集', bonuses: { armor: 12, maxHp: 45 }, desc: '化身堅不可摧的光輝壁壘，解鎖 3D 招牌寶石「🔱 雷槍聖牢」。' },
-    { id: 'earthwalker', name: '大地行者', icon: '⛰', aura: 0x8cd06a, auraTheme: 'earth', gem: 'paladin_sword', trial: 'Lv.10 或擊敗 5 隻敵人', bonuses: { area: 35, baseDmg: 8 }, desc: '與山谷地脈共鳴，解鎖 3D 招牌寶石「⚔️ 聖劍天降」。' },
+    { id: 'bastion', name: '聖光堡壘', title: '⚜ 聖光壁壘', icon: '⚜', aura: 0xffe07a, auraTheme: 'holy', gem: 'spear_cage', trial: '完成 2 次完美採集', trialCheck: p => ({ ok: (p?.deeds?.perfectGather || 0) >= 2, label: `完美採集 ${p?.deeds?.perfectGather || 0}/2` }), bonuses: { armor: 12, maxHp: 45 }, desc: '化身堅不可摧的光輝壁壘，解鎖 3D 招牌寶石「🔱 雷槍聖牢」。' },
+    { id: 'earthwalker', name: '大地行者', title: '⛰ 山谷鎮守者', icon: '⛰', aura: 0x8cd06a, auraTheme: 'earth', gem: 'paladin_sword', trial: '累計擊敗 60 隻魔物', trialCheck: p => ({ ok: (p?.kills || 0) >= 60, label: `魔物討伐 ${p?.kills || 0}/60` }), bonuses: { area: 35, baseDmg: 8 }, desc: '與山谷地脈共鳴，解鎖 3D 招牌寶石「⚔️ 聖劍天降」。' },
   ],
   1: [
-    { id: 'skywarden', name: '蒼穹馭風者', icon: '🪽', aura: 0x8ae8ff, auraTheme: 'wind', gem: 'thunder_phoenix', trial: 'Lv.10 或滑翔穿過 1 個空中星環', bonuses: { moveSpd: 18, atkSpd: 15 }, desc: '駕馭高空上升氣流，解鎖 3D 召喚寶石「🦅 雷霆鳳凰」。' },
-    { id: 'starhunter', name: '星痕獵手', icon: '🌠', aura: 0xffc864, auraTheme: 'thunder', gem: 'spear_cage', trial: 'Lv.10 或擊敗 5 隻敵人', bonuses: { crit: 15, critMult: 40, proj: 1 }, desc: '箭矢化為星軌連射，解鎖 3D 控場寶石「🔱 雷槍聖牢」。' },
+    { id: 'skywarden', name: '蒼穹馭風者', title: '🪽 馭風領航者', icon: '🪽', aura: 0x8ae8ff, auraTheme: 'wind', gem: 'thunder_phoenix', trial: '滑翔穿過 2 個空中星環', trialCheck: p => ({ ok: (p?.deeds?.skyRing || 0) >= 2, label: `空中星環 ${p?.deeds?.skyRing || 0}/2` }), bonuses: { moveSpd: 18, atkSpd: 15 }, desc: '駕馭高空上升氣流，解鎖 3D 召喚寶石「🦅 雷霆鳳凰」。' },
+    { id: 'starhunter', name: '星痕獵手', title: '🌠 星痕狩獵者', icon: '🌠', aura: 0xffc864, auraTheme: 'thunder', gem: 'spear_cage', trial: '討伐 5 隻高危精英魔物', trialCheck: p => ({ ok: eliteCountOf(p) >= 5, label: `精英討伐 ${eliteCountOf(p)}/5` }), bonuses: { crit: 15, critMult: 40, proj: 1 }, desc: '箭矢化為星軌連射，解鎖 3D 控場寶石「🔱 雷槍聖牢」。' },
   ],
   2: [
-    { id: 'starcaller', name: '焚星賢者', icon: '☄', aura: 0xff7a40, auraTheme: 'fire', gem: 'fire_whale', trial: 'Lv.10 或施放拼圖技能 5 次', bonuses: { addFire: 8, dmgPct: 22 }, desc: '引動天穹熾炎，解鎖 3D 巨獸寶石「🐋 熾炎巨鯨」。' },
-    { id: 'frostweaver', name: '霜燈織夢師', icon: '❄', aura: 0x7ac8ff, auraTheme: 'bluefire', gem: 'black_hole', trial: 'Lv.10 或在星夜探索一次', bonuses: { mana: 40, manaRegen: 50, cdr: 15 }, desc: '編織幽藍星域，解鎖 3D 聚怪寶石「🕳️ 星域黑洞」。' },
+    { id: 'starcaller', name: '焚星賢者', title: '☄ 焚星大賢者', icon: '☄', aura: 0xff7a40, auraTheme: 'fire', gem: 'fire_whale', trial: '施放拼圖技能 25 次', trialCheck: p => ({ ok: (p?.deeds?.casts || 0) >= 25, label: `拼圖施法 ${p?.deeds?.casts || 0}/25` }), bonuses: { addFire: 8, dmgPct: 22 }, desc: '引動天穹熾炎，解鎖 3D 巨獸寶石「🐋 熾炎巨鯨」。' },
+    { id: 'frostweaver', name: '霜燈織夢師', title: '❄ 霜燈織夢者', icon: '❄', aura: 0x7ac8ff, auraTheme: 'bluefire', gem: 'black_hole', trial: '於星夜探索野外並踏足 3 區', trialCheck: p => ({ ok: !!(p?.deeds?.nightExplore) && (p?.visitedFields?.length || 0) >= 3, label: `星夜探索 ${p?.deeds?.nightExplore ? '✔' : '0/1'} · 區域 ${p?.visitedFields?.length || 0}/3` }), bonuses: { mana: 40, manaRegen: 50, cdr: 15 }, desc: '編織幽藍星域，解鎖 3D 聚怪寶石「🕳️ 星域黑洞」。' },
   ],
   3: [
-    { id: 'crimsonblade', name: '緋月劍舞者', icon: '🌙', aura: 0xff6a8a, auraTheme: 'arcane', gem: 'sword_beams', trial: 'Lv.10 或擊敗 5 隻敵人', bonuses: { atkSpd: 25, critMult: 45 }, desc: '在月影中疾斬如風，解鎖 3D 劍波寶石「🌙 附魔劍氣」。' },
-    { id: 'mistphantom', name: '夜霧幻影師', icon: '🌫', aura: 0xb48ae0, auraTheme: 'death', gem: 'dark_wolf', trial: 'Lv.10 或完成 1 次完美採集', bonuses: { rollCdr: 20, moveSpd: 15, crit: 12 }, desc: '操縱冥界巨影吞噬群敵，解鎖 3D 召喚寶石「🐺 暗影巨狼」。' },
+    { id: 'crimsonblade', name: '緋月劍舞者', title: '🌙 緋月舞劍士', icon: '🌙', aura: 0xff6a8a, auraTheme: 'arcane', gem: 'sword_beams', trial: '討伐 5 隻高危精英魔物', trialCheck: p => ({ ok: eliteCountOf(p) >= 5, label: `精英討伐 ${eliteCountOf(p)}/5` }), bonuses: { atkSpd: 25, critMult: 45 }, desc: '在月影中疾斬如風，解鎖 3D 劍波寶石「🌙 附魔劍氣」。' },
+    { id: 'mistphantom', name: '夜霧幻影師', title: '🌫 夜霧幽影', icon: '🌫', aura: 0xb48ae0, auraTheme: 'death', gem: 'dark_wolf', trial: '完成 2 次完美採集', trialCheck: p => ({ ok: (p?.deeds?.perfectGather || 0) >= 2, label: `完美採集 ${p?.deeds?.perfectGather || 0}/2` }), bonuses: { rollCdr: 20, moveSpd: 15, crit: 12 }, desc: '操縱冥界巨影吞噬群敵，解鎖 3D 召喚寶石「🐺 暗影巨狼」。' },
   ],
   4: [
-    { id: 'lotussage', name: '蓮華禪師', icon: '🪷', aura: 0x8ef0b8, auraTheme: 'lotus', gem: 'healing_tree', trial: 'Lv.10 或完成 1 次完美採集', bonuses: { regen: 4, maxHp: 40, cdr: 12 }, desc: '展開綻放蓮華氣場持續治癒隊友，解鎖 3D 領域寶石「🌳 繁花聖樹」。' },
-    { id: 'thunderfist', name: '雷鳴拳聖', icon: '⚡', aura: 0xffd24a, auraTheme: 'thunder', gem: 'candle_ward', trial: 'Lv.10 或擊敗 5 隻敵人', bonuses: { atkSpd: 24, baseDmg: 9, crit: 10 }, desc: '以魂火燭陣與迅雷連擊震盪大地，解鎖 3D 寶石「🕯️ 魂火燭陣」。' },
+    { id: 'lotussage', name: '蓮華禪師', title: '🪷 蓮華淨者', icon: '🪷', aura: 0x8ef0b8, auraTheme: 'lotus', gem: 'healing_tree', trial: '完成 2 次完美採集', trialCheck: p => ({ ok: (p?.deeds?.perfectGather || 0) >= 2, label: `完美採集 ${p?.deeds?.perfectGather || 0}/2` }), bonuses: { regen: 4, maxHp: 40, cdr: 12 }, desc: '展開綻放蓮華氣場持續治癒隊友，解鎖 3D 領域寶石「🌳 繁花聖樹」。' },
+    { id: 'thunderfist', name: '雷鳴拳聖', title: '⚡ 雷鳴武聖', icon: '⚡', aura: 0xffd24a, auraTheme: 'thunder', gem: 'candle_ward', trial: '累計擊敗 60 隻魔物', trialCheck: p => ({ ok: (p?.kills || 0) >= 60, label: `魔物討伐 ${p?.kills || 0}/60` }), bonuses: { atkSpd: 24, baseDmg: 9, crit: 10 }, desc: '以魂火燭陣與迅雷連擊震盪大地，解鎖 3D 寶石「🕯️ 魂火燭陣」。' },
   ],
 };
 
@@ -77,6 +89,43 @@ export function findSecondClass(id) {
     if (f) return f;
   }
   return null;
+}
+
+export function checkAscendEligibility(profile, sc, devOn = false) {
+  const p = profile || {};
+  const lv = p.level || 1;
+  const kills = p.kills || 0;
+  const elites = eliteCountOf(p);
+  const coins = p.coins || 0;
+  const shards = p.shards || 0;
+  const spec = sc?.trialCheck ? sc.trialCheck(p) : { ok: true, label: '專屬試煉' };
+  const checks = [
+    { label: `旅人等級 Lv.${lv}/${ASCEND_REQ.level}`, ok: lv >= ASCEND_REQ.level },
+    { label: `累計討伐魔物 ${kills}/${ASCEND_REQ.kills}`, ok: kills >= ASCEND_REQ.kills },
+    { label: `討伐高危精英 ${elites}/${ASCEND_REQ.elites}`, ok: elites >= ASCEND_REQ.elites },
+    { label: `專屬試煉：${spec.label}`, ok: !!spec.ok },
+    { label: `覺醒費用 🪙${coins}/${ASCEND_REQ.coins}`, ok: coins >= ASCEND_REQ.coins },
+    { label: `覺醒星砂 💎${shards}/${ASCEND_REQ.shards}`, ok: shards >= ASCEND_REQ.shards },
+  ];
+  const passed = checks.filter(c => c.ok).length;
+  const eligible = devOn || passed === checks.length;
+  return { eligible, checks, passed, total: checks.length, prog: passed / checks.length, cost: { coins: ASCEND_REQ.coins, shards: ASCEND_REQ.shards } };
+}
+
+export function performAscend(profile, scId, devOn = false) {
+  const sc = findSecondClass(scId);
+  if (!profile || !sc) return { ok: false, reason: '未知二轉職業' };
+  if (profile.secondClass === scId) return { ok: false, reason: '已覺醒此職業' };
+  const res = checkAscendEligibility(profile, sc, devOn);
+  if (!res.eligible) return { ok: false, reason: '尚未達成全部二轉試煉與儀式費用', checks: res.checks };
+  if (!devOn) {
+    profile.coins = Math.max(0, (profile.coins || 0) - ASCEND_REQ.coins);
+    profile.shards = Math.max(0, (profile.shards || 0) - ASCEND_REQ.shards);
+  }
+  profile.secondClass = sc.id;
+  if (sc.title) profile.activeTitle = sc.title;
+  addGemToBag(profile, sc.gem);
+  return { ok: true, sc };
 }
 
 // ======================== 3. 野外 NPC 與支線任務 ========================
@@ -370,82 +419,5 @@ export function buildInterior(g, kind) {
       { kind: 'rest_time', label: '在床鋪休息（回滿狀態並切換晝夜）', x: 2.5, z: -1.3, top: 2.2 },
     );
   }
-  return { group: grp, halfW: W / 2 - 0.7, halfD: D / 2 - 0.7, spots, fire, fireLight: fl };
-}
-
-// ======================== 8. 地區性地圖（Tab Minimap） ========================
-export function drawRegionMap(g, canvas) {
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  const W = canvas.width, H = canvas.height;
-  ctx.fillStyle = '#3b2a2a';
-  ctx.fillRect(0, 0, W, H);
-  if (g.interior) {
-    ctx.fillStyle = '#a5744e';
-    ctx.fillRect(28, 28, W - 56, H - 56);
-    ctx.fillStyle = '#ffd85a';
-    ctx.beginPath();
-    ctx.arc(W / 2 + g.player.pos.x * 16, H / 2 + g.player.pos.z * 16, 6, 0, Math.PI * 2);
-    ctx.fill();
-    return;
-  }
-  const half = g.world.half || 30;
-  const toX = x => ((x + half) / (half * 2)) * W;
-  const toY = z => ((z + half) / (half * 2)) * H;
-
-  // 地形底圖（支援 v5 藍圖淺溪／冰湖／斷壁分色）
-  const step = 3;
-  const bpCell = g.world.bpCell;
-  for (let py = 0; py < H; py += step) {
-    const wz = (py / H) * half * 2 - half;
-    for (let px = 0; px < W; px += step) {
-      const wx = (px / W) * half * 2 - half;
-      const k = g.world.idx(wx, wz);
-      const t = k >= 0 ? g.world.T?.[k] : 0;
-      const bc = (k >= 0 && bpCell) ? bpCell[k] : -1;
-      if (bc === 1) ctx.fillStyle = '#48b8dc';
-      else if (bc === 5) ctx.fillStyle = '#d4cbb8';
-      else ctx.fillStyle = t === 0 ? '#3a6f86' : t === 1 ? '#8cb862' : t === 2 ? '#6e9450' : '#b2a288';
-      ctx.fillRect(px, py, step, step);
-    }
-  }
-  // v5 跨谷橋梁（金色線段）與單向滑翔捷徑（青色虛線）
-  for (const b of g.world.bridges || []) {
-    ctx.save();
-    ctx.strokeStyle = '#f5c842'; ctx.lineWidth = 3.5;
-    ctx.beginPath(); ctx.moveTo(toX(b.x0), toY(b.z0)); ctx.lineTo(toX(b.x1), toY(b.z1)); ctx.stroke();
-    ctx.restore();
-  }
-  if (g.world.bp?.glides?.length) {
-    for (const gl of g.world.bp.glides) {
-      const p0 = uvToWorld(gl[0], gl[1], half), pm = uvToWorld(gl[2], gl[3], half), p1 = uvToWorld(gl[4], gl[5], half);
-      ctx.save();
-      ctx.strokeStyle = '#46e0ff'; ctx.lineWidth = 1.8; ctx.setLineDash([4, 3]);
-      ctx.beginPath(); ctx.moveTo(toX(p0.x), toY(p0.z)); ctx.quadraticCurveTo(toX(pm.x), toY(pm.z), toX(p1.x), toY(p1.z)); ctx.stroke();
-      ctx.restore();
-    }
-  }
-  const dot = (x, z, col, r = 4) => {
-    ctx.fillStyle = '#2b1d33'; ctx.beginPath(); ctx.arc(toX(x), toY(z), r + 1.5, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = col; ctx.beginPath(); ctx.arc(toX(x), toY(z), r, 0, Math.PI * 2); ctx.fill();
-  };
-  for (const u of g.updrafts || []) dot(u.x, u.z, '#9ef6ff', 3.5);
-  for (const cp of g.checkpoints || []) dot(cp.x, cp.z, cp.unlocked ? '#38d0ff' : '#7898b0', 5.2);
-  for (const s of g.spots || []) {
-    if (s.mesh?.visible === false) continue;
-    const c = s.kind === 'grave' ? '#ff7070' : s.kind === 'chest' ? '#ffd85a' : s.kind === 'field_quest' ? '#ff9be0' : '#ffe9a0';
-    dot(s.x, s.z, c, 3.5);
-  }
-  for (const cf of g.campfires || []) dot(cf.x, cf.z, '#ff8830', 4);
-  for (const x of g.exits || []) dot(x.x, x.z, x.type === 'dungeon' ? '#c08cff' : x.type === 'town' ? '#58e09a' : '#6fe0d0', 5);
-  for (const e of g.enemies || []) if (!e.dead) dot(e.pos.x, e.pos.z, e.legendary ? '#ff4a4a' : e.elite ? '#ffa83a' : '#e05050', e.legendary ? 5 : 2.8);
-  // 玩家方向箭頭
-  const px = toX(g.player.pos.x), py = toY(g.player.pos.z);
-  ctx.save();
-  ctx.translate(px, py);
-  ctx.rotate(-g.player.facing + Math.PI);
-  ctx.fillStyle = '#fff8e4'; ctx.strokeStyle = '#2b1d33'; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(0, -7); ctx.lineTo(5, 6); ctx.lineTo(0, 3); ctx.lineTo(-5, 6); ctx.closePath();
-  ctx.fill(); ctx.stroke();
-  ctx.restore();
+  return { kind, group: grp, halfW: W / 2 - 0.7, halfD: D / 2 - 0.7, spots, fire, fireLight: fl };
 }

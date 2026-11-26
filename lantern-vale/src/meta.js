@@ -1,6 +1,7 @@
 import { progressDefaults } from './frontier.js';
 // 跨局進度（MMO 風格）：貨幣、金羽毛、每日委託、出發詞綴、傳家寶
 import { serializeItem, deserializeItem } from './loot.js';
+import { slotKeys } from './account.js';
 
 export const MODS = [
   { id: 'swift', name: '狂暴', desc: '敵人移動速度 +25%', reward: 0.25 },
@@ -27,9 +28,14 @@ function seeded(seed) { let s = [...seed].reduce((h, c) => (h * 33 + c.charCodeA
 export const DEFAULT_PROFILE = { ...progressDefaults, shards: 20, feathers: 0, shells: 0, heirloom: null, mods: [], quests: null, best: { depth: 0, wins: 0 }, kills: 0, runs: 0 };
 
 export class Meta {
-  constructor(slot = 0) { this.key = slot ? 'lv_profile_' + slot : 'lv_profile'; this.p = this.load(); this.rollQuests(); this.runShards = 0; }
+  constructor(slot = 0, temporary = false) {
+    this.key = temporary ? null : slotKeys(slot).profileKey;
+    this.p = temporary ? structuredClone(DEFAULT_PROFILE) : this.load();
+    this.runShards = 0;
+    this.rollQuests();
+  }
   load() { try { return { ...structuredClone(DEFAULT_PROFILE), ...JSON.parse(localStorage.getItem(this.key) || '{}') }; } catch (e) { return { ...structuredClone(DEFAULT_PROFILE) }; } }
-  save() { try { localStorage.setItem(this.key, JSON.stringify(this.p)); } catch (e) { /* ignore */ } }
+  save() { if (!this.key) return; try { localStorage.setItem(this.key, JSON.stringify(this.p)); } catch (e) { /* ignore */ } }
   rollQuests() {
     const d = today(); if (this.p.quests && this.p.quests.day === d) return;
     const r = seeded('lv' + d), pool = [...QUEST_POOL], list = [];

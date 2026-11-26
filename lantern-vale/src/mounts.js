@@ -13,14 +13,20 @@ export const MOUNTS = [
     hoverWater: false,
     color: 0xb88454,
     accent: 0xffe49e,
-    milestone: '旅人達 Lv.5 或累計擊敗 20 隻魔物',
+    milestone: '旅人達 Lv.10 且累計討伐 60 隻魔物',
+    saddleCost: { coins: 250, goods: { wood: 5 } },
+    saddleText: '🪙250 金幣 + 🪵5 香杉木',
     perk: '移速 +45% · 跳躍高度提升 · 奔跑不消耗耐力',
     check: p => {
       const lv = p.level || 1, kills = p.kills || 0;
-      const unlocked = lv >= 5 || kills >= 20;
-      const prog = Math.max(Math.min(1, lv / 5), Math.min(1, kills / 20));
-      const text = unlocked ? '已解鎖' : `Lv.${lv}/5 或 擊殺 ${kills}/20`;
-      return { unlocked, prog, text };
+      const checks = [
+        { label: `旅人等級 Lv.${lv}/10`, ok: lv >= 10 },
+        { label: `討伐魔物 ${kills}/60`, ok: kills >= 60 },
+      ];
+      const unlocked = checks.every(c => c.ok);
+      const prog = (Math.min(1, lv / 10) + Math.min(1, kills / 60)) / 2;
+      const text = unlocked ? '里程碑已達成' : `Lv.${lv}/10 且 擊殺 ${kills}/60`;
+      return { unlocked, prog, text, checks };
     },
   },
   {
@@ -35,15 +41,23 @@ export const MOUNTS = [
     hoverWater: false,
     color: 0xf4eee2,
     accent: 0x7ae8ff,
-    milestone: '探索 3 個野外區域 或 收集 3 根金羽毛',
+    milestone: '旅人達 Lv.15 且探索 5 區 且收集 3 根金羽毛',
+    saddleCost: { coins: 550, goods: { ore: 6 } },
+    saddleText: '🪙550 金幣 + ⛏️6 星紋礦',
     perk: '移速 +55% · 免疫寒霜緩速 · 騎乘衝撞可彈飛小怪',
     check: p => {
+      const lv = p.level || 1;
       const visited = (p.visitedFields || []).length;
       const feathers = p.feathers || 0;
-      const unlocked = visited >= 3 || feathers >= 3;
-      const prog = Math.max(Math.min(1, visited / 3), Math.min(1, feathers / 3));
-      const text = unlocked ? '已解鎖' : `探索 ${visited}/3 區 或 金羽毛 ${feathers}/3`;
-      return { unlocked, prog, text };
+      const checks = [
+        { label: `旅人等級 Lv.${lv}/15`, ok: lv >= 15 },
+        { label: `探索野外區域 ${visited}/5`, ok: visited >= 5 },
+        { label: `金羽毛 ${feathers}/3`, ok: feathers >= 3 },
+      ];
+      const unlocked = checks.every(c => c.ok);
+      const prog = (Math.min(1, lv / 15) + Math.min(1, visited / 5) + Math.min(1, feathers / 3)) / 3;
+      const text = unlocked ? '里程碑已達成' : `Lv.${lv}/15 · 探索 ${visited}/5 · 金羽毛 ${feathers}/3`;
+      return { unlocked, prog, text, checks };
     },
   },
   {
@@ -57,15 +71,23 @@ export const MOUNTS = [
     hoverWater: true,
     color: 0x56b8e6,
     accent: 0xffd85a,
-    milestone: '完成二轉職業覺醒 或 擊敗古樹鹿王',
+    milestone: '旅人達 Lv.20 且完成職業二轉覺醒 且討伐守護獸 2 次',
+    saddleCost: { coins: 1000, shards: 60, mMats: { sky_feather: 5 } },
+    saddleText: '🪙1000 金幣 + 💎60 星砂 + 🦅5 雲翼風羽',
     perk: '移速 +65% · 滑翔耗耐 -60% · 可於水面低空懸浮滑行',
     check: p => {
+      const lv = p.level || 1;
       const asc = !!p.secondClass;
-      const boss = (p.best?.wins || 0) >= 1 || (p.species?.stag || 0) >= 1;
-      const unlocked = asc || boss;
-      const prog = unlocked ? 1 : Math.min(0.85, ((p.level || 1) / 10) * 0.85);
-      const text = unlocked ? '已解鎖' : '需完成二轉覺醒或擊敗古樹鹿王';
-      return { unlocked, prog, text };
+      const bosses = (p.best?.wins || 0) + (p.species?.stag || 0);
+      const checks = [
+        { label: `旅人等級 Lv.${lv}/20`, ok: lv >= 20 },
+        { label: `職業二轉覺醒 ${asc ? '✔' : '未完成'}`, ok: asc },
+        { label: `討伐守護獸 ${bosses}/2`, ok: bosses >= 2 },
+      ];
+      const unlocked = checks.every(c => c.ok);
+      const prog = (Math.min(1, lv / 20) + (asc ? 1 : 0) + Math.min(1, bosses / 2)) / 3;
+      const text = unlocked ? '里程碑已達成' : `Lv.${lv}/20 · 二轉${asc ? '✔' : '✖'} · 守護獸 ${bosses}/2`;
+      return { unlocked, prog, text, checks };
     },
   },
   {
@@ -78,31 +100,75 @@ export const MOUNTS = [
     hoverWater: true,
     color: 0xffb3cf,
     accent: 0xffd85a,
-    milestone: '探索 6 個野外區域 或 旅人達 Lv.18',
+    milestone: '旅人達 Lv.25 且探索 12 個野外區域 且討伐 300 隻魔物',
+    saddleCost: { coins: 1800, shards: 120, mMats: { boss_heart: 2 } },
+    saddleText: '🪙1800 金幣 + 💎120 星砂 + 👑2 巨獸星心',
     perk: '移速 +72% · 超高跳躍 · 水面疾行並灑落櫻花瓣軌跡',
     check: p => {
-      const visited = (p.visitedFields || []).length;
       const lv = p.level || 1;
-      const unlocked = visited >= 6 || lv >= 18;
-      const prog = Math.max(Math.min(1, visited / 6), Math.min(1, lv / 18));
-      const text = unlocked ? '已解鎖' : `探索 ${visited}/6 區 或 Lv.${lv}/18`;
-      return { unlocked, prog, text };
+      const visited = (p.visitedFields || []).length;
+      const kills = p.kills || 0;
+      const checks = [
+        { label: `旅人等級 Lv.${lv}/25`, ok: lv >= 25 },
+        { label: `探索野外區域 ${visited}/12`, ok: visited >= 12 },
+        { label: `討伐魔物 ${kills}/300`, ok: kills >= 300 },
+      ];
+      const unlocked = checks.every(c => c.ok);
+      const prog = (Math.min(1, lv / 25) + Math.min(1, visited / 12) + Math.min(1, kills / 300)) / 3;
+      const text = unlocked ? '里程碑已達成' : `Lv.${lv}/25 · 探索 ${visited}/12 · 擊殺 ${kills}/300`;
+      return { unlocked, prog, text, checks };
     },
   },
 ];
 
+export function isMountOwned(metaP, mountId) {
+  return Array.isArray(metaP?.ownedMounts) && metaP.ownedMounts.includes(mountId);
+}
+
+export function canCraftMountSaddle(metaP, mountDef) {
+  if (!metaP || !mountDef) return false;
+  if (!mountDef.check(metaP).unlocked || isMountOwned(metaP, mountDef.id)) return false;
+  const c = mountDef.saddleCost || {};
+  if ((metaP.coins || 0) < (c.coins || 0)) return false;
+  if ((metaP.shards || 0) < (c.shards || 0)) return false;
+  const gd = metaP.goods || {};
+  for (const [k, need] of Object.entries(c.goods || {})) if ((gd[k] || 0) < need) return false;
+  const mm = metaP.mMats || {};
+  for (const [k, need] of Object.entries(c.mMats || {})) if ((mm[k] || 0) < need) return false;
+  return true;
+}
+
+export function unlockMountSaddle(metaP, mountId) {
+  const def = MOUNTS.find(m => m.id === mountId);
+  if (!metaP || !def) return { ok: false, reason: '未知坐騎' };
+  if (!def.check(metaP).unlocked) return { ok: false, reason: `尚未達成「${def.name}」里程碑` };
+  if (isMountOwned(metaP, mountId)) return { ok: true, mount: def, alreadyOwned: true };
+  if (!canCraftMountSaddle(metaP, def)) return { ok: false, reason: `馴養／鍛造鞍具材料不足（需 ${def.saddleText}）` };
+  const c = def.saddleCost || {};
+  metaP.coins = (metaP.coins || 0) - (c.coins || 0);
+  metaP.shards = (metaP.shards || 0) - (c.shards || 0);
+  for (const [k, need] of Object.entries(c.goods || {})) metaP.goods[k] -= need;
+  for (const [k, need] of Object.entries(c.mMats || {})) metaP.mMats[k] -= need;
+  metaP.ownedMounts = Array.isArray(metaP.ownedMounts) ? metaP.ownedMounts : [];
+  metaP.ownedMounts.push(mountId);
+  metaP.mountId = mountId;
+  return { ok: true, mount: def };
+}
+
 export function mountStatuses(metaP) {
-  return MOUNTS.map(m => ({ ...m, status: m.check(metaP || {}) }));
+  const p = metaP || {};
+  return MOUNTS.map(m => {
+    const status = m.check(p);
+    const owned = isMountOwned(p, m.id);
+    const canCraft = canCraftMountSaddle(p, m);
+    return { ...m, status, owned, canCraft };
+  });
 }
 
 export function activeMountDef(metaP) {
   if (!metaP) return null;
-  const list = mountStatuses(metaP);
-  if (metaP.mountId) {
-    const picked = list.find(m => m.id === metaP.mountId && m.status.unlocked);
-    if (picked) return picked;
-  }
-  return list.find(m => m.status.unlocked) || null;
+  const eligible = MOUNTS.filter(m => isMountOwned(metaP, m.id) && m.check(metaP).unlocked);
+  return eligible.find(m => m.id === metaP.mountId) || eligible[0] || null;
 }
 
 // 建立原創風格化低多邊形 3D 坐騎模型

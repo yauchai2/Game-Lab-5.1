@@ -1,10 +1,10 @@
 import { Weather } from './weather.js';
 import { bindGuild, updateRaid } from './guild.js';
-import { FIELDS, FIELD_BOSS_SPEC, fieldBiome, awardKill, setupField, tickField, useFieldSpot, leaveGrave, rememberGear, restoreGear } from './frontier.js';
+import { FIELDS, FIELD_BOSS_SPEC, fieldBiome, awardKill, grantExperience, setupField, tickField, useFieldSpot, leaveGrave, rememberGear, restoreGear } from './frontier.js';
 import { FIELD_BLUEPRINTS } from './field_blueprints.js';
 import { getTerrainEffect, updateFieldTerrainFx, updateRealmRule } from './terrain_fx.js';
 import { buildDungeonScenery } from './dungeon_scene.js';
-import { CLASSES, ensurePuzzle, computeBoard } from './puzzle.js';
+import { CLASSES, ensurePuzzle, computeBoard, ALL_GEMS, addGemToBag } from './puzzle.js';
 import { dayInfo, findSecondClass, buildDungeonLandmark, tickSkyFeatures, buildInterior } from './world_alive.js';
 import { buildHarborTown, buildFerryBoat, buildWoodenPier } from './harbor.js';
 import { addGearToBag } from './physbag.js';
@@ -20,20 +20,28 @@ import { pickHotspots, getFieldHotspot, checkTriggerIcd, foldExcessProjectiles, 
 import { showWeapon, applyCosmetics, buildPlayer, buildNPC, buildSlime, buildThorn, buildBoar, buildMoth, buildSkyRay, buildGolem, buildStag, buildArch, buildHouse, buildFountain, buildBoard, buildStall } from './models.js';
 import { Net } from './net.js';
 import { Meta } from './meta.js';
+import { AmbushTrial, AMBUSH_SEED, AMBUSH_START, AMBUSH_BOAR, AMBUSH_LAYOUTS, hitsAmbushCover } from './ambush_trial.js';
 import { buildPanels } from './panels.js';
 const EMOTES = ['嗨～', '♥', '哈哈', 'zZ'];
+const meleeReach = p => (p.air ? 2.9 : 2.3) * (1 + p.stats.area / 100);
 import { HOODS } from './characters.js';
 import { createModularHero, CHAR_CATALOG, normalizeCharacterLook } from './char_rig.js';
 import { VfxEngine } from './vfx_engine.js';
-import { makeItem, itemLines, itemScore, RARITY, SLOTS, rollBoons, BOONS, tierInfo, corruptItem } from './loot.js';
+import { makeItem, itemLines, itemScore, RARITY, SLOTS, rollBoons, BOONS, tierInfo, corruptItem, canEquipItem, itemReqLevel } from './loot.js';
 import { activeMountDef, buildMountMesh } from './mounts.js';
 import { rollSoulDrop, activeSouls, soulTier } from './souls.js';
 import { ensureAtlas, computeAtlasSummary } from './atlas.js';
 import { initParts, resolveHitPart, damagePart, partStatusText } from './parts.js';
 import { SURFACE_DEFS, resolveSurfaceReaction, inferElement } from './elements.js';
 import { createTideState, resetTide, cycleUltimate, onTideKill, rekindleTide, castUltimate, tickTide, triggerTideDemo } from './tide.js';
+import { assignEliteAffixes, tickEliteAffixes, onEliteDeathAffix, hasAffix, computeSurvivorStatBonuses, computeTalentBonuses, cashOutSpoils, loseSpoilsOnDeath, computeCombatPower } from './survivor.js';
+import { computeAllocatedBonuses, computeSetBonuses, computeBestiaryBonuses, recordBestiaryKill, recordStoryEvent, computeAdventurerRank, spawnCompanion3D, tickCompanion3D, WORLD_CHAT_LINES, enhanceGlowColor, rollMonsterMatDrop, computeEnhanceResonance, getGuildRepInfo, grantCompanionXp, computeCompanionBondBonuses } from './mmo_rpg.js';
+import { computeLifeSkillBonuses, computeRuneBonuses, computeTitleBonuses, syncUnlockedTitles, getActiveTitleText, rollRuneDrop, addDailyActivity, createWorldBossState, tickWorldBoss, onWorldBossHit, onWorldBossDefeated, spawnSimAdventurers, tickSimAdventurers, clearSimAdventurers, getSimConfig, reactSimToPlayerEmote, onPlayerHelpSimKill } from './mmo_world.js';
+import { computePotentialBonuses, computeTowerBonuses, computePartySynergyBonuses, getPartyIds, getActivePartySynergy, createDynEventState, tickDynamicEvent, onDynEventEnemyKilled, towerFloorSpec, claimTowerFloorClear, claimOfflineRewards, MAX_TOWER_FLOOR } from './mmo_endgame.js';
 import { createAutopilotState, isAutopilotActive, manualSparkMult, toggleAutopilot, onAutopilotKill, tickAutopilot, AUTO_RATES } from './autopilot.js';
 import { installDebugger } from './debugger.js';
+import { MEADOW_CAVE, enterMeadowCave, advanceMeadowCave } from './meadow_cave.js';
+import { completeMeadowObjective, syncMeadowExpedition, meadowExpedition } from './expedition.js';
 
 function disposeObj3D(root) {
   if (!root || !root.traverse) return;
@@ -119,7 +127,7 @@ const decalFS = `uniform vec3 uColor; uniform float uProg, uShape, uAlpha; varyi
   }`;
 
 export class Game {
-  constructor(pipe, ui, audio) {
+  constructor(pipe, ui, audio, trialOrder = null) {
     this.pipe = pipe; this.ui = ui; this.audio = audio;
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(34, 16 / 9, 2, 190);
@@ -146,22 +154,24 @@ export class Game {
     this.camPos = new V3(0, 20, 14);
     this.flowTimer = 0;
     this.net = new Net(); this.remotes = new Map(); this.townGroup = null; this.party = ''; this.bots = [];
-    this.meta = new Meta(); this.pickups = []; this.spots = []; this.talked = new Set();
+    this.ambushTrial = trialOrder ? new AmbushTrial(this, trialOrder) : null;
+    this.meta = new Meta(0, !!trialOrder); this.pickups = []; this.spots = []; this.talked = new Set();
     this.playerName = '旅人'; this.hoodIdx = 0; this.posT = 0;
     this.dayTime = 0.28; this.isNight = false; this.campfires = []; this.prisms = []; this.interior = null; this.photoMode = false;
-    this.recallT = 0; this.sailing = null; this.lastTown = -1; this.waypoint = null; this.worldBoxes = [];
+    this.recallT = 0; this.sailing = null; this.lastTown = -1; this.waypoint = null; this.mapPin = null; this.worldBoxes = [];
     this.zoneStates = new Map(); this.camZoom = 1.0; this.camYaw = 0.62; this.camPunch = 0; this.exitCooldown = 0; this.groundZones = []; this.physProps = []; this.mount = null; this.beams = []; this._fadedMats = new Map(); this.combo = { count: 0, timer: 0 }; this.glideTrails = []; this.sheep = []; this.shrineBuffs = { fury: 0, frost: 0, gold: 0, sheep: 0 }; this.tide = createTideState(); this.autopilot = createAutopilotState();
     this.dev = { on: false, god: false, noCd: false, fastMove: false };
     this.runStats = { synergyProcs: 0, partsBroken: 0, campfires: 0, healsDone: 0, dmgMitigated: 0 };
     this.puzzleIcd = new Map();
     this.onAutoKill = (d) => onAutopilotKill(this, d);
     this.toggleAutopilot = (m) => toggleAutopilot(this, m);
-    this.dbg = installDebugger(this);
+    this.dbg = trialOrder ? null : installDebugger(this);
     this.bindInput();
     this.setupNet(); bindGuild(this);
     // title scene: a pretty room in the background
     this.player = this.makePlayer();
     this.loadRoom(0, null, true);
+    if (trialOrder) { this.state = 'trial-ready'; return; }
     preloadNatureAssets(() => {
       if (this.state === 'title') this.loadRoom(0, null, true);
       else if (this.state === 'play' && !this.interior && !this.sailing) {
@@ -174,10 +184,11 @@ export class Game {
   // ---------------- input ----------------
   bindInput() {
     const CODE = { KeyW: 'w', KeyA: 'a', KeyS: 's', KeyD: 'd', ArrowUp: 'arrowup', ArrowDown: 'arrowdown', ArrowLeft: 'arrowleft', ArrowRight: 'arrowright',
-      Space: ' ', ShiftLeft: 'shift', ShiftRight: 'shift', KeyQ: 'q', KeyE: 'e', KeyC: 'c', KeyK: 'k', KeyR: 'r', KeyF: 'f', KeyI: 'i', KeyM: 'm', KeyB: 'b', KeyP: 'p', KeyH: 'h', KeyG: 'g', KeyV: 'v', KeyZ: 'z', KeyX: 'x', Slash: '/', Tab: 'tab', Escape: 'escape', Enter: 'enter', KeyT: 't', Digit1: '1', Digit2: '2', Digit3: '3', Digit4: '4', Digit5: '5', Digit6: '6', Digit7: '7', Digit8: '8', Digit9: '9', Digit0: '0' };
+      Space: ' ', ShiftLeft: 'shift', ShiftRight: 'shift', KeyQ: 'q', KeyE: 'e', KeyC: 'c', KeyK: 'k', KeyR: 'r', KeyF: 'f', KeyI: 'i', KeyM: 'm', KeyO: 'o', KeyB: 'b', KeyP: 'p', KeyH: 'h', KeyG: 'g', KeyV: 'v', KeyZ: 'z', KeyX: 'x', Slash: '/', Tab: 'tab', Escape: 'escape', Enter: 'enter', KeyT: 't', Digit1: '1', Digit2: '2', Digit3: '3', Digit4: '4', Digit5: '5', Digit6: '6', Digit7: '7', Digit8: '8', Digit9: '9', Digit0: '0' };
     const typing = () => { const a = document.activeElement; return a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA'); };
     addEventListener('keydown', e => {
-      if (this.raid && e.code === 'Escape') { this.net.send({t:'raidLeave'}); return; }
+      if (e.defaultPrevented || e.isComposing || this.ui.blocksGameKey?.(e)) return;
+      if ((e.key === 'Enter' || e.key === ' ') && e.target.closest?.('button, a[href], summary')) return;
       if (this.ui.mapDialog?.open) {
         if (e.code === 'KeyM' || e.code === 'Escape') {
           e.preventDefault();
@@ -185,8 +196,31 @@ export class Game {
         }
         return;
       }
+      if (this.ui.regionMapOpen && document.getElementById('regionMap')?.contains(document.activeElement)) {
+        if (e.code === 'Tab' || (e.target.tagName === 'SELECT' && e.code !== 'Escape')) return;
+        if (e.code === 'Escape') {
+          this.ui.toggleRegionMap(this);
+          e.preventDefault();
+          return;
+        }
+      }
+      if (this.raid && e.code === 'Escape') {
+        if (this.ui.regionMapOpen) this.ui.toggleRegionMap(this);
+        else this.net.send({ t: 'raidLeave' });
+        return;
+      }
+      if (this.raid && e.code === 'Tab') {
+        e.preventDefault();
+        if (!e.repeat) this.ui.toggleRegionMap(this);
+        return;
+      }
+      if (this.ambushTrial && (this.state !== 'play'
+        || !['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'KeyR'].includes(e.code))) return;
       if (this.state === 'title' && e.code !== 'Escape') return;
-      if (typing()) { if (e.code === 'Escape' || e.code === 'Enter') this.ui.chatKey?.(e); return; }
+      if (typing()) {
+        if (document.activeElement.id === 'chatIn' && (e.code === 'Escape' || e.code === 'Enter')) this.ui.chatKey?.(e);
+        return;
+      }
       const k = CODE[e.code] ?? e.key.toLowerCase();
       if (['tab', ' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) e.preventDefault();
       const fresh = !this.keys[k]; this.keys[k] = true;
@@ -222,6 +256,10 @@ export class Game {
           else if (dbl) { this.lastSpace = 0; this.player.roll = 0; this.tryJump(); } // 連按兩下：取消翻滾、跳起（按住第二下＝滑翔）
           else this.tryRoll();                                                  // 單擊：翻滾
         }
+        if (this.ambushTrial) {
+          if (k === 'r') this.tryFlask();
+          return;
+        }
         const kb = this.settings?.keybinds || { sk0: 'rmb', sk1: 'q', sk2: 'e', sk3: 'c', flask: 'r', recall: 'h' };
         let usedBind = false;
         if (!this.ui.panelOpen && !this.ui.setOpen && !this.ui.invOpen) {
@@ -236,7 +274,8 @@ export class Game {
         if (!usedBind && ['1', '2', '3', '4'].includes(k)) this.emote(+k - 1);
         if (k === 'enter' || (k === 't' && !usedBind)) { if (this.ui.focusChat?.()) e.preventDefault(); }
         if (k === 'i' && !this.ui.setOpen && !this.ui.panelOpen) this.ui.toggleInv(this);
-        if (k === 'escape') { if (this.ui.codexOpen) this.ui.closeCodex?.(); else if (this.photoMode) this.togglePhotoMode(); else if (this.ui.regionMapOpen) this.ui.toggleRegionMap?.(this); else if (this.ui.panelOpen) this.ui.closePanel(); else if (this.ui.setOpen) this.ui.closeSettings(); else if (this.ui.invOpen) this.ui.toggleInv(this); else this.ui.toggleSettings(); }
+        if (k === 'o' && !this.ui.setOpen && !this.ui.panelOpen && !this.ui.invOpen) this.ui.toggleSimRoster?.(this);
+        if (k === 'escape') { if (this.ui.simInspectOpen) this.ui.closeSimInspect?.(); else if (this.ui.simRosterOpen) this.ui.closeSimRoster?.(); else if (this.ui.codexOpen) this.ui.closeCodex?.(); else if (this.photoMode) this.togglePhotoMode(); else if (this.ui.regionMapOpen) this.ui.toggleRegionMap?.(this); else if (this.ui.panelOpen) this.ui.closePanel(); else if (this.ui.setOpen) this.ui.closeSettings(); else if (this.ui.invOpen) this.ui.toggleInv(this); else this.ui.toggleSettings(); }
       } else if (this.state === 'boon' && ['1', '2', '3'].includes(k)) this.ui.pickBoonIndex(+k - 1);
     });
     addEventListener('keyup', e => { const k = CODE[e.code] ?? e.key.toLowerCase(); this.keys[k] = false; this.keys[e.key.toLowerCase()] = false; });
@@ -244,10 +283,22 @@ export class Game {
     addEventListener('mousemove', e => { this.mouse.x = e.clientX; this.mouse.y = e.clientY; });
     cv.addEventListener('mousedown', e => {
       this.audio.init(); window.focus(); if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
+      if (e.button === 0 && this.state === 'play' && this.hoveredWorld && ['remote', 'spot', 'drop', 'sheep'].includes(this.hoveredWorld.kind)) {
+        const h = this.hoveredWorld;
+        const nearHostile = h.kind === 'drop' && this.enemies.some(en => !en.dead && en.pos.distanceTo(this.player.pos) < 4.5);
+        if (!nearHostile && (h.kind !== 'remote' || h.obj?.bot)) {
+          this.interactTarget = { kind: h.kind, obj: h.obj, x: h.x, z: h.z };
+          this.audio.sfx('ui');
+          return;
+        }
+      }
+      this.interactTarget = null;
       if (e.button === 0) this.mouse.l = true; if (e.button === 2) this.mouse.r = true; cv.classList.add('aiming');
     });
     addEventListener('mouseup', e => { if (e.button === 0) this.mouse.l = false; if (e.button === 2) this.mouse.r = false; if (!this.mouse.l && !this.mouse.r) cv.classList.remove('aiming'); });
-    addEventListener('contextmenu', e => e.preventDefault());
+    addEventListener('contextmenu', e => {
+      if (!e.target.closest?.('input, textarea, [contenteditable]')) e.preventDefault();
+    });
     cv.addEventListener('wheel', e => {
       if (this.state !== 'play' || this.ui.invOpen || this.ui.setOpen || this.ui.panelOpen || this.ui.puzzleOpen || this.ui.mapDialog?.open) return;
       e.preventDefault();
@@ -277,7 +328,7 @@ export class Game {
       boons: [], skills: { slam: false, wisp: false }, cds: { atk: 0, bolt: 0, roll: 0, slam: 0, wisp: 0 }, skillCds: [0, 0, 0, 0], hotbar: [],
       roll: 0, rollDir: new V3(), iframes: 0, flask: { charges: 1, max: 1, prog: 0 }, healOver: 0,
       statuses: { poison: 0, freeze: 0, chill: 0, burn: 0, shock: 0, overload: 0 }, statusTick: 0, castCombo: 0, castComboT: 0, prevVx: 0, prevVz: 0,
-      y: 0, vy: 0, air: false, climbing: false, gliding: false, wall: false, stamina: 100, lastLow: new V3(), stepT: 0, swing: 0, swingT: 0, swingCount: 0, galeBuff: false, wisps: [], wispT: 0, walkT: 0, kills: 0, dmgDealt: 0, stats: {},
+      y: 0, vy: 0, air: false, climbing: false, gliding: false, wall: false, stamina: 100, lastLow: new V3(), stepT: 0, swing: 0, swingT: 0, swingCount: 0, inputBuf: null, galeBuff: false, wisps: [], wispT: 0, walkT: 0, kills: 0, dmgDealt: 0, stats: {},
     };
     p.equip.staff = makeItem(mulberry32(5), 0, 0, 'staff');
     const hl = this.meta.heirloom; if (hl) p.equip[hl.slot] = hl;
@@ -288,12 +339,13 @@ export class Game {
     const p = this.player;
     const profile = this.meta.p;
     const lv = Math.max(1, profile.level || 1);
-    // Phase B1：循序漸進開局數值（Lv.1 基礎 6 傷 / 70 HP，每級穩定成長）
+    // 硬核循序開局數值（Lv.1 基礎 5 傷 / 62 HP / 35 MP，必須靠操作、鍛造與天賦逐步變強）
     const s = {
-      baseDmg: 6 + Math.floor((lv - 1) * 1.1), dmgPct: 0, addFire: 0, atkSpd: 0,
-      crit: 5 + Math.floor((lv - 1) * 0.4), critMult: 150,
-      maxHp: 70 + (lv - 1) * 6, lifeOnHit: 0, moveSpd: 0, cdr: 0,
-      mana: 45 + Math.floor((lv - 1) * 1.5), manaRegen: 0, area: 0, armor: 0, proj: 1, regen: 0, rollCdr: 0,
+      baseDmg: 5 + Math.floor((lv - 1) * 1.05), dmgPct: 0, addFire: 0, atkSpd: 0,
+      crit: 5 + Math.floor((lv - 1) * 0.35), critMult: 150,
+      maxHp: 62 + (lv - 1) * 5, lifeOnHit: 0, moveSpd: 0, cdr: 0,
+      mana: 35 + Math.floor((lv - 1) * 1.4), manaRegen: 0, area: 0, armor: 0, proj: 1, regen: 0, rollCdr: 0,
+      resFire: 0, resIce: 0, resLightning: 0, resPoison: 0, allRes: 0,
     };
     const cls = CLASSES[this.character?.job ?? 0] || CLASSES[0];
     for (const [k, v] of Object.entries(cls.bonuses)) {
@@ -326,8 +378,21 @@ export class Game {
     const attackName={staff:'杖',bow:'弓',blades:'刃',shield:'盾'}[profile.weapon] || '杖';
     const attackSlot=document.getElementById('sk-lmb');
     if (attackSlot) { const ic = attackSlot.querySelector('.ic'); if (ic) ic.textContent = attackName; attackSlot.title = attackName + '擊'; }
-    s.maxHp += (profile.level - 1) * 5; s.baseDmg += profile.level - 1;
-    if (profile.weapon === 'blades') s.atkSpd += 40;
+    // 硬核成長：接入「星燈聖殿永久天賦」「四維屬性配點」「裝備套裝」「怪物圖鑑精通」「冒險者階級」與「連殺狂熱」
+    const tb = computeTalentBonuses(profile);
+    const alloc = computeAllocatedBonuses(profile);
+    const best = computeBestiaryBonuses(profile);
+    for (const src of [tb, alloc, best.stats]) {
+      for (const [k, v] of Object.entries(src || {})) {
+        if (typeof v === 'number' && k in s) s[k] = (s[k] || 0) + v;
+      }
+    }
+    if (this.tide?.sv) {
+      const svb = computeSurvivorStatBonuses(this.tide.sv);
+      if (svb.moveSpd) s.moveSpd += svb.moveSpd;
+      if (svb.crit) s.crit += svb.crit;
+    }
+    if (profile.weapon === 'blades') s.atkSpd += 18;
     if (profile.weapon === 'shield') s.armor += 15;
     if (profile.gem) { s.addFire += 4; p.skills.slam = true; }
     if (profile.mealUntil > Date.now()) s.regen += Math.round(2 * (profile.mealBoost || 1));
@@ -343,6 +408,68 @@ export class Game {
       for (const [k, v] of Object.entries(soulDef.bonuses || {})) s[k] = (s[k] || 0) + Math.round(v * mult);
     }
     // Phase M7A：每週星穹塔四大主題實戰效果
+    const setRes = computeSetBonuses(p.equip);
+    p.activeSets = setRes.active;
+    for (const [k, v] of Object.entries(setRes.stats || {})) s[k] = (s[k] || 0) + v;
+    // MMORPG 全身強化共鳴（+3/+5/+7/+9）、公會聲望被動、AI 隊友羈絆被動
+    const enhRes = computeEnhanceResonance(p.equip);
+    p.enhanceResonance = enhRes;
+    for (const [k, v] of Object.entries(enhRes.bonuses || {})) s[k] = (s[k] || 0) + v;
+    const gRep = getGuildRepInfo(profile);
+    if (gRep.dmgPct) s.dmgPct += gRep.dmgPct;
+    if (gRep.maxHp) s.maxHp += gRep.maxHp;
+    const compBond = computeCompanionBondBonuses(profile);
+    for (const [k, v] of Object.entries(compBond || {})) if (k in s) s[k] = (s[k] || 0) + v;
+    // 四大生活副職被動、裝備符文石加成、稱號收藏永久被動
+    const lifeBon = computeLifeSkillBonuses(profile);
+    for (const [k, v] of Object.entries(lifeBon || {})) if (k in s) s[k] = (s[k] || 0) + v;
+    const runeRes = computeRuneBonuses(p.equip);
+    p.runeBonuses = runeRes.stats;
+    for (const [k, v] of Object.entries(runeRes.stats || {})) if (k in s) s[k] = (s[k] || 0) + v;
+    syncUnlockedTitles(profile, { equip: p.equip });
+    const titleBon = computeTitleBonuses(profile);
+    s.dmgPct += titleBon.dmgPct;
+    s.maxHp += titleBon.maxHp;
+    // 裝備潛能詞綴（R→SR→SSR→UR）、無盡試煉秘境塔永久被動、3 人小隊陣型光環
+    const potBon = computePotentialBonuses(p.equip).stats;
+    for (const [k, v] of Object.entries(potBon || {})) if (k in s) s[k] = (s[k] || 0) + v;
+    p.bossDmgPct = potBon.bossDmgPct || 0;
+    const twBon = computeTowerBonuses(profile);
+    s.dmgPct += twBon.dmgPct || 0;
+    s.maxHp += twBon.maxHp || 0;
+    const synRes = computePartySynergyBonuses(profile);
+    p.partySynergy = synRes.synergy;
+    for (const [k, v] of Object.entries(synRes.bonuses || {})) if (k in s) s[k] = (s[k] || 0) + v;
+    // 四大元素抗性彙整（allRes 同步加成，高危 Lv.15+ 地圖帶有 -15% 深淵元素穿透，最高抗性上限 75%）
+    const abyssPen = (this.field && (FIELDS[this.field]?.level || 1) >= 15) ? 15 : 0;
+    for (const rk of ['resFire', 'resIce', 'resLightning', 'resPoison']) {
+      s[rk] = Math.max(-30, Math.min(75, (s[rk] || 0) + (s.allRes || 0) - abyssPen));
+    }
+    const prevCp = p.combatPower || 0;
+    p.combatPower = computeCombatPower(profile, s, p.equip);
+    const advRank = computeAdventurerRank(profile, p.combatPower);
+    p.advRank = advRank;
+    if (advRank.bonusDmgPct) s.dmgPct += advRank.bonusDmgPct;
+    if (prevCp > 0 && p.combatPower > prevCp + 8 && this.state === 'play') {
+      this.ui?.toast(`⚔️ 戰力評分提升！${prevCp} → ${p.combatPower}（+${p.combatPower - prevCp} CP · ${advRank.rank}級）`, '#ffd85a');
+    }
+    if (p.m?.root) {
+      const maxEnh = Math.max(0, ...Object.values(p.equip || {}).map(it => it?.enhance || 0));
+      const gCol = enhanceGlowColor(maxEnh);
+      if (gCol && !p.m._enhGlow) {
+        p.m._enhGlow = new THREE.Mesh(
+          new THREE.RingGeometry(0.52, 0.64, 24),
+          new THREE.MeshBasicMaterial({ color: gCol, transparent: true, opacity: 0.72, side: THREE.DoubleSide, depthWrite: false }),
+        );
+        p.m._enhGlow.rotation.x = -Math.PI / 2;
+        p.m._enhGlow.position.y = 0.06;
+        p.m.root.add(p.m._enhGlow);
+      }
+      if (p.m._enhGlow) {
+        p.m._enhGlow.visible = !!gCol;
+        if (gCol) p.m._enhGlow.material.color.setHex(gCol);
+      }
+    }
     if (this.isWeeklySpire && !this.field) {
       const wId = getWeeklySpireInfo().theme.id;
       if (wId === 'sakura') { s.moveSpd += 18; s.atkSpd += 20; }
@@ -376,14 +503,14 @@ export class Game {
     if (!this.field || this.state === 'title') return;
     this.zoneStates.set(this.field, {
       savedAt: Date.now(),
-      enemies: this.enemies.filter(e => !e.dead && !e.rival).map(e => ({
+      enemies: this.enemies.filter(e => !e.dead && !e.rival && !e.expeditionId).map(e => ({
         type: e.type, x: e.pos.x, z: e.pos.z, hp: e.hp, maxHp: e.maxHp,
         elite: !!e.elite, spawnIndex: e.spawnIndex, level: e.level, legendary: !!e.legendary,
       })),
       respawns: (this.respawns || []).map(r => ({ ...r })),
       drops: this.drops.filter(d => d.kind === 'item').map(d => ({ x: d.g.position.x, z: d.g.position.z, item: d.item })),
       campfires: (this.campfires || []).map(c => ({ x: c.x, y: c.y, z: c.z })),
-      hiddenSpots: (this.spots || []).map((s, i) => s.mesh?.visible === false ? i : -1).filter(i => i >= 0),
+      hiddenSpots: (this.spots || []).map((s, i) => !s.expeditionId && s.mesh?.visible === false ? i : -1).filter(i => i >= 0),
       playerPos: { x: this.player.pos.x, z: this.player.pos.z },
     });
   }
@@ -400,6 +527,7 @@ export class Game {
       const e = this.spawnEnemy(se.type, { x: se.x, z: se.z }, se.elite);
       e.hp = Math.max(1, se.hp); e.maxHp = se.maxHp || e.maxHp;
       e.spawnIndex = se.spawnIndex; e.level = se.level; e.legendary = se.legendary;
+      if (id === 1 && e.type === 'slime') e.meadowPounce = true;
     }
     for (const sd of st.drops || []) this.dropItem(sd.x, sd.z, sd.item, true);
     for (const cf of st.campfires || []) this.spawnCampfireAt(cf.x, cf.y, cf.z);
@@ -412,9 +540,10 @@ export class Game {
   }
   enterField(id, fromDir = 'south') {
     if (!FIELDS[id]) return;
+    if (this.waypoint?.id === id) this.waypoint = null;
     if (this.field && this.field !== id) this.saveFieldState();
     if (!this.field && this.depth >= 0 && !this.runEnded) this.bankRun(1);
-    this.worldEvent = null; this.field = id; this.originField = id; this.state = 'play';
+    this.worldEvent = null; this.towerFloor = 0; this.field = id; this.originField = id; this.state = 'play';
     this.exitCooldown = 1.6;
     const restored = this.zoneStates.has(id);
     this.loadRoom(FIELDS[id].biome * 3, null, false, { fromDir });
@@ -455,11 +584,29 @@ export class Game {
     if (dng.redZone) {
       this.ui.toast(`🔴 越級警戒：${FIELDS[id].name}（建議 Lv.${FIELDS[id].level}）敵方減傷 45% · 傷害 ×1.5`, '#ff7a7a');
     }
+    syncMeadowExpedition(this);
+    if (id === 1) {
+      const entrance = this.exits.find(exit => exit.type === 'dungeon');
+      if (entrance) this.spots.push({ kind: 'meadowCave', label: '查看草原洞窟', x: entrance.x, z: entrance.z, top: 4.4 });
+    }
+    spawnSimAdventurers(this);
   }
+  startMeadowCave(tier) {
+    if (this.state !== 'play' || this.field !== 1 || this.nearSpot()?.kind !== 'meadowCave') return false;
+    const cave = enterMeadowCave(this.meta.p, tier);
+    if (!cave) return false;
+    this.meta.save();
+    this.ui.closePanel();
+    this.state = 'transition';
+    this.audio.sfx('warp');
+    this.ui.wipe(() => this.startRun({ cave }));
+    return true;
+  }
+
   startRun(opts = {}) {
     if (this.field) this.saveFieldState();
     this.originField = this.field || 1;
-    this.field = 0;
+    this.field = 0; this.towerFloor = 0;
     for (const e of this.enemies) this.scene.remove(e.m.root);
     this.scene.remove(this.player.m.root);
     this.player = this.makePlayer();
@@ -469,27 +616,57 @@ export class Game {
       ? opts.weeklySeed
       : (this.party ? [...this.party].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % 1000000 : (Math.random() * 1e6) | 0) + (this.originField - 1) * 997;
     this.runStart = performance.now(); this.meta.runShards = 0; this.meta.p.runs++; this.meta.save(); this.runEnded = false;
-    this.portalsLeft = 6;
+    this.portalsLeft = opts.cave ? 1 : 6;
     this.runStats = { synergyProcs: 0, partsBroken: 0, campfires: 0, healsDone: 0, dmgMitigated: 0 };
     this.state = 'play';
-    this.loadRoom(0, null);
+    this.loadRoom(0, null, false, { cave: opts.cave });
     if (this.isWeeklySpire) {
       const ws = getWeeklySpireInfo();
       this.ui.toast(`🗼 進入本週無盡星穹塔（種子 #${ws.seed} · ${ws.theme.name}）`, '#c88cff');
     }
   }
+  startTowerFloor(floor = 1) {
+    if (this.field) this.saveFieldState();
+    this.field = 0; this.isWeeklySpire = false;
+    this.towerFloor = Math.max(1, Math.min(MAX_TOWER_FLOOR, Math.floor(floor)));
+    for (const e of this.enemies) this.scene.remove(e.m.root);
+    this.scene.remove(this.player.m.root);
+    this.player = this.makePlayer();
+    this.recalc(); this.player.hp = this.player.stats.maxHp; this.player.mana = this.player.stats.mana;
+    this.runSeed = 88000 + this.towerFloor * 131;
+    this.runStart = performance.now(); this.meta.runShards = 0; this.runEnded = false;
+    this.portalsLeft = 3;
+    this.state = 'play';
+    this.loadRoom(Math.min(8, Math.floor((this.towerFloor - 1) / 5)), null);
+  }
   enterTown(fromDir = null) {
+    if (this.waypoint?.id === 0) this.waypoint = null;
+    if (this.tide?.sv) {
+      const cashed = cashOutSpoils(this.tide.sv, this.meta?.p);
+      if (cashed.coins > 0 || cashed.shards > 0) {
+        this.meta.save();
+        this.ui?.toast(`💰 攜帶戰利品袋安全回城！+${cashed.coins} 金幣 · +${cashed.shards} 星砂`, '#ffd85a');
+      }
+    }
+    this.draftPause = false;
     if (this.field) this.saveFieldState();
     if (this.state === 'play' && !this.field && this.depth >= 0 && this.runStart && !this.runEnded) this.bankRun(1);
-    this.field = 0; this.lastTown = -1; this.recallT = 0;
+    this.field = 0; this.towerFloor = 0; this.lastTown = -1; this.recallT = 0;
     for (const e of this.enemies) this.scene.remove(e.m.root);
     this.scene.remove(this.player.m.root);
     this.player = this.makePlayer(); this.recalc();
     this.player.hp = this.player.stats.maxHp; this.player.mana = this.player.stats.mana;
     this.state = 'play'; this.player.m.root.visible = true;
     this.loadRoom(-1, null, false, { fromDir });
+    const off = claimOfflineRewards(this.meta?.p);
+    if (off) {
+      this.meta.save();
+      this.vfx?.spawnLifeSkillFx('offline', this.player.pos.x, this.player.y || 0, this.player.pos.z);
+      this.ui?.toast(`🌙 離線修煉見聞（${off.hoursText}）：+🪙${off.coins} · +✨${off.xp}經驗 · +💎${off.shards}${off.cubes ? ` · +🎲${off.cubes}潛能魔方` : ''}`, '#ffd85a');
+    }
   }
   enterHarbor(fromDir = null) {
+    if (this.waypoint?.id === 100) this.waypoint = null;
     if (this.field) this.saveFieldState();
     if (this.state === 'play' && !this.field && this.depth >= 0 && this.runStart && !this.runEnded) this.bankRun(1);
     this.field = 0; this.lastTown = -2; this.recallT = 0;
@@ -519,11 +696,20 @@ export class Game {
     this.audio.sfx('glide');
     this.ui.banner(dest === 'harbor' ? '⛵ 揚帆啟航 · 海風港鎮' : '⛵ 乘風返航 · 燈谷鎮', '從木造碼頭駛入深海波浪中…');
   }
-  get zone() { if (this.field) return 'field:' + this.field; return this.state === 'title' ? 'title' : this.depth === -2 ? 'harbor' : this.depth < 0 ? 'town' : `run:${this.party || 'solo' + (this.net.id || '')}:${this.depth}`; }
+  get zone() { if (this.field) return 'field:' + this.field; return this.state === 'title' ? 'title' : this.depth === -2 ? 'harbor' : this.depth < 0 ? 'town' : `run:${(!this.caveRun && this.party) || 'solo' + (this.net.id || '')}:${this.depth}`; }
   biomeFor(depth) { return depth >= 9 ? 3 : ((Math.floor(depth / 3) + (FIELDS[this.originField]?.biome || 0)) % 4); }
   loadRoom(depth, reward, title = false, extra = {}) {
     this.depth = depth; this.reward = reward; this.exitCooldown = 1.6;
+    this.caveRun = extra.cave || null;
+    const cave = this.caveRun && MEADOW_CAVE[this.caveRun.tier];
+    const trial = this.ambushTrial?.active;
+    const ambushRoom = trial || (title && this.ambushTrial);
+    this.meadowLocations = null;
+    this.mapPin = null; this.checkpoints = []; this.updrafts = [];
     resetTide(this);
+    clearSimAdventurers(this);
+    this.worldBoss = createWorldBossState();
+    this.dynEvent = createDynEventState();
     if (isAutopilotActive(this)) toggleAutopilot(this, 'off', 'zone');
     if (this.autopilot?.wispMesh) { this.scene.remove(this.autopilot.wispMesh); this.autopilot.wispMesh = null; }
     this.camYaw = 0.62;
@@ -555,18 +741,30 @@ export class Game {
     for (const b of this.bots) this.removeRemote(b); this.bots = [];
     this.dbg?.log?.(`[ZONE] 載入 ${this.zone}`);
     const bi = (title || anyTown) ? 0 : this.biomeFor(depth);
-    const B = this.field ? fieldBiome(this.field) : harbor ? { ...BIOMES[0], name: '海風港鎮', ground: 0xe6d29a, sky: 0x9ed8ff, sun: 0xfff5d6 } : BIOMES[bi]; this.biome = B;
+    const B = ambushRoom ? {
+      ...BIOMES[0], name: '岔道伏擊', ground: 0xa4a8b3, sky: 0xe3e7ef, sun: 0xffffff,
+      grade: [1, 1, 1], shaft: [0, 0, 0],
+    } : cave ? {
+      ...BIOMES[0], name: '草原洞窟',
+      grass: 0x78796a, grassLight: 0x949486, grassDark: 0x5e625a, plateau: 0x737e78,
+      sand: 0x85796c, sandWet: 0x625b58, dirt: 0xa28968,
+      rock: 0x929a98, rockDark: 0x555c64,
+      sky: 0x9daabb, ground: 0xc49e74,
+      waterDeep: [0.08, 0.17, 0.22], waterShallow: [0.17, 0.35, 0.40], waterLine: [0.36, 0.55, 0.56],
+    } : this.field ? fieldBiome(this.field) : harbor ? { ...BIOMES[0], name: '海風港鎮', ground: 0xe6d29a, sky: 0x9ed8ff, sun: 0xfff5d6 } : BIOMES[bi]; this.biome = B;
     this.boss = null; this.ui.bossBar(false);
     const weather = FIELDS[this.field]?.fog;
-    this.scene.fog = weather ? new THREE.Fog(weather, 40, 118) : null;
+    this.scene.fog = cave ? new THREE.Fog(0x252c34, 34, 74) : weather ? new THREE.Fog(weather, 40, 118) : null;
     const boss = depth === 9 && !title && !this.field;
-    const seed = this.field ? 7201 + this.field * 319 : title ? 4242 : harbor ? 9002 : town ? 9001 : (this.runSeed || 1) + depth * 101;
+    const seed = cave ? AMBUSH_SEED : this.field ? 7201 + this.field * 319 : title ? 4242 : harbor ? 9002 : town ? 9001 : (this.runSeed || 1) + depth * 101;
     this.rng = mulberry32(seed + 77);
-    const { spawn, exits } = this.world.generate(seed, B, { boss, town: anyTown, raid: !!extra.raid, cardinalExits: !!this.field, blueprint: this.field ? FIELD_BLUEPRINTS[this.field] : null, size: FIELDS[this.field]?.size, exitCount: extra.raid ? 0 : this.field ? (FIELDS[this.field + 1] ? 3 : 2) : town ? 1 : harbor ? 0 : boss ? 0 : (depth === 0 ? 2 : (this.rng() < 0.5 ? 2 : 3)) });
+    const { spawn, exits } = ambushRoom
+      ? this.world.generateAmbush(B, AMBUSH_START, this.ambushTrial.cover)
+      : this.world.generate(seed, B, { boss, town: anyTown, raid: !!extra.raid, cave: !!cave, cardinalExits: !!this.field, blueprint: this.field ? FIELD_BLUEPRINTS[this.field] : null, size: FIELDS[this.field]?.size, exitCount: cave ? 1 : extra.raid ? 0 : this.field ? (FIELDS[this.field + 1] ? 3 : 2) : town ? 1 : harbor ? 0 : boss ? 0 : (depth === 0 ? 2 : (this.rng() < 0.5 ? 2 : 3)) });
     this.sun.color.set(B.sun); this.sun.intensity = B.sunI * 1.45;
     this.hemi.color.set(B.sky); this.hemi.groundColor.set(B.ground); this.hemi.intensity = B.ambient * 1.15;
     this.pipe.postMat.uniforms.uGrade.value.set(...B.grade);
-    this.pipe.postMat.uniforms.uCloud.value = B.key === 'snow' ? 0.4 : (anyTown ? 0.45 : 1);
+    this.pipe.postMat.uniforms.uCloud.value = ambushRoom ? 0 : B.key === 'snow' ? 0.4 : (anyTown ? 0.45 : 1);
     this.pipe.postMat.uniforms.uShaft.value.set(...B.shaft);
     const p = this.player; p.sitting = null;
     if (town && extra.fromDir === 'north') { p.pos.set(0, 0, -13.0); p.facing = 0; }
@@ -576,12 +774,20 @@ export class Game {
     this.camPos.set(p.pos.x, 0, p.pos.z);
     const types = ['item', 'boon', 'heal'];
     const pool = depth === 0 ? ['boon', 'item'] : types.slice().sort(() => this.rng() - 0.5);
-    if (town) { this.makeExit(exits[0], 'run'); this.exits[0].on = true; this.buildTown(); }
-    else if (harbor) { this.buildHarbor(); }
+    if (town) { this.makeExit(exits[0], 'run'); this.exits[0].on = true; this.buildTown(); spawnSimAdventurers(this); }
+    else if (harbor) { this.buildHarbor(); spawnSimAdventurers(this); }
     else if (this.field) {
       this.makeExit(exits[0], 'dungeon'); this.exits[0].on = true;
       if (exits[1]) { this.makeExit(exits[1], this.field === 1 ? 'town' : 'prevField'); this.exits[1].on = true; }
       if (exits[2] && FIELDS[this.field + 1]) { this.makeExit(exits[2], 'nextField'); this.exits[2].on = true; }
+    }
+    else if (trial) {
+      const cover = this.ambushTrial.cover;
+      if (cover) this.worldBoxes.push(cover);
+    } else if (cave) this.makeExit(exits[0], 'caveReturn');
+    else if (this.towerFloor > 0 && !title && !anyTown) {
+      if (exits[0]) this.makeExit(exits[0], this.towerFloor < MAX_TOWER_FLOOR ? 'nextTower' : 'town');
+      if (exits[1]) this.makeExit(exits[1], 'town');
     }
     else exits.forEach((e, i) => this.makeExit(e, pool[i % pool.length]));
     this.weather.reset(B);
@@ -595,7 +801,19 @@ export class Game {
       this.cleared = true; this.waveIdx = 0; this.waves = [];
       this.ui.banner('海風港鎮', '第二城鎮 · 乘船返航或探索浮空遺跡與珊瑚海灣');
       this.fade = 1;
-    } else if (this.field) { this.waveIdx = 0; this.cleared = true; this.fade = 1; } else if (!title) {
+    } else if (cave) {
+      this.waves = trial ? [cave.stages[1]] : cave.stages;
+      this.waveIdx = this.caveRun.stage - 1;
+      this.waveDelay = trial ? 0 : 1.2;
+      this.cleared = false;
+      this.fade = trial ? 0 : 1;
+    } else if (this.field) { this.waveIdx = 0; this.cleared = true; this.fade = 1; } else if (this.towerFloor > 0 && !title) {
+      const tSpec = towerFloorSpec(this.towerFloor);
+      this.waves = tSpec.waves.map(w => ({ ...w }));
+      this.waveIdx = -1; this.waveDelay = 1.0; this.cleared = false;
+      this.ui.banner(tSpec.title, `血量 ×${tSpec.hpScale} · 傷害 ×${tSpec.dmgScale} · 通關永久全傷 +1.5%`);
+      this.fade = 1;
+    } else if (!title) {
       if (boss) this.waves = [{ boss: true }];
       else {
         const nW = depth === 0 ? 1 : 2 + (depth >= 5 ? 1 : 0);
@@ -612,9 +830,13 @@ export class Game {
       this.ui.banner(boss ? (atlas.twinBoss ? '雙王試煉 · 鹿王林地' : '古樹鹿王的林地') : B.name, boss ? '最終之戰' : `第 ${stage} 區 · 第 ${room} 間 · ${atlas.dangerLabel}`);
       this.fade = 1;
     } else { this.cleared = true; this.waveIdx = 0; }
-    if (!anyTown && !title && !this.field) {
+    if (!trial && !anyTown && !title && !this.field) {
       buildDungeonScenery(this, { depth, boss, biome: B });
-      this.meta.event('depth', depth + 1); if (depth + 1 > this.meta.p.best.depth) { this.meta.p.best.depth = depth + 1; this.meta.save(); } this.placePickups();
+      if (!cave) {
+        this.meta.event('depth', depth + 1);
+        if (depth + 1 > this.meta.p.best.depth) { this.meta.p.best.depth = depth + 1; this.meta.save(); }
+        this.placePickups();
+      }
     }
     p.y = 0; p.vy = 0; p.air = false; p.climbing = false; p.stamina = 100; p.lastLow.set(p.pos.x, 0, p.pos.z);
     this.world.computeFlow(p.pos.x, p.pos.z);
@@ -625,7 +847,7 @@ export class Game {
     const g = (type === 'dungeon' && this.field) ? buildDungeonLandmark(this.biome, this.field) : buildArch(this.biome);
     g.position.set(e.x, 0, e.z);
     const toC = Math.atan2(-e.x, -e.z); g.rotation.y = toC;
-    const col = { item: 0xffd85a, boon: 0xc08cff, heal: 0xff6b6b, dungeon: 0xb399ec, run: 0x6fe0d0, town: 0x58c896, prevField: 0x58c896, nextField: 0x62e0a8 }[type];
+    const col = { item: 0xffd85a, boon: 0xc08cff, heal: 0xff6b6b, dungeon: 0xb399ec, run: 0x6fe0d0, town: 0x58c896, prevField: 0x58c896, nextField: 0x62e0a8, nextTower: 0xffcf4a, caveReturn: 0x58c896 }[type];
     const disc = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 2.2), new THREE.ShaderMaterial({
       uniforms: { uT: { value: 0 }, uC: { value: new THREE.Color(col) }, uOn: { value: 0 } }, transparent: true, depthWrite: false, side: THREE.DoubleSide,
       vertexShader: decalVS,
@@ -648,6 +870,34 @@ export class Game {
   spawnWave() {
     const wv = this.waves[this.waveIdx];
     const p = this.player;
+    if (this.ambushTrial?.active) {
+      const layout = AMBUSH_LAYOUTS[this.ambushTrial.active.variant];
+      for (const type of wv.enemies) {
+        const enemy = this.spawnEnemy(type, type === 'boar' ? AMBUSH_BOAR : layout.thorn, false);
+        if (type === 'boar') enemy.chargeRecoveryS = wv.boarChargeRecoveryS;
+      }
+      return;
+    }
+    if (this.caveRun) {
+      this.ui.banner(wv.name, wv.hint);
+      for (const type of wv.enemies) {
+        const pos = this.world.randomWalkable(this.rng, p.pos, 6);
+        const enemy = this.spawnEnemy(type, pos, false);
+        if (type === 'boar') enemy.chargeRecoveryS = wv.boarChargeRecoveryS;
+        if (type === 'slime') enemy.meadowPounce = true;
+        if (!wv.champion) continue;
+        enemy.expeditionName = wv.name;
+        enemy.expeditionTier = this.caveRun.tier === 'elite' ? 2 : 1;
+        enemy.maxHp = enemy.hp *= 2.2;
+        enemy.dmg *= 0.82;
+        enemy.m.root.scale.setScalar(1.55);
+        enemy.r *= 1.55;
+        initParts(enemy);
+        this.boss = enemy;
+        this.ui.bossBar(true, wv.name);
+      }
+      return;
+    }
     const atlas = (!this.field && this.depth >= 0) ? computeAtlasSummary(ensureAtlas(this.meta.p)) : null;
     if (wv.boss) {
       const nBoss = atlas?.twinBoss ? 2 : 1;
@@ -668,18 +918,20 @@ export class Game {
       const pos = this.world.randomWalkable(this.rng, p.pos, 7);
       const elite = this.rng() < 0.06 + d * 0.025 + eliteBonus;
       // warning puff, then spawn
+      this.vfx?.spawnEnemyCircle(pos.x, this.world.gh(pos.x, pos.z), pos.z, elite ? 'fire' : 'death', 0.75);
       this.addDecal('circle', pos.x, pos.z, 0.9, 0xfff2c0, 0.7, null, () => this.spawnEnemy(t, pos, elite), 2);
     }
   }
 
   spawnEnemy(type, pos, elite) {
     const d = this.field ? FIELDS[this.field].level / 2 : this.depth;
-    const lv = this.field ? FIELDS[this.field].level : (1 + this.depth * 3);
-    const diff = DIFFICULTY_MODES[this.settings?.difficulty || 'standard'] || DIFFICULTY_MODES.standard;
-    // Phase B1：分段難度曲線（Lv.1–5 平緩起步，Lv.6–30 階梯成長）× 難度檔位倍率
-    const scale = (lv <= 5 ? (1 + (lv - 1) * 0.16) : (1.64 * Math.pow(1.08, lv - 5))) * diff.enemyHp;
-    const dmgScale = (lv <= 5 ? (1 + (lv - 1) * 0.12) : (1.48 * Math.pow(1.055, lv - 5))) * diff.enemyDmg;
-    const atlas = (!this.field && this.depth >= 0) ? computeAtlasSummary(ensureAtlas(this.meta.p)) : null;
+    const lv = this.caveRun ? MEADOW_CAVE[this.caveRun.tier].level : this.towerFloor > 0 ? Math.min(30, 3 + Math.floor(this.towerFloor * 0.6)) : this.field ? FIELDS[this.field].level : (1 + this.depth * 3);
+    const difficulty = this.ambushTrial ? 'standard' : this.settings?.difficulty;
+    const diff = DIFFICULTY_MODES[difficulty] || DIFFICULTY_MODES.standard;
+    // 硬核高壓難度曲線（敵人血量 ×1.60、傷害 ×1.45、移速 ×1.12 — 必須閃避、走位與紮實養成！）
+    const scale = (lv <= 5 ? (1 + (lv - 1) * 0.22) : (1.88 * Math.pow(1.095, lv - 5))) * diff.enemyHp * 1.60;
+    const dmgScale = (lv <= 5 ? (1 + (lv - 1) * 0.18) : (1.72 * Math.pow(1.07, lv - 5))) * diff.enemyDmg * 1.45;
+    const atlas = (!this.caveRun && !this.field && this.depth >= 0) ? computeAtlasSummary(ensureAtlas(this.meta.p)) : null;
     const DEF = {
       slime: { hp: 30, spd: 2.7, dmg: 9, r: 0.45, build: () => buildSlime(pick(this.rng, [0x7fc35a, 0x9bd06a, 0x6fb86a])) },
       thorn: { hp: 26, spd: 2.2, dmg: 10, r: 0.4, build: buildThorn },
@@ -689,7 +941,7 @@ export class Game {
       golem: { hp: 115, spd: 2.0, dmg: 22, r: 0.78, build: buildGolem },
       stag: { hp: 1100, spd: 2.4, dmg: 18, r: 1.2, build: buildStag },
     }[type];
-    if (type !== 'stag') { if (this.meta.has('swift')) DEF.spd *= 1.25; if (this.meta.has('tough')) DEF.hp *= 1.5; }
+    if (!this.caveRun && type !== 'stag') { if (this.meta.has('swift')) DEF.spd *= 1.25; if (this.meta.has('tough')) DEF.hp *= 1.5; }
     if (atlas) { DEF.hp *= atlas.enemyHpMult; DEF.dmg *= atlas.enemyDmgMult; DEF.spd *= atlas.enemySpdMult; }
     const m = DEF.build();
     const s = elite ? 1.35 : 1;
@@ -732,7 +984,7 @@ export class Game {
       };
       const pickMon = MAP_MON[this.field]?.();
       if (pickMon) attachMonsterGlb(m, pickMon[0], pickMon[1]);
-    } else if (this.depth >= 0 && type !== 'stag') {
+    } else if (!this.caveRun && this.depth >= 0 && type !== 'stag') {
       // 地城房內依生態自動掛上專屬低面實模怪物
       const bk = this.biome?.key || 'meadow';
       const DUN_MON = {
@@ -744,15 +996,17 @@ export class Game {
       const pickDun = DUN_MON[bk]?.();
       if (pickDun) attachMonsterGlb(m, pickDun[0], pickDun[1]);
     }
+    const random = this.ambushTrial ? this.rng : Math.random;
     const e = {
-      type, m, pos: new V3(pos.x, 0, pos.z), vel: new V3(), knock: new V3(), facing: Math.random() * 6,
-      hp: DEF.hp * scale * (elite ? 2.6 : 1) * (type === 'stag' && !this.field ? 1 / scale : 1), dmg: DEF.dmg * dmgScale * (elite ? 1.3 : 1),
-      spd: DEF.spd * (elite ? 1.15 : 1), r: DEF.r * s, flying: !!DEF.flying, alt: DEF.alt || 0, groundedT: 0,
-      state: 'move', t: 0, cd: 1 + Math.random() * 1.5, stun: 0, slow: 0, flash: 0, elite, ph: Math.random() * 10,
+      type, m, pos: new V3(pos.x, 0, pos.z), vel: new V3(), knock: new V3(), facing: random() * 6,
+      hp: DEF.hp * scale * (elite ? 2.8 : 1) * (type === 'stag' && !this.field ? 1 / scale : 1), dmg: DEF.dmg * dmgScale * (elite ? 1.35 : 1),
+      spd: DEF.spd * 1.12 * (elite ? 1.18 : 1), r: DEF.r * s, flying: !!DEF.flying, alt: DEF.alt || 0, groundedT: 0,
+      state: 'move', t: 0, cd: 1 + random() * 1.5, stun: 0, slow: 0, flash: 0, elite, ph: random() * 10,
       hitCd: 0,
     };
     e.maxHp = e.hp;
     initParts(e);
+    if (elite) assignEliteAffixes(e, lv, this.tide?.waveStreak || 1);
     if (type === 'stag') {
       e.phase = 1; e.cd = 2; this.boss = e;
       if (bossSpec) {
@@ -791,9 +1045,10 @@ export class Game {
     const comboCrit = Math.min(22.5, (this.combo?.count || 0) * 1.5);
     const furyMul = (this.shrineBuffs?.fury || 0) > 0 ? 1.45 : 1;
     let dmg = (s.baseDmg + s.addFire) * (1 + s.dmgPct / 100) * mult * furyMul;
-    const crit = Math.random() * 100 < (s.crit + comboCrit);
+    const random = this.ambushTrial ? this.rng : Math.random;
+    const crit = (this.player.perfectCritT || 0) > 0 || random() * 100 < (s.crit + comboCrit);
     if (crit) dmg *= s.critMult / 100;
-    return { dmg: Math.round(dmg * (0.9 + Math.random() * 0.2)), crit, fire };
+    return { dmg: Math.round(dmg * (0.9 + random() * 0.2)), crit, fire };
   }
   hitEnemy(e, hit, kx = 0, kz = 0, opts = {}) {
     if (e.dead) return;
@@ -810,7 +1065,20 @@ export class Game {
     }
     // Phase B1：越級風險機制（怪物高出玩家 ≥6 級時減傷 45%，防低等跨區白嫖）
     if ((e.level || 1) - (this.meta.p.level || 1) >= 6) mult *= 0.55;
+    if ((e.type === 'stag' || e.isWorldBoss || e.isTideBoss) && (p.bossDmgPct || 0) > 0) mult *= (1 + p.bossDmgPct / 100);
     let dmg = Math.round(hit.dmg * mult);
+    const isCounter = !opts.isDoT && e.state === 'rest' && e.t < (e.chargeRecoveryS || 0);
+    if (isCounter) {
+      dmg = Math.round(dmg * 1.5);
+      hit = { ...hit, crit: true };
+      this.hitstop = Math.max(this.hitstop, 0.065);
+      this.shake = Math.max(this.shake, 0.28);
+      this.audio.sfx('perfect');
+      const cg = new THREE.RingGeometry(0.45, 0.78, 24); cg.rotateX(-Math.PI / 2);
+      const cm = new THREE.Mesh(cg, new THREE.MeshBasicMaterial({ color: 0xffcf4a, transparent: true, opacity: 0.92, depthWrite: false, side: THREE.DoubleSide }));
+      cm.position.set(e.pos.x, e.pos.y + 0.18, e.pos.z); cm.userData.noNormal = true; this.scene.add(cm);
+      this.rings.push({ mesh: cm, t: 0, max: 0.24, radius: 2.3 });
+    }
     if (!opts.isDoT && (this.tide?.microBuffs?.dice20 || 0) > 0 && Math.random() < 0.22) {
       dmg = Math.round(dmg * 2.2);
       this.hitstop = Math.max(this.hitstop, 0.05);
@@ -843,6 +1111,14 @@ export class Game {
       this.ui.toast('🦅 空中破翼擊落！體力 +40 · 踏跳反彈', '#7ae8ff');
       this.fx.burst(e.pos.x, e.pos.y + 0.6, e.pos.z, 14, { c: [0x7ae8ff, 0xffe480, 0xffffff], s: 0.14, speed: 6, up: 4, life: 0.5 });
     }
+    if (e.shieldT > 0 && !opts.isDoT) {
+      dmg = Math.max(1, Math.round(dmg * 0.2));
+      this.ui.dmgNum(e.pos.x, e.pos.y + 1.5, e.pos.z, '🛡 格擋', 'norm');
+    } else if (e.isPhalanxShield && !opts.aerial && !opts.isDoT) {
+      const toPlayerX = p.pos.x - e.pos.x, toPlayerZ = p.pos.z - e.pos.z;
+      const frontDot = Math.sin(e.facing || 0) * toPlayerX + Math.cos(e.facing || 0) * toPlayerZ;
+      if (frontDot > 0) dmg = Math.max(1, Math.round(dmg * 0.45));
+    }
     if (!opts.isDoT && this.vfx) {
       const hitTheme = opts.shock ? 'thunder' : hit.fire ? 'fire' : opts.slow ? 'frost' : opts.poison ? 'poison' : (['holy', 'wind', 'bluefire', 'death', 'lotus'][this.character?.job ?? 0] || 'arcane');
       this.vfx.spawnHitImpact(e.pos.x, e.pos.y, e.pos.z, hitTheme, !!hit.crit);
@@ -860,7 +1136,9 @@ export class Game {
       const ms = mentorDamageScale(this.meta.p.level, FIELDS[this.field]?.level || 1, true);
       if (ms < 1) dmg = Math.max(1, Math.round(dmg * ms));
     }
+    this.ambushTrial?.enemyHit(e, Math.min(dmg, e.hp), opts.isDoT);
     e.hp -= dmg; e.flash = 0.14;
+    if (e.isWorldBoss) onWorldBossHit(this, e, dmg, true);
     if (!opts.isDoT) {
       // 加強打擊感：壓扁彈回（squash-and-stretch）、暴擊衝擊環、更強震動與頓幀
       e.squash = hit.crit ? 0.36 : 0.22;
@@ -919,8 +1197,16 @@ export class Game {
           this.audio.sfx('partBreak');
           this.puffs.burst(e.pos.x, e.pos.y + 1.2, e.pos.z, 18, { c: [0xffe480, 0x7ae8ff, 0xffffff], s: 0.22, speed: 6, up: 5, life: 0.75 });
           this.ui.dmgNum(e.pos.x, e.pos.y + 2.2, e.pos.z, `✂️ ${pr.part.name}破壞!`, 'crit');
-          this.ui.toast(`✂️ 斬斷 ${pr.part.icon} ${pr.part.name}！（${pr.part.weakenDesc}）掉落專屬神裝！`, '#ffd85a');
-          this.dropItem(e.pos.x + (Math.random() - 0.5) * 1.8, e.pos.z + (Math.random() - 0.5) * 1.8, pr.dropItem);
+          // 部位破壞以破防虛弱為主，僅 6% 機率掉專屬裝備（不再每次破部位必噴神裝！）
+          if (e.sporeGuardian || this.caveRun) {
+            this.ui.toast(`${pr.part.name}已破壞 · ${pr.part.weakenDesc}`, '#ffd85a');
+          } else if (pr.dropItem && Math.random() < 0.06) {
+            this.ui.toast(`✂️ 斬斷 ${pr.part.icon} ${pr.part.name}！（${pr.part.weakenDesc}）幸運掉落專屬裝備！`, '#ffd85a');
+            this.dropItem(e.pos.x + (Math.random() - 0.5) * 1.8, e.pos.z + (Math.random() - 0.5) * 1.8, pr.dropItem);
+          } else {
+            this.meta.p.coins = (this.meta.p.coins || 0) + 15;
+            this.ui.toast(`✂️ 斬斷 ${pr.part.icon} ${pr.part.name}！（${pr.part.weakenDesc}）+🪙15`, '#ffd85a');
+          }
         }
       }
     }
@@ -942,6 +1228,7 @@ export class Game {
   killEnemy(e) {
     if (e.dead) return;
     if (e.rival) { this.dueling=false; this.ui.toast('演武勝利'); }
+    this.ambushTrial?.kill(e);
     e.dead = true; this.audio.sfx(e.type === 'stag' ? 'bossDie' : 'enemyDie');
     this.scene.remove(e.m.root);
     const col = { slime: [0x7fc35a, 0xb5e080], thorn: [0x8a5a3b, 0x6aa84a], boar: [0x9a6a4a, 0x5a3b2c], moth: [0xb48ae0, 0xffd27a], skyray: [0x58d4e8, 0xffe480], golem: [0x7b7874, 0x6ae8ff, 0x5f9a4a], stag: [0xffb050, 0xe8dcc8] }[e.type];
@@ -950,6 +1237,12 @@ export class Game {
     this.shake = Math.max(this.shake, e.type === 'stag' ? 1 : e.elite ? 0.42 : 0.22);
     if (e.elite || e.type === 'stag') this.camPunch = e.type === 'stag' ? 0.2 : 0.11;
     const p = this.player; p.kills++;
+    if (e.expeditionId && e.expeditionTier === meadowExpedition(this.meta.p).active?.tier) {
+      completeMeadowObjective(this, e.expeditionId, e.brokenWeakens?.has('spores'));
+      if (e.sporeGuardian) for (const zone of this.groundZones) {
+        if (zone.sporeSource === e) zone.life = 0;
+      }
+    }
     // 清怪連擊系統（Kill-Streak Combo）：6 秒內連續擊殺疊加攻速、暴擊與掉寶率！
     this.combo = this.combo || { count: 0, timer: 0 };
     this.combo.count++; this.combo.timer = 6.0;
@@ -965,10 +1258,58 @@ export class Game {
         if (Math.hypot(this.player.pos.x - mx, this.player.pos.z - mz) < 2.9) this.hurtPlayer(mdmg, new V3(mx, 0, mz), 'burn');
       });
     }
+    if (this.caveRun) return;
+    onEliteDeathAffix(this, e);
     const autoOn = isAutopilotActive(this);
     const sparkMul = manualSparkMult(this);
     this.onKillMeta(e); awardKill(this, e);
     if (!autoOn) onTideKill(this, e);
+    // MMORPG 怪物圖鑑精通＋主線章節任務進度
+    const bestUp = recordBestiaryKill(this.meta.p, e.type);
+    if (bestUp) {
+      this.meta.save(); this.recalc(); this.audio.sfx('classup');
+      this.ui.toast(`📖 圖鑑精通升級！【${bestUp.def.icon} ${bestUp.def.name} Lv.${bestUp.rank}】永久屬性已生效！`, '#7fe08a');
+    }
+    const stEv = recordStoryEvent(this.meta.p, 'kill', 1)
+      || (e.elite ? recordStoryEvent(this.meta.p, 'elite', 1) : null)
+      || ((e.type === 'stag' || e.isTideBoss) ? recordStoryEvent(this.meta.p, 'boss', 1) : null);
+    this.meta.p.bountyProg = this.meta.p.bountyProg || { kills: 0, gathers: 0, enhances: 0, eliteKills: 0, bossKills: 0 };
+    this.meta.p.bountyProg.kills = (this.meta.p.bountyProg.kills || 0) + 1;
+    if (e.elite) {
+      this.meta.p.bountyProg.eliteKills = (this.meta.p.bountyProg.eliteKills || 0) + 1;
+      this.meta.p.totalElites = (this.meta.p.totalElites || 0) + 1;
+    }
+    if (e.type === 'stag' || e.isTideBoss) this.meta.p.bountyProg.bossKills = (this.meta.p.bountyProg.bossKills || 0) + 1;
+    if (e.isWorldBoss) onWorldBossDefeated(this, e);
+    if (!autoOn) onPlayerHelpSimKill(this, e);
+    if (e.isDynEvent) onDynEventEnemyKilled(this, e);
+    if (!autoOn) {
+      const runeDrop = rollRuneDrop(this.meta.p, !!e.elite, e.type === 'stag' || !!e.isTideBoss);
+      if (runeDrop) {
+        this.meta.save();
+        this.ui.toast(`💠 獲得符文石：【${runeDrop.def.icon} ${runeDrop.def.name}】×${runeDrop.count}（鐵匠鋪鑲嵌）`, runeDrop.def.color);
+      }
+      const daRes = addDailyActivity(this.meta.p, e.elite ? 6 : 2);
+      if (daRes?.newlyReady?.length) {
+        this.ui.toast(`🎁 今日活躍度達 ${daRes.newlyReady[0].pt}！前往公會大廳領取【${daRes.newlyReady[0].name}】！`, '#ffd85a');
+      }
+      const newTitles = syncUnlockedTitles(this.meta.p, { equip: this.player.equip });
+      if (newTitles.length) {
+        this.meta.save(); this.recalc(); this.audio.sfx('classup');
+        this.ui.toast(`🏷️ 解鎖新稱號：【${newTitles[0].icon} ${newTitles[0].name}】！（全傷 +1% · 生命 +5，按 I 佩戴）`, '#ffd85a');
+      }
+    }
+    if (!autoOn && getPartyIds(this.meta.p).length > 0) {
+      const bondUp = grantCompanionXp(this.meta.p, e.type === 'stag' ? 35 : e.elite ? 18 : 6);
+      if (bondUp) {
+        this.meta.save(); this.recalc(); this.audio.sfx('classup');
+        this.ui.toast(`💖 隊友羈絆升級！【${bondUp.def?.icon || '👥'} ${bondUp.def?.name || '隊友'} Lv.${bondUp.lv}】戰力與被動提升！`, '#ff9be0');
+      }
+    }
+    if (stEv?.justCompleted) {
+      this.meta.save(); this.audio.sfx('ultReady');
+      this.ui.toast(`📜 主線達成：【${stEv.def.title}】！點擊右側任務追蹤器領取獎勵！`, '#ffd85a');
+    }
     if (!autoOn && this.meta.p.mentorOn && (e.elite || e.legendary) && this.field && (this.meta.p.level - (FIELDS[this.field]?.level || 1)) >= 4) {
       this.meta.p.mentorBadges = (this.meta.p.mentorBadges || 0) + 1;
       this.meta.save();
@@ -984,34 +1325,59 @@ export class Game {
       this.meta.save(); this.audio.sfx('classup');
       this.ui.toast(`⭐ 靈魂覺醒！${soulRes.def.icon} ${soulRes.def.name} 升至 ${'★'.repeat(soulRes.tier)}（第 ${soulRes.tier} 階）`, '#ffd85a');
     }
-    p.flask.prog += (e.elite ? 1 : 0.25) * (this.meta.has('fortune') ? 0.5 : 1);
+    // 硬核補給收斂：藥瓶充能放慢（普通怪 0.08、精英 0.35），血球掉率降至 4%！
+    p.flask.prog += (e.elite ? 0.35 : 0.08) * (this.meta.has('fortune') ? 0.5 : 1);
     while (p.flask.prog >= 1 && p.flask.charges < p.flask.max) { p.flask.prog -= 1; p.flask.charges++; }
     if (p.flask.charges >= p.flask.max) p.flask.prog = 0;
-    if (this.has('feast')) this.heal(4 * p.boons.filter(b => b === 'feast').length, false);
+    if (this.has('feast')) this.heal(2 * p.boons.filter(b => b === 'feast').length, false);
+    // 怪物專屬鍛造材料掉落（讓打怪永遠能累積製作強裝的素材，不受極低掉裝率影響！）
+    if (!autoOn) {
+      const mDrop = rollMonsterMatDrop(this.meta.p, e.type, !!e.elite, e.type === 'stag' || !!e.isTideBoss);
+      if (mDrop) {
+        this.meta.save();
+        this.ui.toast(`${mDrop.def.icon} 獲得材料：${mDrop.def.name} ×${mDrop.count}`, mDrop.def.id === 'boss_heart' ? '#ff9a4a' : '#bfe8ff');
+      }
+    }
+    // 技能寶石極稀掉落：精英 2.5%、首領 18%
+    if (!autoOn && ((e.elite && Math.random() < 0.025) || (e.type === 'stag' && Math.random() < 0.18))) {
+      const gPool = Object.keys(ALL_GEMS);
+      const gid = gPool[(Math.random() * gPool.length) | 0];
+      if (gid && addGemToBag(this.meta.p, gid)) {
+        this.meta.save(); this.audio.sfx('drop3');
+        this.ui.toast(`💎 極稀掉落！獲得技能拼圖寶石【${ALL_GEMS[gid].icon} ${ALL_GEMS[gid].name}】（按 K 鑲嵌）`, '#ffd85a');
+      }
+    }
     const r = Math.random();
-    const comboDrop = Math.min(0.12, this.combo.count * 0.008);
-    const goldDrop = (this.shrineBuffs?.gold || 0) > 0 ? 0.25 : 0;
-    const atlasDrop = atlas ? atlas.lootBonus * 0.22 : 0;
-    const diffDrop = (DIFFICULTY_MODES[this.settings?.difficulty || 'standard']?.lootBonus || 0) * 0.25;
-    const hsDropMul = (!autoOn && this.field && this.hotspots && getFieldHotspot(this.field, this.hotspots)?.kind === 'gold_tide') ? 1.4 : 1;
-    const baseDropChance = e.elite ? 1 : e.type === 'stag' ? 1 : (0.08 + comboDrop + goldDrop + atlasDrop + diffDrop) * hsDropMul;
+    const comboDrop = Math.min(0.002, this.combo.count * 0.0001);
+    const goldDrop = (this.shrineBuffs?.gold || 0) > 0 ? 0.005 : 0;
+    const atlasDrop = atlas ? atlas.lootBonus * 0.006 : 0;
+    const diffDrop = (DIFFICULTY_MODES[this.settings?.difficulty || 'standard']?.lootBonus || 0) * 0.006;
+    const hsDropMul = (!autoOn && this.field && this.hotspots && getFieldHotspot(this.field, this.hotspots)?.kind === 'gold_tide') ? 1.25 : 1;
+    // 經典 ARPG 掉寶金字塔：爛白裝（普通）容易掉落（拆星砂／開荒），藍裝稀少、金裝極難、傳奇橘裝超罕見！
+    const baseDropChance = e.type === 'stag' ? 0.65 : e.elite ? 0.28 : (0.065 + comboDrop + goldDrop + atlasDrop + diffDrop) * hsDropMul;
     const dropChance = autoOn ? baseDropChance * AUTO_RATES.dropChanceMult : Math.min(1, baseDropChance * sparkMul);
-    if (r < dropChance && this.field) {
-      const capR = autoOn ? Math.min(AUTO_RATES.maxDropRarity, e.elite ? 2 : 1) : (e.elite ? 2 : 1);
-      this.dropItem(e.pos.x, e.pos.z, makeItem(Math.random, Math.floor(this.meta.p.level / 4), capR));
-    } else if (r < dropChance) {
-      let maxR = e.type === 'stag' ? 3 : e.elite ? (Math.random() < 0.35 ? 3 : 2) : null;
-      if (autoOn && (maxR == null || maxR > AUTO_RATES.maxDropRarity)) maxR = Math.min(AUTO_RATES.maxDropRarity, e.elite ? 2 : 1);
-      let it = makeItem(Math.random, this.depth + this.meta.dropBonus + (atlas?.dropTierBonus || 0), maxR);
-      if (!autoOn && atlas?.corruptDropChance > 0 && Math.random() < atlas.corruptDropChance) { const cr = corruptItem(it); if (cr.ok) it = cr.item; }
+    if (r < dropChance) {
+      const rq = Math.random();
+      let rolledR = 0;
+      if (e.type === 'stag') {
+        rolledR = rq < 0.10 ? 3 : rq < 0.70 ? 2 : 1; // 首領：10% 傳奇 / 60% 稀有 / 30% 魔法
+      } else if (e.elite) {
+        rolledR = rq < 0.005 ? 3 : rq < 0.06 ? 2 : rq < 0.26 ? 1 : 0; // 精英：74% 白裝 / 20% 藍 / 5.5% 金 / 0.5% 橘
+      } else {
+        rolledR = rq < 0.008 ? 2 : rq < 0.08 ? 1 : 0; // 普通怪：92% 爛白裝 / 7.2% 藍 / 0.8% 金 / 0% 橘
+      }
+      if (autoOn) rolledR = Math.min(AUTO_RATES.maxDropRarity, rolledR);
+      const dropDepth = this.field ? Math.floor((this.meta.p.level || 1) / 5) : (this.depth + this.meta.dropBonus + (atlas?.dropTierBonus || 0));
+      let it = makeItem(Math.random, dropDepth, rolledR);
+      if (!this.field && !autoOn && atlas?.corruptDropChance > 0 && Math.random() < atlas.corruptDropChance) { const cr = corruptItem(it); if (cr.ok) it = cr.item; }
       this.dropItem(e.pos.x, e.pos.z, it);
     }
-    if (Math.random() < 0.16) this.dropOrb(e.pos.x, e.pos.z);
+    if (Math.random() < 0.015) this.dropOrb(e.pos.x, e.pos.z);
     if (e.type === 'stag') {
       const moreBoss = this.enemies.some(o => !o.dead && o.type === 'stag');
       if (!moreBoss) {
         this.boss = null; this.ui.bossBar(false);
-        if (!this.field) { const seed = this.runSeed; setTimeout(() => { if (!this.field && this.state === 'play' && this.depth === 9 && this.runSeed === seed) this.victory(); }, 2500); }
+        if (!this.field && !this.towerFloor) { const seed = this.runSeed; setTimeout(() => { if (!this.field && !this.towerFloor && this.state === 'play' && this.depth === 9 && this.runSeed === seed) this.victory(); }, 2500); }
       }
     }
   }
@@ -1022,10 +1388,24 @@ export class Game {
     if (gained > 0 && this.runStats) this.runStats.healsDone += gained;
     if (show && gained > 0) this.ui.dmgNum(p.pos.x, 1.6, p.pos.z, `+${Math.round(gained)}`, 'heal');
   }
-  hurtPlayer(dmg, src, statusKind = null) {
+  hurtPlayer(dmg, src, statusKind = null, trialSource = null, trialAttack = null) {
     const p = this.player;
     if (this.dev?.on && this.dev?.god) return;
-    if (p.iframes > 0 || p.roll > 0 || this.state !== 'play' || this.depth < 0) return;
+    if (p.roll > 0 && this.state === 'play' && this.depth >= 0) {
+      if ((p.perfectDodgeCd || 0) <= 0) {
+        p.perfectDodgeCd = 3.2;
+        p.perfectCritT = 1.5;
+        this.hitstop = Math.max(this.hitstop || 0, 0.08);
+        this.shake = Math.max(this.shake || 0, 0.22);
+        if (this.tide) this.tide.ultCharge = Math.min(100, (this.tide.ultCharge || 0) + 12);
+        this.audio.sfx('perfect');
+        this.fx.burst(p.pos.x, p.y + 0.9, p.pos.z, 16, { c: [0x62e8ff, 0xffe87a, 0xffffff], s: 0.15, speed: 6, up: 3.2, life: 0.45 });
+        this.ui.dmgNum(p.pos.x, p.y + 2.3, p.pos.z, '⚡ 極限閃避!', 'comic');
+        this.ui.toast('⚡ 極限閃避！大絕 +12% · 1.5 秒必暴反擊！', '#62e8ff');
+      }
+      return;
+    }
+    if (p.iframes > 0 || this.state !== 'play' || this.depth < 0) return;
     const air = p.y - this.world.gh(p.pos.x, p.pos.z);
     if (air > 0.8 && !p.gliding) return;
     if (src && Math.abs(src.y - p.y) > 1.7 && air <= 0.8) return;
@@ -1035,16 +1415,21 @@ export class Game {
     const fieldLv = this.field > 0 ? (FIELDS[this.field]?.level || 1) : 0;
     const dangerMul = (fieldLv > 0 && (fieldLv - (this.meta?.p?.level || 1)) >= 6) ? 1.5 : 1;
     const rawDmg = dmg * shockMul * dangerMul * (this.meta.has('fragile') ? 1.35 : 1);
-    dmg = Math.round(rawDmg * (1 - p.stats.armor / 100));
+    const resKey = statusKind === 'burn' ? 'resFire' : statusKind === 'freeze' ? 'resIce' : statusKind === 'shock' ? 'resLightning' : statusKind === 'poison' ? 'resPoison' : null;
+    const elemRes = resKey ? (p.stats[resKey] || 0) : 0;
+    const afterArmor = rawDmg * (1 - p.stats.armor / 100);
+    dmg = Math.max(1, Math.round(afterArmor * (1 - elemRes / 100)));
     if (this.runStats) this.runStats.dmgMitigated += Math.max(0, Math.round(rawDmg - dmg));
-    p.hp -= dmg; p.iframes = 0.6;
+    this.ambushTrial?.playerHit(Math.min(dmg, p.hp), trialSource, trialAttack);
+    p.hp -= dmg; p.iframes = 0.35;
     this.hurtFlash = 0.5; this.shake = Math.max(this.shake, 0.38); this.hitstop = 0.06;
     // 劇烈衝擊液體瓶（左右晃動＋水花四濺）
     const dirSign = src ? Math.sign(p.pos.x - src.x || 1) : 1;
     this.ui.hpVial?.impulse(dirSign * 2.4, 2.0);
     this.ui.mpVial?.impulse(dirSign * 1.4, 1.2);
-    // 異常狀態感染（中毒、冰凍／緩速、灼燒、感電）
-    if (statusKind && p.statuses && Math.random() < 0.45) {
+    // 異常狀態感染（元素抗性愈高，異常感染率愈低！）
+    const statusChance = Math.max(0.08, 0.48 * (1 - Math.max(0, elemRes) / 100));
+    if (statusKind && p.statuses && Math.random() < statusChance) {
       if (statusKind === 'poison') { p.statuses.poison = Math.max(p.statuses.poison, 6); this.ui.toast('🧪 中毒！血瓶冒出黏稠毒泡', '#8cf07a'); }
       else if (statusKind === 'freeze') {
         if (p.statuses.chill > 0) { p.statuses.freeze = 1.0; p.statuses.chill = 0; this.ui.toast('❄️ 遭到冰凍！', '#8eeeff'); }
@@ -1061,6 +1446,20 @@ export class Game {
   }
   die() {
     if (this.state !== 'play') return;
+    if (this.ambushTrial) { this.ambushTrial.finish('defeated'); return; }
+    // 星燈聖殿永久天賦：每局原地復活並釋放清場黃金震波！
+    if (this.tide?.sv && (this.tide.sv.revivesLeft || 0) > 0) {
+      this.tide.sv.revivesLeft--;
+      const p = this.player;
+      p.hp = p.stats.maxHp; p.mana = p.stats.mana; p.iframes = 3.0;
+      this.audio.sfx('revive');
+      this.shake = Math.max(this.shake, 0.7);
+      this.shockRing(p.pos.x, p.pos.z, 10.5, this.rollDamage(3.8, true), 0xffe87a, 1.4, { isTrigger: true });
+      this.puffs.burst(p.pos.x, 0.9, p.pos.z, 28, { c: [0xffe87a, 0xffa83a, 0xffffff], s: 0.22, speed: 6.5, up: 4, life: 0.85 });
+      this.ui.dmgNum(p.pos.x, p.y + 2.8, p.pos.z, '✨ 星燈復甦!', 'comic');
+      this.ui.toast(`✨ 觸發【星燈復甦】原地滿血重戰！本局剩餘 ${this.tide.sv.revivesLeft} 次`, '#ffe87a');
+      return;
+    }
     // Phase M10A：6 門制副本重整機制（副本內尚有星門時消耗 1 道星門就地滿血復活）
     if (!this.field && this.depth >= 0 && (this.portalsLeft || 0) > 1) {
       this.portalsLeft--;
@@ -1071,13 +1470,22 @@ export class Game {
       this.ui.toast(`🌀 消耗 1 道星門滿血重整！剩餘 ${this.portalsLeft}/6 道星門`, '#62e8ff');
       return;
     }
+    const cave = this.caveRun;
     this.state = 'dead'; if (!this.field) this.bankRun(1);
-    const lost = leaveGrave(this); this.audio.sfx('dead'); this.audio.setMusic('title', 0);
+    const lostSpoils = this.field && this.tide?.sv ? loseSpoilsOnDeath(this.tide.sv) : { lostCoins: 0, lostShards: 0 };
+    const lost = cave ? 0 : leaveGrave(this); this.audio.sfx('dead'); this.audio.setMusic('title', 0);
     this.puffs.burst(this.player.pos.x, 0.5, this.player.pos.z, 20, { c: [0x2f8a7e, 0xd9543a, 0xffd36e], s: 0.2, speed: 4, life: 1 });
     this.player.m.root.visible = false;
     setTimeout(() => {
       this.enterTown();
-      this.ui.banner('在燈谷鎮甦醒', lost ? '墓碑保管了 ' + lost + ' 份素材 · ' + FIELDS[this.originField || 1].name : '裝備與星砂已保留');
+      const spoilMsg = (lostSpoils.lostCoins > 0 || lostSpoils.lostShards > 0)
+        ? ` · 未結算戰利品袋遺失 50%（-${lostSpoils.lostCoins}金 / -${lostSpoils.lostShards}星砂）`
+        : '';
+      if (cave) {
+        this.ui.banner('在燈谷鎮甦醒', `返回草原洞窟，繼續第 ${cave.stage + 1} 段。已用的鑰石仍有效。`);
+        return;
+      }
+      this.ui.banner('在燈谷鎮甦醒', (lost ? '墓碑保管了 ' + lost + ' 份素材 · ' + FIELDS[this.originField || 1].name : '裝備與星砂已保留') + spoilMsg);
     }, 900);
   }
   victory() { this.bankRun(1); this.meta.p.best.wins++; this.meta.save(); this.audio.sfx('win'); this.state = 'win'; this.ui.showWin(this); }
@@ -1094,7 +1502,10 @@ export class Game {
     this.scene.add(g);
     const a = Math.random() * 6.28;
     this.drops.push({ g, gem, item, kind: 'item', vx: quiet ? 0 : Math.cos(a) * 2, vz: quiet ? 0 : Math.sin(a) * 2, vy: quiet ? 0 : 5, y: 0.5 });
-    if (!quiet && item.rarity >= 2) this.ui.toast(`${RARITY[item.rarity].name}物品掉落！`, R.color);
+    if (!quiet && item.rarity >= 2) {
+      this.vfx?.spawnLootBeam(x, this.world.groundY(x, z), z, R.beam, item.rarity >= 3 ? 7.5 : 4.5);
+      this.ui.toast(`${RARITY[item.rarity].name}物品掉落！`, R.color);
+    }
   }
   dropOrb(x, z) {
     const g = new THREE.Group();
@@ -1128,14 +1539,15 @@ export class Game {
       this.disposeDrop(d);
       const idx = this.drops.indexOf(d); if (idx >= 0) this.drops.splice(idx, 1);
       const existing = p.equip[it.slot];
-      if (!existing) {
+      const canWear = canEquipItem(it, this.meta?.p?.level || 1);
+      if (!existing && canWear) {
         p.equip[it.slot] = it; rememberGear(this);
         const hpFrac = p.hp / p.stats.maxHp;
         this.recalc(); p.hp = Math.max(1, Math.round(hpFrac * p.stats.maxHp));
         equippedNames.push(it.name);
       } else {
         addGearToBag(this.meta.p, it); bagCount++;
-        const diff = itemScore(it) - itemScore(existing);
+        const diff = existing ? (itemScore(it) - itemScore(existing)) : 0;
         if (diff > bestUpgrade) bestUpgrade = diff;
       }
       this.fx.burst(p.pos.x, p.y + 0.8, p.pos.z, 10, { c: RARITY[it.rarity].beam, s: 0.1, speed: 3, up: 4, life: 0.55 });
@@ -1144,7 +1556,10 @@ export class Game {
     if (nearby.length === 1 && lastIt) {
       if (equippedNames.length) this.ui.toast(`裝備了 ${equippedNames[0]}`, RARITY[lastIt.rarity].color);
       else {
-        const cmpTag = bestUpgrade > 0 ? ` ▲戰力+${bestUpgrade}（按 I 一鍵換裝）` : '（按 I 檢視）';
+        const reqLv = itemReqLevel(lastIt);
+        const cmpTag = !canEquipItem(lastIt, this.meta?.p?.level || 1)
+          ? `（🔒 需 Lv.${reqLv} 穿戴，已收入背包）`
+          : bestUpgrade > 0 ? ` ▲戰力+${bestUpgrade}（按 I 一鍵換裝）` : '（按 I 檢視）';
         this.ui.toast(`🎒 已收入背包：${lastIt.name}${cmpTag}`, bestUpgrade > 0 ? '#7fe08a' : RARITY[lastIt.rarity].color);
       }
     } else {
@@ -1172,6 +1587,41 @@ export class Game {
     return d;
   }
 
+  queueMeadowStrike(enemy, x, z, radius, duration, damageMult) {
+    enemy.state = 'meadow-strike';
+    enemy.t = 0;
+    const y = this.world.gh(x, z);
+    const warning = this.addDecal('circle', x, z, radius, 0xff633b, duration, null, () => {
+      if (enemy.dead || enemy.state !== 'meadow-strike') return;
+      enemy.state = 'rest';
+      enemy.t = 0;
+      if (this.state !== 'play' || enemy.stun > 0 || enemy.statuses?.freeze > 0) return;
+      if (enemy.meadowPounce) this.moveEntity(enemy.pos, x - enemy.pos.x, z - enemy.pos.z, enemy.r);
+      this.audio.sfx('slam');
+      this.puffs.burst(x, y + 0.25, z, 8, { c: [0xffbe73, 0xffe8ac], s: 0.18, speed: 3.6, life: 0.45 });
+      if (Math.abs(this.player.y - y) < 1.5 && Math.hypot(this.player.pos.x - x, this.player.pos.z - z) < radius) {
+        this.hurtPlayer(enemy.dmg * damageMult, warning.mesh.position);
+      }
+    });
+    warning.mesh.position.y = y + 0.16;
+  }
+
+  queueSporeBurst(enemy) {
+    enemy.state = 'spore-burst';
+    enemy.t = 0;
+    enemy.sporeLast = true;
+    const { x, z } = this.player.pos;
+    const radius = enemy.brokenWeakens.has('spores') ? 1.55 : 2.85;
+    const y = this.world.gh(x, z);
+    const warning = this.addDecal('circle', x, z, radius, 0x82dc55, 1.2, null, () => {
+      if (enemy.dead || this.state !== 'play' || enemy.stun > 0 || enemy.statuses?.freeze > 0) return;
+      this.spawnGroundZone('poison', x, z, radius, 5.5, 0, {
+        sporeSource: enemy, playerDamage: enemy.dmg * 0.42,
+      });
+    });
+    warning.mesh.position.y = y + 0.17;
+  }
+
   // ---------------- skills ----------------
   aimDir() {
     if (isAutopilotActive(this) && this.autopilot.aimVec) {
@@ -1193,13 +1643,19 @@ export class Game {
     return best || base;
   }
   tryAttack() {
-    const p = this.player; if (p.cds.atk > 0 || p.roll > 0) return;
-    const comboSpd = Math.min(30, (this.combo?.count || 0) * 2);
-    const furySpd = (this.shrineBuffs?.fury || 0) > 0 ? 25 : 0;
-    const aps = 2.0 * (1 + (p.stats.atkSpd + comboSpd + furySpd) / 100);
+    const p = this.player;
+    if (p.cds.atk > 0 || p.roll > 0) {
+      p.inputBuf = { kind: 'attack', t: 0.12 };
+      return;
+    }
+    const comboSpd = Math.min(18, (this.combo?.count || 0) * 1.2);
+    const furySpd = (this.shrineBuffs?.fury || 0) > 0 ? 15 : 0;
+    // 1.45 次/秒（41 幀間隔）搭配 0.78 單刀係數：維持總 DPS 平衡，讓 1.25 秒破綻內能流暢打出兩刀反擊
+    const aps = 1.45 * (1 + (p.stats.atkSpd + comboSpd + furySpd) / 100);
     p.cds.atk = 1 / aps;
+    this.ambushTrial?.event('attack');
     const dir = this.aimDir(); p.facing = Math.atan2(dir.x, dir.y);
-    p.swing = 1; p.swingT = 0.22; p.swingCount++; this.audio.sfx('swing');
+    p.swing = 1; p.swingT = 0.18; p.swingCount++; this.audio.sfx('swing');
     if (p.souls?.combat?.id === 'thorn') {
       for (const ang of [-0.22, 0, 0.22]) {
         const td = dir.clone().rotateAround(new V2(), ang);
@@ -1215,12 +1671,13 @@ export class Game {
     if (this.meta.p.weapon === 'bow') {
       this.fireProj(p.pos, dir, { speed: 21, mult: p.air ? 1.15 : .85, color: p.air ? 0x8ef0ff : 0xebd69f, size: .09, life: .85, airShot: p.air }); return;
     }
-    const range = (p.air ? 2.9 : 2.3) * (1 + p.stats.area / 100);
-    let mult = 1;
+    const range = meleeReach(p);
+    let mult = 0.78;
     if (p.galeBuff) { mult += 0.6; p.galeBuff = false; }
     let hitAny = false;
+    const cover = this.ambushTrial?.cover;
     for (const e of this.enemies) {
-      if (e.dead) continue;
+      if (e.dead || hitsAmbushCover(cover, p.pos.x, p.y + 0.6, p.pos.z, e.pos.x, e.pos.z)) continue;
       tmp2.set(e.pos.x - p.pos.x, e.pos.z - p.pos.z);
       const dist = tmp2.length() - e.r;
       if (dist > range) continue;
@@ -1338,7 +1795,15 @@ export class Game {
     for (const e of this.enemies) {
       if (e.dead) continue;
       const d = Math.hypot(e.pos.x - x, e.pos.z - z);
-      if (d < radius + e.r) { const k = 6 / Math.max(d, 0.3); this.hitEnemy(e, hit.dmg ? { ...hit, dmg: Math.round(hit.dmg * (0.9 + Math.random() * 0.2)) } : hit, (e.pos.x - x) * k * 0.3, (e.pos.z - z) * k * 0.3, { stun, slow: opts.slow, leech: opts.leech, triggerOnHit: opts.triggerOnHit, triggerOnCrit: opts.triggerOnCrit, isTrigger: opts.isTrigger }); }
+      if (d < radius + e.r) {
+        const k = 6 / Math.max(d, 0.3);
+        const ringHit = hit.dmg ? { ...hit, dmg: Math.round(hit.dmg * (0.9 + Math.random() * 0.2)) } : hit;
+        this.hitEnemy(e, ringHit, (e.pos.x - x) * k * 0.3, (e.pos.z - z) * k * 0.3, {
+          stun, slow: opts.slow, leech: opts.leech,
+          triggerOnHit: opts.triggerOnHit, triggerOnCrit: opts.triggerOnCrit,
+          isTrigger: opts.isTrigger, isReaction: opts.isReaction,
+        });
+      }
     }
   }
   castHotbar(slotIdx) {
@@ -1349,7 +1814,10 @@ export class Game {
       else if (slotIdx === 2) this.tryWisp();
       return;
     }
-    if ((p.skillCds[slotIdx] || 0) > 0 || p.roll > 0) return;
+    if ((p.skillCds[slotIdx] || 0) > 0 || p.roll > 0) {
+      p.inputBuf = { kind: 'skill', slot: slotIdx, t: 0.12 };
+      return;
+    }
     const { def, mod } = sk;
     const manaCost = Math.round((def.mana || 0) * (mod.bluefire ? 0.75 : 1));
     if (manaCost && p.mana < manaCost) {
@@ -1364,6 +1832,7 @@ export class Game {
       this.ui.toast('💢 魔力過載！液體沸騰頂開瓶塞（傷害 +25%）', '#ffd85a');
       this.ui.hpVial?.impulse(0, 1.8); this.ui.mpVial?.impulse(0, 2.2);
     }
+    this.ambushTrial?.event('skill', { skill: def.id });
     p.skillCds[slotIdx] = Math.max(0.12, def.cd * (1 - p.stats.cdr / 100) * (1 - mod.cdr) * (p.statuses?.overload > 0 ? 0.8 : 1));
     const run = (echoScale = 1) => this.execPuzzleSkill(def.id, mod, echoScale);
     run(1);
@@ -1403,6 +1872,7 @@ export class Game {
       const n = p.stats.proj + mod.multi, spread = 0.18;
       for (let i = 0; i < n; i++) {
         const a = (i - (n - 1) / 2) * spread, d = dir.clone().rotateAround(new V2(), a);
+        if (i < 3) this.vfx?.spawnMagicMissile(p.pos.x, p.y, p.pos.z, d.x, d.y, vfxTh || 'fire');
         this.fireProj(p.pos, d, { speed: 17, mult: 1.35 * dmgMul, fire: true, color: 0xffb347, size: 0.18, chain: (this.has('chain') ? 1 : 0) + mod.chain, split: !!(mod.split || p.specials.has('splitBolt')), orbit: !!mod.orbit, slow, leech, ...trigOpts });
       }
       p.swing = 1; p.swingT = 0.15;
@@ -1416,6 +1886,7 @@ export class Game {
       this.shake = 0.45; p.swing = 1; p.swingT = 0.28;
     } else if (id === 'wisp') {
       this.audio.sfx('wisp');
+      this.vfx?.spawnSummon('totem', p.pos.x, p.y, p.pos.z, dir.x, dir.y, { theme: vfxTh || 'holy', heal: false, dur: 6.5 });
       for (const w of p.wisps) { this.scene.remove(w.mesh); disposeObj3D(w.mesh); } p.wisps = [];
       const n = 3 + mod.multi + (this.has('swarm') ? 3 : 0) + (p.specials.has('moreWisps') ? 3 : 0);
       for (let i = 0; i < n; i++) {
@@ -1445,6 +1916,8 @@ export class Game {
       const R = 3.0 * areaMul;
       this.addDecal('circle', tx, tz, R, 0x6fe06a, 0.75, null, () => {
         this.audio.sfx('slam');
+        this.vfx?.spawnSmokeBurst(tx, this.world.gh(tx, tz), tz, vfxTh || 'poison', R);
+        this.vfx?.spawnPoisonWall(tx, this.world.gh(tx, tz), tz, Math.atan2(dir.x, dir.y), vfxTh || 'poison');
         this.shockRing(tx, tz, R, this.rollDamage(1.8 * dmgMul, mod.fire), 0x6fe06a, 0.4, { slow: Math.max(slow, 2.5), leech, ...trigOpts });
         this.spawnGroundZone('poison', tx, tz, R, 5.2, 0.55 * dmgMul, { color: 0x52c868, poison: 5.0, slow: 1.6 });
         this.puffs.burst(tx, 0.3, tz, 14, { c: [0x6fe06a, 0xa882e8], s: 0.24, speed: 4, up: 4, life: 0.65 });
@@ -1452,12 +1925,14 @@ export class Game {
     } else if (id === 'whirl') {
       this.audio.sfx('swing');
       const R = 3.1 * areaMul;
+      this.vfx?.spawnDecal('anime_shock', p.pos.x, p.y, p.pos.z, { theme: vfxTh || 'fire', scaleStart: 1.4, scaleEnd: R * 2.1, dur: 0.45, spinY: 6.0 });
       this.shockRing(p.pos.x, p.pos.z, R, this.rollDamage(1.9 * dmgMul, mod.fire), mod.fire ? 0xff7a50 : 0xff8ab0, 0, { slow, leech, ...trigOpts });
       this.makeSlash(p.pos, dir, R); this.makeSlash(p.pos, dir.clone().negate(), R);
       p.swing = 1; p.swingT = 0.25;
     } else if (id === 'mark') {
       this.audio.sfx('boon');
       const tx = this.aim.x, tz = this.aim.z, R = 3.2 * areaMul;
+      this.vfx?.spawnArcanistCards(tx, this.world.gh(tx, tz), tz, vfxTh || 'arcane');
       this.addDecal('circle', tx, tz, R, 0xd06cff, 0.4, null, () => {
         for (const e of this.enemies) if (!e.dead && Math.hypot(e.pos.x - tx, e.pos.z - tz) < R + e.r) {
           e.vuln = 6;
@@ -1473,6 +1948,7 @@ export class Game {
         const mx = tx + ox, mz = tz + oz;
         this.addDecal('circle', mx, mz, R, 0xff6a30, 0.55 + i * 0.22, null, () => {
           this.audio.sfx('slam');
+          this.vfx?.spawnFireTower(mx, this.world.gh(mx, mz), mz, vfxTh || 'fire');
           this.shockRing(mx, mz, R, this.rollDamage(2.2 * dmgMul, true), 0xff8c40, 0.7, { slow, leech, ...trigOpts });
           if (i === 0 && !this.applyElementAt(mx, mz, 'fire', R * 1.1)) this.spawnGroundZone('magma', mx, mz, R * 1.1, 5.0, 0.75 * dmgMul, { color: 0xff6a30, fire: true });
           this.fx.burst(mx, 0.8, mz, 22, { c: [0xff6a30, 0xffd85a, 0xffffff], s: 0.16, speed: 6, up: 6, life: 0.65 });
@@ -1485,6 +1961,7 @@ export class Game {
       this.audio.sfx('nova');
       const R = 4.6 * areaMul;
       this.vfx?.spawnSummon('ice_puffer', p.pos.x, p.y, p.pos.z, dir.x, dir.y, { theme: vfxTh || 'frost' });
+      this.vfx?.spawnWaterShield(p.pos.x, p.y, p.pos.z, 2.2, vfxTh || 'frost');
       this.shockRing(p.pos.x, p.pos.z, R, this.rollDamage(2.0 * dmgMul, mod.fire), 0x7ae8ff, 0.6, { slow: Math.max(slow, 3.2), leech, ...trigOpts });
       pullVortex(p.pos.x, p.pos.z, R);
       if (!this.applyElementAt(p.pos.x, p.pos.z, 'frost', R)) {
@@ -1497,6 +1974,7 @@ export class Game {
       this.audio.sfx('prism');
       const dist = Math.min(5, Math.hypot(this.aim.x - p.pos.x, this.aim.z - p.pos.z));
       const tx = p.pos.x + dir.x * dist, tz = p.pos.z + dir.y * dist, ty = this.world.gh(tx, tz);
+      this.vfx?.spawnManaCrystal(tx, ty, tz, 8 + mod.multi, vfxTh || 'arcane');
       const mesh = new THREE.Mesh(new THREE.OctahedronGeometry(0.45, 0), new THREE.MeshBasicMaterial({ color: 0xffe07a }));
       mesh.position.set(tx, ty + 1.2, tz); this.scene.add(mesh);
       this.prisms.push({ mesh, x: tx, y: ty + 1.2, z: tz, life: 8 + mod.multi, cd: 0.2, dmgMul, chain: mod.chain, slow, leech });
@@ -1505,7 +1983,9 @@ export class Game {
     } else if (id === 'phantom') {
       this.audio.sfx('roll');
       const ox = p.pos.x, oz = p.pos.z;
+      this.vfx?.spawnShurikenFan(ox, p.y, oz, dir.x, dir.y, vfxTh || 'death');
       this.movePlayer(dir.x * 4.5, dir.y * 4.5);
+      this.vfx?.spawnArcanistCards(p.pos.x, p.y, p.pos.z, vfxTh || 'death');
       p.iframes = Math.max(p.iframes, 0.65);
       const R = 3.4 * areaMul;
       this.shockRing(ox, oz, R, this.rollDamage(2.1 * dmgMul, mod.fire), 0xb48ae0, 0.4, { slow: Math.max(slow, 2.5), leech, ...trigOpts });
@@ -1524,6 +2004,7 @@ export class Game {
       p.swing = 1; p.swingT = 0.24;
     } else if (id === 'thunder') {
       this.audio.sfx('crit');
+      this.vfx?.spawnMesh('magic_circle_star', { x: this.aim.x, y: this.world.gh(this.aim.x, this.aim.z) + 0.15, z: this.aim.z, theme: vfxTh || 'thunder', scaleStart: 0.9, scaleEnd: 1.9, dur: 0.7, spinY: 3.5 });
       const maxT = 3 + mod.multi + (mod.chain || 0);
       const targets = this.enemies.filter(e => !e.dead && Math.hypot(e.pos.x - this.aim.x, e.pos.z - this.aim.z) < 11 * areaMul).slice(0, maxT);
       if (!targets.length) {
@@ -1533,6 +2014,7 @@ export class Game {
         let prev = null;
         targets.forEach(t => {
           this.spawnBeam(t.pos.x, t.pos.y + 9, t.pos.z, t.pos.x, t.pos.y + 0.5, t.pos.z, 0x8ef0ff);
+          this.vfx?.spawnDecal('anime_shock', t.pos.x, t.pos.y, t.pos.z, { theme: vfxTh || 'thunder', scaleStart: 0.9, scaleEnd: 3.4, dur: 0.4 });
           if (prev) this.spawnBeam(prev.pos.x, prev.pos.y + 0.8, prev.pos.z, t.pos.x, t.pos.y + 0.8, t.pos.z, 0xc88cff);
           this.hitEnemy(t, this.rollDamage(2.1 * dmgMul, mod.fire), 0, 0, { stun: 0.35, shock: Math.max(5.0, mod.shock || 0), slow, leech, ...trigOpts });
           this.fx.burst(t.pos.x, t.pos.y + 0.9, t.pos.z, 12, { c: [0x8ef0ff, 0xffffff, 0xc88cff], s: 0.12, speed: 5, up: 3, life: 0.45 });
@@ -1583,6 +2065,7 @@ export class Game {
       this.audio.sfx('slam');
       const tx = this.aim.x, tz = this.aim.z, R = 4.2 * areaMul;
       this.vfx?.spawnSummon('wolf_head', tx, this.world.gh(tx, tz), tz, dir.x, dir.y, { theme: vfxTh || 'death' });
+      this.vfx?.spawnClawSlash(tx, this.world.gh(tx, tz), tz, Math.atan2(dir.x, dir.y), vfxTh || 'death');
       this.shockRing(tx, tz, R, this.rollDamage(2.7 * dmgMul, mod.fire), 0xb86cff, 0.8, { leech: leech + 5, slow, ...trigOpts });
       for (const e of this.enemies) if (!e.dead && Math.hypot(e.pos.x - tx, e.pos.z - tz) < R + e.r) e.vuln = 6.0;
       pullVortex(tx, tz, R);
@@ -1591,6 +2074,7 @@ export class Game {
       this.audio.sfx('boon');
       const tx = p.pos.x + dir.x * 1.8, tz = p.pos.z + dir.y * 1.8, R = 4.6 * areaMul;
       this.vfx?.spawnSummon('healing_tree', tx, this.world.gh(tx, tz), tz, dir.x, dir.y, { theme: vfxTh || 'lotus', dur: 6.5 });
+      this.vfx?.spawnSummon('totem', tx + 1.4, this.world.gh(tx + 1.4, tz), tz, dir.x, dir.y, { theme: vfxTh || 'lotus', heal: true, dur: 6.5 });
       if (p.statuses) { p.statuses.poison = 0; p.statuses.burn = 0; }
       this.heal(p.stats.maxHp * 0.2, true);
       this.spawnGroundZone('sakura', tx, tz, R, 6.5, 0.45 * dmgMul, { color: 0x7fe08a, healPlayer: true, slow: 1.5 });
@@ -1618,6 +2102,7 @@ export class Game {
       this.audio.sfx('prism');
       const tx = this.aim.x, tz = this.aim.z, R = 3.6 * areaMul;
       this.vfx?.spawnSummon('spear_cage', tx, this.world.gh(tx, tz), tz, dir.x, dir.y, { theme: vfxTh || 'thunder', radius: R });
+      this.vfx?.spawnElementalSpear(p.pos.x, p.y, p.pos.z, dir.x, dir.y, vfxTh || 'thunder');
       this.shockRing(tx, tz, R, this.rollDamage(2.3 * dmgMul, mod.fire), 0x7ae8ff, 1.5, { shock: 5.5, slow: 3.0, leech, ...trigOpts });
       p.swing = 1; p.swingT = 0.25;
     } else if (id === 'sword_beams') {
@@ -1653,7 +2138,8 @@ export class Game {
   tryBolt() {
     const p = this.player; if (p.cds.bolt > 0 || p.roll > 0) return;
     if (p.mana < 8) { if (!this._noManaT || this.time - this._noManaT > 1) { this.ui.toast('法力不足', '#7fb2ff'); this.ui.status?.noMana(); this._noManaT = this.time; } return; }
-    this.audio.sfx('bolt'); p.mana -= 8; p.cds.bolt = 0.38 / (1 + p.stats.atkSpd / 200);
+    this.ambushTrial?.event('skill', { skill: 'bolt' });
+    this.audio.sfx('bolt'); p.mana -= 8; p.cds.bolt = 0.78 / (1 + p.stats.atkSpd / 200);
     const dir = this.aimDir(); p.facing = Math.atan2(dir.x, dir.y);
     const n = p.stats.proj, spread = 0.2;
     for (let i = 0; i < n; i++) {
@@ -1680,12 +2166,19 @@ export class Game {
     this.projs.push({ mesh, vx: dir.x * o.speed, vz: dir.y * o.speed, life: o.life || 1.1, ...o, ...extra, hit: new Set() });
   }
   tryRoll() {
-    const p = this.player; if (p.cds.roll > 0 || p.roll > 0 || p.air || p.climbing) return;
+    const p = this.player;
+    if (p.air || p.climbing) return;
+    if (p.cds.roll > 0 || p.roll > 0) {
+      p.inputBuf = { kind: 'roll', t: 0.12 };
+      return;
+    }
     this.audio.sfx('roll');
+    this.vfx?.spawnTwirlDash(p.pos.x, p.y, p.pos.z, 'wind');
     const mv = this.moveInput();
     if (mv.lengthSq() < 0.01) { const a = this.aimDir(); mv.set(a.x, a.y); }
     p.rollDir.set(mv.x, 0, mv.y).normalize();
     p.swingT = 0; p.roll = 0.28; p.cds.roll = 0.78 * (this.has('gale') ? 0.65 : 1) * (1 - (p.stats.rollCdr || 0) / 100) * (1 - p.stats.cdr / 100);
+    if (this.ambushTrial) this.ambushTrial.roll(this.enemies.find(e => e.type === 'boar' && !e.dead));
     p.facing = Math.atan2(mv.x, mv.y);
     if (this.has('gale')) p.galeBuff = true;
     this.puffs.burst(p.pos.x, 0.15, p.pos.z, 5, { c: 0xf4ecd8, s: 0.25, speed: 1.5, up: 0.5, g: -0.5, life: 0.5, grow: 1, drag: 4 });
@@ -1747,8 +2240,10 @@ export class Game {
   }
   tryFlask() {
     const p = this.player; if (p.flask.charges <= 0 || p.hp >= p.stats.maxHp) return;
+    this.ambushTrial?.event('flask');
     p.flask.charges--; p.healOver = 1.0; this.audio.sfx('flask');
     p.heroRig?.play('buff', { once: true, force: true });
+    this.vfx?.spawnPeaceBlessing(p.pos.x, p.y, p.pos.z, 'lotus');
     p.healRate = p.stats.maxHp * 0.42 * (1 + 0.25 * p.boons.filter(b => b === 'flask').length);
     this.fx.burst(p.pos.x, 1, p.pos.z, 10, { c: [0xff7a8a, 0xffd0d8], s: 0.1, speed: 2, up: 3, life: 0.6, g: -1 });
   }
@@ -1766,6 +2261,10 @@ export class Game {
 
   moveInput() {
     const k = this.keys; const v = new V2((k['d'] || k['arrowright'] ? 1 : 0) - (k['a'] || k['arrowleft'] ? 1 : 0), (k['s'] || k['arrowdown'] ? 1 : 0) - (k['w'] || k['arrowup'] ? 1 : 0));
+    if (this.touchInput && this.canUseTouchControls()) {
+      v.x += this.touchInput.x;
+      v.y += this.touchInput.z;
+    }
     if (v.lengthSq() > 1) v.normalize();
     if (this.camYaw && v.lengthSq() > 0.001) {
       const c = Math.cos(this.camYaw), s = Math.sin(this.camYaw);
@@ -1773,6 +2272,29 @@ export class Game {
       v.set(rx, ry);
     }
     return v;
+  }
+
+  canUseTouchControls() {
+    const ui = this.ui;
+    return (this.state === 'play' || this.state === 'raid') && !this.sailing && !this.gatherActive && !this.photoMode
+      && !ui.invOpen && !ui.panelOpen && !ui.setOpen && !ui.puzzleOpen && !ui.mapDialog?.open
+      && !ui.codexOpen && !ui.simRosterOpen && !ui.simInspectOpen
+      && document.activeElement?.id !== 'chatIn';
+  }
+
+  aimForTouch() {
+    const { pos, facing } = this.player;
+    let range = 16;
+    let target = null;
+    for (const enemy of this.enemies) {
+      if (enemy.dead || !enemy.m.root.visible) continue;
+      const distance = Math.hypot(enemy.pos.x - pos.x, enemy.pos.z - pos.z);
+      if (distance >= range) continue;
+      range = distance;
+      target = enemy;
+    }
+    if (target) this.aim.copy(target.pos);
+    else this.aim.set(pos.x + Math.sin(facing) * 5, pos.y, pos.z + Math.cos(facing) * 5);
   }
 
   resolveBoxCollisions(pos, r, y = 0, isPlayer = false) {
@@ -1860,7 +2382,7 @@ export class Game {
       if (p.y < 0.7) p.lastLow.set(p.pos.x, 0, p.pos.z);
     }
     if (p.air && !p.climbing) {
-      const glide = (this.keys[' '] && p.vy < 0 && p.stamina > 0 && p.roll <= 0);
+      const glide = ((this.keys[' '] || (this.touchInput?.glide && this.canUseTouchControls())) && p.vy < 0 && p.stamina > 0 && p.roll <= 0);
       const gravMul = p.realmRule?.gravityMult || 1;
       p.vy -= 24 * gravMul * dt;
       if (glide) {
@@ -1900,9 +2422,13 @@ export class Game {
     if (p.y < -0.1 && !W.isLand(p.pos.x, p.pos.z)) { p.pos.x = p.lastLow.x; p.pos.z = p.lastLow.z; p.y = W.gh(p.pos.x, p.pos.z); }
   }
   toggleMount(forceOff = false) {
-    if (this.interior || this.sailing) { if (!forceOff) this.ui.toast('此處無法召喚坐騎', '#ffe08a'); return; }
+    if (!forceOff && (this.state !== 'play' || this.interior || this.sailing)) {
+      this.ui.toast('此處無法召喚坐騎', '#ffe08a');
+      return;
+    }
     if (this.mount) {
       this.scene.remove(this.mount.mesh.root);
+      disposeObj3D(this.mount.mesh.root);
       this.mount = null;
       if (!forceOff) { this.audio.sfx('sit'); this.ui.toast('已收起坐騎', '#e8dcc8'); }
       return;
@@ -1910,7 +2436,7 @@ export class Game {
     if (forceOff) return;
     const def = activeMountDef(this.meta.p);
     if (!def) {
-      this.ui.toast('🔒 尚未解鎖坐騎！達 Lv.5 或擊敗 20 隻魔物即可解鎖「林間巨鹿」（按 I 查看坐騎里程碑）', '#ffd85a');
+      this.ui.toast('🔒 尚未持有坐騎！達 Lv.10 且擊殺 60 隻魔物後，按 I → 造型坐騎 鍛造鞍具馴養「林間巨鹿」', '#ffd85a');
       return;
     }
     const mesh = buildMountMesh(def.id);
@@ -1939,7 +2465,9 @@ export class Game {
     m.p.kills++;
     let n = e.type === 'stag' ? 120 : e.elite ? 10 + d : (Math.random() < 0.4 ? 1 + (d >> 1) : 0);
     const atlas = (!this.field && this.depth >= 0) ? computeAtlasSummary(ensureAtlas(m.p)) : null;
-    n = Math.round(n * m.shardMult * (atlas ? atlas.shardMult : 1));
+    const repShardMul = 1 + (getGuildRepInfo(m.p).shardBonus || 0) / 100;
+    const greedShardMul = 1 + (this.player?.runeBonuses?.shardBonus || 0) / 100;
+    n = Math.round(n * m.shardMult * (atlas ? atlas.shardMult : 1) * repShardMul * greedShardMul);
     if (n > 0) { if (this.field) m.p.shards += n; else m.runShards += n; if (e.elite || e.type === 'stag') this.ui.toast(`✦ 星砂 +${n}`, '#ffe08a'); }
   }
   bankRun(frac) {
@@ -2018,6 +2546,7 @@ export class Game {
       reacted = true;
       const nextDef = SURFACE_DEFS[rx.nextKind] || {};
       gz.kind = rx.nextKind;
+      if (gz.sporeSource && element === 'fire') gz.sporeSource = null;
       gz.r = Math.min(6.2, gz.r * (rx.radiusMult || 1));
       gz.life = gz.maxLife = nextDef.dur || 5.8;
       gz.color = rx.color;
@@ -2080,6 +2609,23 @@ export class Game {
   }
   tryInteract() {
     const s = this.nearSpot(); if (!s) return false;
+    if (s.kind === 'meadowCave') {
+      this.ui.openPanel('meadowCave');
+      return true;
+    }
+    if (s.kind === 'expedition_lamp') {
+      if (completeMeadowObjective(this, s.expeditionId)) {
+        if (s.ignition) {
+          this.spawnGroundZone('poison', s.x, s.z, 1.75, 1, 0.4);
+          this.applyElementAt(s.x, s.z, 'fire', 0.25);
+        }
+        s.label = s.label.replace(/^(點亮|引燃)/, '已$1');
+        s.light.material.color.setHex(0xffdf81);
+        this.audio.sfx('wisp');
+        this.fx.burst(s.x, s.top, s.z, 12, { c: [0xffd88a, 0xffffff], life: 0.6, speed: 3, up: 3 });
+      }
+      return true;
+    }
     if (s.kind === 'pet_sheep') {
       const sh = s.sheep;
       if (sh) { sh.hop = 0.45; sh.wait = 3; }
@@ -2147,12 +2693,18 @@ export class Game {
     this.audio.sfx('ui'); this.ui.openPanel(s.kind); return true;
   }
   enterInterior(kind) {
+    this.mapPin = null;
     this.audio.sfx('door');
-    this.savedTown = { pos: this.player.pos.clone(), spots: this.spots };
+    this.savedTown = { pos: this.player.pos.clone(), spots: this.spots, simCount: getSimConfig(this).count };
     if (this.world.group) this.world.group.visible = false;
     if (this.townGroup) this.townGroup.visible = false;
     for (const x of this.exits) x.g.visible = false;
     for (const r of this.remotes.values()) { r.m.root.visible = false; r.tag.style.display = 'none'; r.bub.style.display = 'none'; }
+    for (const adventurer of this._simAdvs || []) {
+      adventurer.m.root.visible = false;
+      if (adventurer.tag) adventurer.tag.style.display = 'none';
+      if (adventurer.bub) adventurer.bub.style.opacity = 0;
+    }
     this.interior = buildInterior(this, kind);
     this.scene.add(this.interior.group);
     this.spots = this.interior.spots;
@@ -2163,13 +2715,19 @@ export class Game {
   }
   exitInterior() {
     if (!this.interior) return;
+    this.mapPin = null;
     this.audio.sfx('door');
     this.scene.remove(this.interior.group); disposeObj3D(this.interior.group); this.interior = null;
     if (this.world.group) this.world.group.visible = true;
     if (this.townGroup) this.townGroup.visible = true;
     for (const x of this.exits) x.g.visible = true;
     for (const r of this.remotes.values()) { r.m.root.visible = true; r.tag.style.display = ''; r.bub.style.display = ''; }
-    if (this.savedTown) { this.player.pos.copy(this.savedTown.pos); this.spots = this.savedTown.spots; this.savedTown = null; }
+    if (this.savedTown) {
+      this.player.pos.copy(this.savedTown.pos);
+      this.spots = this.savedTown.spots;
+      if (this.savedTown.simCount !== getSimConfig(this).count) spawnSimAdventurers(this);
+      this.savedTown = null;
+    }
     this.fade = 0.85;
   }
   spawnCampfireAt(x, y, z) {
@@ -2319,14 +2877,51 @@ export class Game {
   // ---------------- multiplayer ----------------
   setupNet() {
     const n = this.net;
-    n.on('status', s => { if (s.ok) this.identifyGuild(); else { this.wallet=null; this.exitRaid?.(); } this.ui.netStatus(s); if (!s.ok && this.depth === -1 && !this.bots.length && s.reason !== 'no-server') this.spawnBots(); });
+    n.on('status', s => {
+      if (s.ok) {
+        for (const bot of this.bots) this.removeRemote(bot);
+        this.bots = [];
+        this.identifyGuild();
+      } else {
+        this.wallet = null; this.exitRaid?.();
+        for (const [id, remote] of this.remotes) if (!remote.bot) this.removeRemote(id);
+        document.getElementById('btnZoneShards').classList.add('hide');
+        this.ui.refreshShardPanel?.();
+        if (s.reason === 'closed' || s.reason === 'error') {
+          if (this.depth === -1 && !this.bots.length) this.spawnBots();
+        }
+      }
+      this.ui.netStatus(s);
+      this.ui.setOnline(n.online);
+    });
     n.on('welcome', m => {
       if (m.hotspots) this.hotspots = m.hotspots;
       if (m.features) this.features = { ...DEFAULT_FEATURE_FLAGS, ...m.features };
+      document.getElementById('btnZoneShards').classList.toggle('hide', !n.zoneShards);
       for (const h of m.history || []) if (!isMutedUser(this.meta.p, h.name)) this.ui.addChat(h.name, h.text, false, h.zone);
       this.ui.addChat('', `已連線，你的編號 #${m.id}`, true);
     });
+    n.on('shard', m => {
+      if (m.id !== null && (typeof m.id !== 'string' || typeof m.zone !== 'string')) return;
+      const previous = n.shard;
+      n.shard = m.id ? { id: m.id, zone: m.zone, number: Number(m.id.split('#').at(-1)), count: null } : null;
+      n.shardListing = null;
+      for (const [id, remote] of this.remotes) if (!remote.bot) this.removeRemote(id);
+      document.getElementById('chatLog').replaceChildren();
+      for (const h of m.history || []) if (!isMutedUser(this.meta.p, h.name)) this.ui.addChat(h.name, h.text, false, h.zone);
+      if (n.shard && previous?.zone === m.zone && previous.id !== m.id) this.ui.toast(`已切換至 ${n.shard.number} 線`, '#ffd85a');
+      this.ui.setOnline(n.online);
+      this.ui.refreshShardPanel?.(true);
+    });
+    n.on('shards', m => {
+      if (m.zone !== (n.shard?.zone ?? null) || !Array.isArray(m.lines)) return;
+      const lines = m.lines.filter(line => line && typeof line.id === 'string'
+        && Number.isSafeInteger(line.number) && Number.isSafeInteger(line.count) && Number.isSafeInteger(line.capacity));
+      n.shardListing = { ...m, lines };
+      this.ui.refreshShardPanel?.();
+    });
     n.on('tide_sync', m => {
+      if (n.zoneShards && (m.shard !== n.shard?.id || m.zone !== this.zone)) return;
       if (this.tide && typeof m.heat === 'number') {
         this.tide.heat = m.heat;
         this.tide.phase = m.phase ?? this.tide.phase;
@@ -2342,7 +2937,11 @@ export class Game {
     n.on('emote', m => { if (this.remotes.has(m.id)) this.say(m.id, EMOTES[m.e % EMOTES.length]); });
     n.on('gone', m => this.removeRemote(m.id));
     n.on('snap', m => {
-      if(this.raid) return;
+      if (this.raid || (n.zoneShards && (m.shard !== n.shard?.id || m.zone !== this.zone))) return;
+      if (n.shard && n.shard.count !== m.count) {
+        n.shard.count = m.count;
+        this.ui.setOnline(n.online);
+      }
       const seen = new Set();
       for (const p of m.players) {
         seen.add(p.id);
@@ -2417,12 +3016,13 @@ export class Game {
     const prefix = cmd.channel === 'party' ? '[小隊] ' : cmd.channel === 'guild' ? '[公會] ' : '';
     const out = prefix + cmd.text;
     if (!cmd.text) return;
-    if (this.net.ok) this.net.send({ t: 'chat', text: out });
+    if (this.net.ok) this.net.send({ t: 'chat', channel: cmd.channel, text: out });
     else { this.ui.addChat(this.playerName, out, false, 'town'); this.say('me', out); }
   }
   emote(i) {
     this.audio.sfx('emote'); const e = EMOTES[i % EMOTES.length];
     this.say('me', e); this.net.send({ t: 'emote', e: i });
+    reactSimToPlayerEmote(this, e);
   }
   updateNet(dt) {
     const p = this.player, n = this.net;
@@ -2430,7 +3030,7 @@ export class Game {
     if (this.posT <= 0 && this.state !== 'title') {
       this.posT = 0.1;
       const a = p.roll > 0 ? 5 : p.climbing ? 3 : p.gliding ? 4 : p.air ? 2 : p.walkT > 0 ? 1 : 0;
-      n.send({ t: 'pos', zone: this.zone, x: p.pos.x, y: p.y, z: p.pos.z, f: p.facing, a });
+      n.send({ t: 'pos', zone: this.zone, party: this.caveRun ? '' : this.party, x: p.pos.x, y: p.y, z: p.pos.z, f: p.facing, a });
     }
     if (this.zone !== this._lastZone) { this._lastZone = this.zone; for (const id of [...this.remotes.keys()]) if (!String(id).startsWith('bot')) this.removeRemote(id); }
     for (const r of this.remotes.values()) {
@@ -2465,10 +3065,12 @@ export class Game {
       r.tag.style.transform = `translate(${sx}px, ${sy}px) translate(-50%,-100%)`;
       r.bub.style.transform = `translate(${sx}px, ${sy - 22}px) translate(-50%,-100%)`; r.bub.style.opacity = r.say > 0 ? 1 : 0;
     }
-    // own label + bubble
+    // own label + bubble（頭頂顯示佩戴稱號）
     const me = document.getElementById('myTag'), mb = document.getElementById('myBub');
     if (me) {
-      me.textContent = this.playerName; const [sx, sy] = this.ui.screenPos(p.pos.x, p.y + 2.0, p.pos.z);
+      const tTxt = getActiveTitleText(this.meta?.p);
+      me.textContent = tTxt ? `[${tTxt}] ${this.playerName}` : this.playerName;
+      const [sx, sy] = this.ui.screenPos(p.pos.x, p.y + 2.0, p.pos.z);
       me.style.transform = `translate(${sx}px, ${sy}px) translate(-50%,-100%)`; me.style.display = this.state === 'title' ? 'none' : 'block';
       if (this.mySay) { this.mySay.t -= dt; mb.textContent = this.mySay.text; mb.style.transform = `translate(${sx}px, ${sy - 22}px) translate(-50%,-100%)`; mb.style.opacity = this.mySay.t > 0 ? 1 : 0; }
     }
@@ -2476,8 +3078,11 @@ export class Game {
 
   // ---------------- update ----------------
   update(dt) {
+    if (this.state === 'trial-ready' || this.state === 'trial-result') return;
+    const touch = this.touchInput;
+    if (touch && (touch.attack || touch.glide || touch.x || touch.z) && !this.canUseTouchControls()) this.clearTouchInput();
     if (this.raid) { updateRaid(this,dt); return; }
-    if (this.ui.mapDialog?.open) return;
+    if (this.ui.mapDialog?.open || this.draftPause) return;
     this.time += dt;
     if (this.meta.p.mealUntil && this.meta.p.mealUntil <= Date.now()) { this.meta.p.mealUntil=0; this.meta.p.mealBoost=1; this.recalc(); this.meta.save(); }
     if (this.meta.p.ferryBuffUntil && this.meta.p.ferryBuffUntil <= Date.now()) { this.meta.p.ferryBuffUntil=0; this.recalc(); this.meta.save(); }
@@ -2519,17 +3124,52 @@ export class Game {
         }
       }
       p.iframes = Math.max(0, p.iframes - dt);
+      p.perfectDodgeCd = Math.max(0, (p.perfectDodgeCd || 0) - dt);
+      p.perfectCritT = Math.max(0, (p.perfectCritT || 0) - dt);
       p.mana = Math.min(S.mana, p.mana + dt * 7 * (1 + (S.manaRegen || 0) / 100));
       if (S.regen) this.heal(S.regen * dt, false);
       if (p.specials.has('mossRegen')) this.heal(S.maxHp * 0.02 * dt, false);
       if (p.healOver > 0) { p.healOver -= dt; this.heal(p.healRate * dt, false); }
       if (!this.ui.invOpen && !this.ui.setOpen && !this.ui.panelOpen && !this.ui.puzzleOpen) {
+        if (p.inputBuf) {
+          p.inputBuf.t -= dt;
+          if (p.inputBuf.t <= 0) {
+            p.inputBuf = null;
+          } else if (p.inputBuf.kind === 'roll' && p.cds.roll <= 0 && p.roll <= 0 && !p.air && !p.climbing) {
+            p.inputBuf = null; this.tryRoll();
+          } else if (p.inputBuf.kind === 'attack' && p.cds.atk <= 0 && p.roll <= 0) {
+            p.inputBuf = null; this.tryAttack();
+          } else if (p.inputBuf.kind === 'skill' && (p.skillCds[p.inputBuf.slot] || 0) <= 0 && p.roll <= 0) {
+            const slot = p.inputBuf.slot; p.inputBuf = null; this.castHotbar(slot);
+          }
+        }
         if (this.mouse.l) this.tryAttack();
+        if (touch?.attack) { this.aimForTouch(); this.tryAttack(); }
         const kb = this.settings?.keybinds;
-        if (this.mouse.r && (!kb || kb.sk0 === 'rmb')) this.castHotbar(0);
+        if (this.mouse.r && (this.ambushTrial || !kb || kb.sk0 === 'rmb')) this.castHotbar(0);
       }
-      // movement (3D: walk, sprint, jump, climb walls, glide) + 🏮 提燈自動巡遊
+      // movement (3D: walk, sprint, jump, climb walls, glide) + 🏮 提燈自動巡遊 + 點擊懸停物件自動走近互動
       const mv = this.moveInput();
+      if (this.ambushTrial?.active && !this.ambushTrial.active.moved && mv.lengthSq() > 0.02) {
+        this.ambushTrial.active.moved = true;
+        this.ambushTrial.event('move');
+      }
+      if (mv.lengthSq() > 0.02 || p.roll > 0 || p.swingT > 0) this.interactTarget = null;
+      if (this.interactTarget && mv.lengthSq() <= 0.02) {
+        const it = this.interactTarget;
+        const tx = it.kind === 'remote' ? it.obj.x : it.kind === 'sheep' ? it.obj.x : it.kind === 'drop' ? it.obj.g.position.x : it.x;
+        const tz = it.kind === 'remote' ? it.obj.z : it.kind === 'sheep' ? it.obj.z : it.kind === 'drop' ? it.obj.g.position.z : it.z;
+        const dx = tx - p.pos.x, dz = tz - p.pos.z, d = Math.hypot(dx, dz);
+        if (d <= 2.2) {
+          this.interactTarget = null;
+          if (it.kind === 'drop') this.tryPickup();
+          else this.tryInteract();
+        } else if (d > 32) {
+          this.interactTarget = null;
+        } else {
+          mv.set(dx / d, dz / d);
+        }
+      }
       const autoMv = tickAutopilot(this, dt, mv);
       if (autoMv) mv.set(autoMv.x, autoMv.y);
       if (this.recallT > 0) {
@@ -2654,7 +3294,19 @@ export class Game {
         });
         if (p.wispT <= 0) { for (const w of p.wisps) { this.scene.remove(w.mesh); disposeObj3D(w.mesh); } p.wisps = []; }
       }
-      if (this.field) { tickField(this, dt); tickTide(this, dt); }
+      if (this.field) { tickField(this, dt); tickTide(this, dt); tickWorldBoss(this, dt); tickDynamicEvent(this, dt); }
+      if (getPartyIds(this.meta?.p).length > 0 && !(this._companionMeshes?.length) && this.depth >= 0) spawnCompanion3D(this);
+      tickCompanion3D(this, dt);
+      tickSimAdventurers(this, dt);
+      // 離線活生生 MMO 世界頻道模擬（每 52 秒浮現一條真實感冒險者對話）
+      if (!this.net?.ok && this.state === 'play') {
+        this._wChatCd = (this._wChatCd ?? 25) - dt;
+        if (this._wChatCd <= 0) {
+          this._wChatCd = 52 + Math.random() * 25;
+          const line = WORLD_CHAT_LINES[(Math.random() * WORLD_CHAT_LINES.length) | 0];
+          this.ui?.chat?.(line);
+        }
+      }
       tickSkyFeatures(this, dt);
       // 折光棱鏡自動射擊
       for (const pr of this.prisms) {
@@ -2677,6 +3329,12 @@ export class Game {
         if (!alive) {
           this.waveDelay -= dt;
           if (this.waveDelay <= 0) {
+            if (this.caveRun && this.waveIdx === this.caveRun.stage && this.waveIdx < this.waves.length - 1) {
+              advanceMeadowCave(this.meta.p, this.caveRun, this.waveIdx);
+              this.meta.save();
+              this.heal(p.stats.maxHp * 0.25);
+              p.flask.charges = Math.min(p.flask.max, p.flask.charges + 1);
+            }
             this.waveIdx++;
             if (this.waveIdx < this.waves.length) { this.spawnWave(); this.waveDelay = 0.8; }
             else this.roomCleared();
@@ -2684,7 +3342,7 @@ export class Game {
         }
       }
       // exits
-      if (!this.interior) for (const x of this.exits) if (x.on && Math.hypot(p.pos.x - x.x, p.pos.z - x.z) < 1.3) { this.goExit(x); break; }
+      if (!this.interior) for (const x of this.exits) if (x.on && !(this.field === 1 && x.type === 'dungeon') && Math.hypot(p.pos.x - x.x, p.pos.z - x.z) < 1.3) { this.goExit(x); break; }
       this.ui.exitHint(this);
       // flow field
       this.flowTimer -= dt;
@@ -2727,74 +3385,225 @@ export class Game {
     this.ui.update(this);
   }
 
+  ensureHoverRings() {
+    if (!this._hoverRing) {
+      const geo = new THREE.RingGeometry(0.72, 0.96, 28);
+      geo.rotateX(-Math.PI / 2);
+      const mat = new THREE.MeshBasicMaterial({ color: 0xffcf4a, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false });
+      this._hoverRing = new THREE.Mesh(geo, mat);
+      this._hoverRing.userData.noNormal = true;
+      this._hoverRing.renderOrder = 3;
+      this._hoverRing.visible = false;
+      this.scene.add(this._hoverRing);
+    }
+    if (!this._skillPreviewRing) {
+      const geo = new THREE.RingGeometry(0.92, 1.0, 36);
+      geo.rotateX(-Math.PI / 2);
+      const mat = new THREE.MeshBasicMaterial({ color: 0x7ae8ff, transparent: true, opacity: 0.52, side: THREE.DoubleSide, depthWrite: false });
+      this._skillPreviewRing = new THREE.Mesh(geo, mat);
+      this._skillPreviewRing.userData.noNormal = true;
+      this._skillPreviewRing.renderOrder = 3;
+      this._skillPreviewRing.visible = false;
+      this.scene.add(this._skillPreviewRing);
+    }
+  }
+
   updateHover() {
     const cv = this.pipe?.renderer?.domElement;
     const badge = document.getElementById('hoverBadge');
-    if (!cv || !badge) return;
-    if (this.state !== 'play' || this.ui.invOpen || this.ui.setOpen || this.ui.panelOpen || this.ui.puzzleOpen || this.ui.mapDialog?.open || this.ui.codexOpen) {
-      cv.classList.remove('hover-enemy', 'hover-interact');
-      badge.classList.remove('show');
+    if (!cv) return;
+    if (badge) badge.classList.remove('show');
+    this.ensureHoverRings();
+    const p = this.player;
+
+    if (this.state === 'play' && this.hoverSkillSlot >= 0 && p?.hotbar?.[this.hoverSkillSlot]) {
+      const sk = p.hotbar[this.hoverSkillSlot];
+      const baseR = { slam: 3.2, whirl: 3.1, nova: 4.6, sakura: 4.4, quakeg: 4.2, rain: 2.8, trap: 3.0, meteor: 2.7, thunder: 6.5, paladin_sword: 3.8, fire_whale: 4.8, dark_wolf: 4.2, healing_tree: 4.6, black_hole: 4.8, blue_tornado: 3.8, spear_cage: 3.6, candle_ward: 3.4 }[sk.def.id] || 4.0;
+      const rad = baseR * (1 + (p.stats?.area || 0) / 100) * (1 + (sk.mod?.area || 0));
+      const pulse = 1 + Math.sin(this.time * 6) * 0.03;
+      this._skillPreviewRing.visible = true;
+      this._skillPreviewRing.position.set(p.pos.x, p.y + 0.14, p.pos.z);
+      this._skillPreviewRing.scale.setScalar(rad * pulse);
+      this._skillPreviewRing.material.color.set(sk.def.color || '#7ae8ff');
+    } else if (this._skillPreviewRing) {
+      this._skillPreviewRing.visible = false;
+    }
+
+    if (this.state !== 'play' || this.ui.invOpen || this.ui.setOpen || this.ui.panelOpen || this.ui.puzzleOpen || this.ui.mapDialog?.open || this.ui.codexOpen || this.ui.hover?.isUiActive?.()) {
+      cv.classList.remove('hover-enemy', 'hover-interact', 'hover-npc');
+      this.hoveredWorld = null;
+      this.hoveredDrop = null;
+      this._hoverRing.visible = false;
+      this.ui.hover?.hideWorld?.();
       return;
     }
+
     const ax = this.aim.x, az = this.aim.z;
-    let hitE = null, hitS = null, hitR = null, hitD = null;
+    let hit = null;
     for (const e of this.enemies) {
-      if (e.dead) continue;
-      if (Math.hypot(e.pos.x - ax, e.pos.z - az) < (e.r || 0.6) + 0.85) { hitE = e; break; }
+      if (e.dead || e.m?.root?.visible === false) continue;
+      if (Math.hypot(e.pos.x - ax, e.pos.z - az) < (e.r || 0.6) + 0.85) {
+        hit = { kind: 'enemy', obj: e, x: e.pos.x, z: e.pos.z, r: Math.max(0.85, (e.r || 0.6) * 1.45), color: e.elite || e.type === 'stag' ? 0xffcf4a : 0xff5a5a };
+        break;
+      }
     }
-    if (!hitE) {
+    if (!hit) {
       for (const r of this.remotes.values()) {
-        if (Math.hypot(r.x - ax, r.z - az) < 1.15) { hitR = r; break; }
+        if (r.m?.root?.visible === false) continue;
+        if (Math.hypot(r.x - ax, r.z - az) < 1.2) {
+          hit = { kind: 'remote', obj: r, x: r.x, z: r.z, r: 0.95, color: r.bot ? 0x7fe08a : 0x7ae8ff };
+          if (r.bot && r.a === 0) r.tf = Math.atan2(p.pos.x - r.x, p.pos.z - r.z);
+          break;
+        }
       }
     }
-    if (!hitE && !hitR) {
+    if (!hit) {
       for (const d of this.drops) {
-        if (d.kind !== 'item') continue;
-        if (Math.hypot(d.g.position.x - ax, d.g.position.z - az) < 1.05) { hitD = d; break; }
+        if (Math.hypot(d.g.position.x - ax, d.g.position.z - az) < 1.1) {
+          if (d.kind === 'item') hit = { kind: 'drop', obj: d, x: d.g.position.x, z: d.g.position.z, r: 0.85, color: RARITY[d.item.rarity]?.beam || 0xffd85a };
+          else if (d.kind === 'orb') hit = { kind: 'orb', obj: d, x: d.g.position.x, z: d.g.position.z, r: 0.65, color: 0xff5a6a };
+          break;
+        }
       }
     }
-    if (!hitE && !hitR && !hitD) {
+    if (!hit) {
       for (const s of this.spots) {
         if (s.mesh?.visible === false) continue;
-        if (Math.hypot(s.x - ax, s.z - az) < 1.35) { hitS = s; break; }
+        if (Math.hypot(s.x - ax, s.z - az) < 1.45) {
+          hit = { kind: 'spot', obj: s, x: s.x, z: s.z, r: 1.15, color: 0xffd85a };
+          break;
+        }
       }
     }
-    cv.classList.toggle('hover-enemy', !!hitE);
-    cv.classList.toggle('hover-interact', !hitE && !!(hitS || hitR || hitD));
-    if (hitE) {
-      const names = { slime: '青苔史萊姆', thorn: '棘芽射手', boar: '衝鋒野豬', moth: '月影飛蛾', skyray: '雲翼飛鰩（空中）', golem: '星晶巨像', stag: '古樹鹿王' };
-      const st = hitE.statuses || {};
-      const tags = `${st.freeze > 0 ? ' ❄️' : ''}${st.poison > 0 ? ' 🧪' : ''}${st.burn > 0 ? ' 🔥' : ''}${st.shock > 0 ? ' ⚡' : ''}${hitE.blinded > 0 ? ' ☁️失明' : ''}`;
-      const ptxt = partStatusText(hitE);
-      const modTag = hitE.eliteMod ? ` [${hitE.eliteMod.name}]` : '';
-      badge.textContent = `⚔ ${hitE.elite ? '★ ' : ''}${names[hitE.type] || hitE.type}${modTag}${tags} · ${Math.ceil(hitE.hp)}/${Math.ceil(hitE.maxHp)}${ptxt ? ' | ' + ptxt : ''}`;
-      badge.style.left = (this.mouse.x + 18) + 'px'; badge.style.top = (this.mouse.y - 12) + 'px';
-      badge.classList.add('show');
-    } else if (hitR) {
-      badge.textContent = `💬 ${hitR.name}${hitR.bot ? ' · [F] 交談' : ' · 旅人'}`;
-      badge.style.left = (this.mouse.x + 18) + 'px'; badge.style.top = (this.mouse.y - 12) + 'px';
-      badge.classList.add('show');
-    } else if (hitD) {
-      const ti = tierInfo(hitD.item.tier || 1);
-      const curEq = this.player?.equip?.[hitD.item.slot];
-      const diff = curEq ? itemScore(hitD.item) - itemScore(curEq) : itemScore(hitD.item);
-      const cmp = !curEq ? ' (▲空欄)' : diff > 0 ? ` (▲+${diff})` : diff < 0 ? ` (▼${diff})` : ' (＝同級)';
-      badge.textContent = `✦ [${ti.tag}] ${RARITY[hitD.item.rarity].name} ${hitD.item.name}${cmp} · [F] 拾取`;
-      badge.style.left = (this.mouse.x + 18) + 'px'; badge.style.top = (this.mouse.y - 12) + 'px';
-      badge.classList.add('show');
-    } else if (hitS) {
-      badge.textContent = `✦ ${hitS.label || '互動'} · [F]`;
-      badge.style.left = (this.mouse.x + 18) + 'px'; badge.style.top = (this.mouse.y - 12) + 'px';
-      badge.classList.add('show');
+    if (!hit && !this.interior) {
+      for (const x of this.exits) {
+        if (Math.hypot(x.x - ax, x.z - az) < 1.9) {
+          hit = { kind: 'exit', obj: x, x: x.x, z: x.z, r: 1.65, color: 0x62e8ff };
+          break;
+        }
+      }
+    }
+    if (!hit) {
+      for (const sh of this.sheep || []) {
+        if (Math.hypot(sh.x - ax, sh.z - az) < 1.15) {
+          hit = { kind: 'sheep', obj: sh, x: sh.x, z: sh.z, r: 0.85, color: 0xffe49e };
+          break;
+        }
+      }
+    }
+    if (!hit) {
+      for (const pk of this.pickups || []) {
+        if (Math.hypot(pk.x - ax, pk.z - az) < 1.1) { hit = { kind: 'pickup', obj: pk, x: pk.x, z: pk.z, r: 0.75, color: pk.kind === 'feather' ? 0xffd23a : 0xffb8c8 }; break; }
+      }
+    }
+    if (!hit) {
+      for (const cf of this.campfires || []) {
+        if (Math.hypot(cf.x - ax, cf.z - az) < 1.2) { hit = { kind: 'campfire', obj: cf, x: cf.x, z: cf.z, r: 1.0, color: 0xffa83a }; break; }
+      }
+    }
+    if (!hit) {
+      for (const pr of this.prisms || []) {
+        if (Math.hypot(pr.x - ax, pr.z - az) < 1.1) { hit = { kind: 'prism', obj: pr, x: pr.x, z: pr.z, r: 0.9, color: 0xffe07a }; break; }
+      }
+    }
+    if (!hit) {
+      for (const pp of this.physProps || []) {
+        if (Math.hypot(pp.x - ax, pp.z - az) < 0.95) { hit = { kind: 'prop', obj: pp, x: pp.x, z: pp.z, r: 0.7, color: 0x7ae8ff }; break; }
+      }
+    }
+    if (!hit && this._companionMesh?.visible) {
+      const cp = this._companionMesh.position;
+      if (Math.hypot(cp.x - ax, cp.z - az) < 1.0) hit = { kind: 'companion', obj: this._companionMesh, x: cp.x, z: cp.z, r: 0.75, color: 0xffd85a };
+    }
+    if (!hit) {
+      for (const gz of this.groundZones || []) {
+        if (gz.life > 0 && Math.hypot(gz.x - ax, gz.z - az) < gz.r) {
+          hit = { kind: 'zone', obj: gz, x: gz.x, z: gz.z, r: gz.r * 0.92, color: gz.color || 0x7ae8ff };
+          break;
+        }
+      }
+    }
+
+    const newObj = hit?.obj || null;
+    if (newObj !== this._lastHoverObj) {
+      this._lastHoverObj = newObj;
+      if (newObj) {
+        this.audio?.sfx?.('hover');
+        if (hit.kind === 'sheep') {
+          if (hit.obj.hop <= 0) hit.obj.hop = 0.34;
+          this.audio?.sfx?.('emote');
+          this.fx.burst(hit.x, this.world.gh(hit.x, hit.z) + 1.0, hit.z, 5, { c: [0xff9eb8, 0xffe480, 0xffffff], s: 0.09, speed: 2.2, up: 2.8, life: 0.55 });
+        } else if (hit.kind === 'remote' && hit.obj.bot) {
+          const r = hit.obj;
+          r.tf = Math.atan2(p.pos.x - r.x, p.pos.z - r.z);
+          if (r.say <= 0 && Math.random() < 0.45 && r.lines?.length) {
+            this.say(r.id, r.lines[(Math.random() * r.lines.length) | 0]);
+          }
+        } else if (hit.kind === 'prop') {
+          const pp = hit.obj;
+          pp.vx += (Math.random() - 0.5) * 3.5;
+          pp.vz += (Math.random() - 0.5) * 3.5;
+          pp.vy = Math.max(pp.vy, pp.kind === 'ball' ? 2.4 : 1.1);
+          this.audio?.sfx?.('kick');
+        } else if (hit.kind === 'companion' && this._companionMesh) {
+          this._companionMesh.rotation.y += Math.PI * 0.8;
+          this.fx.burst(hit.x, this._companionMesh.position.y + 0.6, hit.z, 6, { c: [0xffd85a, 0x7ae8ff, 0xffffff], s: 0.09, speed: 2.4, up: 2.5, life: 0.5 });
+        }
+      }
+    }
+
+    this.hoveredWorld = hit;
+    this.hoveredDrop = hit?.kind === 'drop' ? hit.obj : null;
+    cv.classList.toggle('hover-enemy', hit?.kind === 'enemy');
+    cv.classList.toggle('hover-npc', hit?.kind === 'remote');
+    cv.classList.toggle('hover-interact', !!hit && hit.kind !== 'enemy' && hit.kind !== 'remote' && hit.kind !== 'zone');
+
+    if (hit) {
+      const ry = this.interior ? 0.08 : (this.world.isLand(hit.x, hit.z) ? this.world.gh(hit.x, hit.z) : 0) + 0.1;
+      const pulse = 1 + Math.sin(this.time * 7) * 0.06;
+      this._hoverRing.visible = true;
+      this._hoverRing.position.set(hit.x, ry, hit.z);
+      this._hoverRing.scale.setScalar((hit.r || 1) * pulse);
+      this._hoverRing.material.color.setHex(hit.color || 0xffcf4a);
+      if (hit.kind === 'drop') {
+        const ti = tierInfo(hit.obj.item.tier || 1);
+        this.ui.hover?.showWorld?.({ kind: 'spot', obj: { label: `[${ti.tag}] ${hit.obj.item.name}（右側檢視對比 · 點擊拾取）`, x: hit.x, z: hit.z } }, this.mouse.x, this.mouse.y);
+      } else {
+        this.ui.hover?.showWorld?.(hit, this.mouse.x, this.mouse.y);
+      }
     } else {
-      badge.classList.remove('show');
+      this._hoverRing.visible = false;
+      this.ui.hover?.hideWorld?.();
     }
   }
 
   roomCleared() {
     this.cleared = true;
-    this.ui.toast('區域已淨化 ✦', '#fff2c0');
+    if (this.ambushTrial) { this.ambushTrial.finish('cleared'); return; }
     const p = this.player;
+    if (this.caveRun) {
+      const result = advanceMeadowCave(this.meta.p, this.caveRun, this.waveIdx - 1);
+      if (result?.complete) {
+        grantExperience(this, result.xp);
+        this.bankRun(1);
+        this.boss = null;
+        this.ui.bossBar(false);
+        this.ui.banner(result.firstClear ? '草原洞窟首通' : '草原洞窟通關',
+          `經驗 +${result.xp} · 金幣 +${result.coins} · 狂豬利牙與荊棘硬木各 +${result.materials}`);
+      }
+      this.activateExits();
+      return;
+    }
+    if (this.towerFloor > 0) {
+      const res = claimTowerFloorClear(this.meta.p, this.towerFloor);
+      this.vfx?.spawnKiAscension(p.pos.x, p.y || 0, p.pos.z, 'holy');
+      this.meta.save(); this.recalc(); this.audio.sfx('classup');
+      const r = res.reward;
+      this.ui.toast(`🗼 通關試煉之塔 ${this.towerFloor}F${res.firstClear ? '（首通大獎！）' : ''}：+🪙${r.coins} · +💎${r.shards}${r.cubes ? ` · +🎲${r.cubes}潛能魔方` : ''}${r.charms ? ` · +🛡️${r.charms}保護符` : ''}`, '#ffd85a');
+      this.activateExits();
+      return;
+    }
+    this.ui.toast('區域已淨化 ✦', '#fff2c0');
     // reward of this room
     if (this.reward === 'item') this.dropItem(p.pos.x + 1, p.pos.z, makeItem(this.rng, this.depth + 1, this.rng() < 0.2 ? 3 : 2));
     if (this.reward === 'heal') { this.heal(p.stats.maxHp * 0.5); p.flask.charges = p.flask.max; this.ui.toast('生命與藥瓶已回復', '#ff8a8a'); }
@@ -2811,6 +3620,14 @@ export class Game {
   }
   goExit(x) {
     if (this.state !== 'play' || this.exitCooldown > 0) return;
+    if (x.type === 'caveReturn') { this.state = 'transition'; this.ui.wipe(() => this.enterField(1, 'north')); return; }
+    if (x.type === 'dungeon' && this.field === 1) { this.ui.openPanel('meadowCave'); return; }
+    if (x.type === 'nextTower') {
+      const nf = Math.min(MAX_TOWER_FLOOR, (this.towerFloor || 1) + 1);
+      this.state = 'transition'; this.audio.sfx('warp');
+      this.ui.wipe(() => this.startTowerFloor(nf));
+      return;
+    }
     if (x.type === 'town') { this.state = 'transition'; this.audio.sfx('warp'); this.ui.wipe(() => this.lastTown === -2 ? this.enterHarbor() : this.enterTown('north')); return; }
     if (x.type === 'prevField') { this.state = 'transition'; this.audio.sfx('warp'); this.ui.wipe(() => this.enterField(this.field - 1, 'east')); return; }
     if (x.type === 'nextField') { this.state = 'transition'; this.audio.sfx('warp'); this.ui.wipe(() => this.enterField(this.field + 1, 'south')); return; }
@@ -2875,6 +3692,30 @@ export class Game {
         if (dist > 1.5 && W.flowDir(e.pos.x, e.pos.z, _flowV)) { mvx = _flowV.x * spd * s; mvz = _flowV.y * spd * s; }
         else { mvx = dirP.x * spd * s; mvz = dirP.y * spd * s; }
       };
+      if (playing && e.affixes?.length) tickEliteAffixes(this, e, dt, dist);
+      // 多階段 Boss 戰機制檢定（65% Phase 2 召喚／場地技、30% Phase 3 熾炎狂暴）
+      if (playing && (e.type === 'stag' || e.isTideBoss) && e.maxHp > 0) {
+        const hpRatio = e.hp / e.maxHp;
+        if (!e._bossP2 && hpRatio <= 0.65) {
+          e._bossP2 = true;
+          e.spd *= 1.12;
+          this.audio.sfx('tideHorn');
+          this.vfx?.spawnWarning(e.pos.x, e.pos.y || 0, e.pos.z, 1.35, 4.2, 'fire');
+          this.ui.dmgNum(e.pos.x, this.world.gh(e.pos.x, e.pos.z) + 2.8, e.pos.z, '⚠️ PHASE 2!', 'comic');
+          this.ui.toast(`🔥 ${e.bossName || '首領'} 進入第二階段！場地威脅升級，擊破弱點可大幅破防！`, '#ff8a3a');
+          this.spawnGroundZone('magma', p.pos.x, p.pos.z, 3.6, 5.5, 0.35, { color: 0xff6a30, fire: true });
+        } else if (!e._bossP3 && hpRatio <= 0.30) {
+          e._bossP3 = true;
+          e.spd *= 1.2;
+          e.dmg = Math.round(e.dmg * 1.25);
+          this.audio.sfx('tideHorn');
+          this.vfx?.spawnMaliceRift(e.pos.x, e.pos.y || 0, e.pos.z, 'death');
+          this.shake = Math.max(this.shake, 0.55);
+          this.ui.dmgNum(e.pos.x, this.world.gh(e.pos.x, e.pos.z) + 3.0, e.pos.z, '🔥 ENRAGE!', 'comic');
+          this.ui.toast(`☠️ ${e.bossName || '首領'} 進入【熾炎狂暴】！攻速與傷害大增！`, '#ff4858');
+        }
+        if (e._bossP3) e.cd -= dt * 0.35;
+      }
       if (playing && e.eliteMod && e.stun <= 0 && dist < 13) {
         if (e.eliteMod.id === 'haste') e.cd -= dt * 0.35;
         else {
@@ -2898,11 +3739,25 @@ export class Game {
           }
         }
       }
-      if (e.stun > 0 || !playing || (this.field && dist > (e.tideAggro ? 28 : e.legendary ? 9 : 12))) {
+      if (e.stun > 0 || !playing || (this.field && dist > (e.tideAggro ? 32 : e.legendary ? 14 : 18))) {
         // idle
       } else if (e.type === 'slime') {
-        follow(0.6 + 0.6 * Math.max(0, Math.sin(e.t * 6 + e.ph)));
-        e.m.body.position.y = Math.abs(Math.sin(e.t * 6 + e.ph)) * 0.25;
+        if (!e.meadowPounce || e.state === 'move') {
+          follow(0.6 + 0.6 * Math.max(0, Math.sin(e.t * 6 + e.ph)));
+          if (e.meadowPounce) {
+            e.cd -= dt;
+            const nearbyPounce = e.cd <= 0 && dist < 4.3 && this.enemies.some(other =>
+              other !== e && other.meadowPounce && !other.dead && other.state === 'meadow-strike' && other.pos.distanceToSquared(e.pos) < 36);
+            if (e.cd <= 0 && dist < 4.3 && !nearbyPounce) {
+              const reach = Math.min(2.8, dist);
+              this.queueMeadowStrike(e, e.pos.x + dirP.x * reach, e.pos.z + dirP.y * reach, 1.45, 0.85, 1);
+              mvx = mvz = 0;
+            }
+          }
+        } else if (e.state === 'rest' && e.t > 0.62) {
+          e.state = 'move'; e.cd = 1.45 + e.ph * 0.08;
+        }
+        e.m.body.position.y = e.state === 'meadow-strike' ? Math.sin(Math.min(1, e.t / 0.85) * Math.PI) * 0.64 : Math.abs(Math.sin(e.t * 6 + e.ph)) * 0.25;
         const sq = 1 + Math.sin(e.t * 12 + e.ph) * 0.08;
         e.m.body.scale.set(sq, 2 - sq, sq);
       } else if (e.type === 'thorn') {
@@ -2910,37 +3765,74 @@ export class Game {
         if (e.state === 'move') {
           if (dist > 8) follow(); else if (dist < 4.5) { mvx = -dirP.x * spd; mvz = -dirP.y * spd; }
           else { mvx = -dirP.y * spd * 0.4 * Math.sign(Math.sin(e.ph)); mvz = dirP.x * spd * 0.4 * Math.sign(Math.sin(e.ph)); }
-          if (e.cd <= 0 && dist < 12) { e.state = 'aim'; e.t = 0; }
+          if (e.cd <= 0 && dist < 12) {
+            if (e.expeditionName && !e.rootCastLast) {
+              e.rootCastLast = true;
+              this.queueMeadowStrike(e, p.pos.x, p.pos.z, 2.65, 1.1, 1.15);
+              mvx = mvz = 0;
+            } else { e.state = 'aim'; e.t = 0; }
+          }
         } else if (e.state === 'aim') {
           const s = 1 + Math.sin(e.t * 40) * 0.08; e.m.body.scale.set(s, s, s);
           e.flash = Math.max(e.flash, 0.05);
-          if (e.t > 0.55) {
-            const n = e.elite ? 3 : 1;
+          if (e.t > (e.expeditionName ? 0.85 : 0.55)) {
+            e.rootCastLast = false;
+            const n = e.elite || e.expeditionName ? 3 : 1;
             for (let i = 0; i < n; i++) {
               const d = dirP.clone().rotateAround(new V2(), (i - (n - 1) / 2) * 0.3);
               this.fireEnemyProj(e.pos, d, 8.5, e.dmg, 0x9bd85a);
             }
-            e.state = 'move'; e.cd = 2.0 + Math.random(); e.m.body.scale.set(1, 1, 1);
+            e.state = 'move'; e.cd = 2.0 + (this.ambushTrial ? this.rng() : Math.random()); e.m.body.scale.set(1, 1, 1);
           }
+        } else if (e.state === 'rest' && e.t > 0.9) {
+          e.state = 'move'; e.cd = 0.9;
         }
       } else if (e.type === 'boar') {
         e.cd -= dt;
         if (e.state === 'move') {
           follow(0.8);
-          if (dist < 7.5 && e.cd <= 0) {
+          const stomp = e.expeditionName && dist < 4.8 && (!e.meadowStompUsed
+            || ((e.expeditionTier === 2 || e.hp < e.maxHp * 0.5) && e.lastMeadowMove !== 'stomp'));
+          if (e.cd <= 0 && stomp) {
+            e.meadowStompUsed = true; e.lastMeadowMove = 'stomp';
+            mvx = mvz = 0;
+            this.queueMeadowStrike(e, e.pos.x, e.pos.z, e.expeditionTier === 2 ? 3.8 : 3.2, 1.05, 1.1);
+          } else if (dist < 7.5 && e.cd <= 0) {
+            if (e.expeditionName) e.lastMeadowMove = 'charge';
             e.state = 'wind'; e.t = 0; e.cdir = dirP.clone();
-            e.dec = this.addDecal('rect', e.pos.x, e.pos.z, { w: 1.2 * e.m.root.scale.x, l: 9 }, 0xff5040, 0.75, Math.atan2(e.cdir.x, e.cdir.y));
+            this.ambushTrial?.beginCharge(e, p);
+            e.dec = this.addDecal('rect', e.pos.x, e.pos.z, { w: 1.2 * e.m.root.scale.x, l: 6.4 }, 0xff5040, 0.75, Math.atan2(e.cdir.x, e.cdir.y));
+            if (e.expeditionName) e.dec.mesh.position.y = this.world.gh(e.pos.x, e.pos.z) + 0.16;
           }
         } else if (e.state === 'wind') {
           e.m.body.position.x = Math.sin(e.t * 60) * 0.05;
           if (e.t > 0.75) { e.state = 'charge'; e.t = 0; }
         } else if (e.state === 'charge') {
-          const before = e.pos.clone();
-          this.moveEntity(e.pos, e.cdir.x * 14 * dt, e.cdir.y * 14 * dt, e.r);
-          if (Math.random() < 0.6) this.puffs.emit(e.pos.x, 0.1, e.pos.z, { c: 0xf4ecd8, s: 0.25, g: -0.3, life: 0.4, grow: 1 });
-          if (e.t > 0.6 || before.distanceTo(e.pos) < 0.01) { e.state = 'rest'; e.t = 0; }
-          if (dist < e.r + 0.5) this.hurtPlayer(e.dmg * (e.brokenWeakens?.has('charge') ? 0.65 : 1), e.pos);
-        } else if (e.state === 'rest') { if (e.t > 0.9) { e.state = 'move'; e.cd = 1.5 + Math.random() * 1.5; } }
+          const x = e.pos.x, z = e.pos.z;
+          const progress = Math.min(1, e.t / 0.6);
+          const chargeSpd = 12.6 * (1 - 0.7 * progress * progress);
+          const step = chargeSpd * dt;
+          this.moveEntity(e.pos, e.cdir.x * step, e.cdir.y * step, e.r);
+          if (Math.random() < (progress > 0.65 ? 0.85 : 0.6)) this.puffs.emit(e.pos.x, 0.1, e.pos.z, { c: 0xf4ecd8, s: progress > 0.65 ? 0.3 : 0.25, g: -0.3, life: 0.42, grow: 1 });
+          // A shorter simulation step should not be mistaken for hitting an obstacle.
+          const blocked = step > 0 && Math.hypot(e.pos.x - x, e.pos.z - z) < step * 0.1;
+          const ended = e.t >= 0.6 || blocked;
+          if (ended) { e.state = 'rest'; e.t = 0; }
+          const trialCharge = e.ambushCharge;
+          if (dist < e.r + 0.5) {
+            if (trialCharge && p.roll > 0) trialCharge.rollContact = true;
+            const hp = p.hp;
+            this.hurtPlayer(e.dmg * (e.brokenWeakens?.has('charge') ? 0.65 : 1), e.pos, null, 'boar', 'charge');
+            if (trialCharge && p.hp < hp) trialCharge.hit = true;
+          }
+          if (ended && this.ambushTrial) this.ambushTrial.endCharge(e, p, meleeReach(p), blocked);
+        } else if (e.state === 'rest') {
+          if (Math.random() < dt * 6.5) {
+            this.puffs.emit(e.pos.x + Math.sin(e.facing) * 0.65, (e.pos.y || 0) + 0.42, e.pos.z + Math.cos(e.facing) * 0.65, { c: 0xf2ede0, s: 0.18, speed: 0.9, up: 0.8, g: -0.4, life: 0.45, grow: 1.1 });
+          }
+          if (e.t >= (e.chargeRecoveryS ?? 0.9)) { e.state = 'move'; e.cd = 1.5 + (this.ambushTrial ? this.rng() : Math.random()) * 1.5; }
+        }
+        if (e.state !== 'wind') e.m.body.position.x = 0;
         if (e.state === 'move' || e.state === 'wind') e.facing = angleLerp(e.facing, Math.atan2(dirP.x, dirP.y), 1 - Math.exp(-dt * 8));
         else if (e.state === 'charge') e.facing = Math.atan2(e.cdir.x, e.cdir.y);
       } else if (e.type === 'moth') {
@@ -2986,7 +3878,12 @@ export class Game {
         if (e.state === 'move') {
           follow(0.75);
           e.m.body.position.y = Math.abs(Math.sin(e.t * 4.5 + e.ph)) * 0.1;
-          if (dist < (e.blinded > 0 ? 2.8 : 4.5) && e.cd <= 0) {
+          if (e.sporeGuardian && dist < 10 && e.cd <= 0 && (!e.sporeLast || dist >= 4.5)) {
+            e.facing = Math.atan2(dirP.x, dirP.y);
+            mvx = mvz = 0;
+            this.queueSporeBurst(e);
+          } else if (dist < (e.blinded > 0 ? 2.8 : 4.5) && e.cd <= 0) {
+            e.sporeLast = false;
             e.state = 'slam'; e.t = 0;
             const slamR = e.brokenWeakens?.has('slam') ? 2.35 : 3.6;
             this.addDecal('circle', e.pos.x, e.pos.z, slamR, 0x6ae8ff, 0.85, null, () => {
@@ -2996,6 +3893,8 @@ export class Game {
               if (Math.hypot(p.pos.x - e.pos.x, p.pos.z - e.pos.z) < slamR + 0.2) this.hurtPlayer(e.dmg * 1.25, e.pos, 'shock');
             });
           }
+        } else if (e.state === 'spore-burst') {
+          if (e.t > 1.8) { e.state = 'move'; e.cd = 1.35; }
         } else if (e.state === 'slam') {
           e.m.body.position.y = Math.sin(Math.min(1, e.t / 0.85) * Math.PI) * 0.45;
           if (e.t > 1.05) { e.state = 'move'; e.cd = 2.8 + Math.random(); }
@@ -3013,12 +3912,19 @@ export class Game {
         if (e.type !== 'boar') e.facing = angleLerp(e.facing, Math.atan2(mvx, mvz), 1 - Math.exp(-dt * 8));
       }
       // contact damage & 空中踏跳反彈（從上方踩踏空中怪物觸發踏跳＋擊落）
-      if (playing && e.type !== 'boar' && dist < e.r + 0.45 && e.hitCd <= 0 && e.stun <= 0) {
+      if (playing && e.type !== 'boar' && !e.meadowPounce && dist < e.r + 0.45 && e.hitCd <= 0 && e.stun <= 0) {
         if (e.flying && e.groundedT <= 0 && p.air && p.y > e.pos.y - 0.5) {
           this.hitEnemy(e, this.rollDamage(1.4), 0, 0, { aerial: true, hitstop: 0.04 });
           e.hitCd = 0.6;
         } else if (!e.flying || e.groundedT > 0 || Math.abs(p.y - e.pos.y) < 1.1) {
-          this.hurtPlayer(e.dmg * (e.type === 'stag' ? 0.8 : 1), e.pos, e.statusAffinity || (e.type === 'slime' ? 'poison' : null)); e.hitCd = 0.8;
+          this.hurtPlayer(e.dmg * (e.type === 'stag' ? 0.8 : 1), e.pos,
+            e.statusAffinity || (e.type === 'slime' ? 'poison' : null), e.type, 'contact');
+          e.hitCd = 0.8;
+          if (hasAffix(e, 'vampiric') && e.hp < e.maxHp) {
+            const healAmt = Math.max(4, Math.round(e.maxHp * 0.08));
+            e.hp = Math.min(e.maxHp, e.hp + healAmt);
+            this.ui.dmgNum(e.pos.x, e.pos.y + 1.5, e.pos.z, `🩸+${healAmt}`, 'heal');
+          }
         }
       }
       // visuals（怪物平滑爬坡貼合地形高度＋受擊壓扁彈回＋異常狀態色彩提示）
@@ -3028,14 +3934,37 @@ export class Game {
       e.m.root.position.set(e.pos.x, e.pos.y, e.pos.z);
       if (e.m.shadowRing) e.m.shadowRing.position.y = -flyH + 0.06;
       e.m.root.rotation.y = e.facing;
-      if (e.squash > 0) e.m.body.scale.set(1 + e.squash * 0.7, 1 - e.squash * 0.55, 1 + e.squash * 0.7);
-      else if (e.type !== 'slime' && e.state !== 'aim') e.m.body.scale.set(1, 1, 1);
+      const recDur = e.chargeRecoveryS || 0;
+      const inRestOpening = e.type === 'boar' && e.state === 'rest' && recDur > 0 && e.t < recDur;
+      if (inRestOpening) {
+        const rem = Math.max(0, 1 - e.t / recDur);
+        const ease = Math.min(1, e.t / 0.12) * Math.min(1, (recDur - e.t) / 0.2);
+        e.m.body.rotation.x = 0.28 * ease;
+        const pant = Math.sin(e.t * 14) * 0.09;
+        if (e.squash > 0) e.m.body.scale.set(1 + e.squash * 0.7, 1 - e.squash * 0.55, 1 + e.squash * 0.7);
+        else e.m.body.scale.set(1 + pant, 1 - pant * 0.85, 1 + pant);
+        if (!e.m.restRing) {
+          const rg = new THREE.RingGeometry(0.84, 1.0, 28); rg.rotateX(-Math.PI / 2);
+          e.m.restRing = new THREE.Mesh(rg, new THREE.MeshBasicMaterial({ color: 0xffcf4a, transparent: true, opacity: 0.78, side: THREE.DoubleSide, depthWrite: false }));
+          e.m.restRing.position.y = 0.09; e.m.restRing.userData.noNormal = true; e.m.restRing.renderOrder = 3;
+          e.m.root.add(e.m.restRing);
+        }
+        e.m.restRing.visible = true;
+        e.m.restRing.scale.setScalar(0.45 + 1.25 * rem);
+        e.m.restRing.material.opacity = 0.35 + 0.55 * rem;
+      } else {
+        if (e.type === 'boar') e.m.body.rotation.x = 0;
+        if (e.m.restRing) e.m.restRing.visible = false;
+        if (e.squash > 0) e.m.body.scale.set(1 + e.squash * 0.7, 1 - e.squash * 0.55, 1 + e.squash * 0.7);
+        else if (e.type !== 'slime' && e.state !== 'aim') e.m.body.scale.set(1, 1, 1);
+      }
       const fl = e.flash > 0 ? 1 : 0;
       if (fl) e.m.mat.emissive.setRGB(0.95, 0.9, 0.85);
       else if (est.freeze > 0) e.m.mat.emissive.setRGB(0.18, 0.52, 0.78);
       else if (est.poison > 0) e.m.mat.emissive.setRGB(0.18, 0.52, 0.22);
       else if (est.burn > 0) e.m.mat.emissive.setRGB(0.65, 0.22, 0.08);
       else if (est.shock > 0) e.m.mat.emissive.setRGB(0.45, 0.25, 0.72);
+      else if (inRestOpening) { const gp = 0.6 + Math.sin(e.t * 14) * 0.4; e.m.mat.emissive.setRGB(0.28 * gp, 0.20 * gp, 0.04 * gp); }
       else e.m.mat.emissive.setRGB(0, 0, 0);
       if (e.stun > 0) e.m.body.rotation.z = Math.sin(this.time * 20) * 0.1; else e.m.body.rotation.z = 0;
     }
@@ -3115,7 +4044,10 @@ export class Game {
 
   updateProjs(dt) {
     const p = this.player;
+    const sporePools = this.field === 3 ? this.groundZones.filter(zone => zone.sporeSource && zone.life > 0) : [];
+    const cover = this.ambushTrial?.cover;
     for (const pr of this.projs) {
+      const { x: fromX, z: fromZ } = pr.mesh.position;
       if (pr.orbit) {
         pr.orbitAngle = (pr.orbitAngle || 0) + dt * 5.2;
         const r = pr.orbitR || 2.2;
@@ -3134,7 +4066,15 @@ export class Game {
       }
       pr.mesh.rotation.x += dt * 10; if (!pr.wave) pr.mesh.rotation.y += dt * 7;
       if (pr.fire && Math.random() < 0.7) this.fx.emit(pr.mesh.position.x, pr.mesh.position.y, pr.mesh.position.z, { c: Math.random() < 0.5 ? 0xffd27a : 0xff7a30, s: 0.09, g: -1, life: 0.25 });
-      for (const e of this.enemies) {
+      if (pr.fire && sporePools.length) {
+        const { x, y, z } = pr.mesh.position;
+        if (sporePools.some(zone => zone.sporeSource && Math.abs(y - zone.y) < 3 &&
+          Math.hypot(x - zone.x, z - zone.z) < zone.r)) this.applyElementAt(x, z, 'fire', 0);
+      }
+      const { x, y, z } = pr.mesh.position;
+      const blocked = hitsAmbushCover(cover, fromX, y, fromZ, x, z);
+      if (blocked) pr.life = 0;
+      for (const e of blocked ? [] : this.enemies) {
         if (e.dead || pr.hit.has(e)) continue;
         const d = Math.hypot(e.pos.x - pr.mesh.position.x, e.pos.z - pr.mesh.position.z);
         const vTol = e.flying ? 3.8 : 2.4;
@@ -3164,10 +4104,23 @@ export class Game {
     }
     this.projs = this.projs.filter(pr => pr.life > 0);
     for (const pr of this.eprojs) {
+      const { x: fromX, z: fromZ } = pr.mesh.position;
       pr.mesh.position.x += pr.vx * dt; pr.mesh.position.z += pr.vz * dt; pr.life -= dt;
+      const { x, y, z } = pr.mesh.position;
+      const blocked = hitsAmbushCover(cover, fromX, y, fromZ, x, z);
+      if (blocked) {
+        pr.life = 0;
+        this.ambushTrial.event('coverBlocked', { enemy: 'thorn' });
+        this.audio.sfx('kick');
+        this.puffs.burst(x, y, z, 6, { c: [0xd8dde6, 0x9bd85a], s: 0.16, speed: 3.2, up: 1.6, life: 0.35 });
+        const bg = new THREE.RingGeometry(0.18, 0.32, 16); bg.rotateX(-Math.PI / 2);
+        const bm = new THREE.Mesh(bg, new THREE.MeshBasicMaterial({ color: 0xe8eef8, transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide }));
+        bm.position.set(x, y, z); bm.userData.noNormal = true; this.scene.add(bm);
+        this.rings.push({ mesh: bm, t: 0, max: 0.18, radius: 0.85 });
+      }
       pr.mesh.rotation.y += dt * 8;
-      if (this.state === 'play' && Math.hypot(p.pos.x - pr.mesh.position.x, p.pos.z - pr.mesh.position.z) < 0.45 && Math.abs(pr.mesh.position.y - (p.y + 0.6)) < 1.3) {
-        if (p.roll <= 0 && p.iframes <= 0) { this.hurtPlayer(pr.dmg, pr.mesh.position); pr.life = 0; }
+      if (!blocked && this.state === 'play' && Math.hypot(p.pos.x - pr.mesh.position.x, p.pos.z - pr.mesh.position.z) < 0.45 && Math.abs(pr.mesh.position.y - (p.y + 0.6)) < 1.3) {
+        if (p.roll <= 0 && p.iframes <= 0) { this.hurtPlayer(pr.dmg, pr.mesh.position, null, 'thorn', 'projectile'); pr.life = 0; }
       }
       if (this.world.groundY(pr.mesh.position.x, pr.mesh.position.z) > pr.mesh.position.y - 0.1) pr.life = 0; // hit cliffs
       if (pr.life <= 0) {
@@ -3261,7 +4214,14 @@ export class Game {
       }
     }
     for (const gz of this.groundZones || []) {
-      gz.life -= dt; gz.tick -= dt;
+      gz.life -= dt;
+      if (gz.life <= 0) {
+        this.scene.remove(gz.mesh);
+        gz.mesh.geometry?.dispose?.();
+        gz.mesh.material?.dispose?.();
+        continue;
+      }
+      gz.tick -= dt;
       gz.mesh.rotation.z += dt * 0.8;
       gz.mesh.material.opacity = (SURFACE_DEFS[gz.kind]?.opacity || 0.38) * Math.min(1, gz.life / 1.2) * (0.85 + Math.sin(this.time * 6) * 0.15);
       if (Math.random() < dt * (gz.kind.includes('steam') ? 14 : 8)) {
@@ -3272,8 +4232,11 @@ export class Game {
       }
       if (gz.tick <= 0) {
         gz.tick = 0.65;
+        if (gz.sporeSource) {
+          if (Math.hypot(p.pos.x - gz.x, p.pos.z - gz.z) < gz.r) this.hurtPlayer(gz.playerDamage, gz.mesh.position, 'poison');
+        }
         let prevShockE = null;
-        for (const e of this.enemies) {
+        for (const e of gz.sporeSource ? [] : this.enemies) {
           if (e.dead) continue;
           if (Math.hypot(e.pos.x - gz.x, e.pos.z - gz.z) < gz.r + e.r) {
             if (gz.blindVision) e.blinded = Math.max(e.blinded || 0, 1.0);
@@ -3292,11 +4255,6 @@ export class Game {
         if (gz.healPlayer && this.state === 'play' && Math.hypot(p.pos.x - gz.x, p.pos.z - gz.z) < gz.r) {
           this.heal(p.stats.maxHp * 0.035, true);
         }
-      }
-      if (gz.life <= 0) {
-        this.scene.remove(gz.mesh);
-        gz.mesh.geometry?.dispose?.();
-        gz.mesh.material?.dispose?.();
       }
     }
     this.groundZones = (this.groundZones || []).filter(gz => gz.life > 0);
@@ -3428,15 +4386,9 @@ export class Game {
       p.heroRig.root.position.y = p.sitting ? -0.16 : 0;
       p.heroRig.update(dt);
     }
-    // 人物被遮擋時顯示暖金透視剪影（X-Ray silhouette）
+    // 人物被遮擋時顯示暖金透視剪影（僅在鏡頭→玩家射線實際命中高於腰部的遮擋物時顯示）
     if (m.xray) {
-      let occluded = false;
-      if (!this.interior && this.state === 'play') {
-        for (const o of this.world.obstacles) {
-          if (o.z > p.pos.z + 0.1 && o.z < p.pos.z + 5.2 && Math.abs(o.x - p.pos.x) < (o.r || 1) + 1.15) { occluded = true; break; }
-        }
-      }
-      m.xray.visible = occluded;
+      m.xray.visible = !!(this._playerOccluded && !this.interior && this.state === 'play');
     }
     // blink when invulnerable（陣亡時若已載入骨骼角色則保留可見以播放完整倒地動畫）
     m.root.visible = (this.state !== 'dead' || !!p.heroRig?.ready) && !(p.iframes > 0 && Math.floor(this.time * 20) % 2 === 0);
@@ -3455,17 +4407,17 @@ export class Game {
     this.shake = Math.max(0, this.shake - dt * 3.8);
     const s = this.shake * this.shake * 0.18 * (this.settings.shake ? 1 : 0);
     const preset = [
-      { yK: 0.68, zK: 0.73, fov: 34 },
-      { yK: 0.80, zK: 0.58, fov: 30 },
-      { yK: 0.52, zK: 0.85, fov: 38 },
-    ][this.settings?.camAngle ?? 0] || { yK: 0.68, zK: 0.73, fov: 34 };
+      { yK: 0.68, zK: 0.73, fov: 34 }, // 0: 關閉（標準視角）
+      { yK: 0.52, zK: 0.85, fov: 38 }, // 1: 開啟（原低仰角視角）
+    ][this.settings?.camAngle ? 1 : 0];
     if (Math.abs(this.camera.fov - preset.fov) > 0.1) {
       this.camera.fov = lerp(this.camera.fov, preset.fov, 1 - Math.exp(-dt * 6));
       this.camera.updateProjectionMatrix();
     }
     this.camPunch = Math.max(0, (this.camPunch || 0) - dt * 0.65);
     const punch = this.settings.shake ? (this.camPunch || 0) * 0.4 : 0;
-    const baseDist = this.camDistOverride || (this.interior ? 17 : this.photoMode ? 18 : this.state === 'title' ? 40 : 37);
+    const trialDist = this.ambushTrial && this.camera.aspect < 0.8 ? 47 : 0;
+    const baseDist = this.camDistOverride || trialDist || (this.interior ? 17 : this.photoMode ? 18 : this.state === 'title' ? 40 : 37);
     const dist = baseDist * (this.interior ? 1 : (this.camZoom || 1)) * (1 + (this.tide?.zoomBonus || 0)) * (1 - punch);
     const yaw = this.state === 'title' ? 0.45 : (this.camYaw ?? 0.62);
     const horiz = dist * preset.zK;
@@ -3481,7 +4433,7 @@ export class Game {
 
   // 大型建築／巨樹／拱門遮擋人物視野時，透過鏡頭→玩家射線自動半透明透視（節流每 3 幀射線，降低 67% CPU 負荷）
   updateOcclusion(dt) {
-    if (this.state !== 'play' || this.interior) return;
+    if (this.state !== 'play' || this.interior) { this._playerOccluded = false; return; }
     this._occFrame = (this._occFrame || 0) + 1;
     let hitMats = this._lastHitMats || new Set();
     if (this._occFrame % 3 === 1) {
@@ -3502,7 +4454,7 @@ export class Game {
           const hits = this.ray.intersectObjects(targets, true);
           for (const h of hits) {
             const m = h.object;
-            if (!m.isMesh || m.userData?.noNormal) continue;
+            if (!m.isMesh || m.userData?.noNormal || h.point.y <= p.y + 0.35) continue;
             const mats = Array.isArray(m.material) ? m.material : [m.material];
             for (const mat of mats) if (mat && 'opacity' in mat) hitMats.add(mat);
           }
@@ -3510,6 +4462,7 @@ export class Game {
         this.ray.far = Infinity;
       }
       this._lastHitMats = hitMats;
+      this._playerOccluded = hitMats.size > 0;
     }
     for (const mat of hitMats) {
       if (!this._fadedMats.has(mat)) this._fadedMats.set(mat, { origTrans: mat.transparent, origDepth: mat.depthWrite });

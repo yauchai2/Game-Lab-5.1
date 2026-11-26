@@ -4,13 +4,15 @@ export const CORRUPT_UNLOCK_LV = 8;
 export const ATLAS_UNLOCK_LV = 10;
 
 export const PROGRESSION_MILESTONES = [
-  { lv: 1,  title: '晨光草原啟程',     desc: '熟悉移動、揮擊、採集與物理背包' },
-  { lv: 3,  title: '技能拼圖入門',     desc: '棋盤格擴充，可串聯第一顆輔助寶石' },
-  { lv: 5,  title: '藥劑上限 +1 (2 瓶)', desc: '建議前往【低語森林】挑戰進階怪物' },
-  { lv: 8,  title: '鐵匠腐化改造解鎖', desc: '開放裝備不可逆腐化賭博與精鋼階鍛造' },
-  { lv: 10, title: '異界地圖裝置解鎖', desc: '開放詞綴疊加地城（Atlas Map Crafter）' },
-  { lv: 14, title: '藥劑上限 +1 (3 瓶)', desc: '具備遠征沉淵與星穹群島的續航力' },
-  { lv: 22, title: '頂尖旅人覺醒',     desc: '解鎖高危異星蜂巢與深淵古堡終局挑戰' },
+  { lv: 1,  title: '晨光草原啟程',         desc: '熟悉移動、揮擊、採集、屬性配點與物理背包' },
+  { lv: 3,  title: '技能拼圖入門',         desc: '棋盤格擴充，可串聯第一顆輔助寶石' },
+  { lv: 5,  title: 'T2 精鋼裝 · 藥劑上限 +1', desc: '開放 2 瓶藥劑與 T2 怪物素材鍛造，前往【低語森林】' },
+  { lv: 8,  title: '鐵匠腐化改造解鎖',     desc: '開放裝備不可逆腐化賭博與進階強化共鳴' },
+  { lv: 10, title: 'T1 坐騎馴養 · 異界地圖', desc: '達 60 殺可鍛造【林間巨鹿】鞍具，並解鎖 T3 星銀裝與異界地圖' },
+  { lv: 12, title: '職業二轉覺醒試煉',     desc: '完成精英與專屬試煉後，於星燈祭壇覺醒二轉與 3D 招牌寶石' },
+  { lv: 15, title: 'T2 雲絨角獸 · 深淵門檻', desc: '藥劑上限 3 瓶、T2 坐騎門檻，進軍 Lv.15+ 深淵抗性區域' },
+  { lv: 20, title: 'T3 星翼浮鰩解鎖門檻',  desc: '二轉＋討伐守護獸 2 次可鍛造低空懸浮坐騎' },
+  { lv: 25, title: 'T4 櫻風神狐 · 終局遠征', desc: '探索 12 區＋300 殺可鍛造頂級坐騎，進軍紅楓工坊與深淵古堡' },
 ];
 
 export function getFieldDanger(fieldLevel, playerLevel = 1) {

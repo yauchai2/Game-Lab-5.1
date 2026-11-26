@@ -10,6 +10,7 @@ export class Pipeline {
     this.renderer.setPixelRatio(1);
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
+    this.renderer.info.autoReset = false;
     this.pixelScale = 3;
     this.normalMat = new THREE.MeshNormalMaterial();
     this.postScene = new THREE.Scene();
@@ -115,6 +116,7 @@ export class Pipeline {
   }
   render(scene, camera, t) {
     const r = this.renderer, u = this.postMat.uniforms;
+    r.info.reset();
     r.setRenderTarget(this.rt); r.render(scene, camera);
     // normal pass (no shadows needed)
     const sm = r.shadowMap.autoUpdate; r.shadowMap.autoUpdate = false;

@@ -1,4 +1,7 @@
 import { pick, rand } from './util.js';
+import { MMO_SETS, MMO_SET_IDS } from './mmo_rpg.js';
+import { getRuneDef } from './mmo_world.js';
+import { formatPotentialLines } from './mmo_endgame.js';
 
 export const RARITY = [
   { key: 'normal', name: '普通', color: '#e8e2d4', beam: 0xe8e2d4 },
@@ -9,14 +12,22 @@ export const RARITY = [
 
 export const TIERS = [
   null,
-  { tier: 1, tag: 'T1', name: '旅人階', color: '#d8d2c5', mult: 1.0 },
-  { tier: 2, tag: 'T2', name: '精鋼階', color: '#8ad896', mult: 1.25 },
-  { tier: 3, tag: 'T3', name: '星銀階', color: '#7fc4ff', mult: 1.55 },
-  { tier: 4, tag: 'T4', name: '秘光階', color: '#c88cff', mult: 1.9 },
-  { tier: 5, tag: 'T5', name: '傳世階', color: '#ffd85a', mult: 2.3 },
-  { tier: 6, tag: 'T6', name: '穹頂階', color: '#ff8a50', mult: 2.75 },
+  { tier: 1, tag: 'T1', name: '旅人階', reqLevel: 1,  color: '#d8d2c5', mult: 1.0 },
+  { tier: 2, tag: 'T2', name: '精鋼階', reqLevel: 5,  color: '#8ad896', mult: 1.25 },
+  { tier: 3, tag: 'T3', name: '星銀階', reqLevel: 10, color: '#7fc4ff', mult: 1.55 },
+  { tier: 4, tag: 'T4', name: '秘光階', reqLevel: 16, color: '#c88cff', mult: 1.9 },
+  { tier: 5, tag: 'T5', name: '傳世階', reqLevel: 22, color: '#ffd85a', mult: 2.3 },
+  { tier: 6, tag: 'T6', name: '穹頂階', reqLevel: 27, color: '#ff8a50', mult: 2.75 },
 ];
 export function tierInfo(tier = 1) { return TIERS[Math.max(1, Math.min(6, Math.round(tier || 1)))] || TIERS[1]; }
+export function itemReqLevel(it) {
+  if (!it) return 1;
+  if (Number.isInteger(it.reqLevel) && it.reqLevel >= 1) return it.reqLevel;
+  return tierInfo(it.tier || 1).reqLevel || 1;
+}
+export function canEquipItem(it, playerLevel = 1) {
+  return (playerLevel || 1) >= itemReqLevel(it);
+}
 
 export const SLOTS = {
   staff: { name: '法杖', icon: '杖', bases: ['樺木短杖', '苔紋手杖', '燈芯長杖', '古橡法杖'] },
@@ -40,6 +51,11 @@ export const AFFIXES = [
   { k: 'area', fmt: v => `+${v}% 範圍`, roll: t => 8 + t * 6, slots: ['staff', 'cloak'] },
   { k: 'armor', fmt: v => `受到傷害 -${v}%`, roll: t => 3 + t * 2, slots: ['cloak'] },
   { k: 'regen', fmt: v => `每秒回復 ${v} 生命`, roll: t => 1 + Math.floor(t * 0.7), slots: ['cloak'] },
+  { k: 'resFire', fmt: v => `🔥 火焰抗性 +${v}%`, roll: t => 8 + t * 4, slots: ['cloak', 'charm'] },
+  { k: 'resIce', fmt: v => `❄️ 寒冰抗性 +${v}%`, roll: t => 8 + t * 4, slots: ['cloak', 'charm'] },
+  { k: 'resLightning', fmt: v => `⚡ 雷電抗性 +${v}%`, roll: t => 8 + t * 4, slots: ['cloak', 'charm'] },
+  { k: 'resPoison', fmt: v => `☠️ 劇毒抗性 +${v}%`, roll: t => 8 + t * 4, slots: ['cloak', 'charm'] },
+  { k: 'allRes', fmt: v => `🌈 全元素抗性 +${v}%`, roll: t => 5 + t * 3, slots: ['cloak', 'charm'], rare: true },
   { k: 'proj', fmt: v => `餘燼彈 +${v} 發`, roll: () => 1, slots: ['staff', 'charm'], rare: true },
 ];
 
@@ -70,7 +86,8 @@ export function makeItem(r, depth, forceRarity = null, forceSlot = null) {
   }
   if (rarity === 3) {
     const u = pick(r, forceSlot ? UNIQUES.filter(q => q.slot === forceSlot) : UNIQUES);
-    return { id: _id++, slot: u.slot, rarity: 3, tier, name: u.name, base: u.base, special: u.special, desc: u.desc,
+    const setId = r() < 0.8 ? pick(r, MMO_SET_IDS) : null;
+    return { id: _id++, slot: u.slot, rarity: 3, tier, enhance: 0, setId, name: u.name, base: u.base, special: u.special, desc: u.desc,
       implicit: IMPLICIT[u.slot](tier), mods: u.mods.map(m => ({ ...m, fmt: AFFIXES.find(a => a.k === m.k)?.fmt || (v => `基礎傷害 +${v}`) })) };
   }
   const slot = forceSlot || pick(r, Object.keys(SLOTS));
@@ -87,15 +104,26 @@ export function makeItem(r, depth, forceRarity = null, forceSlot = null) {
   let name = base;
   if (rarity === 1) name = `${pick(r, PREFIX)}${base}`;
   if (rarity === 2) name = `${pick(r, PREFIX)}${pick(r, SUFFIX)}`;
-  return { id: _id++, slot, rarity, tier, name, base, implicit: IMPLICIT[slot](tier), mods };
+  const setId = rarity >= 2 && r() < 0.5 ? pick(r, MMO_SET_IDS) : null;
+  return { id: _id++, slot, rarity, tier, enhance: 0, setId, name, base, implicit: IMPLICIT[slot](tier), mods };
 }
 
 export function itemLines(it) {
   const out = [];
+  const reqLv = itemReqLevel(it);
+  if (reqLv > 1) out.push({ t: `🔒 穿戴需求：等級 Lv.${reqLv} 以上`, imp: true });
+  if ((it.enhance || 0) > 0) out.push({ t: `✨ 精煉強化 +${it.enhance}（主詞綴大幅增幅）`, special: true });
   if (it.corruptImplicit) out.push({ t: `☠️ ${it.corruptImplicit.fmt(it.corruptImplicit.v)}`, corrupt: true });
   if (it.implicit) out.push({ t: it.implicit.fmt(it.implicit.v), imp: true });
   for (const m of it.mods) out.push({ t: m.fmt(m.v) });
+  const rDef = getRuneDef(it.rune);
+  if (rDef) out.push({ t: `💠 鑲嵌符文【${rDef.icon} ${rDef.name}】：${rDef.desc}`, special: true });
+  for (const pl of formatPotentialLines(it.potential)) out.push(pl);
   if (it.desc) out.push({ t: it.desc, special: true });
+  if (it.setId && MMO_SETS[it.setId]) {
+    const sd = MMO_SETS[it.setId];
+    out.push({ t: `套裝【${sd.icon} ${sd.name}】${sd.b2Desc} ｜ ${sd.b3Desc}`, special: true });
+  }
   if (it.bricked) out.push({ t: '☠️ 已腐化 · 結構碎裂（無法再改造）', corrupt: true });
   else if (it.corrupted) out.push({ t: '☠️ 已腐化（不可逆定型）', corrupt: true });
   return out;
@@ -145,11 +173,13 @@ export function rollBoons(r, taken, skills, n = 3) {
 
 // ---------- 存檔用序列化（fmt 是函式，不能直接 JSON） ----------
 const IMP_FMT = { baseDmg: v => `基礎傷害 +${v}`, maxHp: v => `+${v} 最大生命`, crit: v => `+${v}% 暴擊率` };
-const fmtOf = k => AFFIXES.find(a => a.k === k)?.fmt || IMP_FMT[k] || (v => `${k} +${v}`);
+export const fmtOf = k => AFFIXES.find(a => a.k === k)?.fmt || IMP_FMT[k] || (v => `${k} +${v}`);
 export function serializeItem(it) {
   if (!it) return null;
   return {
-    slot: it.slot, rarity: it.rarity, tier: it.tier, name: it.name, base: it.base, special: it.special, desc: it.desc,
+    slot: it.slot, rarity: it.rarity, tier: it.tier, enhance: it.enhance || 0, setId: it.setId || null, rune: it.rune || null,
+    potential: it.potential ? { tier: it.potential.tier, lines: (it.potential.lines || []).map(l => ({ k: l.k, v: l.v, label: l.label })) } : null,
+    name: it.name, base: it.base, special: it.special, desc: it.desc,
     corrupted: !!it.corrupted, bricked: !!it.bricked,
     corruptImplicit: it.corruptImplicit ? { k: it.corruptImplicit.k, v: it.corruptImplicit.v } : null,
     implicit: it.implicit ? { k: it.implicit.k, v: it.implicit.v } : null,
@@ -159,7 +189,9 @@ export function serializeItem(it) {
 export function deserializeItem(o) {
   if (!o) return null;
   return {
-    id: _id++, slot: o.slot, rarity: o.rarity, tier: o.tier || 1, name: o.name, base: o.base, special: o.special, desc: o.desc, reforged: o.reforged || 0,
+    id: _id++, slot: o.slot, rarity: o.rarity, tier: o.tier || 1, enhance: o.enhance || 0, setId: o.setId || null, rune: o.rune || null,
+    potential: o.potential ? { tier: o.potential.tier, lines: (o.potential.lines || []).map(l => ({ k: l.k, v: l.v, label: l.label })) } : null,
+    name: o.name, base: o.base, special: o.special, desc: o.desc, reforged: o.reforged || 0,
     corrupted: !!o.corrupted, bricked: !!o.bricked,
     corruptImplicit: o.corruptImplicit ? { ...o.corruptImplicit, fmt: fmtOf(o.corruptImplicit.k) } : null,
     implicit: o.implicit ? { ...o.implicit, fmt: IMP_FMT[o.implicit.k] || fmtOf(o.implicit.k) } : null,

@@ -62,7 +62,7 @@ export function buildPlayer(hood = 0x2f8a7e, hoodDark = 0x23695f, scarfCol = 0xd
   const lantern = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.17, 0.14), new THREE.MeshBasicMaterial({ color: 0xffd36e }));
   lantern.position.set(0, 0.72, 0); staff.add(lantern);
   // 人物被樹木／建築遮擋時的暖金透視剪影（平時隱藏，被遮擋時自動顯現）
-  const xrayMat = new THREE.MeshBasicMaterial({ color: 0xffdf7a, transparent: true, opacity: 0.45, depthTest: false, depthWrite: false });
+  const xrayMat = new THREE.MeshBasicMaterial({ color: 0xffdf7a, transparent: true, opacity: 0.28, depthTest: false, depthWrite: false });
   const xray = new THREE.Mesh(new THREE.CapsuleGeometry(0.32, 0.55, 3, 6), xrayMat);
   xray.position.y = 0.62; xray.renderOrder = 999; xray.userData.noNormal = true; xray.visible = false;
   root.add(xray);

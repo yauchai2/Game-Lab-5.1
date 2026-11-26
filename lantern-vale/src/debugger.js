@@ -1,6 +1,8 @@
 // Phase 5B：Godot 風格底部除錯工具列（F3 / ` 鍵開關）
 // 提供：錯誤與警告攔截、輸出日誌過濾、即時 FPS/FrameTime 折線監視器、WebGL 顯存與 ObjectDB 統計、快捷除錯工具
 
+import { canvasUiFont } from './ui_typography.js';
+import { openTextDialog } from './ui_layers.js';
 import { FIELDS } from './frontier.js';
 import { FIELD_BLUEPRINTS } from './field_blueprints.js';
 import { getGlbCacheCount } from './assets.js';
@@ -8,6 +10,9 @@ import { ALL_GEMS, addGemToBag } from './puzzle.js';
 import { makeItem } from './loot.js';
 import { MONSTER_SOULS, grantSoul } from './souls.js';
 import { MOUNTS } from './mounts.js';
+import { getSimAdventurers, getSimConfig, setSimConfig, triggerSimEvent } from './mmo_world.js';
+
+import { recordDevEvent, setDevContext, setDevRecording } from './dev_diagnostics.js';
 
 const MAX_LOGS = 250;
 const HIST_LEN = 64;
@@ -26,6 +31,17 @@ export function installDebugger(game) {
   let histPtr = 0;
   let lastUpdateMs = 0, lastRenderMs = 0, smoothFps = 60, smoothMs = 16.6;
 
+  setDevContext(() => {
+    const info = game.pipe?.renderer?.info;
+    return {
+      zone: game.zone, shard: game.net?.shard, state: game.state,
+      viewport: `${innerWidth}x${innerHeight}`, fps: Math.round(smoothFps),
+      frameMs: Math.round(smoothMs * 10) / 10,
+      drawCalls: info?.render?.calls, triangles: info?.render?.triangles,
+      geometries: info?.memory?.geometries, textures: info?.memory?.textures,
+    };
+  });
+
   function fmtTime() {
     const d = new Date();
     return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
@@ -33,11 +49,11 @@ export function installDebugger(game) {
 
   function pushLog(level, args) {
     const msg = args.map(a => {
-      if (a instanceof Error) return `${a.message}\n${a.stack || ''}`;
-      if (typeof a === 'object' && a !== null) {
-        try { return JSON.stringify(a); } catch (_) { return String(a); }
-      }
-      return String(a);
+      try {
+        if (a instanceof Error) return a.stack || a.message;
+        if (typeof a === 'object' && a !== null) return JSON.stringify(a);
+        return String(a);
+      } catch (_) { return '[無法顯示的物件]'; }
     }).join(' ');
     const entry = { t: fmtTime(), level, msg };
     logs.push(entry);
@@ -56,7 +72,9 @@ export function installDebugger(game) {
   console.warn = (...a) => { pushLog('warn', a); origWarn(...a); };
   console.error = (...a) => { pushLog('error', a); origErr(...a); };
   window.addEventListener('error', ev => {
-    pushLog('error', [`[Uncaught] ${ev.message} (${ev.filename || ''}:${ev.lineno || 0})`]);
+    const location = `${ev.filename || ''}:${ev.lineno || 0}:${ev.colno || 0}`;
+    const frames = ev.error?.stack?.split('\n').slice(1, 6).join('\n');
+    pushLog('error', [`[Uncaught] ${ev.message} (${location})${frames ? '\n' + frames : ''}`]);
   });
   window.addEventListener('unhandledrejection', ev => {
     pushLog('error', [`[Promise] ${ev.reason?.message || ev.reason}`]);
@@ -74,6 +92,7 @@ export function installDebugger(game) {
         <button type="button" class="dbg-tab" data-tab="monitors">📈 效能分析</button>
         <button type="button" class="dbg-tab" data-tab="vram">🧠 顯存 / ObjectDB</button>
         <button type="button" class="dbg-tab" data-tab="tools">🧪 開發者模式</button>
+        <button type="button" class="dbg-tab" data-tab="mmo">👥 虛擬 MMO</button>
       </div>
       <div class="dbg-right">
         <button type="button" class="dbg-dev-sw" id="dbgDevMaster" title="切換開發者模式 (Shift+F3)">🧪 DEV：關</button>
@@ -86,7 +105,7 @@ export function installDebugger(game) {
         <div class="dbg-bar">
           <button type="button" id="dbgClearErr">🧹 清空</button>
           <button type="button" id="dbgCopyRep">📋 複製診斷報告</button>
-          <span class="dbg-hint">自動攔截 console.error / console.warn / 未捕捉異常與 GLB 載入錯誤</span>
+          <span class="dbg-hint">Dev Mode 開啟時，本機伺服器會自動保存診斷紀錄</span>
         </div>
         <div class="dbg-list" id="dbgErrList"></div>
       </div>
@@ -116,6 +135,7 @@ export function installDebugger(game) {
               <button type="button" id="devNoCd">⚡ 零冷卻＆無限魔力：關</button>
               <button type="button" id="devFast">🚀 跑圖 2.2× 速：關</button>
               <button type="button" id="devUnlockMap">🏮 解鎖全 22 島星燈＆檢查點</button>
+              <button type="button" id="devResetAll" style="background:#8a242c;border-color:#ff6a78;color:#fff4f4">🧹 一鍵清檔 Reset 遊戲</button>
             </div>
           </div>
           <div class="dbg-dev-box">
@@ -153,6 +173,41 @@ export function installDebugger(game) {
               <button type="button" id="dbgChargeUlt">⚡ 滿怒大絕</button>
               <button type="button" id="devSpark5">🔥 滿 5 層星火</button>
               <button type="button" id="dbgTogAuto">🏮 切換巡遊</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="dbg-pane hide" data-pane="mmo" style="overflow:auto">
+        <div class="dbg-dev-grid">
+          <div class="dbg-dev-box">
+            <b>👥 全圖虛擬 MMO 玩家人數（三層 LOD 壓測）</b>
+            <div class="dbg-tools-row">
+              <button type="button" data-mmo-cnt="0">0 人（關）</button>
+              <button type="button" data-mmo-cnt="12">12 人</button>
+              <button type="button" data-mmo-cnt="24">24 人</button>
+              <button type="button" data-mmo-cnt="36">36 人（預設）</button>
+              <button type="button" data-mmo-cnt="48">48 人（極限壓測）</button>
+              <span class="dbg-hint" id="dbgMmoStat">目前：—</span>
+            </div>
+          </div>
+          <div class="dbg-dev-box">
+            <b>🧭 虛擬玩家行為模式</b>
+            <div class="dbg-tools-row">
+              <button type="button" data-mmo-mode="ecosystem">🌿 全圖任務生態</button>
+              <button type="button" data-mmo-mode="gather">🧲 全員集結我身邊</button>
+              <button type="button" data-mmo-mode="boss">🐉 全員圍毆世界王</button>
+              <button type="button" data-mmo-mode="party">🎉 城鎮熱鬧模式</button>
+              <button type="button" id="dbgMmoChat">💬 世界頻：開</button>
+            </div>
+          </div>
+          <div class="dbg-dev-box">
+            <b>✨ 一鍵觸發 MMO 互動事件與分佈檢視</b>
+            <div class="dbg-tools-row">
+              <button type="button" data-mmo-ev="enhance_wave">✨ 全場強化金光</button>
+              <button type="button" data-mmo-ev="chat_wave">📢 世界頻喊話潮</button>
+              <button type="button" data-mmo-ev="wave_me">👋 附近玩家靠攏揮手</button>
+              <button type="button" id="dbgMmoRoster">📋 線上名單與任務 (O)</button>
+              <button type="button" id="dbgMmoMap">🗺️ 地區小地圖看分佈 (Tab)</button>
             </div>
           </div>
         </div>
@@ -228,7 +283,7 @@ export function installDebugger(game) {
       }
       ctx.stroke();
       ctx.fillStyle = '#d8deea';
-      ctx.font = 'bold 11px monospace';
+      ctx.font = canvasUiFont(12, 700);
       ctx.fillText(`FPS: ${smoothFps.toFixed(1)}  |  Frame: ${smoothMs.toFixed(1)}ms`, 8, 15);
     }
     const kv = $d('dbgPerfKv');
@@ -282,6 +337,7 @@ export function installDebugger(game) {
     if (tab === 'errors' || tab === 'output') renderList();
     else if (tab === 'monitors') renderMonitors();
     else if (tab === 'vram') renderVram();
+    else if (tab === 'mmo') syncMmoTab();
   }
 
   function toggle(force) {
@@ -300,6 +356,7 @@ export function installDebugger(game) {
   $d('dbgCopyRep').onclick = () => {
     const info = game.pipe?.renderer?.info;
     const rep = {
+      build: document.querySelector('meta[name="lv-build"]')?.content,
       zone: game.zone, fps: Number(smoothFps.toFixed(1)), frameMs: Number(smoothMs.toFixed(2)),
       drawCalls: info?.render?.calls, triangles: info?.render?.triangles,
       geometries: info?.memory?.geometries, textures: info?.memory?.textures,
@@ -337,6 +394,7 @@ export function installDebugger(game) {
     game.dev = game.dev || { on: false, god: false, noCd: false, fastMove: false };
     game.dev.on = typeof on === 'boolean' ? on : !game.dev.on;
     try { localStorage.setItem('lv_dev_mode', game.dev.on ? '1' : '0'); } catch (_) {}
+    setDevRecording(game.dev.on);
     syncDevUI();
     game.ui?.toast?.(game.dev.on ? '🧪 開發者模式已開啟（按 F3 開啟測試台）' : '🧪 開發者模式已關閉，還原正常遊玩', game.dev.on ? '#7ef0ff' : '#e8dcc8');
   }
@@ -360,6 +418,25 @@ export function installDebugger(game) {
     game.meta.save();
     game.ui?.toast?.('🏮 已解鎖全 22 座島嶼星燈與全部藍光檢查點！', '#ffd85a');
   };
+  $d('devResetAll').onclick = () => openTextDialog({
+    title: '清空本機存檔',
+    description: '所有本機帳號、角色、裝備、進度和設定都會刪除，遊戲會重新載入。此操作無法復原。',
+    action: '清空全部存檔',
+    danger: true,
+    submit() {
+      try {
+        const keepDev = localStorage.getItem('lv_dev_mode');
+        const toDel = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && (k.startsWith('lv_') || k.startsWith('acct_'))) toDel.push(k);
+        }
+        for (const k of toDel) localStorage.removeItem(k);
+        if (keepDev === '1') localStorage.setItem('lv_dev_mode', '1');
+      } catch (_) {}
+      location.reload();
+    },
+  });
   $d('dbgGoZone').onclick = () => {
     const v = zSel?.value || 'town';
     if (v === 'town') game.enterTown();
@@ -442,6 +519,38 @@ export function installDebugger(game) {
     game.ui?.toast?.('🔥 已獲得 5 層手動星火＆150 秒歸來爆發 ×1.5！', '#ffd85a');
   };
   $d('dbgTogAuto').onclick = () => game.toggleAutopilot?.();
+  const syncMmoTab = () => {
+    const list = getSimAdventurers(game), cfg = getSimConfig(game);
+    const visN = list.filter(a => a.m?.root?.visible !== false).length;
+    const st = $d('dbgMmoStat');
+    if (st) st.textContent = `可見 ${visN} / 全圖 ${list.length} 位 · 模式：${cfg.mode} · ${smoothFps.toFixed(0)} FPS`;
+    const ch = $d('dbgMmoChat');
+    if (ch) { ch.textContent = `💬 世界頻：${cfg.worldChat ? '開' : '關'}`; ch.classList.toggle('on', !!cfg.worldChat); }
+    dock.querySelectorAll('[data-mmo-mode]').forEach(b => b.classList.toggle('on', b.dataset.mmoMode === cfg.mode));
+    dock.querySelectorAll('[data-mmo-cnt]').forEach(b => b.classList.toggle('on', Number(b.dataset.mmoCnt) === list.length));
+  };
+  dock.querySelectorAll('[data-mmo-cnt]').forEach(b => b.onclick = () => {
+    const n = Number(b.dataset.mmoCnt);
+    setSimConfig(game, { count: n });
+    game.ui?.toast?.(n === 0 ? '👥 已關閉虛擬 MMO 玩家' : `👥 已於全圖生成 ${n} 位虛擬 MMO 玩家`, '#7ae8ff');
+    syncMmoTab();
+  });
+  dock.querySelectorAll('[data-mmo-mode]').forEach(b => b.onclick = () => {
+    setSimConfig(game, { mode: b.dataset.mmoMode });
+    game.ui?.toast?.(`🧭 虛擬玩家模式切換為：${b.textContent}`, '#ffd85a');
+    syncMmoTab();
+  });
+  dock.querySelectorAll('[data-mmo-ev]').forEach(b => b.onclick = () => {
+    triggerSimEvent(game, b.dataset.mmoEv);
+    syncMmoTab();
+  });
+  const mmoChatBtn = $d('dbgMmoChat');
+  if (mmoChatBtn) mmoChatBtn.onclick = () => { const c = getSimConfig(game); setSimConfig(game, { worldChat: !c.worldChat }); syncMmoTab(); };
+  const mmoRosBtn = $d('dbgMmoRoster');
+  if (mmoRosBtn) mmoRosBtn.onclick = () => game.ui?.toggleSimRoster?.(game, true);
+  const mmoMapBtn = $d('dbgMmoMap');
+  if (mmoMapBtn) mmoMapBtn.onclick = () => game.ui?.toggleRegionMap?.(game);
+  syncMmoTab();
 
   // 快捷鍵 F3 / ` 開關除錯面板，Shift+F3 快速切換開發者模式
   window.addEventListener('keydown', e => {
@@ -463,7 +572,10 @@ export function installDebugger(game) {
     openTools: () => { toggle(true); setTab('tools'); },
     isOpen: () => open,
     getCounts: () => ({ errors: errCount, warnings: warnCount, total: logs.length }),
-    log: (msg) => pushLog('log', [msg]),
+    log: (msg) => {
+      pushLog('log', [msg]);
+      recordDevEvent('log', 'game', [msg]);
+    },
     recordFrame(dtSec, updateMs, renderMs) {
       const ms = Math.max(0.1, dtSec * 1000);
       const fps = 1000 / ms;

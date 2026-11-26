@@ -9,6 +9,91 @@ const createGuild = require('../server/guild.cjs');
   const frontier = await import(src('frontier.js'));
   const lodge = await import(src('lodge.js'));
 
+  const expedition = await import(src('expedition.js'));
+  let traveler = { level: 1, coins: 10, keys: 0 };
+  assert.equal(expedition.startMeadowExpedition(traveler, 2, 'hunt'), false);
+  assert.equal(expedition.startMeadowExpedition(traveler, 1, 'survey'), true);
+  assert.equal(expedition.startMeadowExpedition(traveler, 1, 'hunt'), false);
+  assert.equal(expedition.recordMeadowObjective(traveler, 'camp-0'), false);
+  assert.equal(expedition.recordMeadowObjective(traveler, 'lamp-0'), true);
+  assert.equal(expedition.recordMeadowObjective(traveler, 'lamp-0'), false);
+  assert.equal(expedition.recordMeadowObjective(traveler, 'champion'), false);
+  traveler = JSON.parse(JSON.stringify(traveler));
+  assert.equal(expedition.recordMeadowObjective(traveler, 'lamp-1'), true);
+  assert.equal(expedition.meadowStage(traveler.meadowExpedition.active), 'champion');
+  assert.equal(expedition.recordMeadowObjective(traveler, 'champion'), true);
+  assert.equal(expedition.claimMeadowReward(traveler, 'haste'), null);
+  assert.equal(expedition.claimMeadowReward(traveler, 'frost').xp, 240);
+  assert.equal(expedition.claimMeadowReward(traveler, 'leech'), null);
+  assert.deepEqual([traveler.keys, traveler.coins, traveler.puzzle.bag.map(g => g.id)], [1, 95, ['frost']]);
+  assert.equal(expedition.startMeadowExpedition(traveler, 1, 'hunt'), false);
+  assert.equal(expedition.startMeadowExpedition(traveler, 2, 'hunt'), true);
+  for (const i of [0, 1, 2]) assert.equal(expedition.recordMeadowObjective(traveler, 'camp-' + i), true);
+  assert.equal(expedition.meadowStage(traveler.meadowExpedition.active), 'champion');
+
+  const cave = await import(src('meadow_cave.js'));
+  let delver = { keys: 1, coins: 10 };
+  assert.equal(cave.enterMeadowCave(delver, 'elite'), null);
+  let ticket = cave.enterMeadowCave(delver, 'normal');
+  assert.equal(delver.keys, 0);
+  assert.equal(cave.advanceMeadowCave(delver, ticket, 2), null);
+  assert.deepEqual(cave.advanceMeadowCave(delver, ticket, 0), { complete: false });
+  assert.equal(cave.advanceMeadowCave(delver, ticket, 0), null);
+  delver = JSON.parse(JSON.stringify(delver));
+  assert.equal(cave.advanceMeadowCave(delver, ticket, 1), null);
+  ticket = cave.enterMeadowCave(delver, 'normal');
+  assert.equal(ticket.stage, 1);
+  assert.equal(delver.keys, 0);
+  assert.deepEqual(cave.advanceMeadowCave(delver, ticket, 1), { complete: false });
+  assert.deepEqual(cave.advanceMeadowCave(delver, ticket, 2), {
+    complete: true, firstClear: true, coins: 115, materials: 3, xp: 275,
+  });
+  assert.equal(cave.advanceMeadowCave(delver, ticket, 2), null);
+  assert.deepEqual(delver.mMats, { boar_tusk: 3, thorn_bark: 3 });
+  delver.keys = 2;
+  const repeat = cave.enterMeadowCave(delver, 'normal');
+  for (const stage of [0, 1]) cave.advanceMeadowCave(delver, repeat, stage);
+  assert.equal(cave.advanceMeadowCave(delver, repeat, 2).materials, 1);
+  assert.equal(cave.enterMeadowCave(delver, 'elite').stage, 0);
+  assert.equal(delver.keys, 0);
+
+  const skills = await import(src('puzzle.js'));
+  const veteran = { level: 5, puzzle: skills.defaultPuzzle(2), meadowExpedition: {
+    active: null, cleared: { 1: { route: 'survey', gemId: 'leech' } },
+  } };
+  assert.deepEqual(expedition.availableExpeditions(veteran), [2, 3]);
+  assert.equal(expedition.startMeadowExpedition(veteran, 3, 'hunt'), true);
+  const objectives = expedition.expeditionRoute(3, 'hunt');
+  assert.deepEqual(objectives.enemies, ['boar', 'thorn', 'moth']);
+  for (const id of objectives.targets) assert.equal(expedition.recordMeadowObjective(veteran, id), true);
+  assert.equal(expedition.recordMeadowObjective(veteran, 'champion'), true);
+  const forestReward = expedition.claimMeadowReward(veteran, 'area');
+  const before = veteran.puzzle.presets[0][0];
+  assert.equal(forestReward.xp, 520);
+  assert.deepEqual(expedition.availableExpeditions(veteran), [2, 4]);
+  assert.ok(skills.applySupportFit(veteran, forestReward.gemUid));
+  assert.equal(veteran.puzzle.presets[0][0], before);
+  assert.equal(skills.computeBoard(veteran.puzzle.presets[0])[0].mod.area, 0.35);
+  assert.equal(skills.applySupportFit(veteran, forestReward.gemUid), null);
+  const duplicate = skills.addGemToBag(veteran, 'area');
+  assert.equal(skills.applySupportFit(veteran, duplicate.uid), null);
+  assert.equal(veteran.puzzle.bag[0].uid, duplicate.uid);
+  veteran.puzzle.activePreset = 1;
+  assert.equal(skills.suggestSupportFit(veteran, 'vamp'), null);
+
+  assert.equal(expedition.startMeadowExpedition(traveler, 4, 'survey'), false);
+  assert.equal(expedition.startMeadowExpedition(veteran, 4, 'survey'), true);
+  assert.equal(expedition.recordMeadowObjective(veteran, 'lamp-0'), true);
+  assert.equal(expedition.recordMeadowObjective(veteran, 'lamp-1'), true);
+  const noBreak = JSON.parse(JSON.stringify(veteran));
+  assert.equal(expedition.recordMeadowObjective(noBreak, 'champion'), true);
+  assert.deepEqual(expedition.claimMeadowReward(noBreak, 'ember').materials, { moth_dust: 2 });
+  assert.equal(expedition.recordMeadowObjective(veteran, 'champion', true), true);
+  const resumed = JSON.parse(JSON.stringify(veteran));
+  assert.deepEqual(expedition.claimMeadowReward(resumed, 'vortex').materials, { moth_dust: 4 });
+  assert.equal(expedition.claimMeadowReward(resumed, 'ember'), null);
+  assert.equal(resumed.mMats.moth_dust, 4);
+
   // 1. Twenty ultra-grand persistent regions (12 classic + 8 Phase 4A drifting isles) & status affinities
   assert.equal(frontier.FIELDS.length, 21);
   assert.deepEqual(
@@ -59,11 +144,13 @@ const createGuild = require('../server/guild.cjs');
     ui: { toast(msg) { toasts.push(msg); } },
     recalc() { recalced++; },
   };
+  assert.ok(frontier.xpForNextLevel(1) >= 200, 'Slow MMORPG XP curve requires >= 200 XP for Lv.1 -> Lv.2');
   frontier.awardKill(mockGame, { type: 'slime', level: 5, elite: true, spawnIndex: 5 });
-  assert.equal(mockGame.meta.p.keys, 2, 'Elite kill grants +1 keystone');
-  assert.equal(mockGame.meta.p.goods.fish, 3, 'Elite kill grants +3 material');
+  assert.equal(mockGame.meta.p.level, 1, 'Single Lv.5 elite kill does NOT instantly level up Lv.1 player');
   assert.equal(mockGame.meta.p.species.slime, 1, 'Species codex records kill');
-  for (let i = 0; i < 600; i++) frontier.awardKill(mockGame, { type: 'stag', level: 30, elite: true, spawnIndex: 0 });
+  for (let i = 0; i < 2500; i++) frontier.awardKill(mockGame, { type: 'stag', level: 30, elite: true, spawnIndex: 0 });
+  assert.ok(mockGame.meta.p.keys > 1, 'Repeated elite kills drop scarce keystones');
+  assert.ok(mockGame.meta.p.goods.wood > 0, 'Repeated kills drop scarce materials');
   assert.equal(mockGame.meta.p.level, 30, 'Character level caps at 30');
   assert.equal(mockGame.meta.p.xp, 0, 'XP resets cleanly at cap');
   assert.ok(recalced >= 29, 'recalc called on level-ups');
@@ -152,17 +239,23 @@ const createGuild = require('../server/guild.cjs');
   assert.deepEqual(rot1, [[0, 0], [0, 1], [0, 2]], '90-degree polyomino rotation normalizes cleanly');
 
   const pzProfile = { puzzle: null };
-  const pz = puzzle.ensurePuzzle(pzProfile, 1); // 林風遊俠
+  const pz = puzzle.ensurePuzzle(pzProfile, 1); // 林風遊俠（硬核開局：僅 1 顆基礎主動技，0 顆免費輔助！）
   const board = puzzle.computeBoard(pz.presets[0]);
-  assert.equal(board.length, 2, 'Ranger starts with 2 synergistic active skills (星羽箭雨 + 餘燼飛彈) on board');
+  assert.equal(board.length, 1, 'Ranger starts lean with only 1 basic active skill (星羽箭雨) on board');
   assert.equal(board[0].id, 'rain');
-  assert.equal(board[0].mod.multi, 2, 'Adjacent 多重投射 adds +2 projectiles/waves');
-  assert.ok(board[0].mod.cdr > 0, 'Adjacent 極速詠唱 reduces cooldown');
-  // Verify Mystic starts with a live Logic Circuit (bolt -> CoH -> blue_tornado)
-  const mysticPz = puzzle.ensurePuzzle({ puzzle: null }, 2);
-  const mysticBoard = puzzle.computeBoard(mysticPz.presets[0]);
-  assert.ok(mysticBoard.find(s => s.id === 'bolt')?.mod.triggerOnHit.includes('blue_tornado'), 'Mystic starts with live bolt -> blue_tornado CoH circuit');
-  // Stack a second 熾炎增幅 adjacent to rain at (2, 1)
+  // Place 多重投射 & 極速詠唱 adjacent to verify puzzle adjacency linking still works
+  pz.presets[0].push({ uid: 90, id: 'multi', x: 2, y: 3, rot: 0 }, { uid: 91, id: 'haste', x: 1, y: 3, rot: 0 });
+  const boardLinked = puzzle.computeBoard(pz.presets[0]);
+  assert.equal(boardLinked[0].mod.multi, 2, 'Adjacent 多重投射 adds +2 projectiles/waves');
+  assert.ok(boardLinked[0].mod.cdr > 0, 'Adjacent 極速詠唱 reduces cooldown');
+  // Verify Mystic CoH circuit works when manually assembled
+  const mysticBoard = puzzle.computeBoard([
+    { uid: 1, id: 'bolt', x: 1, y: 1, rot: 0 },
+    { uid: 2, id: 'coh', x: 1, y: 2, rot: 0 },
+    { uid: 3, id: 'blue_tornado', x: 3, y: 2, rot: 0 },
+  ]);
+  assert.ok(mysticBoard.find(s => s.id === 'bolt')?.mod.triggerOnHit.includes('blue_tornado'), 'Mystic bolt -> blue_tornado CoH circuit works');
+  // Stack a third 熾炎增幅 adjacent to rain at (2, 1)
   assert.equal(puzzle.canPlace(pz.presets[0], 'ember', 2, 1, 0, 1), true);
   pz.presets[0].push({ uid: 99, id: 'ember', x: 2, y: 1, rot: 0 });
   const board2 = puzzle.computeBoard(pz.presets[0]);
@@ -275,10 +368,29 @@ const createGuild = require('../server/guild.cjs');
   const mounts = await import(src('mounts.js'));
   assert.equal(mounts.MOUNTS.length, 4, 'Four original mounts defined');
   assert.equal(mounts.activeMountDef({ level: 1, kills: 0 }), null, 'New player starts with mounts locked');
-  assert.equal(mounts.activeMountDef({ level: 5, kills: 0 }).id, 'stag', 'Lv.5 unlocks Forest Stag mount');
-  assert.equal(mounts.activeMountDef({ level: 1, visitedFields: [1, 2, 3], mountId: 'alpaca' }).id, 'alpaca', 'Exploring 3 fields unlocks Cloud Alpaca mount');
-  assert.equal(mounts.activeMountDef({ level: 10, secondClass: 'sunblade', mountId: 'manta' }).id, 'manta', 'Second-class awakening unlocks Starwing Manta mount');
-  assert.equal(mounts.activeMountDef({ level: 18, mountId: 'fox' }).id, 'fox', 'Lv.18 unlocks Sakura Spirit Fox mount');
+  assert.equal(mounts.activeMountDef({ level: 10, kills: 60 }), null, 'Reaching milestone without crafting saddle does NOT auto-grant mount');
+  const lockedRider = { level: 1, kills: 0, coins: 999, goods: { wood: 5 } };
+  assert.equal(mounts.unlockMountSaddle(lockedRider, 'stag', true).ok, false, 'Former developer flag cannot bypass milestones');
+  assert.equal(lockedRider.ownedMounts, undefined);
+  const oldSave = { ...lockedRider, ownedMounts: ['stag'], mountId: 'stag' };
+  assert.equal(mounts.activeMountDef(oldSave), null, 'Ineligible ownership from an old save cannot be ridden');
+  const lackingSaddle = { level: 10, kills: 60, coins: 249, goods: { wood: 5 } };
+  assert.equal(mounts.unlockMountSaddle(lackingSaddle, 'stag', true).ok, false, 'Former developer flag cannot bypass saddle costs');
+  assert.equal(lackingSaddle.coins, 249);
+  const mntProf = { level: 10, kills: 60, coins: 300, shards: 200, goods: { wood: 10, ore: 10 }, mMats: { sky_feather: 6, boss_heart: 3 }, visitedFields: [1, 2, 3, 4, 5], feathers: 3, secondClass: 'bastion', best: { wins: 2 } };
+  assert.equal(mounts.unlockMountSaddle(mntProf, 'stag').ok, true, 'Lv.10 + 60 kills + saddle mats unlocks Forest Stag');
+  assert.deepEqual([mntProf.coins, mntProf.goods.wood], [50, 5], 'Taming charges the saddle materials once');
+  assert.equal(mounts.unlockMountSaddle(mntProf, 'stag').alreadyOwned, true);
+  assert.deepEqual([mntProf.coins, mntProf.goods.wood], [50, 5]);
+  assert.equal(mounts.activeMountDef(mntProf).id, 'stag', 'Owned Forest Stag is active');
+  assert.equal(mounts.activeMountDef({ ...mntProf, ownedMounts: ['fox', 'stag'], mountId: 'fox' }).id, 'stag', 'Selection falls back to an eligible owned mount');
+  assert.equal(mounts.unlockMountSaddle(mntProf, 'alpaca').ok, false, 'Lv.10 cannot unlock T2 Cloud Alpaca (needs Lv.15)');
+  mntProf.level = 15; mntProf.coins = 1000;
+  assert.equal(mounts.unlockMountSaddle(mntProf, 'alpaca').ok, true, 'Lv.15 + 5 fields + 3 feathers + ore unlocks Cloud Alpaca');
+  mntProf.level = 20; mntProf.coins = 1500;
+  assert.equal(mounts.unlockMountSaddle(mntProf, 'manta').ok, true, 'Lv.20 + 2nd class + 2 bosses + sky_feather unlocks Starwing Manta');
+  mntProf.level = 25; mntProf.coins = 2500; mntProf.kills = 300; mntProf.visitedFields = [1,2,3,4,5,6,7,8,9,10,11,12];
+  assert.equal(mounts.unlockMountSaddle(mntProf, 'fox').ok, true, 'Lv.25 + 12 fields + 300 kills + boss_heart unlocks Sakura Spirit Fox');
 
   // 13. v1.1.0 Art, Terrain Smoothness (GW=181), Sheep, Golem & Ancient Blessing Shrines
   const models = await import(src('models.js'));
@@ -432,12 +544,14 @@ const createGuild = require('../server/guild.cjs');
   const strongStaff = loot.makeItem(() => 0.9, 8, 3, 'staff');
   const aeMock = {
     player: { equip: { staff: weakStaff, cloak: null, charm: null } },
-    meta: { p: { bagItems: [] }, save() {} },
+    meta: { p: { level: 1, bagItems: [] }, save() {} },
     recalc() {},
   };
   physbag.addGearToBag(aeMock.meta.p, strongStaff);
+  assert.equal(physbag.autoEquipBest(aeMock).count, 0, 'Lv.1 player blocked from auto-equipping high-tier T5/T6 gear');
+  aeMock.meta.p.level = 30;
   const aeRes = physbag.autoEquipBest(aeMock);
-  assert.equal(aeRes.count, 1, 'Auto-equip swaps strictly stronger gear from physics bag');
+  assert.equal(aeRes.count, 1, 'Lv.30 player auto-equips strictly stronger gear from physics bag');
   assert.equal(aeMock.player.equip.staff.name, strongStaff.name, 'Stronger staff equipped');
   assert.ok(aeMock.meta.p.bagItems.some(b => b.kind === 'gear' && b.name === weakStaff.name), 'Replaced weak staff returned to bag');
 
@@ -463,13 +577,16 @@ const createGuild = require('../server/guild.cjs');
   const td = tide.createTideState();
   assert.equal(td.phase, 0);
   assert.equal(tide.lootMultForTide(td), 1.0);
-  for (let i = 0; i < 4; i++) tide.recordTideKill(td, {}); // 4 * 8 = 32 heat -> Phase 1
-  assert.equal(td.phase, 1, 'Kill velocity pushes Ember Tide into Phase 1 (火星躁動)');
-  for (let i = 0; i < 4; i++) tide.recordTideKill(td, {}); // 64 heat -> Phase 2
-  assert.equal(td.phase, 2, 'Continued kills escalate into Phase 2 (餘燼狂潮)');
-  const apexRes = tide.recordTideKill(td, { isBoss: true }); // +28 = 92
+  // Harder Tide trigger: 4 casual kills do NOT trigger Tide yet; 16 rapid kills push into Phase 1 (40%+)
+  for (let i = 0; i < 4; i++) tide.recordTideKill(td, {}); // 4 * 2.5 = 10 heat -> still calm!
+  assert.equal(td.phase, 0, 'Casual 4 kills stay calm and do NOT accidentally trigger Tide');
+  for (let i = 0; i < 12; i++) tide.recordTideKill(td, {}); // +30 = 40 heat -> Phase 1
+  assert.equal(td.phase, 1, 'Sustained 16 rapid kills push Ember Tide into Phase 1 (火星躁動)');
+  for (let i = 0; i < 14; i++) tide.recordTideKill(td, {}); // +35 = 75 heat -> Phase 2
+  assert.equal(td.phase, 2, 'Continued aggressive kills escalate into Phase 2 (餘燼狂潮)');
+  const apexRes = tide.recordTideKill(td, { isBoss: true }); // +16 = 91
   assert.equal(apexRes.enteredApex, false);
-  const apexRes2 = tide.recordTideKill(td, { isElite: true }); // 100 -> Apex!
+  const apexRes2 = tide.recordTideKill(td, { isBoss: true }); // 100 -> Apex!
   assert.equal(apexRes2.enteredApex, true, 'Reaching 100 heat triggers Phase 3 Apex Surge');
   assert.equal(td.apexTimer, tide.APEX_DURATION);
   assert.ok(td.ultCharge >= 100, 'Killing swarm charges ultimate to 100%');
@@ -481,15 +598,17 @@ const createGuild = require('../server/guild.cjs');
   assert.equal(lullRes.enteredLull, true, 'Slaying Tide Boss enters mandatory 25s breathing-room lull');
   assert.equal(td.lullTimer, tide.LULL_DURATION);
   assert.equal(td.phase, -1);
-  // Rekindling lantern during lull launches Wave 2 with scaling loot multiplier
-  assert.equal(tide.applyRekindle(td), true, 'Rekindling lantern during lull starts next wave');
+  // Rekindling lantern during lull launches Wave 2, capped strictly at MAX_WAVE_STREAK (3)
+  assert.equal(tide.applyRekindle(td), true, 'Rekindling lantern during lull starts Wave 2');
   assert.equal(td.waveStreak, 2);
   assert.equal(td.phase, 2);
-  assert.ok(tide.lootMultForTide(td) > 2.5, 'Wave 2 scales loot multiplier above base surge');
+  assert.ok(tide.lootMultForTide(td) > 2.2, 'Wave 2 scales loot multiplier above base surge');
+  td.lullTimer = 25; td.waveStreak = tide.MAX_WAVE_STREAK;
+  assert.equal(tide.applyRekindle(td), false, 'Cannot rekindle past MAX_WAVE_STREAK (finite wave cap)');
   // Idle heat decay when outside Apex/Lull
-  td.heat = 40; td.phase = 1; td.decayIdleT = 5;
+  td.lullTimer = 0; td.heat = 40; td.phase = 1; td.decayIdleT = 4;
   tide.stepTideTimers(td, 2.0);
-  assert.ok(td.heat < 40, 'Heat decays smoothly when player stops fighting');
+  assert.ok(td.heat < 40, 'Heat decays rapidly when player stops fighting');
 
   // 21. v5/v6 All 12 Field Map Blueprints (5 PoE 2 Topologies), 34 GLBs & Checkpoint Teleport
   const bpMod = await import(src('field_blueprints.js'));
@@ -511,13 +630,33 @@ const createGuild = require('../server/guild.cjs');
     assert.ok(bp.glides.length >= 2, `Blueprint #${fid} defines one-way glide shortcuts`);
   }
   assert.equal(families.size, 5, 'All 5 PoE 2 spatial topologies covered across 20 field maps');
+  const { World } = await import(src('world.js'));
+  const { Scene } = await import('three');
+  const mapWorld = new World(new Scene());
+  for (let id = 1; id <= 20; id++) {
+    const exitCount = id < 20 ? 3 : 2;
+    const { spawn, exits } = mapWorld.generate(7201 + id * 319, frontier.fieldBiome(id), {
+      size: frontier.FIELDS[id].size, blueprint: bpMod.FIELD_BLUEPRINTS[id], cardinalExits: true, exitCount,
+    });
+    assert.deepEqual(exits.map(e => e.dir), id < 20 ? ['north', 'south', 'east'] : ['north', 'south']);
+    assert.ok(exits.every(exit => mapWorld.isWalk(exit.x, exit.z)), `All exits are walkable in field ${id}`);
+    if (id >= 6 && id < 20) {
+      const east = exits[2];
+      const goal = mapWorld.idx(east.x, east.z);
+      mapWorld.computeFlow(exits[1].x, exits[1].z);
+      if (mapWorld.flow[goal] < 0) mapWorld.computeFlow(spawn.x, spawn.z);
+      assert.ok(mapWorld.flow[goal] >= 0, `Generated gate is connected in field ${id}`);
+    }
+  }
+  mapWorld.clear();
   const wCenter = bpMod.uvToWorld(0.5, 0.5, 120);
   assert.equal(wCenter.x, 0); assert.equal(wCenter.z, 0);
   // Verify checkpoint teleport cycles between unlocked checkpoints
   const cpMock = {
+    field: 1,
     meta: { p: structuredClone(frontier.progressDefaults), save() {} },
     player: { pos: { x: 0, z: 0, set(x, y, z) { this.x = x; this.z = z; } }, y: 0, mana: 50, stats: { maxHp: 100, mana: 100 } },
-    world: { gh: () => 0.5 },
+    world: { gh: () => 0.5, isWalk: () => true },
     checkpoints: [
       { idx: 0, name: 'CP-A', x: 10, z: 10, y: 0.5, unlocked: true },
       { idx: 1, name: 'CP-B', x: 80, z: -40, y: 2.0, unlocked: true },
@@ -526,6 +665,26 @@ const createGuild = require('../server/guild.cjs');
   };
   assert.equal(frontier.useFieldSpot(cpMock, { kind: 'checkpoint', cpIdx: 0 }), true);
   assert.ok(Math.hypot(cpMock.player.pos.x - 81.6, cpMock.player.pos.z + 38.4) < 0.5, 'Checkpoint teleports player to next unlocked checkpoint');
+  cpMock.world.isWalk = () => false;
+  assert.equal(frontier.teleportToCheckpoint(cpMock, 1), true);
+  assert.deepEqual([cpMock.player.pos.x, cpMock.player.pos.z], [80, -40], 'Blocked checkpoint offset falls back to the checkpoint');
+  cpMock.field = 0;
+  assert.equal(frontier.teleportToCheckpoint(cpMock, 1), false, 'Checkpoints cannot move players from a different scene');
+
+  const maps = await import(src('map_navigation.js'));
+  const waypoint = { depth: -1, field: 0, lastTown: -1, exits: [{ type: 'run', x: 0, z: -12, on: true }],
+    spots: [{ kind: 'ferry_harbor', x: 0, z: 26 }], state: 'play' };
+  assert.equal(maps.nextMapLeg(waypoint, 3).region, 1, 'Forest and swamp directions use the actual grassland gate');
+  assert.equal(maps.nextMapLeg(waypoint, 20).region, 100, 'Far eastern route starts at the actual harbor dock');
+  assert.equal(maps.nextMapLeg({ ...waypoint, interior: {}, spots: [{ kind: 'exit_house', x: 1, z: 2 }] }, 3).label, '先走到出口');
+  assert.equal(maps.nextMapLeg({ ...waypoint, depth: 0, caveRun: {}, exits: [{ type: 'caveReturn', on: false }] }, 8), null);
+  assert.equal(maps.describeMapTarget({ x: 0, z: 0 }, { x: 0, z: -12 }), '北 12m');
+  const regionMap = await import(src('region_map.js'));
+  const projection = regionMap.regionMapProjection({ interior: { halfW: 4.8, halfD: 3.8 } }, 320, 208);
+  assert.deepEqual(projection.world(projection.x(2), projection.y(-3)), { x: 2, z: -3 });
+  const interiorPins = regionMap.regionMapMarkers({ interior: {}, spots: [{ kind: 'exit_house', label: '門口', x: 1, z: 2 }],
+    checkpoints: [{ idx: 2, x: 9, z: 9 }], _simAdvs: [{ def: { id: 1 }, x: 0, z: 0 }] });
+  assert.deepEqual(interiorPins.map(pin => pin.label), ['門口']);
   // Verify all 34 v6 GLB landmark & monster assets exist on disk
   const p2bAssets = await import(src('assets.js'));
   const fsMod = require('node:fs');
@@ -632,7 +791,7 @@ const createGuild = require('../server/guild.cjs');
   // Test 30% XP yield in awardKill during autopilot
   apMock.meta.p.xp = 0;
   frontier.awardKill(apMock, { type: 'slime', level: 10, elite: false, spawnIndex: 0 });
-  assert.equal(apMock.meta.p.xp, 9, 'Autopilot awards 30% XP (30 * 0.30 = 9)');
+  assert.equal(apMock.meta.p.xp, 5, 'Autopilot awards 30% XP (18 * 0.30 = 5)');
   // Test Cozy Cam after 20s idle & Spark Surge x1.5 upon manual WASD takeover
   apMock.autopilot.idleT = 22;
   apMock.autopilot.sparkStacks = 2;
@@ -662,8 +821,8 @@ const createGuild = require('../server/guild.cjs');
     ui: { toast() {} }, recalc() {},
   };
   frontier.awardKill(upMock, { type: 'thorn', level: 5, elite: false, spawnIndex: 0 });
-  // base = 10 + 5*2 = 20; +25% upward bonus = 25
-  assert.equal(upMock.meta.p.xp, 25, 'Manual kill of Lv.5 enemy at Lv.1 grants +25% upward XP bonus (20 -> 25)');
+  // base = 6 + 5*1.2 = 12; +25% upward bonus = 15
+  assert.equal(upMock.meta.p.xp, 15, 'Manual kill of Lv.5 enemy at Lv.1 grants +25% upward XP bonus (12 -> 15)');
 
   // 25. Phase B2 + U3: Progressive System Unlocks, Field Danger Tiers & Pixel SVG Icon Library
   const progMod = await import(src('progression.js'));
@@ -737,8 +896,8 @@ const createGuild = require('../server/guild.cjs');
     ui: { toast() {} }, recalc() {},
   };
   frontier.awardKill(hsMock, { type: 'slime', level: 1, elite: false, spawnIndex: 0 });
-  // base = 10 + 1*2 = 12; * 1.4 = 16.8 -> 17
-  assert.equal(hsMock.meta.p.xp, 17, 'Gold Tide hotspot island grants +40% manual XP (12 -> 17)');
+  // base = 6 + 1*1.2 = 7.2; * 1.4 = 10.08 -> 10
+  assert.equal(hsMock.meta.p.xp, 10, 'Gold Tide hotspot island grants +40% manual XP (7.2 -> 10)');
   assert.equal(setMod.DEFAULTS.coopVfx, 1, 'Co-op VFX clutter culling defaults to ON (35% opacity for peers)');
 
   // 28. Phase M3: 8% MMO Auction Tax Sink & Food Night Hotspot Campfire Feast
@@ -781,8 +940,8 @@ const createGuild = require('../server/guild.cjs');
     ui: { toast() {} }, recalc() {},
   };
   frontier.awardKill(ferryMock, { type: 'slime', level: 1, elite: false, spawnIndex: 0 });
-  // base = 10 + 1*2 = 12; * 1.10 = 13.2 -> 13
-  assert.equal(ferryMock.meta.p.xp, 13, 'Co-Voyage ferry buff grants +10% XP (12 -> 13)');
+  // base = 6 + 1*1.2 = 7.2; * 1.10 = 7.92 -> 8
+  assert.equal(ferryMock.meta.p.xp, 8, 'Co-Voyage ferry buff grants +10% XP (7.2 -> 8)');
 
   // 31. Phase M6: Weekly Seed Endless Lantern Spire, Mentor Lantern Scaling & Lighthouse Network Contributions
   const ws1 = mmoProto.getWeeklySpireInfo(1795450000000);
@@ -894,8 +1053,8 @@ const createGuild = require('../server/guild.cjs');
   // 40. Phase V1–V6: Piloto 4-Pack VFX Assets, 24 Active / 16 Support Gems, 5 Class Mechanics & 8 Ultimates (5 Class + 3 Shared)
   const vfxDir = path.join(__dirname, '..', 'game', 'assets', 'vfx');
   const vfxGlb = path.join(vfxDir, 'vfx_meshes.glb');
-  assert.ok(fs.existsSync(vfxGlb) && fs.statSync(vfxGlb).size > 500000, 'Packed 28-mesh vfx_meshes.glb exists & valid');
-  assert.ok(fs.readdirSync(path.join(vfxDir, 'tex')).filter(f => f.endsWith('.webp')).length >= 22, 'All 22 stylized WebP VFX textures present');
+  assert.ok(fs.existsSync(vfxGlb) && fs.statSync(vfxGlb).size > 1500000, 'Packed 40-mesh vfx_meshes.glb exists & valid');
+  assert.ok(fs.readdirSync(path.join(vfxDir, 'tex')).filter(f => f.endsWith('.webp') || f.endsWith('.png')).length >= 32, 'All 32 stylized VFX textures (22 WebP + 10 Wave 2 PNG) present');
   assert.equal(Object.keys(puzzle.ACTIVE_GEMS).length, 24, 'Skill Puzzle 2.0 has 24 Active Gems (14 upgraded + 10 3D summons)');
   assert.ok(Object.keys(puzzle.SUPPORT_GEMS).length >= 19, 'Skill Puzzle 2.0 has 19 Support Gems (incl. bluefire, vortex & 3 Survivor Synergy Gems)');
   for (const cls of puzzle.CLASSES) {
@@ -937,50 +1096,34 @@ const createGuild = require('../server/guild.cjs');
     }
   }
 
-  // 43. Phase V1–V4: Vampire Survivors × MMORPG (Elite Affixes, 6 Swarm Formations, 3-Choose-1 Draft, 8 Super-Weapon Evolutions, Jackpot Chest, Sanctuary Talents, Spoils Pouch, Double-Scaling Bug Fix)
+  // 43. Hardcore Difficulty & MMO Scarcity Overhaul (NO 3-choose-1 drafts, NO jackpot chests, NO free auto-cast; 8 Elite Affixes, 6 Formations, 10-min Escalation, Sanctuary Talents, Spoils Pouch, Creator Island Ocean)
   const surv = await import('../src/survivor.js');
   const gameSrcV = fs.readFileSync(path.join(__dirname, '..', 'src', 'game.js'), 'utf8');
+  const htmlV6 = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
   assert.ok(!gameSrcV.includes('s.maxHp += (profile.level - 1) * 5; s.baseDmg += profile.level - 1;'), 'recalc() double-scaling bug removed');
-  assert.equal(surv.ELITE_AFFIXES.length, 8, '8 elite affixes defined');
-  assert.equal(surv.SWARM_FORMATIONS.length, 6, '6 VS swarm formations defined');
-  assert.equal(surv.SURVIVOR_WEAPONS.length, 8, '8 survivor auto-cast weapons defined');
-  assert.equal(surv.SURVIVOR_RELICS.length, 8, '8 survivor passive relics defined');
-  assert.equal(Object.keys(surv.SURVIVOR_EVOLUTIONS).length, 8, '8 super-weapon evolutions defined');
-  assert.equal(surv.SANCTUARY_TALENTS.length, 7, '7 permanent Starlight Sanctuary talents defined');
+  assert.ok(!htmlV6.includes('id="draftModal"') && !htmlV6.includes('id="chestModal"') && !htmlV6.includes('id="svTopXp"'), 'VS 3-choose-1 draft modal, jackpot chest modal & top XP bar removed');
+  assert.equal(surv.ELITE_AFFIXES.length, 8, '8 high-threat elite affixes defined');
+  assert.equal(surv.SWARM_FORMATIONS.length, 6, '6 tactical swarm formations defined');
+  assert.equal(surv.SANCTUARY_TALENTS.length, 7, '7 earned Starlight Sanctuary talents defined');
 
-  // Elite affixes scaling by level & waveStreak
+  // Elite affixes: Lv.1+ already gets 1 affix, Lv.10+ / Wave 2+ gets 2 affixes
   const dummyElLow = { elite: true };
-  assert.equal(surv.assignEliteAffixes(dummyElLow, 3, 1).length, 0, 'Lv.3 elite gets 0 affixes');
-  const dummyElMid = { elite: true };
-  assert.equal(surv.assignEliteAffixes(dummyElMid, 10, 1).length, 1, 'Lv.10 elite gets 1 affix');
+  assert.equal(surv.assignEliteAffixes(dummyElLow, 3, 1).length, 1, 'Lv.3 elite gets 1 high-threat affix');
   const dummyElHigh = { elite: true };
-  assert.equal(surv.assignEliteAffixes(dummyElHigh, 20, 2).length, 2, 'Lv.20 / Wave 2 elite gets 2 affixes');
+  assert.equal(surv.assignEliteAffixes(dummyElHigh, 12, 2).length, 2, 'Lv.12 / Wave 2 elite gets 2 affixes');
 
-  // Sanctuary Talents buy & free respec
-  const mockProf = { shards: 200, coins: 0 };
+  // Sanctuary Talents buy (higher earned cost) & free respec
+  const mockProf = { shards: 250, coins: 0 };
   const buy1 = surv.buyTalent(mockProf, 'revive');
-  assert.ok(buy1.ok && buy1.level === 1 && mockProf.shards === 155, 'Buy revive talent deducts 45 shards');
+  assert.ok(buy1.ok && buy1.level === 1 && mockProf.shards === 160, 'Buy revive talent deducts 90 shards');
   const tb = surv.computeTalentBonuses(mockProf);
   assert.equal(tb.revives, 1, 'Revive talent grants 1 revive per run');
   const refund = surv.respecTalents(mockProf);
-  assert.equal(refund, 45, 'Free respec refunds full shards');
-  assert.equal(mockProf.shards, 200, 'Shards restored after respec');
-
-  // Survivor In-Run Draft, Super-Weapon Evolution & Jackpot Chest
-  const sv = surv.createSurvivorState(mockProf);
-  const gained = surv.addTideXp(sv, 100);
-  assert.ok(gained >= 2 && sv.pendingDrafts >= 2, 'Fast Tide XP levels up and queues 3-choose-1 drafts');
-  const draft = surv.rollDraftChoices(sv);
-  assert.equal(draft.length, 3, 'Draft always returns 3 choices');
-  sv.weapons.ember_missiles = 5;
-  sv.relics.dice20 = 1;
-  const evos = surv.checkEligibleEvolutions(sv);
-  assert.ok(evos.some(e => e.id === 'inferno_hydra'), 'Lv.5 ember_missiles + dice20 unlocks inferno_hydra evolution');
-  const chestRes = surv.rollJackpotChest(sv, () => 0.01); // 5-item rainbow jackpot
-  assert.equal(chestRes.tier, 5, 'Low RNG roll triggers 5-item rainbow jackpot');
-  assert.ok(sv.evolutions.includes('inferno_hydra'), 'Jackpot chest triggers eligible super-weapon evolution');
+  assert.equal(refund, 90, 'Free respec refunds full shards');
+  assert.equal(mockProf.shards, 250, 'Shards restored after respec');
 
   // Extraction Spoils Pouch risk/reward
+  const sv = surv.createSurvivorState(mockProf);
   surv.recordSpoils(sv, 100, 20, 1);
   const lostS = surv.loseSpoilsOnDeath(sv);
   assert.equal(lostS.lostCoins, 50, 'Dying during Tide loses 50% unsettled coins');
@@ -988,24 +1131,384 @@ const createGuild = require('../server/guild.cjs');
   const cashed = surv.cashOutSpoils(sv, mockProf);
   assert.equal(cashed.coins, 50, 'Remaining 50% cashes out cleanly');
 
-  // Kill Streak Fever & Dynamic Difficulty Director
+  // Kill Streak Fever, Dynamic Difficulty Director & 10-Min Escalation Clock
   assert.equal(surv.getKillStreakTier(500).tier, 4, '500 kills reaches Tier 4 Fever');
-  for (let i = 0; i < 30; i++) surv.updateDifficultyDirector(sv, 100 + i * 0.3, true);
+  for (let i = 0; i < 25; i++) surv.updateDifficultyDirector(sv, 100 + i * 0.3, true);
   assert.equal(surv.updateDifficultyDirector(sv, 110, false), 3, 'High kill rate raises AI Director to Level 3');
+  const esc0 = surv.getEscalationProfile(0);
+  const esc5 = surv.getEscalationProfile(300);
+  const esc10 = surv.getEscalationProfile(600);
+  assert.ok(esc0.hpMult === 1 && esc5.hpMult > 2.5 && esc10.hpMult > 5.0 && esc10.dmgMult > 3.0, '10-min escalation clock ramps difficulty steeply');
 
-  // Phase V5: 6×6 Puzzle × Survivor Synergy Gems, Blood Eclipse & Endless Tide Best Records
-  assert.ok(puzzle.SUPPORT_GEMS.sv_ember_core && puzzle.SUPPORT_GEMS.sv_resonance && puzzle.SUPPORT_GEMS.sv_magnet_core, '3 Survivor Synergy Gems registered in 6×6 Puzzle');
-  const synProf = { shards: 0, puzzle: { activePreset: 0, presets: [[{ id: 'sv_ember_core' }, { id: 'sv_resonance' }, { id: 'sv_magnet_core' }]] } };
-  const svSyn = surv.createSurvivorState(synProf);
-  assert.equal(svSyn.weapons.ember_missiles, 2, 'sv_ember_core starts ember_missiles at Lv.2');
-  assert.equal(svSyn.relics.greed_chalice, 1, 'sv_magnet_core starts with greed_chalice Lv.1');
-  svSyn.evolutions.push('inferno_hydra', 'astral_cyclone');
-  const synBonus = surv.computeSurvivorStatBonuses(svSyn);
-  assert.ok(synBonus.critMult >= 40 && synBonus.cdr >= 15, 'sv_resonance grants +40% critMult and +15% cdr with 2+ evolutions');
+  // Combat Power, Blood Eclipse, Endless Tide Records, Perfect Dodge & Creator Island Ocean
+  const cp1 = surv.computeCombatPower({ level: 1, talents: {} }, { baseDmg: 5, dmgPct: 0, crit: 5, critMult: 150, atkSpd: 0, maxHp: 62, armor: 0 }, {});
+  const cp2 = surv.computeCombatPower({ level: 20, talents: { vitality: 3, mastery: 3 } }, { baseDmg: 28, dmgPct: 60, crit: 30, critMult: 210, atkSpd: 35, maxHp: 210, armor: 28 }, { weapon: { rarity: 3, tier: 4, corrupted: true } });
+  assert.ok(cp2 > cp1 * 4, `Combat Power scales strongly with MMO gear & progression (${cp1} -> ${cp2})`);
   const ec = surv.getBloodEclipseField(60 * 1000);
   assert.ok(ec.active && ec.fieldId >= 1 && ec.fieldId <= 20, 'Blood Eclipse active during first 5 minutes of 20-min cycle');
-  const bt = surv.recordBestTide(synProf, 4, 320, 18);
-  assert.ok(bt && bt.maxWave === 4 && bt.maxStreak === 320 && bt.maxTideLv === 18, 'Endless Tide best records persisted');
+  const bt = surv.recordBestTide(mockProf, 4, 320, 8);
+  assert.ok(bt && bt.maxWave === 4 && bt.maxStreak === 320 && bt.maxMin === 8, 'Endless Tide best records persisted');
+  assert.ok(htmlV6.includes('id="svClock"') && htmlV6.includes('id="dangerVig"'), 'Survival clock & low-HP danger vignette present');
+  assert.ok(gameSrcV.includes('極限閃避') && gameSrcV.includes('perfectCritT'), 'Perfect Dodge bullet-time counter wired');
+  const charSrcOcean = fs.readFileSync(path.join(__dirname, '..', 'src', 'characters.js'), 'utf8');
+  assert.ok(charSrcOcean.includes('createCreatorOceanMaterial') && charSrcOcean.includes('uRipple') && charSrcOcean.includes('burstIslandFx') && charSrcOcean.includes('towerLantern'), 'Creator Island animated toon ocean shader & interactive props wired');
 
-  console.log('ALL 43 LOGIC, VAMPIRE-MMO-SURVIVOR-V1-V5, V6-FIELD-POI-BOSS, DIORAMA-D1-D4, VFX-SKILL-REWORK-V1-V6, UI-UNIFIED-U4B, CHAR-C6-TOON-ANIM, CHAR-REWORK-C1-C5, FUZZ-QA-36, MMO-M10-PORTALS-CRAFT-KILLSWITCH, MMO-M9-SAFETY-KILLSWITCH, MMO-M8-ROLES-FEAST-GPU, MMO-M7-SOUL-AWAKEN-GPU-FIX, MMO-M6-SPIRE-MENTOR-LIGHTHOUSE, MMO-M5-FERRY-REVIEW, MMO-M4-OVERHAUL, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
+  // 45. Pure MMORPG 6 Pillars (STR/DEX/INT/VIT Allocation, Gear Refinement +0..+10, 4 Gear Sets, 7-Chapter Main Story Quest Tracker, Bestiary Mastery, Adventurer Guild Rank & AI Party Companions)
+  const mmoRpg = await import('../src/mmo_rpg.js');
+  const mmoProf = { level: 5, coins: 2000, shards: 300, xp: 0, mats: { ore: 30 } };
+  assert.equal(mmoRpg.availableStatPoints(mmoProf), 12, 'Lv.5 grants 12 allocatable stat points (3/lv)');
+  assert.ok(mmoRpg.allocateStat(mmoProf, 'str', 5).ok && mmoRpg.allocateStat(mmoProf, 'vit', 4).ok, 'Stat allocation works');
+  const allocB = mmoRpg.computeAllocatedBonuses(mmoProf);
+  assert.ok(allocB.baseDmg >= 6 && allocB.maxHp === 36, 'Allocated STR & VIT grant expected stats');
+  assert.equal(mmoRpg.resetStatPoints(mmoProf), 12, 'Free stat reset returns all 12 points');
+
+  // Gear Refinement +0 -> +10 (safe +1..+4, downgrade at +7 fail)
+  const testWeapon = { slot: 'staff', rarity: 2, tier: 2, enhance: 0, implicit: { k: 'baseDmg', v: 10 }, mods: [] };
+  const enh1 = mmoRpg.enhanceItem(mmoProf, testWeapon, () => 0.99);
+  assert.ok(enh1.ok && enh1.success && testWeapon.enhance === 1, '+0->+1 is 100% safe refinement');
+  testWeapon.enhance = 7;
+  const enhFail = mmoRpg.enhanceItem(mmoProf, testWeapon, () => 0.99);
+  assert.ok(enhFail.ok && !enhFail.success && enhFail.downgraded && testWeapon.enhance === 6, '+7 fail downgrades to +6');
+
+  // 4 Gear Sets (2-pc & 3-pc)
+  const setEq = {
+    staff: { setId: 'ember_conqueror' },
+    cloak: { setId: 'ember_conqueror' },
+    charm: { setId: 'ember_conqueror' },
+  };
+  const setOut = mmoRpg.computeSetBonuses(setEq);
+  assert.ok(setOut.active.length === 1 && setOut.active[0].full && setOut.stats.dmgPct === 18 && setOut.stats.critMult === 35, '3-pc Ember Conqueror full set bonus activates');
+
+  // Bestiary Mastery permanent account stats
+  for (let i = 0; i < 10; i++) mmoRpg.recordBestiaryKill(mmoProf, 'slime');
+  assert.equal(mmoRpg.bestiaryRank('slime', mmoProf.bestiary.slime), 1, '10 slime kills reaches Bestiary Lv.1');
+  assert.equal(mmoRpg.computeBestiaryBonuses(mmoProf).stats.maxHp, 6, 'Slime Bestiary Lv.1 grants +6 permanent maxHp');
+
+  // Main Story Chapter Questline & Claim
+  for (let i = 0; i < 8; i++) mmoRpg.recordStoryEvent(mmoProf, 'kill', 1);
+  assert.ok(mmoRpg.getCurrentChapter(mmoProf).done, 'Chapter 1 completes after 8 kills');
+  const chRew = mmoRpg.claimChapterReward(mmoProf);
+  assert.ok(chRew && chRew.gem === 'area' && mmoRpg.getCurrentChapter(mmoProf).def.id === 'ch2', 'Claiming Chapter 1 grants reward & advances to Chapter 2');
+
+  // Adventurer Guild Rank & AI Companions & Quest Tracker HUD
+  const rkLow = mmoRpg.computeAdventurerRank({ level: 1 }, 80);
+  const rkHigh = mmoRpg.computeAdventurerRank(mmoProf, 2200);
+  assert.ok(rkLow.rank === 'F' && (rkHigh.rank === 'S' || rkHigh.rank === 'SS'), `Adventurer Rank progresses from F to S/SS (${rkLow.rank} -> ${rkHigh.rank})`);
+  assert.equal(mmoRpg.AI_COMPANIONS.length, 3, '3 AI Party Companions (Tank/Healer/Ranger) available');
+  assert.ok(htmlV6.includes('id="questTracker"'), 'MMORPG right-side live quest tracker HUD present');
+
+  // 46. Monster Materials, 9-Blueprint Gear Crafting (Starter -> Set -> Mythic Chase Gear) & 4 Elemental Resistances
+  assert.equal(Object.keys(mmoRpg.MONSTER_MATS).length, 7, '7 species-specific monster crafting materials defined');
+  assert.equal(mmoRpg.GEAR_RECIPES.length, 9, '9 tiered monster-material gear crafting recipes defined');
+  const matProf = { coins: 5000, shards: 500, mMats: {} };
+  const mDrop1 = mmoRpg.rollMonsterMatDrop(matProf, 'slime', false, false, () => 0.1);
+  assert.ok(mDrop1 && mDrop1.def.id === 'slime_gel' && matProf.mMats.slime_gel === 1, 'Slime drops slime_gel crafting material');
+  const dropBoss = mmoRpg.rollMonsterMatDrop(matProf, 'stag', false, true, () => 0.1);
+  assert.ok(dropBoss && dropBoss.def.id === 'boss_heart' && matProf.mMats.boss_heart === 1, 'Boss drops ultra-rare boss_heart');
+  matProf.mMats = { boss_heart: 4, golem_core: 8, boar_tusk: 8, slime_gel: 10, sky_feather: 8, moth_dust: 8 };
+  const mCrafted = mmoRpg.craftMonsterGear(matProf, 'rec_mythic_cloak', loot.fmtOf);
+  assert.ok(mCrafted.ok && mCrafted.item.rarity === 3 && mCrafted.item.setId === 'frost_warden' && mCrafted.item.mods.some(m => m.k === 'allRes'), 'Crafting mythic cloak succeeds with Frost Warden set & allRes');
+  assert.ok(loot.AFFIXES.some(a => a.k === 'resFire') && loot.AFFIXES.some(a => a.k === 'resIce') && loot.AFFIXES.some(a => a.k === 'resLightning') && loot.AFFIXES.some(a => a.k === 'resPoison') && loot.AFFIXES.some(a => a.k === 'allRes'), 'All 4 elemental resistances + allRes registered in loot AFFIXES');
+  assert.ok(gameSrcV.includes('abyssPen') && gameSrcV.includes('elemRes'), 'Elemental resistance damage mitigation & Lv.15+ abyss penetration wired in game.js');
+
+  // 47. Account Login/Register/Logout + Per-Account Isolated Saves + Delete Character Slot
+  const acctMod = await import('../src/account.js');
+  const memMap = new Map();
+  const mockStore = {
+    getItem: k => (memMap.has(k) ? memMap.get(k) : null),
+    setItem: (k, v) => memMap.set(k, String(v)),
+    removeItem: k => memMap.delete(k),
+  };
+  assert.equal(acctMod.getActiveAccount(mockStore).isGuest, true, 'Defaults to guest mode');
+  const regBad = acctMod.registerAccount('a', '123', mockStore);
+  assert.equal(regBad.ok, false, 'Rejects too-short username/password');
+  const regOk = acctMod.registerAccount('AlanHero', 'secret99', mockStore);
+  assert.ok(regOk.ok && regOk.account.username === 'AlanHero' && !acctMod.getActiveAccount(mockStore).isGuest, 'Account registration logs in cleanly');
+  assert.equal(acctMod.registerAccount('alanhero', 'other123', mockStore).ok, false, 'Prevents duplicate case-insensitive username');
+  assert.equal(acctMod.loginAccount('AlanHero', 'wrongpw', mockStore).ok, false, 'Rejects wrong password');
+  assert.ok(acctMod.loginAccount('AlanHero', 'secret99', mockStore).ok, 'Accepts valid credentials');
+
+  const sk0 = acctMod.slotKeys(0, null, mockStore);
+  const sk1 = acctMod.slotKeys(1, null, mockStore);
+  assert.equal(sk0.profileKey, 'acct_alanhero_lv_profile', 'Logged-in account uses isolated save namespace');
+  mockStore.setItem(sk0.charKey, '{"name":"亞蘭"}');
+  mockStore.setItem(sk0.profileKey, '{"level":12}');
+  mockStore.setItem(sk0.bestKey, '{"depth":5}');
+  mockStore.setItem(sk1.charKey, '{"name":"副角"}');
+  const delRes = acctMod.deleteCharacterSlot(0, null, mockStore);
+  assert.ok(delRes.ok && mockStore.getItem(sk0.charKey) === null && mockStore.getItem(sk0.profileKey) === null && mockStore.getItem(sk0.bestKey) === null, 'deleteCharacterSlot wipes all 3 keys for target slot');
+  assert.equal(mockStore.getItem(sk1.charKey), '{"name":"副角"}', 'Deleting slot 0 does not touch slot 1');
+  acctMod.logoutAccount(mockStore);
+  assert.equal(acctMod.getActiveAccount(mockStore).isGuest, true, 'Logout returns to guest mode');
+  const scriptPos = htmlV6.indexOf('<script>/*__GAME__*/</script>');
+  const acctPos = htmlV6.indexOf('id="accountModal"');
+  const delPos = htmlV6.indexOf('id="delCharModal"');
+  assert.ok(acctPos > 0 && acctPos < scriptPos && delPos > 0 && delPos < scriptPos, 'accountModal & delCharModal MUST appear before inline game script');
+  assert.ok(htmlV6.includes('id="btnAccount"') && htmlV6.includes('id="btnDelChar"') && htmlV6.includes('id="btnSwitchChar"'), 'Account login, delete character & in-game switch char buttons wired');
+  // Export & Import account backup roundtrip
+  const backup = acctMod.exportAccountData('AlanHero', mockStore);
+  acctMod.deleteCharacterSlot(1, 'AlanHero', mockStore);
+  assert.equal(acctMod.slotHasData(1, 'AlanHero', mockStore), false, 'Slot 1 empty after delete');
+  const impRes = acctMod.importAccountData(backup, 'AlanHero', mockStore);
+  assert.ok(impRes.ok && impRes.restored >= 1 && acctMod.slotHasData(1, 'AlanHero', mockStore), 'Account backup export/import restores character slots');
+
+  // 48. Equipment Level Restrictions (T1 Lv.1 -> T6 Lv.27) & Tier-Specific Crafting Materials
+  assert.equal(loot.itemReqLevel({ tier: 1 }), 1, 'T1 requires Lv.1');
+  assert.equal(loot.itemReqLevel({ tier: 2 }), 5, 'T2 requires Lv.5');
+  assert.equal(loot.itemReqLevel({ tier: 3 }), 10, 'T3 requires Lv.10');
+  assert.equal(loot.itemReqLevel({ tier: 4 }), 16, 'T4 requires Lv.16');
+  assert.equal(loot.itemReqLevel({ tier: 5 }), 22, 'T5 requires Lv.22');
+  assert.equal(loot.itemReqLevel({ tier: 6 }), 27, 'T6 requires Lv.27');
+  assert.equal(loot.canEquipItem({ tier: 3 }, 9), false, 'Lv.9 player cannot equip T3 (Lv.10) gear');
+  assert.equal(loot.canEquipItem({ tier: 3 }, 10), true, 'Lv.10 player can equip T3 gear');
+  assert.equal(Object.keys(mmoRpg.TIER_CRAFT_MATS).length, 6, 'All 6 equipment tiers have dedicated crafting material definitions');
+  const t1Rec = mmoRpg.GEAR_RECIPES.find(r => r.tier === 1);
+  assert.ok(t1Rec && t1Rec.cost.goods?.wood > 0 && t1Rec.cost.mMats?.slime_gel > 0, 'T1 recipe requires wood + slime_gel');
+  assert.equal(mmoRpg.canCraftRecipe({ coins: 500, goods: { wood: 0 }, mMats: { slime_gel: 5 } }, t1Rec), false, 'Cannot craft T1 without required tier goods (wood)');
+  assert.equal(mmoRpg.canCraftRecipe({ coins: 500, goods: { wood: 2 }, mMats: { slime_gel: 3 } }, t1Rec), true, 'Can craft T1 with exact tier materials');
+  const pbSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'physbag.js'), 'utf8');
+  assert.ok(pbSrc.includes('canEquipItem(gear, p.level') && pbSrc.includes('canEquipItem(g, p.level'), 'physbag useBagItem & autoEquipBest enforce gear level gates');
+
+  // 49. MMORPG Deep Progression Overhaul: Strict 2nd-Class Trials, Enhancement Failstack & Full-Body Resonance, Guild Rep & 5 Bounties, Companion Bond Lv.1-10 & Rank Promo Chests
+  const lv1Prof = { level: 1, kills: 0, totalElites: 0, coins: 0, shards: 0, deeds: {} };
+  const bastionSc = alive.findSecondClass('bastion');
+  assert.equal(alive.checkAscendEligibility(lv1Prof, bastionSc).eligible, false, 'Lv.1 player CANNOT ascend to 2nd class');
+  assert.equal(alive.performAscend(lv1Prof, 'bastion').ok, false, 'performAscend blocks unqualified Lv.1 player');
+  const readyAscProf = { level: 12, kills: 45, totalElites: 3, coins: 350, shards: 60, deeds: { perfectGather: 2 } };
+  const ascRes = alive.performAscend(readyAscProf, 'bastion');
+  assert.ok(ascRes.ok && readyAscProf.secondClass === 'bastion' && readyAscProf.coins === 50 && readyAscProf.shards === 15, 'Qualified Lv.12 player completes 2nd-class trial, pays coins+shards & unlocks title');
+
+  // Enhancement Failstack pity (+6% per fail) & Full-Body Resonance (+3/+5/+7/+9)
+  const fsProf = { coins: 5000, shards: 500, mats: { ore: 50 }, enhanceFailstack: 0 };
+  const fsItem = { slot: 'staff', rarity: 2, tier: 3, enhance: 5, implicit: { k: 'baseDmg', v: 15 }, mods: [] };
+  const fFail = mmoRpg.enhanceItem(fsProf, fsItem, () => 0.99);
+  assert.ok(fFail.ok && !fFail.success && fsProf.enhanceFailstack === 1, 'Failed enhancement increments failstack to 1');
+  assert.ok(mmoRpg.enhanceInfo(5, 1).rate > mmoRpg.enhanceInfo(5, 0).rate, 'Failstack boosts next enhancement success rate');
+  const fSucc = mmoRpg.enhanceItem(fsProf, fsItem, () => 0.01);
+  assert.ok(fSucc.ok && fSucc.success && fsProf.enhanceFailstack === 0, 'Successful enhancement resets failstack to 0');
+  const res3 = mmoRpg.computeEnhanceResonance({ staff: { enhance: 5 }, cloak: { enhance: 5 }, charm: { enhance: 5 } });
+  assert.ok(res3.active && res3.active.minLv === 5 && res3.bonuses.dmgPct === 12 && res3.bonuses.crit === 4, 'Full +5 gear activates Star-Silver Enhancement Resonance');
+
+  // Guild Reputation Lv.1->10 & 5 Repeatable Bounties + Companion Bond Lv.1->10 + Rank Promo Chest
+  assert.equal(mmoRpg.GUILD_BOUNTIES.length, 5, '5 repeatable Guild Bounties defined');
+  const repProf = { coins: 0, shards: 0, mats: { ore: 0 }, guildRep: 0, bountyProg: { kills: 20, gathers: 6, enhances: 3, eliteKills: 5, bossKills: 2 } };
+  const bClaim = mmoRpg.claimGuildBounty(repProf, 'b_boss');
+  assert.ok(bClaim.ok && repProf.guildRep === 85 && mmoRpg.getGuildRepInfo(repProf).lv === 2, 'Claiming Guild Bounty grants Guild Reputation and levels up Guild Rep Lv.2');
+  const bondProf = { companionId: 'ranger' };
+  const bUp = mmoRpg.grantCompanionXp(bondProf, 70);
+  assert.ok(bUp && bUp.lv === 2 && mmoRpg.computeCompanionBondBonuses(bondProf).atkSpd === 4, 'Companion gains XP, levels up to Bond Lv.2 & grants player passive');
+  const rkProf = { level: 10, coins: 0, shards: 0, protectCharms: 0 };
+  const rkClaim = mmoRpg.claimRankReward(rkProf, 'D', 300);
+  assert.ok(rkClaim.ok && rkProf.coins === 220 && rkProf.protectCharms === 1, 'Adventurer Rank D promotion chest awards coins, shards & protect charm');
+  assert.equal(mmoRpg.claimRankReward(rkProf, 'D', 300).ok, false, 'Rank promotion chest cannot be claimed twice');
+
+  // 50. MMORPG Living World Overhaul: 4 Life Skills (Lv.1-20), 6 Gear Runes (Drop/Socket/Serialize/Bonuses), 12 Collectible Titles, 4-Tier Daily Activity Chests, Field World Boss S/A/B Contribution & Simulated Adventurers
+  const mmoW = await import('../src/mmo_world.js');
+  assert.equal(mmoW.LIFE_SKILL_IDS.length, 4, '4 Life Skills defined (wood/ore/fish/smith)');
+  const lwProf = { level: 1, kills: 120, totalElites: 12, worldBossKills: 1, guildRep: 400, ownedMounts: ['stag'], secondClass: 'bastion', coins: 0, shards: 0, mats: { ore: 0 } };
+  const lsUp = mmoW.grantLifeXp(lwProf, 'smith', 40);
+  assert.ok(lsUp && lsUp.lv === 2, 'Granting 40 smith XP levels Blacksmithing to Lv.2');
+  const lsBon = mmoW.computeLifeSkillBonuses(lwProf);
+  assert.ok(lsBon.enhanceRateBonus > 0, 'Blacksmithing Lv.2 grants permanent enhancement rate bonus');
+  assert.ok(mmoRpg.enhanceInfo(5, 0, 10).rate > mmoRpg.enhanceInfo(5, 0, 1).rate, 'Higher Blacksmithing level boosts enhanceInfo success rate');
+
+  // Gear Runes: 6 types, drop, socket, serialize roundtrip & stat bonuses
+  assert.equal(mmoW.RUNE_IDS.length, 6, '6 Gear Runes defined');
+  const rDrop = mmoW.rollRuneDrop(lwProf, false, true, () => 0.1);
+  assert.ok(rDrop && lwProf.runes[rDrop.id] >= 1, 'Boss kill drops Rune Stone into profile bag');
+  lwProf.runes.fire = 2; lwProf.runes.greed = 2;
+  const rItem = loot.makeItem(() => 0.5, 2, 2, 'staff');
+  const sockRes = mmoW.socketRune(lwProf, rItem, 'fire');
+  assert.ok(sockRes.ok && rItem.rune === 'fire' && lwProf.runes.fire === 1, 'Socketing fire rune consumes 1 rune & attaches to gear');
+  const rItem2 = loot.deserializeItem(loot.serializeItem(rItem));
+  assert.equal(rItem2.rune, 'fire', 'Socketed rune survives serialize/deserialize');
+  assert.ok(loot.itemLines(rItem2).some(l => l.t.includes('熾焰符文石')), 'itemLines displays socketed rune');
+  const rBon = mmoW.computeRuneBonuses({ staff: rItem2, cloak: { rune: 'greed' } });
+  assert.ok(rBon.stats.baseDmg === 4 && rBon.stats.addFire === 5 && rBon.stats.coinBonus === 18 && rBon.stats.shardBonus === 18, 'Rune bonuses sum combat & greed stats');
+
+  // Collectible Titles (12) + Permanent Account Stats + Overhead Display
+  assert.equal(mmoW.TITLE_DEFS.length, 12, '12 Collectible Titles defined');
+  const unlockedNow = mmoW.syncUnlockedTitles(lwProf, { equip: { staff: rItem2, cloak: { rune: 'greed' } } });
+  assert.ok(unlockedNow.length >= 5, 'Qualified adventurer unlocks multiple titles automatically');
+  assert.ok(mmoW.equipTitle(lwProf, 'world_slayer').ok && mmoW.getActiveTitleText(lwProf).includes('世界王討伐者'), 'Equipping unlocked title formats overhead title tag');
+  const tBon = mmoW.computeTitleBonuses(lwProf);
+  assert.ok(tBon.dmgPct === tBon.count && tBon.maxHp === tBon.count * 5, 'Every unlocked title permanently grants +1% dmgPct & +5 maxHp');
+
+  // Daily Activity 4-Tier Chests (25 / 50 / 75 / 100)
+  assert.equal(mmoW.DAILY_CHESTS.length, 4, '4 Daily Activity Chests defined (25/50/75/100)');
+  const daAdd = mmoW.addDailyActivity(lwProf, 60);
+  assert.ok(daAdd.pts === 60 && daAdd.newlyReady.length === 2, 'Adding 60 daily activity unlocks 25 & 50 chests');
+  const daClaim = mmoW.claimDailyChest(lwProf, 50, () => 0.2);
+  assert.ok(daClaim.ok && daClaim.gainedRunes.length === 1 && lwProf.coins === 260, 'Claiming 50-pt Daily Chest awards coins, shards & random Rune Stone');
+  assert.equal(mmoW.claimDailyChest(lwProf, 50).ok, false, 'Cannot claim same Daily Chest twice on same day');
+
+  // World Boss S/A/B Contribution Grading & Simulated Adventurers
+  assert.equal(mmoW.WORLD_BOSS_DEFS.length, 4, '4 rotating Field World Bosses defined');
+  assert.equal(mmoW.computeWorldBossReward(500, 1000).grade, 'S', '>=45% World Boss damage earns S-grade reward');
+  assert.equal(mmoW.computeWorldBossReward(250, 1000).grade, 'A', '20-44% World Boss damage earns A-grade reward');
+  assert.equal(mmoW.computeWorldBossReward(50, 1000).grade, 'B', '<20% World Boss damage earns B-grade reward');
+  assert.ok(mmoW.SIM_ADVENTURER_POOL.length >= 18, '18+ Simulated Living MMO Adventurers defined');
+  for (const isLand of [true, false]) {
+    const effects = [];
+    const g = {
+      state: 'play', field: 1, player: { pos: { x: 0, z: 0 } },
+      world: { isLand: () => isLand, randomWalkable: () => ({ x: 3, z: 4 }), gh: () => 2 },
+      worldBoss: { active: false, timer: 0 },
+      spawnEnemy: (_type, pos) => ({ pos, hp: 10, m: { root: { scale: { multiplyScalar() {} }, add() {} } } }),
+      vfx: Object.fromEntries(['spawnEnemyCircle', 'spawnWarning', 'spawnMaliceRift'].map(method => [
+        method, (x, y, z) => effects.push([x, y, z]),
+      ])),
+    };
+    mmoW.tickWorldBoss(g, 1);
+    const { x, z } = g.worldBoss.enemy.pos;
+    assert.equal(g.worldBoss.active, true);
+    assert.deepEqual(effects, [[x, 2, z], [x, 2, z], [x, 2, z]], 'World Boss effects use the actual spawn point');
+    if (!isLand) assert.deepEqual([x, z], [3, 4]);
+  }
+  assert.ok(htmlV6.includes('id="worldBossBanner"'), 'World Boss top HUD banner present in index.html');
+
+  // 51. MMORPG Endgame Addictive Loop: Potential Cube (R->SR->SSR->UR), 4 Dynamic World Events, 50F Trial Tower, 3-Person Party Synergies & Offline Resting Rewards
+  const mmoEnd = await import('../src/mmo_endgame.js');
+  const endProf = { level: 12, coins: 1000, shards: 200, cubes: 2, mats: { ore: 0 }, xp: 0 };
+  const potItem = loot.makeItem(() => 0.5, 2, 2, 'staff');
+  const pRoll1 = mmoEnd.rollPotential(endProf, potItem, () => 0.1);
+  assert.ok(pRoll1.ok && potItem.potential && potItem.potential.lines.length === 2 && endProf.cubes === 1, 'Rolling potential consumes 1 cube and awakens 2 lines');
+  const potRt = loot.deserializeItem(loot.serializeItem(potItem));
+  assert.equal(potRt.potential.tier, potItem.potential.tier, 'Potential survives serialize/deserialize');
+  assert.ok(loot.itemLines(potRt).some(l => l.t.includes('潛能')), 'itemLines renders potential lines');
+  const potBon = mmoEnd.computePotentialBonuses({ staff: potRt });
+  assert.ok(potBon.awakenedCount === 1 && Object.keys(potBon.stats).length >= 2, 'computePotentialBonuses sums potential lines');
+
+  // 4 Dynamic World Events
+  assert.equal(mmoEnd.DYNAMIC_EVENT_IDS.length, 4, '4 Dynamic World Events defined');
+  assert.ok(htmlV6.includes('id="dynEventBanner"') && htmlV6.includes('id="partyHud"'), 'Dynamic Event banner & Party HUD frame present in index.html');
+
+  // 50F Endless Trial Tower
+  assert.equal(mmoEnd.MAX_TOWER_FLOOR, 50, 'Trial Tower supports 50 floors');
+  assert.equal(mmoEnd.towerFloorSpec(5).isBoss, true, 'Every 5th tower floor is a Boss floor');
+  const twClear1 = mmoEnd.claimTowerFloorClear(endProf, 1);
+  assert.ok(twClear1.ok && twClear1.firstClear && endProf.towerBest === 1, 'First-clear of Tower 1F updates best floor and grants rewards');
+  const twBon = mmoEnd.computeTowerBonuses(endProf);
+  assert.ok(twBon.dmgPct === 1.5 && twBon.maxHp === 6, 'Each cleared tower floor grants permanent +1.5% dmg & +6 maxHp');
+
+  // 3-Person Party & 3 Synergy Auras
+  assert.ok(mmoEnd.togglePartyMember(endProf, 'vanguard', 120).ok && mmoEnd.togglePartyMember(endProf, 'healer', 150).ok, 'Can recruit 2 AI companions into 3-person party');
+  assert.equal(mmoEnd.getPartyIds(endProf).length, 2, 'Party has 2 active AI companions');
+  assert.equal(mmoEnd.getActivePartySynergy(endProf)?.id, 'bastion', 'Vanguard + Healer activates Bastion synergy');
+  const synBon = mmoEnd.computePartySynergyBonuses(endProf);
+  assert.ok(synBon.bonuses.armor === 10 && synBon.bonuses.regen === 3, 'Bastion synergy grants armor +10 & regen +3');
+  const bondSum = mmoRpg.computeCompanionBondBonuses(endProf);
+  assert.ok(bondSum.armor > 0 && bondSum.regen > 0, '2-companion bond bonuses sum across both active companions');
+
+  // Offline Resting Rewards
+  const nowMs = Date.now();
+  endProf.lastSeenAt = nowMs - 120 * 60 * 1000; // 2 hours away
+  const offRes = mmoEnd.claimOfflineRewards(endProf, nowMs);
+  assert.ok(offRes && offRes.mins === 120 && offRes.coins > 0 && offRes.xp > 0 && offRes.cubes >= 1, '2h offline grants coins, XP, shards & Potential Cube');
+
+  // 52. 100% VFX Asset Utilization (Wave 1 + Wave 2): All 40 packed 3D meshes & 32 textures + all gameplay hooks wired
+  const vfxMod = await import('../src/vfx_engine.js');
+  assert.equal(vfxMod.VFX_MESH_KEYS.length, 40, '40 packed 3D VFX meshes registered (28 Wave 1 + 12 Wave 2)');
+  assert.equal(vfxMod.VFX_TEX_KEYS.length, 32, '32 packed VFX textures registered (22 Wave 1 + 10 Wave 2)');
+  const vfxSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'vfx_engine.js'), 'utf8');
+  const gameVfxSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'game.js'), 'utf8');
+  const panelsVfxSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'panels.js'), 'utf8');
+  const frontierVfxSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'frontier.js'), 'utf8');
+  const endVfxSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'mmo_endgame.js'), 'utf8');
+  const worldVfxSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'mmo_world.js'), 'utf8');
+  const gameplayVfxSrc = [gameVfxSrc, panelsVfxSrc, frontierVfxSrc, endVfxSrc, worldVfxSrc].join('\n');
+  const allVfxCallers = vfxSrc + '\n' + gameplayVfxSrc;
+  for (const mk of vfxMod.VFX_MESH_KEYS) {
+    const used = (allVfxCallers.split(`'${mk}'`).length - 1) >= 2;
+    assert.ok(used, `Packed 3D VFX mesh '${mk}' must be actively used (not just listed in VFX_MESH_KEYS)`);
+  }
+  for (const tk of vfxMod.VFX_TEX_KEYS) {
+    const used = (allVfxCallers.split(`'${tk}'`).length - 1) >= 2;
+    assert.ok(used, `Packed VFX texture '${tk}' must be actively used (not just listed in VFX_TEX_KEYS)`);
+  }
+  for (const fn of ['spawnLootBeam(', 'spawnEnemyCircle(', 'spawnWarning(', 'spawnArcanistCards(', 'spawnPeaceBlessing(', 'spawnClawSlash(', 'spawnKiAscension(', 'spawnPoisonWall(', 'spawnTwirlDash(', 'spawnWaterShield(', 'spawnElementalSpear(', 'spawnPotentialCubeBurst(', 'spawnMaliceRift(', 'spawnLifeSkillFx(']) {
+    assert.ok(gameplayVfxSrc.includes(fn), `VfxEngine method ${fn} must be called in gameplay`);
+  }
+
+  // 53. CrispPixel_Sampler Design System Full UI Overhaul
+  const cpWoodDir = path.join(__dirname, '..', 'game', 'assets', 'ui', 'crisp_pixel', 'wood');
+  const cpIconDir = path.join(__dirname, '..', 'game', 'assets', 'ui', 'crisp_pixel', 'icons');
+  assert.ok(fs.readdirSync(cpWoodDir).filter(f => f.endsWith('.png')).length >= 35, 'All 35+ CrispPixel wood 9-slice & cursor PNGs present');
+  assert.ok(fs.readdirSync(cpIconDir).filter(f => f.endsWith('.png')).length >= 18, 'All 18 CrispPixel 3x icon PNGs present');
+  const cpHtml = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
+  for (const token of ['--cp-ink:#24141c', '--cp-wood:#8c4a30', '--cp-parchment:#e0b574', '--cp-gold:#f7c040', 'panel.png', 'window.png', 'panel_inset.png', 'tooltip.png', 'dialog_box.png', 'ribbon.png', 'button_medium_normal.png', 'button_close_normal.png', 'hotbar_slot.png', 'portrait_frame.png', 'quest_entry.png', 'currency_plate.png', 'input_normal.png', 'cursor_pointer_2x.png']) {
+    assert.ok(cpHtml.includes(token), `CrispPixel Design System token/9-slice present in index.html: ${token}`);
+  }
+  const iconsSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'icons.js'), 'utf8');
+  assert.ok(iconsSrc.includes('CRISP_ICONS') && iconsSrc.includes('assets/ui/crisp_pixel/icons/'), 'src/icons.js wires CrispPixel 3x PNG icons');
+  assert.ok(cpHtml.includes('Phase U5b：截圖全檢修微調'), 'Phase U5b UI polish block present in index.html');
+  assert.ok(cpHtml.includes('--font-ui:"Fusion Pixel TW"') && cpHtml.includes('html:lang(ja){--font-ui:"Fusion Pixel JP"'), 'Pixel typography provides matching Traditional Chinese and Japanese variants');
+  assert.doesNotMatch(cpHtml, /fonts\.googleapis\.com|cdn\.jsdelivr\.net.*Cubic|--font-pixel|PingFang/, 'Game text uses the local shared font stack');
+  assert.ok(settingsSrc.includes("['camAngle', t(lang, 'rowCamAngle'), [off, on]]"), 'camAngle simplified to 2 options (off / on)');
+  assert.ok(gameVfxSrc.includes('this._playerOccluded = hitMats.size > 0') && gameVfxSrc.includes('m.xray.visible = !!(this._playerOccluded'), 'm.xray gated strictly by actual camera raycast occlusion');
+
+  // 54. Phase M11: Virtual MMO Players Ecosystem (18 diverse adventurers, inspect card, roster O-key, emote reactions & F3 stress controls)
+  assert.equal(mmoW.SIM_ADVENTURER_POOL.length, 18, '18 diverse virtual MMO adventurers in pool');
+  assert.ok(new Set(mmoW.SIM_ADVENTURER_POOL.map(a => a.job)).size >= 5, 'Virtual MMO pool covers all 5 classes');
+  assert.ok(new Set(mmoW.SIM_ADVENTURER_POOL.map(a => a.guild)).size >= 4, 'Virtual MMO pool spans multiple guilds');
+  assert.ok(mmoW.SIM_ADVENTURER_POOL.every(a => a.cos && a.gear && a.cp > 0), 'Every virtual MMO adventurer has cosmetics, gear & combat power');
+  const simMock = {
+    depth: -1, field: 0, state: 'play', interior: false, net: { ok: false },
+    player: { pos: { x: 0, z: 0 } },
+    world: { isLand: () => true, gh: () => 0, randomWalkable: () => ({ x: 2, z: 2 }) },
+    scene: { add() {}, remove() {} },
+    ui: { setOnline(n) { simMock._online = n; }, toast() {}, addChat() {} },
+  };
+  mmoW.spawnSimAdventurers(simMock);
+  assert.equal(mmoW.getSimAdventurers(simMock).length, 36, 'Town defaults to 36 virtual MMO players');
+  assert.equal(simMock._online, undefined, 'Virtual adventurers never update the server presence count');
+  simMock.net.ws = { readyState: 0 };
+  mmoW.spawnSimAdventurers(simMock);
+  assert.equal(mmoW.getSimAdventurers(simMock).length, 36, 'Virtual MMO spawns while connecting to the server');
+  simMock.net.ok = true;
+  simMock.net.ws.readyState = 1;
+  mmoW.spawnSimAdventurers(simMock);
+  assert.equal(mmoW.getSimAdventurers(simMock).length, 36, 'Virtual MMO spawns while connected to the server');
+  mmoW.setSimConfig(simMock, { count: 0 });
+  assert.equal(mmoW.getSimAdventurers(simMock).length, 0, 'Online players can still turn off the virtual population');
+  assert.equal(simMock._online, undefined, 'Changing the virtual population preserves the server presence count');
+  mmoW.setSimConfig(simMock, { count: 24, mode: 'gather' });
+  assert.equal(mmoW.getSimAdventurers(simMock).length, 24, 'Stress test config scales live virtual MMO players to 24');
+  assert.ok(mmoW.reactSimToPlayerEmote(simMock, '嗨～') >= 1, 'Nearby virtual MMO players react to player emotes');
+  assert.ok(cpHtml.includes('id="simInspectModal"') && cpHtml.includes('id="simRosterModal"') && cpHtml.includes('id="btnSimRoster"'), 'Virtual MMO inspect modal, roster modal & menu button present in index.html');
+
+  // 55. Phase M12: Whole-map virtual players, active tasks, 3-tier LOD and bystander help
+  assert.equal(mmoW.SIM_FIELD_TASKS.length, 6, '6 core field task types defined (+ dynamic World Boss override)');
+  const fieldSimMock = {
+    depth: 0, field: 1, state: 'play', interior: false, net: { ok: false },
+    meta: { p: { coins: 0, shards: 0 }, save() {} },
+    player: { pos: { x: 0, z: 0 }, stats: { baseDmg: 10 } },
+    checkpoints: [{ x: 60, z: 40, name: 'CP1' }, { x: -75, z: -50, name: 'CP2' }],
+    exits: [{ type: 'dungeon', x: 0, z: -85 }],
+    spots: [{ kind: 'ore', x: 45, z: -30, label: '星紋礦' }, { kind: 'wood', x: -40, z: 55, label: '香杉木' }],
+    enemies: [{ dead: false, elite: true, pos: { x: 12, y: 0, z: 10 }, hp: 100, maxHp: 100 }],
+    world: { half: 120, isLand: () => true, gh: () => 0, randomWalkable: () => ({ x: 20, z: 20 }) },
+    scene: { add() {}, remove() {} },
+    ui: { setOnline(n) { fieldSimMock._online = n; }, toast() {}, addChat() {} },
+  };
+  mmoW.spawnSimAdventurers(fieldSimMock);
+  const fAdvs = mmoW.getSimAdventurers(fieldSimMock);
+  assert.equal(fAdvs.length, 36, 'Wild field defaults to 36 virtual MMO players spread across the whole map');
+  assert.ok(fAdvs.every(a => a.task && a.task.need > 0 && a.activity), 'Every wild field virtual player has an active task & progress');
+  assert.ok(fAdvs.some(a => Math.hypot(a.x, a.z) > 40), 'Virtual players genuinely spread across distant map anchors (>40m)');
+  // Verify Tier-3 LOD hides meshes >55m while keeping near meshes visible
+  fAdvs[0].x = 5; fAdvs[0].z = 5;
+  fAdvs[1].x = 85; fAdvs[1].z = 85;
+  mmoW.tickSimAdventurers(fieldSimMock, 0.55);
+  assert.equal(fAdvs[0].m.root.visible, true, 'Near virtual player (<32m) stays visible');
+  assert.equal(fAdvs[1].m.root.visible, false, 'Distant virtual player (>55m) hidden by Tier-3 LOD for 0 draw call overhead');
+  // Verify bystander co-op help advances nearby hunting virtual player task & grants friendship reward
+  fAdvs[0].task = { id: 'hunt', icon: '⚔️', name: '討伐魔物懸賞', have: 0, need: 6 };
+  const helped = mmoW.onPlayerHelpSimKill(fieldSimMock, { pos: { x: 8, z: 8 } });
+  assert.ok(helped >= 1 && fAdvs[0].task.have === 1 && fieldSimMock.meta.p.coins > 0, 'Helping kill a nearby virtual player mob advances their task & grants friendship reward');
+  // Verify Region Map draws virtual player dots
+  const regionMapSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'region_map.js'), 'utf8');
+  assert.ok(regionMapSrc.includes('g._simAdvs') && regionMapSrc.includes('#48f0c8'), 'Region minimap renders cyan-mint virtual MMO player dots');
+
+  console.log('ALL 55 LOGIC, WHOLE-MAP-VIRTUAL-MMO-M12, VIRTUAL-MMO-PLAYERS-M11, CRISP-PIXEL-UI-SYSTEM, VFX-100PCT-UTILIZATION, MMORPG-ENDGAME-POTENTIAL-TOWER-PARTY-EVENTS-OFFLINE, MMORPG-LIVING-WORLD-BOSS-LIFE-RUNES-TITLES-DAILY, MMORPG-PROGRESSION-OVERHAUL, GEAR-LEVEL-GATES-TIER-MATS, ACCOUNT-LOGIN-DELETE-CHAR, MONSTER-MATS-CRAFT-RESIST, MMORPG-6-PILLARS, HARDCORE-MMO-SCARCITY, CREATOR-OCEAN-INTERACT, V6-FIELD-POI-BOSS, DIORAMA-D1-D4, VFX-SKILL-REWORK-V1-V6, UI-UNIFIED-U4B, CHAR-C6-TOON-ANIM, CHAR-REWORK-C1-C5, FUZZ-QA-36, MMO-M10-PORTALS-CRAFT-KILLSWITCH, MMO-M9-SAFETY-KILLSWITCH, MMO-M8-ROLES-FEAST-GPU, MMO-M7-SOUL-AWAKEN-GPU-FIX, MMO-M6-SPIRE-MENTOR-LIGHTHOUSE, MMO-M5-FERRY-REVIEW, MMO-M4-OVERHAUL, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
 })();

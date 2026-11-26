@@ -1,5 +1,6 @@
 // 孤山獨影（Cairn）風格 2D 重力物理掉落背包與倉庫系統（不同形狀大小＋物品物理碰撞合成）
-import { RARITY, SLOTS, serializeItem, deserializeItem, makeItem, itemScore } from './loot.js';
+import { RARITY, SLOTS, serializeItem, deserializeItem, makeItem, itemScore, canEquipItem, itemReqLevel } from './loot.js';
+import { canvasUiFont } from './ui_typography.js';
 import { t } from './i18n.js';
 
 // 物理碰撞合成配方（在背包中拖曳或拋撞兩個相容物件即可當場融合！）
@@ -302,7 +303,7 @@ export class PhysicsContainer {
       ctx.lineWidth = sel ? 4 : canFuse ? 4 : hov ? 3 : 2.5;
       ctx.strokeStyle = canFuse ? '#ffd85a' : sel ? '#ffd85a' : b.data.color || '#7a5a40';
       ctx.stroke();
-      ctx.font = `${Math.round(Math.min(b.hw, b.hh) * 1.15)}px sans-serif`;
+      ctx.font = canvasUiFont(Math.round(Math.min(b.hw, b.hh) * 1.15));
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillStyle = '#2d1e1e';
       ctx.fillText(b.data.icon || '📦', 0, 1);
@@ -317,15 +318,15 @@ export class PhysicsContainer {
       const d = this.hover.data;
       const tierNum = d.item?.tier || d.tier || 1;
       const txt = `[T${tierNum}] ${d.name}`;
-      ctx.font = 'bold 12px sans-serif';
-      const tw = ctx.measureText(txt).width + 14;
+      ctx.font = canvasUiFont(12, 700);
+      const tw = Math.min(W - 12, ctx.measureText(txt).width + 14);
       const tx = Math.max(6, Math.min(W - tw - 6, this.hover.x - tw / 2));
       const ty = Math.max(6, this.hover.y - this.hover.hh - 26);
       ctx.fillStyle = 'rgba(43,29,34,0.92)';
       ctx.fillRect(tx, ty, tw, 20);
       ctx.strokeStyle = '#ffd85a'; ctx.lineWidth = 1.5; ctx.strokeRect(tx, ty, tw, 20);
       ctx.fillStyle = '#fff8e4'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-      ctx.fillText(txt, tx + 7, ty + 10);
+      ctx.fillText(txt, tx + 7, ty + 10, tw - 14);
     }
   }
 
@@ -450,6 +451,12 @@ export function useBagItem(game, itemData, fromListKey) {
   if (idx < 0) return false;
   if (itemData.kind === 'gear' && itemData.item) {
     const gear = deserializeItem(itemData.item);
+    const reqLv = itemReqLevel(gear);
+    if (!canEquipItem(gear, p.level || 1)) {
+      game.audio?.sfx?.('ui');
+      game.ui?.toast?.(`🔒 等級不足！需要 Lv.${reqLv} 才能穿戴【${gear.name}】（目前 Lv.${p.level || 1}）`, '#ff8a8a');
+      return false;
+    }
     const old = game.player.equip[gear.slot];
     game.player.equip[gear.slot] = gear;
     list.splice(idx, 1);
@@ -492,7 +499,7 @@ export function autoEquipBest(game) {
       const entry = list[i];
       if (entry.kind !== 'gear' || !entry.item) continue;
       const g = deserializeItem(entry.item);
-      if (g.slot !== slot) continue;
+      if (g.slot !== slot || !canEquipItem(g, p.level || 1)) continue;
       const sc = itemScore(g);
       if (sc > bestScore) { bestScore = sc; bestIdx = i; }
     }

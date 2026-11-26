@@ -58,15 +58,19 @@ export function bindGuild(g) {
 }
 export function updateRaid(g,dt) {
   const r=g.raid, p=g.player;
+  const touch = g.touchInput;
+  const attack = g.mouse.l || !!g.keys[' '] || !!touch?.attack;
   r.sendIn-=dt;
   if(r.sendIn<=0) {
     r.sendIn=.1;
-    g.net.send({t:'raidInput',x:Number(!!g.keys.d)-Number(!!g.keys.a),z:Number(!!g.keys.s)-Number(!!g.keys.w),attack:g.mouse.l||!!g.keys[' ']});
+    const x = Number(!!g.keys.d) - Number(!!g.keys.a) + (touch?.x || 0);
+    const z = Number(!!g.keys.s) - Number(!!g.keys.w) + (touch?.z || 0);
+    g.net.send({t:'raidInput',x,z,attack});
   }
   g.time+=dt;
   p.facing=Math.atan2(-p.pos.x,-p.pos.z);
   p.m.root.position.copy(p.pos);p.m.root.rotation.y=p.facing;
-  p.m.body.rotation.z=g.mouse.l||g.keys[' ']?Math.sin(g.time*16)*.14:0;
+  p.m.body.rotation.z=attack?Math.sin(g.time*16)*.14:0;
   r.boss.body.position.y=.07*Math.sin(g.time*3);
   g.updateCamera(dt);g.ui.update(g);
   document.getElementById('roomInfo').textContent='共鳴樹庭 · '+(r.allies.size+1)+' 人';

@@ -1,13 +1,16 @@
 const { chromium } = require('playwright');
 (async () => {
   const god = process.argv[2] === 'god';
-  const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+  const args = process.env.LV_SOFTWARE_GL === '0' ? []
+    : ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'];
+  const browser = await chromium.launch({ channel: process.env.LV_CHROMIUM_CHANNEL || undefined, args });
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
   const errs = [];
   page.on('pageerror', e => errs.push('PAGEERR ' + e.message + e.stack));
   page.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
-  await page.goto('file://' + process.cwd() + '/dist/index.html');
+  await page.goto(process.env.LV_GAME_URL || 'http://localhost:8080/');
   await page.waitForTimeout(1500);
+  await page.click('#btnHeroNext');
   await page.click('#btnStart');
   await page.waitForTimeout(500);
   await page.evaluate(() => __game.startRun());
@@ -19,8 +22,17 @@ const { chromium } = require('playwright');
       const g = __game, W = g.world, p = g.player; const log = [];
       const tgt = new (p.pos.constructor)();
       const fd = new (g.aim.constructor)();
-      const setDir = (dx, dz) => { g.keys = { w: dz < -0.3, s: dz > 0.3, a: dx < -0.3, d: dx > 0.3 }; };
-      const aimAt = (x, z) => { tgt.set(x, 0, z).project(g.camera); g.mouse.x = (tgt.x * 0.5 + 0.5) * innerWidth; g.mouse.y = (-tgt.y * 0.5 + 0.5) * innerHeight; };
+      const setDir = (dx, dz) => {
+        const angle = Math.atan2(dz, dx) + (g.camYaw || 0);
+        const x = Math.cos(angle), z = Math.sin(angle);
+        g.keys = { w: z < -0.38, s: z > 0.38, a: x < -0.38, d: x > 0.38 };
+      };
+      const aimAt = (x, z) => {
+        g.camera.updateMatrixWorld();
+        tgt.set(x, p.y, z).project(g.camera);
+        g.mouse.x = (tgt.x * 0.5 + 0.5) * innerWidth;
+        g.mouse.y = (-tgt.y * 0.5 + 0.5) * innerHeight;
+      };
       const walkTo = (x, z) => { W.computeFlow(x, z); const v = { x: 0, y: 0, set(a, b) { this.x = a; this.y = b; return this; }, normalize() { const l = Math.hypot(this.x, this.y) || 1; this.x /= l; this.y /= l; return this; } };
         if (W.flowDir(p.pos.x, p.pos.z, v)) setDir(v.x, v.y); else setDir(x - p.pos.x, z - p.pos.z); };
       for (let i = 0; i < 300; i++) {
@@ -33,8 +45,12 @@ const { chromium } = require('playwright');
           for (const e of g.enemies) { const d = Math.hypot(e.pos.x - p.pos.x, e.pos.z - p.pos.z); if (d < bd) { bd = d; best = e; } }
           if (best) {
             aimAt(best.pos.x, best.pos.z);
-            if (bd > 2.0) walkTo(best.pos.x, best.pos.z); else g.keys = {};
-            if (bd < 2.6) g.mouse.l = true; else if (p.mana > 20) g.mouse.r = true;
+            const ranged = g.meta.p.weapon === 'bow';
+            if (ranged && bd < 3) setDir(p.pos.x - best.pos.x, p.pos.z - best.pos.z);
+            else if (bd > (ranged ? 7 : 2)) walkTo(best.pos.x, best.pos.z);
+            else g.keys = {};
+            if (bd < (ranged ? 9 : 2.6)) g.mouse.l = true;
+            else if (p.mana > 20) g.mouse.r = true;
             if (bd < 3.5) g.trySlam();
             g.tryWisp();
             if (g.eprojs.some(pr => Math.hypot(pr.mesh.position.x - p.pos.x, pr.mesh.position.z - p.pos.z) < 1.5)) g.tryRoll();
@@ -59,4 +75,5 @@ const { chromium } = require('playwright');
   }
   console.log(errs.slice(0, 10).join('\n'));
   await browser.close();
+  if (errs.length) process.exitCode = 1;
 })();

@@ -52,7 +52,8 @@ export const I18N = {
     bindFlask: '蜜藥瓶回血', bindRecall: '快捷回城（歸途海螺）',
     resetSettings: '重設所有設定',
     aboutText: '燈谷行 Lantern Vale<br>像素風 3D 動作冒險 MMORPG<br>靈感：A Short Hike、孤山獨影等。所有角色與素材皆為原創。<br><br>設定、物理背包、倉庫與外觀皆自動儲存在瀏覽器。',
-    skAttack: '普攻', skFlask: '蜜藥', skMount: '坐騎', skBag: '背包', skPuzzle: '拼圖', skRecall: '回城', skEmpty: '空位',
+    combatOpening: '破綻', skAttack: '普攻', skFlask: '蜜藥', skMount: '坐騎', skBag: '背包', skPuzzle: '拼圖', skRecall: '回城', skEmpty: '空位',
+    touchQuest: '任務', touchMap: '地圖', touchMenu: '選單', touchRegion: '地區地圖', touchMount: '召喚／收起坐騎', touchAuto: '切換巡遊', touchChat: '聊天', touchInteract: '互動', touchRoll: '翻滾', touchJump: '跳躍', touchGlide: '跳躍，按住滑翔', touchSend: '送出', islandPicker: '選擇島嶼',
     kills: '擊敗', online: '線上',
     statusPoison: '🧪 中毒', statusFreeze: '❄️ 冰凍', statusChill: '🧊 緩速', statusBurn: '🔥 灼燒', statusShock: '⚡ 感電', statusOverload: '💢 魔力過載',
   },
@@ -102,7 +103,8 @@ export const I18N = {
     bindFlask: 'Honey Flask', bindRecall: 'Town Recall Conch',
     resetSettings: 'Reset All Settings',
     aboutText: 'Lantern Vale<br>Cozy Pixel 3D Fantasy MMORPG<br>Original characters, shaders, and mechanics.<br><br>Settings, physics bag, stash, and cosmetics save automatically.',
-    skAttack: 'Attack', skFlask: 'Flask', skMount: 'Mount', skBag: 'Bag', skPuzzle: 'Puzzle', skRecall: 'Recall', skEmpty: 'Empty',
+    combatOpening: 'Opening', skAttack: 'Attack', skFlask: 'Flask', skMount: 'Mount', skBag: 'Bag', skPuzzle: 'Puzzle', skRecall: 'Recall', skEmpty: 'Empty',
+    touchQuest: 'Quests', touchMap: 'Map', touchMenu: 'Menu', touchRegion: 'Local Map', touchMount: 'Toggle Mount', touchAuto: 'Toggle Roaming', touchChat: 'Chat', touchInteract: 'Interact', touchRoll: 'Dodge', touchJump: 'Jump', touchGlide: 'Jump, hold to glide', touchSend: 'Send', islandPicker: 'Choose an island',
     kills: 'Kills', online: 'Online',
     statusPoison: '🧪 Poisoned', statusFreeze: '❄️ Frozen', statusChill: '🧊 Chilled', statusBurn: '🔥 Burning', statusShock: '⚡ Shocked', statusOverload: '💢 Overload',
   },
@@ -152,27 +154,59 @@ export const I18N = {
     bindFlask: '回復ポーション', bindRecall: '帰還の巻貝',
     resetSettings: '設定をリセット',
     aboutText: 'ランタン・ヴェイル Lantern Vale<br>ピクセル3Dアクション冒険MMORPG<br>オリジナルキャラクター＆システム。<br><br>設定・物理リュック・倉庫・見た目は自動保存されます。',
-    skAttack: '通常', skFlask: '回復', skMount: '騎乗', skBag: '鞄', skPuzzle: 'パズル', skRecall: '帰還', skEmpty: '空き',
+    combatOpening: '隙あり', skAttack: '通常', skFlask: '回復', skMount: '騎乗', skBag: '鞄', skPuzzle: 'パズル', skRecall: '帰還', skEmpty: '空き',
+    touchQuest: '任務', touchMap: '地図', touchMenu: 'メニュー', touchRegion: '周辺地図', touchMount: '騎乗／下りる', touchAuto: '巡回切替', touchChat: 'チャット', touchInteract: '調べる', touchRoll: '回避', touchJump: 'ジャンプ', touchGlide: 'ジャンプ、長押しで滑空', touchSend: '送信', islandPicker: '島を選ぶ',
     kills: '討伐', online: 'オンライン',
     statusPoison: '🧪 毒', statusFreeze: '❄️ 凍結', statusChill: '🧊 減速', statusBurn: '🔥 炎上', statusShock: '⚡ 感電', statusOverload: '💢 過負荷',
   },
 };
 
+const SHARED_UI = {
+  'zh-TW': {
+    mapLegend: '地圖圖例', travelStatus: '旅程狀態', ultimateReady: '大絕', stopAuto: '停止巡遊', autoDetails: '巡遊設定與戰報', saveTools: '存檔管理', heroDetails: '職業與初始技能', joinParty: '加入小隊', characterStats: '角色屬性', characterPerks: '天賦與祝福',
+    adventureMenu: '冒險', partyMenu: '隊伍', systemMenu: '系統', expeditions: '區域遠征', shards: '區域分流',
+    partyInvite: '複製小隊連結', virtualAdventurers: '虛擬冒險者', codex: '百科資料庫', changelog: '更新日誌',
+    diagnostics: '除錯工具', supportGame: '贊助支持', worldActivity: '世界動態',
+    worldBossLiving: '世界動態 · 世界王現身', worldEventActive: '世界動態 · 奇遇進行中',
+    clearSearch: '清除', mapNoMatches: '找不到符合的島嶼，請換個關鍵字。',
+    pickBag: '選取背包物品', pickStash: '選取倉庫物品', chooseItem: '選擇物品', noItems: '沒有物品',
+  },
+  en: {
+    mapLegend: 'Map legend', travelStatus: 'Travel status', ultimateReady: 'Ultimate', stopAuto: 'Stop roaming', autoDetails: 'Roaming details', saveTools: 'Manage saves', heroDetails: 'Class and starting skill', joinParty: 'Join party', characterStats: 'Character stats', characterPerks: 'Talents and boons',
+    adventureMenu: 'Adventure', partyMenu: 'Party', systemMenu: 'System', expeditions: 'Expeditions', shards: 'Zone channels',
+    partyInvite: 'Copy party link', virtualAdventurers: 'Virtual adventurers', codex: 'Codex', changelog: 'What’s new',
+    diagnostics: 'Debug tools', supportGame: 'Support the game', worldActivity: 'World activity',
+    worldBossLiving: 'World activity · Boss active', worldEventActive: 'World activity · Event active',
+    clearSearch: 'Clear', mapNoMatches: 'No islands match. Try a different search.',
+    pickBag: 'Select an item from your bag', pickStash: 'Select an item from storage', chooseItem: 'Choose an item', noItems: 'No items',
+  },
+  ja: {
+    mapLegend: 'マップ凡例', travelStatus: '旅の状況', ultimateReady: '必殺技', stopAuto: '巡回停止', autoDetails: '巡回の詳細', saveTools: 'セーブ管理', heroDetails: '職業と初期スキル', joinParty: 'パーティー参加', characterStats: 'ステータス', characterPerks: '才能と祝福',
+    adventureMenu: '冒険', partyMenu: 'パーティー', systemMenu: 'システム', expeditions: 'エリア遠征', shards: 'チャンネル',
+    partyInvite: '招待リンクをコピー', virtualAdventurers: '仮想冒険者', codex: '図鑑', changelog: '更新情報',
+    diagnostics: 'デバッグツール', supportGame: 'ゲームを支援', worldActivity: 'ワールド情報',
+    worldBossLiving: 'ワールド情報 · ボス出現中', worldEventActive: 'ワールド情報 · イベント開催中',
+    clearSearch: 'クリア', mapNoMatches: '該当する島がありません。別のキーワードで検索してください。',
+    pickBag: 'バッグのアイテムを選択', pickStash: '倉庫のアイテムを選択', chooseItem: 'アイテムを選択', noItems: 'アイテムがありません',
+  },
+};
+
 export function t(lang, key) {
   const dict = I18N[lang] || I18N['zh-TW'];
-  return dict[key] ?? I18N['zh-TW'][key] ?? key;
+  return dict[key] ?? SHARED_UI[lang]?.[key] ?? I18N['zh-TW'][key] ?? SHARED_UI['zh-TW'][key] ?? key;
 }
 
 export function applyDOMLanguage(lang) {
   if (typeof document === 'undefined') return;
+  document.documentElement.lang = lang;
   const set = (sel, key) => { const el = document.querySelector(sel); if (el) el.textContent = t(lang, key); };
   set('#title h1', 'title');
   set('#title .sub', 'subtitle');
   set('#btnStart', 'start');
   set('#btnSetTitle', 'settings');
-  set('#btnMap', 'worldMap');
+  set('#btnMap .world-map-label', 'worldMap');
   set('#btnSet', 'settings');
-  set('#settings .shead b', 'settingsTitle');
+  set('#settings .dialog-header h3', 'settings');
   set('#btnClose', 'close');
   set('#settings [data-tab="video"]', 'tabVideo');
   set('#settings [data-tab="audio"]', 'tabAudio');
@@ -184,12 +218,12 @@ export function applyDOMLanguage(lang) {
   set('#inv [data-invtab="cos"]', 'cosmetics');
   set('#btnShakeBag', 'shakeBag');
   set('#btnShakeStash', 'shakeBag');
-  set('#btnInvClose', 'close');
   set('#sk-lmb .sname', 'skAttack');
   set('#sk-r .sname', 'skFlask');
   set('#sk-bag .sname', 'skBag');
   set('#sk-puzzle .sname', 'skPuzzle');
   set('#sk-recall .sname', 'skRecall');
+  document.querySelectorAll('[data-i18n-label]').forEach(el => el.setAttribute('aria-label', t(lang, el.dataset.i18nLabel)));
   document.querySelectorAll('[data-i18n]').forEach(el => {
     el.textContent = t(lang, el.dataset.i18n);
   });
