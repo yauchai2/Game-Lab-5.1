@@ -658,7 +658,7 @@ export function tickField(g, dt) {
       const list = Array.isArray(g.meta.p.unlockedCps[g.field]) ? g.meta.p.unlockedCps[g.field] : [0];
       if (!list.includes(cp.idx)) { list.push(cp.idx); g.meta.p.unlockedCps[g.field] = list; }
       markLanternLit(g, g.field, cp.idx); g.meta.save();
-      g.audio?.sfx?.('win');
+      g.audio?.sfx?.('lanternLit');
       g.fx?.burst?.(cp.x, cp.y + 1.5, cp.z, 20, { c: [0x38d0ff, 0xffffff, 0x9cf2ff], s: 0.14, speed: 5, up: 4, life: 0.65 });
       g.ui?.toast?.(`🔵 已解鎖傳送檢查點：${cp.name}`, '#6ae8ff');
     }

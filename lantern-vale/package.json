@@ -5,11 +5,13 @@
   "main": "index.js",
   "scripts": {
     "build": "node build.mjs",
-    "test": "node tests/save_migration.cjs && node tests/flame_logic.cjs && node tests/logic_verify.cjs && node tests/playtest_review.cjs && node tests/shards.cjs && node tests/playtest_gate.cjs",
+    "test": "node tests/save_migration.cjs && node tests/flame_logic.cjs && node tests/audio_music.cjs && node tests/logic_verify.cjs && node tests/playtest_review.cjs && node tests/shards.cjs && node tests/playtest_gate.cjs",
     "review:once": "node tests/review_watch.cjs --once",
     "review:watch": "node tests/review_watch.cjs --watch",
     "playtest:live": "node scripts/live_playtest.cjs",
-    "test:flame": "node tests/flame_browser.cjs"
+    "test:flame": "node tests/flame_browser.cjs",
+    "test:audio": "node tests/audio_music.cjs",
+    "test:audio:browser": "node tests/audio_browser.cjs"
   },
   "keywords": [],
   "author": "",
