@@ -8,8 +8,9 @@
 - 外網試玩的 HTTPS 通道已另接在 `127.0.0.1:8082` 的隔離服務。入口密碼與目前網址分別從 `server/data/remote-playtest/passcode` 和 `tunnel.log` 讀取。公開入口使用試玩密碼，正式的 8080 及區網的 8081 保持各自服務。已從外網 HTTPS 驗證瀏覽器登入、岔道伏擊開場與兩個 WSS 連線加入同一分流。停止方式見 [跨網路邀請](docs/LIVE_PLAYTEST.md#跨網路邀請)。
 - 接手時 Dev Mode 的新待審紀錄只有遊玩期間的單次 184 ms 慢幀，尚未追到穩定重現條件。
 
-## 2026-11-26 手機防長按選字修復、統一測試入口（`?test`）、簡易密碼 `0000` 與內建 AI 自動打按鈕
+## 2026-11-26 三色極簡戰鬥語彙統一、手機防長按選字、統一測試入口（`?test`）、密碼 `0000` 與內建 AI 自動打
 
+- **三色極簡戰鬥語彙統一（`src/game.js`）**：依手機真人實測回饋，將棘芽射手蓄力環由黃綠（`0x9bd85a`）改為鮮紅（`0xff4d5a`），徹底與金色破綻環（`0xffcf4a`）區分，全遊戲統一為「紅＝即將出招／危險（閃避或打斷）、金＝收招破綻（1.5 倍反打）、青藍＝玩家完美閃避必暴」。
 - **手機長按 UI 防選字與防呼出選單（`src/index.html`、`src/touch.js`、`src/ui.js`）**：補齊 iOS Safari／行動瀏覽器必備的 `-webkit-user-select: none`、`-webkit-touch-callout: none`、`-webkit-tap-highlight-color: transparent`、`-webkit-user-drag: none` 與 `touch-action` 設定（同時保留 `input`／`textarea` 正常輸入選字），並於搖桿、普攻、跳躍滑翔、翻滾與快捷技能槽攔截非被動 `touchstart`、`selectstart` 與 `contextmenu`，長按按鈕不再觸發系統選字放大鏡或複製選單。
 - **內建 AI 自動打（`src/ambush_trial.js`、`src/test_hub.js`）**：於岔道伏擊面板與 `/?test` 統一測試入口頁新增「🤖 AI 自動打」按鈕（支援網址 `?bot=1` 進場自動開打、戰鬥中隨時切換接手）；內建 Bot 會自動側閃／翻滾躲狂豬衝鋒與荊棘彈、優先反打金色破綻與打斷棘芽蓄力、自動施放第 1 格技能（如 `❄ 霜緩`／`♥ 汲血`）與喝藥。
 - **試玩密碼改為 `0000`（`server/playtest_gate.cjs`、`server/data/remote-playtest/passcode`）**：放寬 `playtest_gate.cjs` 密碼長度門檻為 `4–64` 字元並將本機外網試玩密碼檔改為 `0000`（`0600` 權限）；重啟 `local.lantern-vale.remote-origin` 後即以新密碼生效（不更動既有 Cloudflare Tunnel 網址）。

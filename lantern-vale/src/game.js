@@ -4003,13 +4003,13 @@ export class Game {
         const aimRem = Math.max(0, 1 - e.t / aimDur);
         if (!e.m.aimRing) {
           const ag = new THREE.RingGeometry(0.84, 1.0, 24); ag.rotateX(-Math.PI / 2);
-          e.m.aimRing = new THREE.Mesh(ag, new THREE.MeshBasicMaterial({ color: 0x9bd85a, transparent: true, opacity: 0.75, side: THREE.DoubleSide, depthWrite: false }));
+          e.m.aimRing = new THREE.Mesh(ag, new THREE.MeshBasicMaterial({ color: 0xff4d5a, transparent: true, opacity: 0.84, side: THREE.DoubleSide, depthWrite: false }));
           e.m.aimRing.position.y = 0.09; e.m.aimRing.userData.noNormal = true; e.m.aimRing.renderOrder = 3;
           e.m.root.add(e.m.aimRing);
         }
         e.m.aimRing.visible = true;
         e.m.aimRing.scale.setScalar(0.35 + 1.0 * aimRem);
-        e.m.aimRing.material.opacity = 0.35 + 0.5 * (1 - aimRem);
+        e.m.aimRing.material.opacity = 0.42 + 0.48 * (1 - aimRem);
       } else if (e.m.aimRing) {
         e.m.aimRing.visible = false;
       }
