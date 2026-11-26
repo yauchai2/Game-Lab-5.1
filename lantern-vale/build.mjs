@@ -20,6 +20,7 @@ fs.mkdirSync('dist', { recursive: true });
 fs.writeFileSync('dist/index.html', html);
 const fontPath = 'assets/ui/fonts';
 fs.cpSync(`game/${fontPath}`, `dist/${fontPath}`, { recursive: true });
+fs.cpSync('game/assets/ui/logo', 'dist/assets/ui/logo', { recursive: true });
 console.log('built', (html.length / 1024).toFixed(0) + 'KB');
 const fontLicenses = ['OFL.txt', 'LICENSES/ark-pixel/OFL.txt', 'LICENSES/cubic-11/OFL.txt', 'LICENSES/galmuri/LICENSE.txt'];
 const fontNotices = fontLicenses.map(file => fs.readFileSync(`game/${fontPath}/${file}`, 'utf8')).join('\n');
@@ -28,6 +29,8 @@ const art = html.replace(/url\("(assets\/ui\/fonts\/[^"\n]+\.woff2)"\)/g,
   .replace('<style>', () => `<!--\n${fontNotices}\n-->\n<style>`)
   .replace(/<!doctype html>\s*/i, '').replace(/<html[^>]*>\s*/i, '').replace(/<\/?head>\s*/gi, '')
   .replace(/<meta charset[^>]*>\s*/i, '').replace(/<meta name="viewport"[^>]*>\s*/i, '').replace(/<body>\s*/i, '').replace(/<\/body>\s*<\/html>\s*$/i, '');
-fs.writeFileSync('dist/lantern-vale.html', art);
+const artInline = art.replace(/assets\/ui\/logo\/(beaconfall_v3_text_a\.png)/g,
+  (_, f) => `data:image/png;base64,${fs.readFileSync(`game/assets/ui/logo/${f}`).toString('base64')}`);
+fs.writeFileSync('dist/lantern-vale.html', artInline);
 fs.mkdirSync('game', { recursive: true });
 fs.copyFileSync('dist/index.html', 'game/index.html');

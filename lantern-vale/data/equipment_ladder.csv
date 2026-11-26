@@ -1,0 +1,581 @@
+﻿id,name,slot,cls,rank,tier_name,reqLv,mult,kind,source,art,note
+wpn_sword_r01,旅人短劍,weapon,warden,1,旅人,1,1.0,ladder,晨光草原 一般怪／寶箱,existing,
+wpn_bow_r01,旅人獵弓,weapon,ranger,1,旅人,1,1.0,ladder,晨光草原 一般怪／寶箱,existing,
+wpn_staff_r01,旅人短杖,weapon,mystic,1,旅人,1,1.0,ladder,晨光草原 一般怪／寶箱,existing,
+wpn_blades_r01,旅人短刃,weapon,strider,1,旅人,1,1.0,ladder,晨光草原 一般怪／寶箱,existing,
+wpn_bo_r01,旅人竹節棍,weapon,monk,1,旅人,1,1.0,ladder,晨光草原 一般怪／寶箱,existing,
+off_shield_r01,旅人圓盾,offhand,warden,1,旅人,1,1.0,ladder,晨光草原 一般怪／寶箱,existing,
+off_quiver_r01,旅人箭袋,offhand,ranger,1,旅人,1,1.0,ladder,晨光草原 一般怪／寶箱,existing,
+off_tome_r01,旅人咒冊,offhand,mystic,1,旅人,1,1.0,ladder,晨光草原 一般怪／寶箱,existing,
+off_beads_r01,旅人念珠,offhand,monk,1,旅人,1,1.0,ladder,晨光草原 一般怪／寶箱,existing,
+arm_heavy_head_r01,旅人重盔,head,warden,1,旅人,1,1.0,ladder,晨光草原 一般怪／寶箱,existing,
+arm_heavy_body_r01,旅人重鎧,body,warden,1,旅人,1,1.0,ladder,晨光草原 一般怪／寶箱,existing,
+arm_heavy_hands_r01,旅人護手,hands,warden,1,旅人,1,1.0,ladder,晨光草原 一般怪／寶箱,existing,
+arm_heavy_feet_r01,旅人脛甲,feet,warden,1,旅人,1,1.0,ladder,晨光草原 一般怪／寶箱,existing,
+arm_light_head_r01,旅人兜帽,head,"ranger,strider",1,旅人,1,1.0,ladder,晨光草原 一般怪／寶箱,existing,
+arm_light_body_r01,旅人獵裝,body,"ranger,strider",1,旅人,1,1.0,ladder,晨光草原 一般怪／寶箱,existing,
+arm_light_hands_r01,旅人皮手套,hands,"ranger,strider",1,旅人,1,1.0,ladder,晨光草原 一般怪／寶箱,existing,
+arm_light_feet_r01,旅人獵靴,feet,"ranger,strider",1,旅人,1,1.0,ladder,晨光草原 一般怪／寶箱,existing,
+arm_robe_head_r01,旅人髮冠,head,"mystic,monk",1,旅人,1,1.0,ladder,晨光草原 一般怪／寶箱,existing,
+arm_robe_body_r01,旅人長袍,body,"mystic,monk",1,旅人,1,1.0,ladder,晨光草原 一般怪／寶箱,existing,
+arm_robe_hands_r01,旅人護腕,hands,"mystic,monk",1,旅人,1,1.0,ladder,晨光草原 一般怪／寶箱,existing,
+arm_robe_feet_r01,旅人軟履,feet,"mystic,monk",1,旅人,1,1.0,ladder,晨光草原 一般怪／寶箱,existing,
+clk_r01,旅人斗篷,cloak,all,1,旅人,1,1.0,ladder,晨光草原 一般怪／寶箱,existing,
+chm_r01,旅人護符,charm,all,1,旅人,1,1.0,ladder,晨光草原 一般怪／寶箱,existing,
+rlc_r01,旅人聖物,relic,all,1,旅人,1,1.0,ladder,晨光草原 一般怪／寶箱,existing,
+wpn_sword_r02,青藤短劍,weapon,warden,2,青藤,3,1.12,ladder,晨光草原 精英／低語森林 前段,recolor,
+wpn_bow_r02,青藤獵弓,weapon,ranger,2,青藤,3,1.12,ladder,晨光草原 精英／低語森林 前段,recolor,
+wpn_staff_r02,青藤短杖,weapon,mystic,2,青藤,3,1.12,ladder,晨光草原 精英／低語森林 前段,recolor,
+wpn_blades_r02,青藤短刃,weapon,strider,2,青藤,3,1.12,ladder,晨光草原 精英／低語森林 前段,recolor,
+wpn_bo_r02,青藤竹節棍,weapon,monk,2,青藤,3,1.12,ladder,晨光草原 精英／低語森林 前段,recolor,
+off_shield_r02,青藤圓盾,offhand,warden,2,青藤,3,1.12,ladder,晨光草原 精英／低語森林 前段,recolor,
+off_quiver_r02,青藤箭袋,offhand,ranger,2,青藤,3,1.12,ladder,晨光草原 精英／低語森林 前段,recolor,
+off_tome_r02,青藤咒冊,offhand,mystic,2,青藤,3,1.12,ladder,晨光草原 精英／低語森林 前段,recolor,
+off_beads_r02,青藤念珠,offhand,monk,2,青藤,3,1.12,ladder,晨光草原 精英／低語森林 前段,recolor,
+arm_heavy_head_r02,青藤重盔,head,warden,2,青藤,3,1.12,ladder,晨光草原 精英／低語森林 前段,recolor,
+arm_heavy_body_r02,青藤重鎧,body,warden,2,青藤,3,1.12,ladder,晨光草原 精英／低語森林 前段,recolor,
+arm_heavy_hands_r02,青藤護手,hands,warden,2,青藤,3,1.12,ladder,晨光草原 精英／低語森林 前段,recolor,
+arm_heavy_feet_r02,青藤脛甲,feet,warden,2,青藤,3,1.12,ladder,晨光草原 精英／低語森林 前段,recolor,
+arm_light_head_r02,青藤兜帽,head,"ranger,strider",2,青藤,3,1.12,ladder,晨光草原 精英／低語森林 前段,recolor,
+arm_light_body_r02,青藤獵裝,body,"ranger,strider",2,青藤,3,1.12,ladder,晨光草原 精英／低語森林 前段,recolor,
+arm_light_hands_r02,青藤皮手套,hands,"ranger,strider",2,青藤,3,1.12,ladder,晨光草原 精英／低語森林 前段,recolor,
+arm_light_feet_r02,青藤獵靴,feet,"ranger,strider",2,青藤,3,1.12,ladder,晨光草原 精英／低語森林 前段,recolor,
+arm_robe_head_r02,青藤髮冠,head,"mystic,monk",2,青藤,3,1.12,ladder,晨光草原 精英／低語森林 前段,recolor,
+arm_robe_body_r02,青藤長袍,body,"mystic,monk",2,青藤,3,1.12,ladder,晨光草原 精英／低語森林 前段,recolor,
+arm_robe_hands_r02,青藤護腕,hands,"mystic,monk",2,青藤,3,1.12,ladder,晨光草原 精英／低語森林 前段,recolor,
+arm_robe_feet_r02,青藤軟履,feet,"mystic,monk",2,青藤,3,1.12,ladder,晨光草原 精英／低語森林 前段,recolor,
+clk_r02,青藤斗篷,cloak,all,2,青藤,3,1.12,ladder,晨光草原 精英／低語森林 前段,recolor,
+chm_r02,青藤護符,charm,all,2,青藤,3,1.12,ladder,晨光草原 精英／低語森林 前段,recolor,
+rlc_r02,青藤聖物,relic,all,2,青藤,3,1.12,ladder,晨光草原 精英／低語森林 前段,recolor,
+wpn_sword_r03,精鋼短劍,weapon,warden,3,精鋼,5,1.25,ladder,低語森林／霧潮沼澤 前段,existing,
+wpn_bow_r03,精鋼獵弓,weapon,ranger,3,精鋼,5,1.25,ladder,低語森林／霧潮沼澤 前段,existing,
+wpn_staff_r03,精鋼短杖,weapon,mystic,3,精鋼,5,1.25,ladder,低語森林／霧潮沼澤 前段,existing,
+wpn_blades_r03,精鋼短刃,weapon,strider,3,精鋼,5,1.25,ladder,低語森林／霧潮沼澤 前段,existing,
+wpn_bo_r03,精鋼竹節棍,weapon,monk,3,精鋼,5,1.25,ladder,低語森林／霧潮沼澤 前段,existing,
+off_shield_r03,精鋼圓盾,offhand,warden,3,精鋼,5,1.25,ladder,低語森林／霧潮沼澤 前段,existing,
+off_quiver_r03,精鋼箭袋,offhand,ranger,3,精鋼,5,1.25,ladder,低語森林／霧潮沼澤 前段,existing,
+off_tome_r03,精鋼咒冊,offhand,mystic,3,精鋼,5,1.25,ladder,低語森林／霧潮沼澤 前段,existing,
+off_beads_r03,精鋼念珠,offhand,monk,3,精鋼,5,1.25,ladder,低語森林／霧潮沼澤 前段,existing,
+arm_heavy_head_r03,精鋼重盔,head,warden,3,精鋼,5,1.25,ladder,低語森林／霧潮沼澤 前段,existing,
+arm_heavy_body_r03,精鋼重鎧,body,warden,3,精鋼,5,1.25,ladder,低語森林／霧潮沼澤 前段,existing,
+arm_heavy_hands_r03,精鋼護手,hands,warden,3,精鋼,5,1.25,ladder,低語森林／霧潮沼澤 前段,existing,
+arm_heavy_feet_r03,精鋼脛甲,feet,warden,3,精鋼,5,1.25,ladder,低語森林／霧潮沼澤 前段,existing,
+arm_light_head_r03,精鋼兜帽,head,"ranger,strider",3,精鋼,5,1.25,ladder,低語森林／霧潮沼澤 前段,existing,
+arm_light_body_r03,精鋼獵裝,body,"ranger,strider",3,精鋼,5,1.25,ladder,低語森林／霧潮沼澤 前段,existing,
+arm_light_hands_r03,精鋼皮手套,hands,"ranger,strider",3,精鋼,5,1.25,ladder,低語森林／霧潮沼澤 前段,existing,
+arm_light_feet_r03,精鋼獵靴,feet,"ranger,strider",3,精鋼,5,1.25,ladder,低語森林／霧潮沼澤 前段,existing,
+arm_robe_head_r03,精鋼髮冠,head,"mystic,monk",3,精鋼,5,1.25,ladder,低語森林／霧潮沼澤 前段,existing,
+arm_robe_body_r03,精鋼長袍,body,"mystic,monk",3,精鋼,5,1.25,ladder,低語森林／霧潮沼澤 前段,existing,
+arm_robe_hands_r03,精鋼護腕,hands,"mystic,monk",3,精鋼,5,1.25,ladder,低語森林／霧潮沼澤 前段,existing,
+arm_robe_feet_r03,精鋼軟履,feet,"mystic,monk",3,精鋼,5,1.25,ladder,低語森林／霧潮沼澤 前段,existing,
+clk_r03,精鋼斗篷,cloak,all,3,精鋼,5,1.25,ladder,低語森林／霧潮沼澤 前段,existing,
+chm_r03,精鋼護符,charm,all,3,精鋼,5,1.25,ladder,低語森林／霧潮沼澤 前段,existing,
+rlc_r03,精鋼聖物,relic,all,3,精鋼,5,1.25,ladder,低語森林／霧潮沼澤 前段,existing,
+wpn_sword_r04,銅燈短劍,weapon,warden,4,銅燈,8,1.4,ladder,霧潮沼澤／浮空遺跡,recolor,
+wpn_bow_r04,銅燈獵弓,weapon,ranger,4,銅燈,8,1.4,ladder,霧潮沼澤／浮空遺跡,recolor,
+wpn_staff_r04,銅燈短杖,weapon,mystic,4,銅燈,8,1.4,ladder,霧潮沼澤／浮空遺跡,recolor,
+wpn_blades_r04,銅燈短刃,weapon,strider,4,銅燈,8,1.4,ladder,霧潮沼澤／浮空遺跡,recolor,
+wpn_bo_r04,銅燈竹節棍,weapon,monk,4,銅燈,8,1.4,ladder,霧潮沼澤／浮空遺跡,recolor,
+off_shield_r04,銅燈圓盾,offhand,warden,4,銅燈,8,1.4,ladder,霧潮沼澤／浮空遺跡,recolor,
+off_quiver_r04,銅燈箭袋,offhand,ranger,4,銅燈,8,1.4,ladder,霧潮沼澤／浮空遺跡,recolor,
+off_tome_r04,銅燈咒冊,offhand,mystic,4,銅燈,8,1.4,ladder,霧潮沼澤／浮空遺跡,recolor,
+off_beads_r04,銅燈念珠,offhand,monk,4,銅燈,8,1.4,ladder,霧潮沼澤／浮空遺跡,recolor,
+arm_heavy_head_r04,銅燈重盔,head,warden,4,銅燈,8,1.4,ladder,霧潮沼澤／浮空遺跡,recolor,
+arm_heavy_body_r04,銅燈重鎧,body,warden,4,銅燈,8,1.4,ladder,霧潮沼澤／浮空遺跡,recolor,
+arm_heavy_hands_r04,銅燈護手,hands,warden,4,銅燈,8,1.4,ladder,霧潮沼澤／浮空遺跡,recolor,
+arm_heavy_feet_r04,銅燈脛甲,feet,warden,4,銅燈,8,1.4,ladder,霧潮沼澤／浮空遺跡,recolor,
+arm_light_head_r04,銅燈兜帽,head,"ranger,strider",4,銅燈,8,1.4,ladder,霧潮沼澤／浮空遺跡,recolor,
+arm_light_body_r04,銅燈獵裝,body,"ranger,strider",4,銅燈,8,1.4,ladder,霧潮沼澤／浮空遺跡,recolor,
+arm_light_hands_r04,銅燈皮手套,hands,"ranger,strider",4,銅燈,8,1.4,ladder,霧潮沼澤／浮空遺跡,recolor,
+arm_light_feet_r04,銅燈獵靴,feet,"ranger,strider",4,銅燈,8,1.4,ladder,霧潮沼澤／浮空遺跡,recolor,
+arm_robe_head_r04,銅燈髮冠,head,"mystic,monk",4,銅燈,8,1.4,ladder,霧潮沼澤／浮空遺跡,recolor,
+arm_robe_body_r04,銅燈長袍,body,"mystic,monk",4,銅燈,8,1.4,ladder,霧潮沼澤／浮空遺跡,recolor,
+arm_robe_hands_r04,銅燈護腕,hands,"mystic,monk",4,銅燈,8,1.4,ladder,霧潮沼澤／浮空遺跡,recolor,
+arm_robe_feet_r04,銅燈軟履,feet,"mystic,monk",4,銅燈,8,1.4,ladder,霧潮沼澤／浮空遺跡,recolor,
+clk_r04,銅燈斗篷,cloak,all,4,銅燈,8,1.4,ladder,霧潮沼澤／浮空遺跡,recolor,
+chm_r04,銅燈護符,charm,all,4,銅燈,8,1.4,ladder,霧潮沼澤／浮空遺跡,recolor,
+rlc_r04,銅燈聖物,relic,all,4,銅燈,8,1.4,ladder,霧潮沼澤／浮空遺跡,recolor,
+wpn_sword_r05,星銀長劍,weapon,warden,5,星銀,10,1.55,ladder,霧潮沼澤 後段／雪原／櫻花,existing,
+wpn_bow_r05,星銀長弓,weapon,ranger,5,星銀,10,1.55,ladder,霧潮沼澤 後段／雪原／櫻花,existing,
+wpn_staff_r05,星銀手杖,weapon,mystic,5,星銀,10,1.55,ladder,霧潮沼澤 後段／雪原／櫻花,existing,
+wpn_blades_r05,星銀雙匕,weapon,strider,5,星銀,10,1.55,ladder,霧潮沼澤 後段／雪原／櫻花,existing,
+wpn_bo_r05,星銀鐵箍棍,weapon,monk,5,星銀,10,1.55,ladder,霧潮沼澤 後段／雪原／櫻花,existing,
+off_shield_r05,星銀六角盾,offhand,warden,5,星銀,10,1.55,ladder,霧潮沼澤 後段／雪原／櫻花,existing,
+off_quiver_r05,星銀箭筒,offhand,ranger,5,星銀,10,1.55,ladder,霧潮沼澤 後段／雪原／櫻花,existing,
+off_tome_r05,星銀咒典,offhand,mystic,5,星銀,10,1.55,ladder,霧潮沼澤 後段／雪原／櫻花,existing,
+off_beads_r05,星銀珠串,offhand,monk,5,星銀,10,1.55,ladder,霧潮沼澤 後段／雪原／櫻花,existing,
+arm_heavy_head_r05,星銀重盔,head,warden,5,星銀,10,1.55,ladder,霧潮沼澤 後段／雪原／櫻花,existing,
+arm_heavy_body_r05,星銀重鎧,body,warden,5,星銀,10,1.55,ladder,霧潮沼澤 後段／雪原／櫻花,existing,
+arm_heavy_hands_r05,星銀護手,hands,warden,5,星銀,10,1.55,ladder,霧潮沼澤 後段／雪原／櫻花,existing,
+arm_heavy_feet_r05,星銀脛甲,feet,warden,5,星銀,10,1.55,ladder,霧潮沼澤 後段／雪原／櫻花,existing,
+arm_light_head_r05,星銀兜帽,head,"ranger,strider",5,星銀,10,1.55,ladder,霧潮沼澤 後段／雪原／櫻花,existing,
+arm_light_body_r05,星銀獵裝,body,"ranger,strider",5,星銀,10,1.55,ladder,霧潮沼澤 後段／雪原／櫻花,existing,
+arm_light_hands_r05,星銀皮手套,hands,"ranger,strider",5,星銀,10,1.55,ladder,霧潮沼澤 後段／雪原／櫻花,existing,
+arm_light_feet_r05,星銀獵靴,feet,"ranger,strider",5,星銀,10,1.55,ladder,霧潮沼澤 後段／雪原／櫻花,existing,
+arm_robe_head_r05,星銀髮冠,head,"mystic,monk",5,星銀,10,1.55,ladder,霧潮沼澤 後段／雪原／櫻花,existing,
+arm_robe_body_r05,星銀長袍,body,"mystic,monk",5,星銀,10,1.55,ladder,霧潮沼澤 後段／雪原／櫻花,existing,
+arm_robe_hands_r05,星銀護腕,hands,"mystic,monk",5,星銀,10,1.55,ladder,霧潮沼澤 後段／雪原／櫻花,existing,
+arm_robe_feet_r05,星銀軟履,feet,"mystic,monk",5,星銀,10,1.55,ladder,霧潮沼澤 後段／雪原／櫻花,existing,
+clk_r05,星銀披風,cloak,all,5,星銀,10,1.55,ladder,霧潮沼澤 後段／雪原／櫻花,existing,
+chm_r05,星銀墜飾,charm,all,5,星銀,10,1.55,ladder,霧潮沼澤 後段／雪原／櫻花,existing,
+rlc_r05,星銀信物,relic,all,5,星銀,10,1.55,ladder,霧潮沼澤 後段／雪原／櫻花,existing,
+wpn_sword_r06,琉璃長劍,weapon,warden,6,琉璃,13,1.72,ladder,雪原／櫻花水都／叢林,recolor,
+wpn_bow_r06,琉璃長弓,weapon,ranger,6,琉璃,13,1.72,ladder,雪原／櫻花水都／叢林,recolor,
+wpn_staff_r06,琉璃手杖,weapon,mystic,6,琉璃,13,1.72,ladder,雪原／櫻花水都／叢林,recolor,
+wpn_blades_r06,琉璃雙匕,weapon,strider,6,琉璃,13,1.72,ladder,雪原／櫻花水都／叢林,recolor,
+wpn_bo_r06,琉璃鐵箍棍,weapon,monk,6,琉璃,13,1.72,ladder,雪原／櫻花水都／叢林,recolor,
+off_shield_r06,琉璃六角盾,offhand,warden,6,琉璃,13,1.72,ladder,雪原／櫻花水都／叢林,recolor,
+off_quiver_r06,琉璃箭筒,offhand,ranger,6,琉璃,13,1.72,ladder,雪原／櫻花水都／叢林,recolor,
+off_tome_r06,琉璃咒典,offhand,mystic,6,琉璃,13,1.72,ladder,雪原／櫻花水都／叢林,recolor,
+off_beads_r06,琉璃珠串,offhand,monk,6,琉璃,13,1.72,ladder,雪原／櫻花水都／叢林,recolor,
+arm_heavy_head_r06,琉璃重盔,head,warden,6,琉璃,13,1.72,ladder,雪原／櫻花水都／叢林,recolor,
+arm_heavy_body_r06,琉璃重鎧,body,warden,6,琉璃,13,1.72,ladder,雪原／櫻花水都／叢林,recolor,
+arm_heavy_hands_r06,琉璃護手,hands,warden,6,琉璃,13,1.72,ladder,雪原／櫻花水都／叢林,recolor,
+arm_heavy_feet_r06,琉璃脛甲,feet,warden,6,琉璃,13,1.72,ladder,雪原／櫻花水都／叢林,recolor,
+arm_light_head_r06,琉璃兜帽,head,"ranger,strider",6,琉璃,13,1.72,ladder,雪原／櫻花水都／叢林,recolor,
+arm_light_body_r06,琉璃獵裝,body,"ranger,strider",6,琉璃,13,1.72,ladder,雪原／櫻花水都／叢林,recolor,
+arm_light_hands_r06,琉璃皮手套,hands,"ranger,strider",6,琉璃,13,1.72,ladder,雪原／櫻花水都／叢林,recolor,
+arm_light_feet_r06,琉璃獵靴,feet,"ranger,strider",6,琉璃,13,1.72,ladder,雪原／櫻花水都／叢林,recolor,
+arm_robe_head_r06,琉璃髮冠,head,"mystic,monk",6,琉璃,13,1.72,ladder,雪原／櫻花水都／叢林,recolor,
+arm_robe_body_r06,琉璃長袍,body,"mystic,monk",6,琉璃,13,1.72,ladder,雪原／櫻花水都／叢林,recolor,
+arm_robe_hands_r06,琉璃護腕,hands,"mystic,monk",6,琉璃,13,1.72,ladder,雪原／櫻花水都／叢林,recolor,
+arm_robe_feet_r06,琉璃軟履,feet,"mystic,monk",6,琉璃,13,1.72,ladder,雪原／櫻花水都／叢林,recolor,
+clk_r06,琉璃披風,cloak,all,6,琉璃,13,1.72,ladder,雪原／櫻花水都／叢林,recolor,
+chm_r06,琉璃墜飾,charm,all,6,琉璃,13,1.72,ladder,雪原／櫻花水都／叢林,recolor,
+rlc_r06,琉璃信物,relic,all,6,琉璃,13,1.72,ladder,雪原／櫻花水都／叢林,recolor,
+wpn_sword_r07,秘光長劍,weapon,warden,7,秘光,16,1.9,ladder,火山前／珊瑚／藤蔓神廟,existing,
+wpn_bow_r07,秘光長弓,weapon,ranger,7,秘光,16,1.9,ladder,火山前／珊瑚／藤蔓神廟,existing,
+wpn_staff_r07,秘光手杖,weapon,mystic,7,秘光,16,1.9,ladder,火山前／珊瑚／藤蔓神廟,existing,
+wpn_blades_r07,秘光雙匕,weapon,strider,7,秘光,16,1.9,ladder,火山前／珊瑚／藤蔓神廟,existing,
+wpn_bo_r07,秘光鐵箍棍,weapon,monk,7,秘光,16,1.9,ladder,火山前／珊瑚／藤蔓神廟,existing,
+off_shield_r07,秘光六角盾,offhand,warden,7,秘光,16,1.9,ladder,火山前／珊瑚／藤蔓神廟,existing,
+off_quiver_r07,秘光箭筒,offhand,ranger,7,秘光,16,1.9,ladder,火山前／珊瑚／藤蔓神廟,existing,
+off_tome_r07,秘光咒典,offhand,mystic,7,秘光,16,1.9,ladder,火山前／珊瑚／藤蔓神廟,existing,
+off_beads_r07,秘光珠串,offhand,monk,7,秘光,16,1.9,ladder,火山前／珊瑚／藤蔓神廟,existing,
+arm_heavy_head_r07,秘光重盔,head,warden,7,秘光,16,1.9,ladder,火山前／珊瑚／藤蔓神廟,existing,
+arm_heavy_body_r07,秘光重鎧,body,warden,7,秘光,16,1.9,ladder,火山前／珊瑚／藤蔓神廟,existing,
+arm_heavy_hands_r07,秘光護手,hands,warden,7,秘光,16,1.9,ladder,火山前／珊瑚／藤蔓神廟,existing,
+arm_heavy_feet_r07,秘光脛甲,feet,warden,7,秘光,16,1.9,ladder,火山前／珊瑚／藤蔓神廟,existing,
+arm_light_head_r07,秘光兜帽,head,"ranger,strider",7,秘光,16,1.9,ladder,火山前／珊瑚／藤蔓神廟,existing,
+arm_light_body_r07,秘光獵裝,body,"ranger,strider",7,秘光,16,1.9,ladder,火山前／珊瑚／藤蔓神廟,existing,
+arm_light_hands_r07,秘光皮手套,hands,"ranger,strider",7,秘光,16,1.9,ladder,火山前／珊瑚／藤蔓神廟,existing,
+arm_light_feet_r07,秘光獵靴,feet,"ranger,strider",7,秘光,16,1.9,ladder,火山前／珊瑚／藤蔓神廟,existing,
+arm_robe_head_r07,秘光髮冠,head,"mystic,monk",7,秘光,16,1.9,ladder,火山前／珊瑚／藤蔓神廟,existing,
+arm_robe_body_r07,秘光長袍,body,"mystic,monk",7,秘光,16,1.9,ladder,火山前／珊瑚／藤蔓神廟,existing,
+arm_robe_hands_r07,秘光護腕,hands,"mystic,monk",7,秘光,16,1.9,ladder,火山前／珊瑚／藤蔓神廟,existing,
+arm_robe_feet_r07,秘光軟履,feet,"mystic,monk",7,秘光,16,1.9,ladder,火山前／珊瑚／藤蔓神廟,existing,
+clk_r07,秘光披風,cloak,all,7,秘光,16,1.9,ladder,火山前／珊瑚／藤蔓神廟,existing,
+chm_r07,秘光墜飾,charm,all,7,秘光,16,1.9,ladder,火山前／珊瑚／藤蔓神廟,existing,
+rlc_r07,秘光信物,relic,all,7,秘光,16,1.9,ladder,火山前／珊瑚／藤蔓神廟,existing,
+wpn_sword_r08,赤焰長劍,weapon,warden,8,赤焰,19,2.1,ladder,火山／風沙原／珊瑚,recolor,
+wpn_bow_r08,赤焰長弓,weapon,ranger,8,赤焰,19,2.1,ladder,火山／風沙原／珊瑚,recolor,
+wpn_staff_r08,赤焰手杖,weapon,mystic,8,赤焰,19,2.1,ladder,火山／風沙原／珊瑚,recolor,
+wpn_blades_r08,赤焰雙匕,weapon,strider,8,赤焰,19,2.1,ladder,火山／風沙原／珊瑚,recolor,
+wpn_bo_r08,赤焰鐵箍棍,weapon,monk,8,赤焰,19,2.1,ladder,火山／風沙原／珊瑚,recolor,
+off_shield_r08,赤焰六角盾,offhand,warden,8,赤焰,19,2.1,ladder,火山／風沙原／珊瑚,recolor,
+off_quiver_r08,赤焰箭筒,offhand,ranger,8,赤焰,19,2.1,ladder,火山／風沙原／珊瑚,recolor,
+off_tome_r08,赤焰咒典,offhand,mystic,8,赤焰,19,2.1,ladder,火山／風沙原／珊瑚,recolor,
+off_beads_r08,赤焰珠串,offhand,monk,8,赤焰,19,2.1,ladder,火山／風沙原／珊瑚,recolor,
+arm_heavy_head_r08,赤焰重盔,head,warden,8,赤焰,19,2.1,ladder,火山／風沙原／珊瑚,recolor,
+arm_heavy_body_r08,赤焰重鎧,body,warden,8,赤焰,19,2.1,ladder,火山／風沙原／珊瑚,recolor,
+arm_heavy_hands_r08,赤焰護手,hands,warden,8,赤焰,19,2.1,ladder,火山／風沙原／珊瑚,recolor,
+arm_heavy_feet_r08,赤焰脛甲,feet,warden,8,赤焰,19,2.1,ladder,火山／風沙原／珊瑚,recolor,
+arm_light_head_r08,赤焰兜帽,head,"ranger,strider",8,赤焰,19,2.1,ladder,火山／風沙原／珊瑚,recolor,
+arm_light_body_r08,赤焰獵裝,body,"ranger,strider",8,赤焰,19,2.1,ladder,火山／風沙原／珊瑚,recolor,
+arm_light_hands_r08,赤焰皮手套,hands,"ranger,strider",8,赤焰,19,2.1,ladder,火山／風沙原／珊瑚,recolor,
+arm_light_feet_r08,赤焰獵靴,feet,"ranger,strider",8,赤焰,19,2.1,ladder,火山／風沙原／珊瑚,recolor,
+arm_robe_head_r08,赤焰髮冠,head,"mystic,monk",8,赤焰,19,2.1,ladder,火山／風沙原／珊瑚,recolor,
+arm_robe_body_r08,赤焰長袍,body,"mystic,monk",8,赤焰,19,2.1,ladder,火山／風沙原／珊瑚,recolor,
+arm_robe_hands_r08,赤焰護腕,hands,"mystic,monk",8,赤焰,19,2.1,ladder,火山／風沙原／珊瑚,recolor,
+arm_robe_feet_r08,赤焰軟履,feet,"mystic,monk",8,赤焰,19,2.1,ladder,火山／風沙原／珊瑚,recolor,
+clk_r08,赤焰披風,cloak,all,8,赤焰,19,2.1,ladder,火山／風沙原／珊瑚,recolor,
+chm_r08,赤焰墜飾,charm,all,8,赤焰,19,2.1,ladder,火山／風沙原／珊瑚,recolor,
+rlc_r08,赤焰信物,relic,all,8,赤焰,19,2.1,ladder,火山／風沙原／珊瑚,recolor,
+wpn_sword_r09,傳世騎士劍,weapon,warden,9,傳世,22,2.3,ladder,蒼穹巨環谷／墓園／古樹林,existing,
+wpn_bow_r09,傳世複合弓,weapon,ranger,9,傳世,22,2.3,ladder,蒼穹巨環谷／墓園／古樹林,existing,
+wpn_staff_r09,傳世長杖,weapon,mystic,9,傳世,22,2.3,ladder,蒼穹巨環谷／墓園／古樹林,existing,
+wpn_blades_r09,傳世雙刃,weapon,strider,9,傳世,22,2.3,ladder,蒼穹巨環谷／墓園／古樹林,existing,
+wpn_bo_r09,傳世錫杖,weapon,monk,9,傳世,22,2.3,ladder,蒼穹巨環谷／墓園／古樹林,existing,
+off_shield_r09,傳世紋章盾,offhand,warden,9,傳世,22,2.3,ladder,蒼穹巨環谷／墓園／古樹林,existing,
+off_quiver_r09,傳世風羽箭筒,offhand,ranger,9,傳世,22,2.3,ladder,蒼穹巨環谷／墓園／古樹林,existing,
+off_tome_r09,傳世星圖冊,offhand,mystic,9,傳世,22,2.3,ladder,蒼穹巨環谷／墓園／古樹林,existing,
+off_beads_r09,傳世金念珠,offhand,monk,9,傳世,22,2.3,ladder,蒼穹巨環谷／墓園／古樹林,existing,
+arm_heavy_head_r09,傳世重盔,head,warden,9,傳世,22,2.3,ladder,蒼穹巨環谷／墓園／古樹林,existing,
+arm_heavy_body_r09,傳世重鎧,body,warden,9,傳世,22,2.3,ladder,蒼穹巨環谷／墓園／古樹林,existing,
+arm_heavy_hands_r09,傳世護手,hands,warden,9,傳世,22,2.3,ladder,蒼穹巨環谷／墓園／古樹林,existing,
+arm_heavy_feet_r09,傳世脛甲,feet,warden,9,傳世,22,2.3,ladder,蒼穹巨環谷／墓園／古樹林,existing,
+arm_light_head_r09,傳世兜帽,head,"ranger,strider",9,傳世,22,2.3,ladder,蒼穹巨環谷／墓園／古樹林,existing,
+arm_light_body_r09,傳世獵裝,body,"ranger,strider",9,傳世,22,2.3,ladder,蒼穹巨環谷／墓園／古樹林,existing,
+arm_light_hands_r09,傳世皮手套,hands,"ranger,strider",9,傳世,22,2.3,ladder,蒼穹巨環谷／墓園／古樹林,existing,
+arm_light_feet_r09,傳世獵靴,feet,"ranger,strider",9,傳世,22,2.3,ladder,蒼穹巨環谷／墓園／古樹林,existing,
+arm_robe_head_r09,傳世髮冠,head,"mystic,monk",9,傳世,22,2.3,ladder,蒼穹巨環谷／墓園／古樹林,existing,
+arm_robe_body_r09,傳世長袍,body,"mystic,monk",9,傳世,22,2.3,ladder,蒼穹巨環谷／墓園／古樹林,existing,
+arm_robe_hands_r09,傳世護腕,hands,"mystic,monk",9,傳世,22,2.3,ladder,蒼穹巨環谷／墓園／古樹林,existing,
+arm_robe_feet_r09,傳世軟履,feet,"mystic,monk",9,傳世,22,2.3,ladder,蒼穹巨環谷／墓園／古樹林,existing,
+clk_r09,傳世大氅,cloak,all,9,傳世,22,2.3,ladder,蒼穹巨環谷／墓園／古樹林,existing,
+chm_r09,傳世吊墜,charm,all,9,傳世,22,2.3,ladder,蒼穹巨環谷／墓園／古樹林,existing,
+rlc_r09,傳世遺物,relic,all,9,傳世,22,2.3,ladder,蒼穹巨環谷／墓園／古樹林,existing,
+wpn_sword_r10,月華騎士劍,weapon,warden,10,月華,25,2.52,ladder,電光都／金字塔／螢光沉淵,recolor,
+wpn_bow_r10,月華複合弓,weapon,ranger,10,月華,25,2.52,ladder,電光都／金字塔／螢光沉淵,recolor,
+wpn_staff_r10,月華長杖,weapon,mystic,10,月華,25,2.52,ladder,電光都／金字塔／螢光沉淵,recolor,
+wpn_blades_r10,月華雙刃,weapon,strider,10,月華,25,2.52,ladder,電光都／金字塔／螢光沉淵,recolor,
+wpn_bo_r10,月華錫杖,weapon,monk,10,月華,25,2.52,ladder,電光都／金字塔／螢光沉淵,recolor,
+off_shield_r10,月華紋章盾,offhand,warden,10,月華,25,2.52,ladder,電光都／金字塔／螢光沉淵,recolor,
+off_quiver_r10,月華風羽箭筒,offhand,ranger,10,月華,25,2.52,ladder,電光都／金字塔／螢光沉淵,recolor,
+off_tome_r10,月華星圖冊,offhand,mystic,10,月華,25,2.52,ladder,電光都／金字塔／螢光沉淵,recolor,
+off_beads_r10,月華金念珠,offhand,monk,10,月華,25,2.52,ladder,電光都／金字塔／螢光沉淵,recolor,
+arm_heavy_head_r10,月華重盔,head,warden,10,月華,25,2.52,ladder,電光都／金字塔／螢光沉淵,recolor,
+arm_heavy_body_r10,月華重鎧,body,warden,10,月華,25,2.52,ladder,電光都／金字塔／螢光沉淵,recolor,
+arm_heavy_hands_r10,月華護手,hands,warden,10,月華,25,2.52,ladder,電光都／金字塔／螢光沉淵,recolor,
+arm_heavy_feet_r10,月華脛甲,feet,warden,10,月華,25,2.52,ladder,電光都／金字塔／螢光沉淵,recolor,
+arm_light_head_r10,月華兜帽,head,"ranger,strider",10,月華,25,2.52,ladder,電光都／金字塔／螢光沉淵,recolor,
+arm_light_body_r10,月華獵裝,body,"ranger,strider",10,月華,25,2.52,ladder,電光都／金字塔／螢光沉淵,recolor,
+arm_light_hands_r10,月華皮手套,hands,"ranger,strider",10,月華,25,2.52,ladder,電光都／金字塔／螢光沉淵,recolor,
+arm_light_feet_r10,月華獵靴,feet,"ranger,strider",10,月華,25,2.52,ladder,電光都／金字塔／螢光沉淵,recolor,
+arm_robe_head_r10,月華髮冠,head,"mystic,monk",10,月華,25,2.52,ladder,電光都／金字塔／螢光沉淵,recolor,
+arm_robe_body_r10,月華長袍,body,"mystic,monk",10,月華,25,2.52,ladder,電光都／金字塔／螢光沉淵,recolor,
+arm_robe_hands_r10,月華護腕,hands,"mystic,monk",10,月華,25,2.52,ladder,電光都／金字塔／螢光沉淵,recolor,
+arm_robe_feet_r10,月華軟履,feet,"mystic,monk",10,月華,25,2.52,ladder,電光都／金字塔／螢光沉淵,recolor,
+clk_r10,月華大氅,cloak,all,10,月華,25,2.52,ladder,電光都／金字塔／螢光沉淵,recolor,
+chm_r10,月華吊墜,charm,all,10,月華,25,2.52,ladder,電光都／金字塔／螢光沉淵,recolor,
+rlc_r10,月華遺物,relic,all,10,月華,25,2.52,ladder,電光都／金字塔／螢光沉淵,recolor,
+wpn_sword_r11,穹頂騎士劍,weapon,warden,11,穹頂,27,2.75,ladder,星際前哨／紅楓／古堡,existing,
+wpn_bow_r11,穹頂複合弓,weapon,ranger,11,穹頂,27,2.75,ladder,星際前哨／紅楓／古堡,existing,
+wpn_staff_r11,穹頂長杖,weapon,mystic,11,穹頂,27,2.75,ladder,星際前哨／紅楓／古堡,existing,
+wpn_blades_r11,穹頂雙刃,weapon,strider,11,穹頂,27,2.75,ladder,星際前哨／紅楓／古堡,existing,
+wpn_bo_r11,穹頂錫杖,weapon,monk,11,穹頂,27,2.75,ladder,星際前哨／紅楓／古堡,existing,
+off_shield_r11,穹頂紋章盾,offhand,warden,11,穹頂,27,2.75,ladder,星際前哨／紅楓／古堡,existing,
+off_quiver_r11,穹頂風羽箭筒,offhand,ranger,11,穹頂,27,2.75,ladder,星際前哨／紅楓／古堡,existing,
+off_tome_r11,穹頂星圖冊,offhand,mystic,11,穹頂,27,2.75,ladder,星際前哨／紅楓／古堡,existing,
+off_beads_r11,穹頂金念珠,offhand,monk,11,穹頂,27,2.75,ladder,星際前哨／紅楓／古堡,existing,
+arm_heavy_head_r11,穹頂重盔,head,warden,11,穹頂,27,2.75,ladder,星際前哨／紅楓／古堡,existing,
+arm_heavy_body_r11,穹頂重鎧,body,warden,11,穹頂,27,2.75,ladder,星際前哨／紅楓／古堡,existing,
+arm_heavy_hands_r11,穹頂護手,hands,warden,11,穹頂,27,2.75,ladder,星際前哨／紅楓／古堡,existing,
+arm_heavy_feet_r11,穹頂脛甲,feet,warden,11,穹頂,27,2.75,ladder,星際前哨／紅楓／古堡,existing,
+arm_light_head_r11,穹頂兜帽,head,"ranger,strider",11,穹頂,27,2.75,ladder,星際前哨／紅楓／古堡,existing,
+arm_light_body_r11,穹頂獵裝,body,"ranger,strider",11,穹頂,27,2.75,ladder,星際前哨／紅楓／古堡,existing,
+arm_light_hands_r11,穹頂皮手套,hands,"ranger,strider",11,穹頂,27,2.75,ladder,星際前哨／紅楓／古堡,existing,
+arm_light_feet_r11,穹頂獵靴,feet,"ranger,strider",11,穹頂,27,2.75,ladder,星際前哨／紅楓／古堡,existing,
+arm_robe_head_r11,穹頂髮冠,head,"mystic,monk",11,穹頂,27,2.75,ladder,星際前哨／紅楓／古堡,existing,
+arm_robe_body_r11,穹頂長袍,body,"mystic,monk",11,穹頂,27,2.75,ladder,星際前哨／紅楓／古堡,existing,
+arm_robe_hands_r11,穹頂護腕,hands,"mystic,monk",11,穹頂,27,2.75,ladder,星際前哨／紅楓／古堡,existing,
+arm_robe_feet_r11,穹頂軟履,feet,"mystic,monk",11,穹頂,27,2.75,ladder,星際前哨／紅楓／古堡,existing,
+clk_r11,穹頂大氅,cloak,all,11,穹頂,27,2.75,ladder,星際前哨／紅楓／古堡,existing,
+chm_r11,穹頂吊墜,charm,all,11,穹頂,27,2.75,ladder,星際前哨／紅楓／古堡,existing,
+rlc_r11,穹頂遺物,relic,all,11,穹頂,27,2.75,ladder,星際前哨／紅楓／古堡,existing,
+wpn_sword_r12,極光騎士劍,weapon,warden,12,極光,30,3.1,ladder,異星蜂巢／所有 Lv28+ 首領,recolor,
+wpn_bow_r12,極光複合弓,weapon,ranger,12,極光,30,3.1,ladder,異星蜂巢／所有 Lv28+ 首領,recolor,
+wpn_staff_r12,極光長杖,weapon,mystic,12,極光,30,3.1,ladder,異星蜂巢／所有 Lv28+ 首領,recolor,
+wpn_blades_r12,極光雙刃,weapon,strider,12,極光,30,3.1,ladder,異星蜂巢／所有 Lv28+ 首領,recolor,
+wpn_bo_r12,極光錫杖,weapon,monk,12,極光,30,3.1,ladder,異星蜂巢／所有 Lv28+ 首領,recolor,
+off_shield_r12,極光紋章盾,offhand,warden,12,極光,30,3.1,ladder,異星蜂巢／所有 Lv28+ 首領,recolor,
+off_quiver_r12,極光風羽箭筒,offhand,ranger,12,極光,30,3.1,ladder,異星蜂巢／所有 Lv28+ 首領,recolor,
+off_tome_r12,極光星圖冊,offhand,mystic,12,極光,30,3.1,ladder,異星蜂巢／所有 Lv28+ 首領,recolor,
+off_beads_r12,極光金念珠,offhand,monk,12,極光,30,3.1,ladder,異星蜂巢／所有 Lv28+ 首領,recolor,
+arm_heavy_head_r12,極光重盔,head,warden,12,極光,30,3.1,ladder,異星蜂巢／所有 Lv28+ 首領,recolor,
+arm_heavy_body_r12,極光重鎧,body,warden,12,極光,30,3.1,ladder,異星蜂巢／所有 Lv28+ 首領,recolor,
+arm_heavy_hands_r12,極光護手,hands,warden,12,極光,30,3.1,ladder,異星蜂巢／所有 Lv28+ 首領,recolor,
+arm_heavy_feet_r12,極光脛甲,feet,warden,12,極光,30,3.1,ladder,異星蜂巢／所有 Lv28+ 首領,recolor,
+arm_light_head_r12,極光兜帽,head,"ranger,strider",12,極光,30,3.1,ladder,異星蜂巢／所有 Lv28+ 首領,recolor,
+arm_light_body_r12,極光獵裝,body,"ranger,strider",12,極光,30,3.1,ladder,異星蜂巢／所有 Lv28+ 首領,recolor,
+arm_light_hands_r12,極光皮手套,hands,"ranger,strider",12,極光,30,3.1,ladder,異星蜂巢／所有 Lv28+ 首領,recolor,
+arm_light_feet_r12,極光獵靴,feet,"ranger,strider",12,極光,30,3.1,ladder,異星蜂巢／所有 Lv28+ 首領,recolor,
+arm_robe_head_r12,極光髮冠,head,"mystic,monk",12,極光,30,3.1,ladder,異星蜂巢／所有 Lv28+ 首領,recolor,
+arm_robe_body_r12,極光長袍,body,"mystic,monk",12,極光,30,3.1,ladder,異星蜂巢／所有 Lv28+ 首領,recolor,
+arm_robe_hands_r12,極光護腕,hands,"mystic,monk",12,極光,30,3.1,ladder,異星蜂巢／所有 Lv28+ 首領,recolor,
+arm_robe_feet_r12,極光軟履,feet,"mystic,monk",12,極光,30,3.1,ladder,異星蜂巢／所有 Lv28+ 首領,recolor,
+clk_r12,極光大氅,cloak,all,12,極光,30,3.1,ladder,異星蜂巢／所有 Lv28+ 首領,recolor,
+chm_r12,極光吊墜,charm,all,12,極光,30,3.1,ladder,異星蜂巢／所有 Lv28+ 首領,recolor,
+rlc_r12,極光遺物,relic,all,12,極光,30,3.1,ladder,異星蜂巢／所有 Lv28+ 首領,recolor,
+wpn_sword_r13,星燈Ⅰ聖劍,weapon,warden,13,星燈Ⅰ,30,3.5,ladder,終局異界 Atlas T1–4／星穹塔 1–20 層,recolor,
+wpn_bow_r13,星燈Ⅰ星羽弓,weapon,ranger,13,星燈Ⅰ,30,3.5,ladder,終局異界 Atlas T1–4／星穹塔 1–20 層,recolor,
+wpn_staff_r13,星燈Ⅰ法杖,weapon,mystic,13,星燈Ⅰ,30,3.5,ladder,終局異界 Atlas T1–4／星穹塔 1–20 層,recolor,
+wpn_blades_r13,星燈Ⅰ影刃,weapon,strider,13,星燈Ⅰ,30,3.5,ladder,終局異界 Atlas T1–4／星穹塔 1–20 層,recolor,
+wpn_bo_r13,星燈Ⅰ禪杖,weapon,monk,13,星燈Ⅰ,30,3.5,ladder,終局異界 Atlas T1–4／星穹塔 1–20 層,recolor,
+off_shield_r13,星燈Ⅰ塔盾,offhand,warden,13,星燈Ⅰ,30,3.5,ladder,終局異界 Atlas T1–4／星穹塔 1–20 層,recolor,
+off_quiver_r13,星燈Ⅰ流星箭筒,offhand,ranger,13,星燈Ⅰ,30,3.5,ladder,終局異界 Atlas T1–4／星穹塔 1–20 層,recolor,
+off_tome_r13,星燈Ⅰ水晶球,offhand,mystic,13,星燈Ⅰ,30,3.5,ladder,終局異界 Atlas T1–4／星穹塔 1–20 層,recolor,
+off_beads_r13,星燈Ⅰ天珠串,offhand,monk,13,星燈Ⅰ,30,3.5,ladder,終局異界 Atlas T1–4／星穹塔 1–20 層,recolor,
+arm_heavy_head_r13,星燈Ⅰ重盔,head,warden,13,星燈Ⅰ,30,3.5,ladder,終局異界 Atlas T1–4／星穹塔 1–20 層,recolor,
+arm_heavy_body_r13,星燈Ⅰ重鎧,body,warden,13,星燈Ⅰ,30,3.5,ladder,終局異界 Atlas T1–4／星穹塔 1–20 層,recolor,
+arm_heavy_hands_r13,星燈Ⅰ護手,hands,warden,13,星燈Ⅰ,30,3.5,ladder,終局異界 Atlas T1–4／星穹塔 1–20 層,recolor,
+arm_heavy_feet_r13,星燈Ⅰ脛甲,feet,warden,13,星燈Ⅰ,30,3.5,ladder,終局異界 Atlas T1–4／星穹塔 1–20 層,recolor,
+arm_light_head_r13,星燈Ⅰ兜帽,head,"ranger,strider",13,星燈Ⅰ,30,3.5,ladder,終局異界 Atlas T1–4／星穹塔 1–20 層,recolor,
+arm_light_body_r13,星燈Ⅰ獵裝,body,"ranger,strider",13,星燈Ⅰ,30,3.5,ladder,終局異界 Atlas T1–4／星穹塔 1–20 層,recolor,
+arm_light_hands_r13,星燈Ⅰ皮手套,hands,"ranger,strider",13,星燈Ⅰ,30,3.5,ladder,終局異界 Atlas T1–4／星穹塔 1–20 層,recolor,
+arm_light_feet_r13,星燈Ⅰ獵靴,feet,"ranger,strider",13,星燈Ⅰ,30,3.5,ladder,終局異界 Atlas T1–4／星穹塔 1–20 層,recolor,
+arm_robe_head_r13,星燈Ⅰ髮冠,head,"mystic,monk",13,星燈Ⅰ,30,3.5,ladder,終局異界 Atlas T1–4／星穹塔 1–20 層,recolor,
+arm_robe_body_r13,星燈Ⅰ長袍,body,"mystic,monk",13,星燈Ⅰ,30,3.5,ladder,終局異界 Atlas T1–4／星穹塔 1–20 層,recolor,
+arm_robe_hands_r13,星燈Ⅰ護腕,hands,"mystic,monk",13,星燈Ⅰ,30,3.5,ladder,終局異界 Atlas T1–4／星穹塔 1–20 層,recolor,
+arm_robe_feet_r13,星燈Ⅰ軟履,feet,"mystic,monk",13,星燈Ⅰ,30,3.5,ladder,終局異界 Atlas T1–4／星穹塔 1–20 層,recolor,
+clk_r13,星燈Ⅰ披風,cloak,all,13,星燈Ⅰ,30,3.5,ladder,終局異界 Atlas T1–4／星穹塔 1–20 層,recolor,
+chm_r13,星燈Ⅰ護符,charm,all,13,星燈Ⅰ,30,3.5,ladder,終局異界 Atlas T1–4／星穹塔 1–20 層,recolor,
+rlc_r13,星燈Ⅰ聖物,relic,all,13,星燈Ⅰ,30,3.5,ladder,終局異界 Atlas T1–4／星穹塔 1–20 層,recolor,
+wpn_sword_r14,星燈Ⅱ聖劍,weapon,warden,14,星燈Ⅱ,30,4.0,ladder,Atlas T5–8／星穹塔 21–50 層,recolor,
+wpn_bow_r14,星燈Ⅱ星羽弓,weapon,ranger,14,星燈Ⅱ,30,4.0,ladder,Atlas T5–8／星穹塔 21–50 層,recolor,
+wpn_staff_r14,星燈Ⅱ法杖,weapon,mystic,14,星燈Ⅱ,30,4.0,ladder,Atlas T5–8／星穹塔 21–50 層,recolor,
+wpn_blades_r14,星燈Ⅱ影刃,weapon,strider,14,星燈Ⅱ,30,4.0,ladder,Atlas T5–8／星穹塔 21–50 層,recolor,
+wpn_bo_r14,星燈Ⅱ禪杖,weapon,monk,14,星燈Ⅱ,30,4.0,ladder,Atlas T5–8／星穹塔 21–50 層,recolor,
+off_shield_r14,星燈Ⅱ塔盾,offhand,warden,14,星燈Ⅱ,30,4.0,ladder,Atlas T5–8／星穹塔 21–50 層,recolor,
+off_quiver_r14,星燈Ⅱ流星箭筒,offhand,ranger,14,星燈Ⅱ,30,4.0,ladder,Atlas T5–8／星穹塔 21–50 層,recolor,
+off_tome_r14,星燈Ⅱ水晶球,offhand,mystic,14,星燈Ⅱ,30,4.0,ladder,Atlas T5–8／星穹塔 21–50 層,recolor,
+off_beads_r14,星燈Ⅱ天珠串,offhand,monk,14,星燈Ⅱ,30,4.0,ladder,Atlas T5–8／星穹塔 21–50 層,recolor,
+arm_heavy_head_r14,星燈Ⅱ重盔,head,warden,14,星燈Ⅱ,30,4.0,ladder,Atlas T5–8／星穹塔 21–50 層,recolor,
+arm_heavy_body_r14,星燈Ⅱ重鎧,body,warden,14,星燈Ⅱ,30,4.0,ladder,Atlas T5–8／星穹塔 21–50 層,recolor,
+arm_heavy_hands_r14,星燈Ⅱ護手,hands,warden,14,星燈Ⅱ,30,4.0,ladder,Atlas T5–8／星穹塔 21–50 層,recolor,
+arm_heavy_feet_r14,星燈Ⅱ脛甲,feet,warden,14,星燈Ⅱ,30,4.0,ladder,Atlas T5–8／星穹塔 21–50 層,recolor,
+arm_light_head_r14,星燈Ⅱ兜帽,head,"ranger,strider",14,星燈Ⅱ,30,4.0,ladder,Atlas T5–8／星穹塔 21–50 層,recolor,
+arm_light_body_r14,星燈Ⅱ獵裝,body,"ranger,strider",14,星燈Ⅱ,30,4.0,ladder,Atlas T5–8／星穹塔 21–50 層,recolor,
+arm_light_hands_r14,星燈Ⅱ皮手套,hands,"ranger,strider",14,星燈Ⅱ,30,4.0,ladder,Atlas T5–8／星穹塔 21–50 層,recolor,
+arm_light_feet_r14,星燈Ⅱ獵靴,feet,"ranger,strider",14,星燈Ⅱ,30,4.0,ladder,Atlas T5–8／星穹塔 21–50 層,recolor,
+arm_robe_head_r14,星燈Ⅱ髮冠,head,"mystic,monk",14,星燈Ⅱ,30,4.0,ladder,Atlas T5–8／星穹塔 21–50 層,recolor,
+arm_robe_body_r14,星燈Ⅱ長袍,body,"mystic,monk",14,星燈Ⅱ,30,4.0,ladder,Atlas T5–8／星穹塔 21–50 層,recolor,
+arm_robe_hands_r14,星燈Ⅱ護腕,hands,"mystic,monk",14,星燈Ⅱ,30,4.0,ladder,Atlas T5–8／星穹塔 21–50 層,recolor,
+arm_robe_feet_r14,星燈Ⅱ軟履,feet,"mystic,monk",14,星燈Ⅱ,30,4.0,ladder,Atlas T5–8／星穹塔 21–50 層,recolor,
+clk_r14,星燈Ⅱ披風,cloak,all,14,星燈Ⅱ,30,4.0,ladder,Atlas T5–8／星穹塔 21–50 層,recolor,
+chm_r14,星燈Ⅱ護符,charm,all,14,星燈Ⅱ,30,4.0,ladder,Atlas T5–8／星穹塔 21–50 層,recolor,
+rlc_r14,星燈Ⅱ聖物,relic,all,14,星燈Ⅱ,30,4.0,ladder,Atlas T5–8／星穹塔 21–50 層,recolor,
+wpn_sword_r15,星燈Ⅲ聖劍,weapon,warden,15,星燈Ⅲ,30,4.6,ladder,Atlas T9–12／星穹塔 51–100 層／雙王,recolor,
+wpn_bow_r15,星燈Ⅲ星羽弓,weapon,ranger,15,星燈Ⅲ,30,4.6,ladder,Atlas T9–12／星穹塔 51–100 層／雙王,recolor,
+wpn_staff_r15,星燈Ⅲ法杖,weapon,mystic,15,星燈Ⅲ,30,4.6,ladder,Atlas T9–12／星穹塔 51–100 層／雙王,recolor,
+wpn_blades_r15,星燈Ⅲ影刃,weapon,strider,15,星燈Ⅲ,30,4.6,ladder,Atlas T9–12／星穹塔 51–100 層／雙王,recolor,
+wpn_bo_r15,星燈Ⅲ禪杖,weapon,monk,15,星燈Ⅲ,30,4.6,ladder,Atlas T9–12／星穹塔 51–100 層／雙王,recolor,
+off_shield_r15,星燈Ⅲ塔盾,offhand,warden,15,星燈Ⅲ,30,4.6,ladder,Atlas T9–12／星穹塔 51–100 層／雙王,recolor,
+off_quiver_r15,星燈Ⅲ流星箭筒,offhand,ranger,15,星燈Ⅲ,30,4.6,ladder,Atlas T9–12／星穹塔 51–100 層／雙王,recolor,
+off_tome_r15,星燈Ⅲ水晶球,offhand,mystic,15,星燈Ⅲ,30,4.6,ladder,Atlas T9–12／星穹塔 51–100 層／雙王,recolor,
+off_beads_r15,星燈Ⅲ天珠串,offhand,monk,15,星燈Ⅲ,30,4.6,ladder,Atlas T9–12／星穹塔 51–100 層／雙王,recolor,
+arm_heavy_head_r15,星燈Ⅲ重盔,head,warden,15,星燈Ⅲ,30,4.6,ladder,Atlas T9–12／星穹塔 51–100 層／雙王,recolor,
+arm_heavy_body_r15,星燈Ⅲ重鎧,body,warden,15,星燈Ⅲ,30,4.6,ladder,Atlas T9–12／星穹塔 51–100 層／雙王,recolor,
+arm_heavy_hands_r15,星燈Ⅲ護手,hands,warden,15,星燈Ⅲ,30,4.6,ladder,Atlas T9–12／星穹塔 51–100 層／雙王,recolor,
+arm_heavy_feet_r15,星燈Ⅲ脛甲,feet,warden,15,星燈Ⅲ,30,4.6,ladder,Atlas T9–12／星穹塔 51–100 層／雙王,recolor,
+arm_light_head_r15,星燈Ⅲ兜帽,head,"ranger,strider",15,星燈Ⅲ,30,4.6,ladder,Atlas T9–12／星穹塔 51–100 層／雙王,recolor,
+arm_light_body_r15,星燈Ⅲ獵裝,body,"ranger,strider",15,星燈Ⅲ,30,4.6,ladder,Atlas T9–12／星穹塔 51–100 層／雙王,recolor,
+arm_light_hands_r15,星燈Ⅲ皮手套,hands,"ranger,strider",15,星燈Ⅲ,30,4.6,ladder,Atlas T9–12／星穹塔 51–100 層／雙王,recolor,
+arm_light_feet_r15,星燈Ⅲ獵靴,feet,"ranger,strider",15,星燈Ⅲ,30,4.6,ladder,Atlas T9–12／星穹塔 51–100 層／雙王,recolor,
+arm_robe_head_r15,星燈Ⅲ髮冠,head,"mystic,monk",15,星燈Ⅲ,30,4.6,ladder,Atlas T9–12／星穹塔 51–100 層／雙王,recolor,
+arm_robe_body_r15,星燈Ⅲ長袍,body,"mystic,monk",15,星燈Ⅲ,30,4.6,ladder,Atlas T9–12／星穹塔 51–100 層／雙王,recolor,
+arm_robe_hands_r15,星燈Ⅲ護腕,hands,"mystic,monk",15,星燈Ⅲ,30,4.6,ladder,Atlas T9–12／星穹塔 51–100 層／雙王,recolor,
+arm_robe_feet_r15,星燈Ⅲ軟履,feet,"mystic,monk",15,星燈Ⅲ,30,4.6,ladder,Atlas T9–12／星穹塔 51–100 層／雙王,recolor,
+clk_r15,星燈Ⅲ披風,cloak,all,15,星燈Ⅲ,30,4.6,ladder,Atlas T9–12／星穹塔 51–100 層／雙王,recolor,
+chm_r15,星燈Ⅲ護符,charm,all,15,星燈Ⅲ,30,4.6,ladder,Atlas T9–12／星穹塔 51–100 層／雙王,recolor,
+rlc_r15,星燈Ⅲ聖物,relic,all,15,星燈Ⅲ,30,4.6,ladder,Atlas T9–12／星穹塔 51–100 層／雙王,recolor,
+wpn_sword_r16,星燈Ⅳ聖劍,weapon,warden,16,星燈Ⅳ,30,5.3,ladder,Atlas T13+／星穹塔 100+ 層／賽季首領,recolor,
+wpn_bow_r16,星燈Ⅳ星羽弓,weapon,ranger,16,星燈Ⅳ,30,5.3,ladder,Atlas T13+／星穹塔 100+ 層／賽季首領,recolor,
+wpn_staff_r16,星燈Ⅳ法杖,weapon,mystic,16,星燈Ⅳ,30,5.3,ladder,Atlas T13+／星穹塔 100+ 層／賽季首領,recolor,
+wpn_blades_r16,星燈Ⅳ影刃,weapon,strider,16,星燈Ⅳ,30,5.3,ladder,Atlas T13+／星穹塔 100+ 層／賽季首領,recolor,
+wpn_bo_r16,星燈Ⅳ禪杖,weapon,monk,16,星燈Ⅳ,30,5.3,ladder,Atlas T13+／星穹塔 100+ 層／賽季首領,recolor,
+off_shield_r16,星燈Ⅳ塔盾,offhand,warden,16,星燈Ⅳ,30,5.3,ladder,Atlas T13+／星穹塔 100+ 層／賽季首領,recolor,
+off_quiver_r16,星燈Ⅳ流星箭筒,offhand,ranger,16,星燈Ⅳ,30,5.3,ladder,Atlas T13+／星穹塔 100+ 層／賽季首領,recolor,
+off_tome_r16,星燈Ⅳ水晶球,offhand,mystic,16,星燈Ⅳ,30,5.3,ladder,Atlas T13+／星穹塔 100+ 層／賽季首領,recolor,
+off_beads_r16,星燈Ⅳ天珠串,offhand,monk,16,星燈Ⅳ,30,5.3,ladder,Atlas T13+／星穹塔 100+ 層／賽季首領,recolor,
+arm_heavy_head_r16,星燈Ⅳ重盔,head,warden,16,星燈Ⅳ,30,5.3,ladder,Atlas T13+／星穹塔 100+ 層／賽季首領,recolor,
+arm_heavy_body_r16,星燈Ⅳ重鎧,body,warden,16,星燈Ⅳ,30,5.3,ladder,Atlas T13+／星穹塔 100+ 層／賽季首領,recolor,
+arm_heavy_hands_r16,星燈Ⅳ護手,hands,warden,16,星燈Ⅳ,30,5.3,ladder,Atlas T13+／星穹塔 100+ 層／賽季首領,recolor,
+arm_heavy_feet_r16,星燈Ⅳ脛甲,feet,warden,16,星燈Ⅳ,30,5.3,ladder,Atlas T13+／星穹塔 100+ 層／賽季首領,recolor,
+arm_light_head_r16,星燈Ⅳ兜帽,head,"ranger,strider",16,星燈Ⅳ,30,5.3,ladder,Atlas T13+／星穹塔 100+ 層／賽季首領,recolor,
+arm_light_body_r16,星燈Ⅳ獵裝,body,"ranger,strider",16,星燈Ⅳ,30,5.3,ladder,Atlas T13+／星穹塔 100+ 層／賽季首領,recolor,
+arm_light_hands_r16,星燈Ⅳ皮手套,hands,"ranger,strider",16,星燈Ⅳ,30,5.3,ladder,Atlas T13+／星穹塔 100+ 層／賽季首領,recolor,
+arm_light_feet_r16,星燈Ⅳ獵靴,feet,"ranger,strider",16,星燈Ⅳ,30,5.3,ladder,Atlas T13+／星穹塔 100+ 層／賽季首領,recolor,
+arm_robe_head_r16,星燈Ⅳ髮冠,head,"mystic,monk",16,星燈Ⅳ,30,5.3,ladder,Atlas T13+／星穹塔 100+ 層／賽季首領,recolor,
+arm_robe_body_r16,星燈Ⅳ長袍,body,"mystic,monk",16,星燈Ⅳ,30,5.3,ladder,Atlas T13+／星穹塔 100+ 層／賽季首領,recolor,
+arm_robe_hands_r16,星燈Ⅳ護腕,hands,"mystic,monk",16,星燈Ⅳ,30,5.3,ladder,Atlas T13+／星穹塔 100+ 層／賽季首領,recolor,
+arm_robe_feet_r16,星燈Ⅳ軟履,feet,"mystic,monk",16,星燈Ⅳ,30,5.3,ladder,Atlas T13+／星穹塔 100+ 層／賽季首領,recolor,
+clk_r16,星燈Ⅳ披風,cloak,all,16,星燈Ⅳ,30,5.3,ladder,Atlas T13+／星穹塔 100+ 層／賽季首領,recolor,
+chm_r16,星燈Ⅳ護符,charm,all,16,星燈Ⅳ,30,5.3,ladder,Atlas T13+／星穹塔 100+ 層／賽季首領,recolor,
+rlc_r16,星燈Ⅳ聖物,relic,all,16,星燈Ⅳ,30,5.3,ladder,Atlas T13+／星穹塔 100+ 層／賽季首領,recolor,
+set_i01_head,晨光之盔,head,all,1,旅人,1,1.08,island_set,第 01 島 晨光（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i01_body,晨光之衣,body,all,1,旅人,1,1.08,island_set,第 01 島 晨光（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i01_hands,晨光之手套,hands,all,1,旅人,1,1.08,island_set,第 01 島 晨光（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i01_feet,晨光之靴,feet,all,1,旅人,1,1.08,island_set,第 01 島 晨光（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i01_weapon,晨光之兵器,weapon,all(兵器依職業外觀),1,旅人,1,1.08,island_set,第 01 島 晨光（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i01_cloak,晨光之披風,cloak,all,1,旅人,1,1.08,island_set,第 01 島 晨光（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i01_charm,晨光之護符,charm,all,1,旅人,1,1.08,island_set,第 01 島 晨光（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i01_relic,晨光之信物,relic,all,1,旅人,1,1.08,island_set,第 01 島 晨光（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i02_head,低語之盔,head,all,3,精鋼,4,1.35,island_set,第 02 島 低語（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i02_body,低語之衣,body,all,3,精鋼,4,1.35,island_set,第 02 島 低語（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i02_hands,低語之手套,hands,all,3,精鋼,4,1.35,island_set,第 02 島 低語（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i02_feet,低語之靴,feet,all,3,精鋼,4,1.35,island_set,第 02 島 低語（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i02_weapon,低語之兵器,weapon,all(兵器依職業外觀),3,精鋼,4,1.35,island_set,第 02 島 低語（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i02_cloak,低語之披風,cloak,all,3,精鋼,4,1.35,island_set,第 02 島 低語（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i02_charm,低語之護符,charm,all,3,精鋼,4,1.35,island_set,第 02 島 低語（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i02_relic,低語之信物,relic,all,3,精鋼,4,1.35,island_set,第 02 島 低語（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i03_head,霧潮之盔,head,all,5,星銀,9,1.67,island_set,第 03 島 霧潮（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i03_body,霧潮之衣,body,all,5,星銀,9,1.67,island_set,第 03 島 霧潮（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i03_hands,霧潮之手套,hands,all,5,星銀,9,1.67,island_set,第 03 島 霧潮（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i03_feet,霧潮之靴,feet,all,5,星銀,9,1.67,island_set,第 03 島 霧潮（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i03_weapon,霧潮之兵器,weapon,all(兵器依職業外觀),5,星銀,9,1.67,island_set,第 03 島 霧潮（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i03_cloak,霧潮之披風,cloak,all,5,星銀,9,1.67,island_set,第 03 島 霧潮（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i03_charm,霧潮之護符,charm,all,5,星銀,9,1.67,island_set,第 03 島 霧潮（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i03_relic,霧潮之信物,relic,all,5,星銀,9,1.67,island_set,第 03 島 霧潮（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i04_head,霜冬之盔,head,all,6,琉璃,14,1.86,island_set,第 04 島 霜冬（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i04_body,霜冬之衣,body,all,6,琉璃,14,1.86,island_set,第 04 島 霜冬（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i04_hands,霜冬之手套,hands,all,6,琉璃,14,1.86,island_set,第 04 島 霜冬（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i04_feet,霜冬之靴,feet,all,6,琉璃,14,1.86,island_set,第 04 島 霜冬（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i04_weapon,霜冬之兵器,weapon,all(兵器依職業外觀),6,琉璃,14,1.86,island_set,第 04 島 霜冬（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i04_cloak,霜冬之披風,cloak,all,6,琉璃,14,1.86,island_set,第 04 島 霜冬（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i04_charm,霜冬之護符,charm,all,6,琉璃,14,1.86,island_set,第 04 島 霜冬（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i04_relic,霜冬之信物,relic,all,6,琉璃,14,1.86,island_set,第 04 島 霜冬（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i05_head,燼煙之盔,head,all,8,赤焰,19,2.27,island_set,第 05 島 燼煙（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i05_body,燼煙之衣,body,all,8,赤焰,19,2.27,island_set,第 05 島 燼煙（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i05_hands,燼煙之手套,hands,all,8,赤焰,19,2.27,island_set,第 05 島 燼煙（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i05_feet,燼煙之靴,feet,all,8,赤焰,19,2.27,island_set,第 05 島 燼煙（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i05_weapon,燼煙之兵器,weapon,all(兵器依職業外觀),8,赤焰,19,2.27,island_set,第 05 島 燼煙（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i05_cloak,燼煙之披風,cloak,all,8,赤焰,19,2.27,island_set,第 05 島 燼煙（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i05_charm,燼煙之護符,charm,all,8,赤焰,19,2.27,island_set,第 05 島 燼煙（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i05_relic,燼煙之信物,relic,all,8,赤焰,19,2.27,island_set,第 05 島 燼煙（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i06_head,古樹之盔,head,all,10,月華,24,2.72,island_set,第 06 島 古樹（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i06_body,古樹之衣,body,all,10,月華,24,2.72,island_set,第 06 島 古樹（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i06_hands,古樹之手套,hands,all,10,月華,24,2.72,island_set,第 06 島 古樹（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i06_feet,古樹之靴,feet,all,10,月華,24,2.72,island_set,第 06 島 古樹（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i06_weapon,古樹之兵器,weapon,all(兵器依職業外觀),10,月華,24,2.72,island_set,第 06 島 古樹（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i06_cloak,古樹之披風,cloak,all,10,月華,24,2.72,island_set,第 06 島 古樹（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i06_charm,古樹之護符,charm,all,10,月華,24,2.72,island_set,第 06 島 古樹（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i06_relic,古樹之信物,relic,all,10,月華,24,2.72,island_set,第 06 島 古樹（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i07_head,浮空之盔,head,all,5,星銀,11,1.67,island_set,第 07 島 浮空（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i07_body,浮空之衣,body,all,5,星銀,11,1.67,island_set,第 07 島 浮空（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i07_hands,浮空之手套,hands,all,5,星銀,11,1.67,island_set,第 07 島 浮空（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i07_feet,浮空之靴,feet,all,5,星銀,11,1.67,island_set,第 07 島 浮空（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i07_weapon,浮空之兵器,weapon,all(兵器依職業外觀),5,星銀,11,1.67,island_set,第 07 島 浮空（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i07_cloak,浮空之披風,cloak,all,5,星銀,11,1.67,island_set,第 07 島 浮空（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i07_charm,浮空之護符,charm,all,5,星銀,11,1.67,island_set,第 07 島 浮空（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i07_relic,浮空之信物,relic,all,5,星銀,11,1.67,island_set,第 07 島 浮空（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i08_head,珊瑚之盔,head,all,7,秘光,17,2.05,island_set,第 08 島 珊瑚（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i08_body,珊瑚之衣,body,all,7,秘光,17,2.05,island_set,第 08 島 珊瑚（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i08_hands,珊瑚之手套,hands,all,7,秘光,17,2.05,island_set,第 08 島 珊瑚（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i08_feet,珊瑚之靴,feet,all,7,秘光,17,2.05,island_set,第 08 島 珊瑚（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i08_weapon,珊瑚之兵器,weapon,all(兵器依職業外觀),7,秘光,17,2.05,island_set,第 08 島 珊瑚（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i08_cloak,珊瑚之披風,cloak,all,7,秘光,17,2.05,island_set,第 08 島 珊瑚（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i08_charm,珊瑚之護符,charm,all,7,秘光,17,2.05,island_set,第 08 島 珊瑚（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i08_relic,珊瑚之信物,relic,all,7,秘光,17,2.05,island_set,第 08 島 珊瑚（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i09_head,電光之盔,head,all,9,傳世,23,2.48,island_set,第 09 島 電光（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i09_body,電光之衣,body,all,9,傳世,23,2.48,island_set,第 09 島 電光（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i09_hands,電光之手套,hands,all,9,傳世,23,2.48,island_set,第 09 島 電光（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i09_feet,電光之靴,feet,all,9,傳世,23,2.48,island_set,第 09 島 電光（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i09_weapon,電光之兵器,weapon,all(兵器依職業外觀),9,傳世,23,2.48,island_set,第 09 島 電光（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i09_cloak,電光之披風,cloak,all,9,傳世,23,2.48,island_set,第 09 島 電光（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i09_charm,電光之護符,charm,all,9,傳世,23,2.48,island_set,第 09 島 電光（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i09_relic,電光之信物,relic,all,9,傳世,23,2.48,island_set,第 09 島 電光（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i10_head,櫻花之盔,head,all,6,琉璃,13,1.86,island_set,第 10 島 櫻花（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i10_body,櫻花之衣,body,all,6,琉璃,13,1.86,island_set,第 10 島 櫻花（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i10_hands,櫻花之手套,hands,all,6,琉璃,13,1.86,island_set,第 10 島 櫻花（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i10_feet,櫻花之靴,feet,all,6,琉璃,13,1.86,island_set,第 10 島 櫻花（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i10_weapon,櫻花之兵器,weapon,all(兵器依職業外觀),6,琉璃,13,1.86,island_set,第 10 島 櫻花（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i10_cloak,櫻花之披風,cloak,all,6,琉璃,13,1.86,island_set,第 10 島 櫻花（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i10_charm,櫻花之護符,charm,all,6,琉璃,13,1.86,island_set,第 10 島 櫻花（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i10_relic,櫻花之信物,relic,all,6,琉璃,13,1.86,island_set,第 10 島 櫻花（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i11_head,蒼穹之盔,head,all,9,傳世,21,2.48,island_set,第 11 島 蒼穹（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i11_body,蒼穹之衣,body,all,9,傳世,21,2.48,island_set,第 11 島 蒼穹（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i11_hands,蒼穹之手套,hands,all,9,傳世,21,2.48,island_set,第 11 島 蒼穹（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i11_feet,蒼穹之靴,feet,all,9,傳世,21,2.48,island_set,第 11 島 蒼穹（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i11_weapon,蒼穹之兵器,weapon,all(兵器依職業外觀),9,傳世,21,2.48,island_set,第 11 島 蒼穹（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i11_cloak,蒼穹之披風,cloak,all,9,傳世,21,2.48,island_set,第 11 島 蒼穹（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i11_charm,蒼穹之護符,charm,all,9,傳世,21,2.48,island_set,第 11 島 蒼穹（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i11_relic,蒼穹之信物,relic,all,9,傳世,21,2.48,island_set,第 11 島 蒼穹（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i12_head,紅楓之盔,head,all,11,穹頂,27,2.97,island_set,第 12 島 紅楓（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i12_body,紅楓之衣,body,all,11,穹頂,27,2.97,island_set,第 12 島 紅楓（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i12_hands,紅楓之手套,hands,all,11,穹頂,27,2.97,island_set,第 12 島 紅楓（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i12_feet,紅楓之靴,feet,all,11,穹頂,27,2.97,island_set,第 12 島 紅楓（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i12_weapon,紅楓之兵器,weapon,all(兵器依職業外觀),11,穹頂,27,2.97,island_set,第 12 島 紅楓（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i12_cloak,紅楓之披風,cloak,all,11,穹頂,27,2.97,island_set,第 12 島 紅楓（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i12_charm,紅楓之護符,charm,all,11,穹頂,27,2.97,island_set,第 12 島 紅楓（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i12_relic,紅楓之信物,relic,all,11,穹頂,27,2.97,island_set,第 12 島 紅楓（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i13_head,風沙之盔,head,all,7,秘光,17,2.05,island_set,第 13 島 風沙（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i13_body,風沙之衣,body,all,7,秘光,17,2.05,island_set,第 13 島 風沙（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i13_hands,風沙之手套,hands,all,7,秘光,17,2.05,island_set,第 13 島 風沙（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i13_feet,風沙之靴,feet,all,7,秘光,17,2.05,island_set,第 13 島 風沙（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i13_weapon,風沙之兵器,weapon,all(兵器依職業外觀),7,秘光,17,2.05,island_set,第 13 島 風沙（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i13_cloak,風沙之披風,cloak,all,7,秘光,17,2.05,island_set,第 13 島 風沙（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i13_charm,風沙之護符,charm,all,7,秘光,17,2.05,island_set,第 13 島 風沙（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i13_relic,風沙之信物,relic,all,7,秘光,17,2.05,island_set,第 13 島 風沙（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i14_head,金字塔之盔,head,all,10,月華,25,2.72,island_set,第 14 島 金字塔（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i14_body,金字塔之衣,body,all,10,月華,25,2.72,island_set,第 14 島 金字塔（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i14_hands,金字塔之手套,hands,all,10,月華,25,2.72,island_set,第 14 島 金字塔（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i14_feet,金字塔之靴,feet,all,10,月華,25,2.72,island_set,第 14 島 金字塔（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i14_weapon,金字塔之兵器,weapon,all(兵器依職業外觀),10,月華,25,2.72,island_set,第 14 島 金字塔（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i14_cloak,金字塔之披風,cloak,all,10,月華,25,2.72,island_set,第 14 島 金字塔（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i14_charm,金字塔之護符,charm,all,10,月華,25,2.72,island_set,第 14 島 金字塔（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i14_relic,金字塔之信物,relic,all,10,月華,25,2.72,island_set,第 14 島 金字塔（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i15_head,藤蔓之盔,head,all,7,秘光,15,2.05,island_set,第 15 島 藤蔓（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i15_body,藤蔓之衣,body,all,7,秘光,15,2.05,island_set,第 15 島 藤蔓（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i15_hands,藤蔓之手套,hands,all,7,秘光,15,2.05,island_set,第 15 島 藤蔓（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i15_feet,藤蔓之靴,feet,all,7,秘光,15,2.05,island_set,第 15 島 藤蔓（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i15_weapon,藤蔓之兵器,weapon,all(兵器依職業外觀),7,秘光,15,2.05,island_set,第 15 島 藤蔓（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i15_cloak,藤蔓之披風,cloak,all,7,秘光,15,2.05,island_set,第 15 島 藤蔓（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i15_charm,藤蔓之護符,charm,all,7,秘光,15,2.05,island_set,第 15 島 藤蔓（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i15_relic,藤蔓之信物,relic,all,7,秘光,15,2.05,island_set,第 15 島 藤蔓（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i16_head,墓園之盔,head,all,9,傳世,21,2.48,island_set,第 16 島 墓園（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i16_body,墓園之衣,body,all,9,傳世,21,2.48,island_set,第 16 島 墓園（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i16_hands,墓園之手套,hands,all,9,傳世,21,2.48,island_set,第 16 島 墓園（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i16_feet,墓園之靴,feet,all,9,傳世,21,2.48,island_set,第 16 島 墓園（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i16_weapon,墓園之兵器,weapon,all(兵器依職業外觀),9,傳世,21,2.48,island_set,第 16 島 墓園（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i16_cloak,墓園之披風,cloak,all,9,傳世,21,2.48,island_set,第 16 島 墓園（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i16_charm,墓園之護符,charm,all,9,傳世,21,2.48,island_set,第 16 島 墓園（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i16_relic,墓園之信物,relic,all,9,傳世,21,2.48,island_set,第 16 島 墓園（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i17_head,古堡之盔,head,all,11,穹頂,27,2.97,island_set,第 17 島 古堡（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i17_body,古堡之衣,body,all,11,穹頂,27,2.97,island_set,第 17 島 古堡（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i17_hands,古堡之手套,hands,all,11,穹頂,27,2.97,island_set,第 17 島 古堡（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i17_feet,古堡之靴,feet,all,11,穹頂,27,2.97,island_set,第 17 島 古堡（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i17_weapon,古堡之兵器,weapon,all(兵器依職業外觀),11,穹頂,27,2.97,island_set,第 17 島 古堡（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i17_cloak,古堡之披風,cloak,all,11,穹頂,27,2.97,island_set,第 17 島 古堡（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i17_charm,古堡之護符,charm,all,11,穹頂,27,2.97,island_set,第 17 島 古堡（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i17_relic,古堡之信物,relic,all,11,穹頂,27,2.97,island_set,第 17 島 古堡（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i18_head,螢光之盔,head,all,9,傳世,23,2.48,island_set,第 18 島 螢光（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i18_body,螢光之衣,body,all,9,傳世,23,2.48,island_set,第 18 島 螢光（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i18_hands,螢光之手套,hands,all,9,傳世,23,2.48,island_set,第 18 島 螢光（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i18_feet,螢光之靴,feet,all,9,傳世,23,2.48,island_set,第 18 島 螢光（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i18_weapon,螢光之兵器,weapon,all(兵器依職業外觀),9,傳世,23,2.48,island_set,第 18 島 螢光（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i18_cloak,螢光之披風,cloak,all,9,傳世,23,2.48,island_set,第 18 島 螢光（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i18_charm,螢光之護符,charm,all,9,傳世,23,2.48,island_set,第 18 島 螢光（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i18_relic,螢光之信物,relic,all,9,傳世,23,2.48,island_set,第 18 島 螢光（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i19_head,星艦之盔,head,all,11,穹頂,26,2.97,island_set,第 19 島 星艦（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i19_body,星艦之衣,body,all,11,穹頂,26,2.97,island_set,第 19 島 星艦（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i19_hands,星艦之手套,hands,all,11,穹頂,26,2.97,island_set,第 19 島 星艦（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i19_feet,星艦之靴,feet,all,11,穹頂,26,2.97,island_set,第 19 島 星艦（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i19_weapon,星艦之兵器,weapon,all(兵器依職業外觀),11,穹頂,26,2.97,island_set,第 19 島 星艦（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i19_cloak,星艦之披風,cloak,all,11,穹頂,26,2.97,island_set,第 19 島 星艦（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i19_charm,星艦之護符,charm,all,11,穹頂,26,2.97,island_set,第 19 島 星艦（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i19_relic,星艦之信物,relic,all,11,穹頂,26,2.97,island_set,第 19 島 星艦（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i20_head,蜂巢之盔,head,all,12,極光,29,3.35,island_set,第 20 島 蜂巢（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i20_body,蜂巢之衣,body,all,12,極光,29,3.35,island_set,第 20 島 蜂巢（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i20_hands,蜂巢之手套,hands,all,12,極光,29,3.35,island_set,第 20 島 蜂巢（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i20_feet,蜂巢之靴,feet,all,12,極光,29,3.35,island_set,第 20 島 蜂巢（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i20_weapon,蜂巢之兵器,weapon,all(兵器依職業外觀),12,極光,29,3.35,island_set,第 20 島 蜂巢（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i20_cloak,蜂巢之披風,cloak,all,12,極光,29,3.35,island_set,第 20 島 蜂巢（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i20_charm,蜂巢之護符,charm,all,12,極光,29,3.35,island_set,第 20 島 蜂巢（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+set_i20_relic,蜂巢之信物,relic,all,12,極光,29,3.35,island_set,第 20 島 蜂巢（首領／精英）,new,2/4/6 件套裝加成；兵器欄依職業各一款外觀
+leg_sword_1,守燈傳奇劍#1,weapon,warden,7,秘光,16,2.28,legendary,首領／世界王／賽季,new,名稱待命名；改變技能行為的專屬詞綴
+leg_sword_2,守燈傳奇劍#2,weapon,warden,10,月華,25,3.02,legendary,首領／世界王／賽季,new,名稱待命名；改變技能行為的專屬詞綴
+leg_sword_3,守燈傳奇劍#3,weapon,warden,12,極光,30,3.72,legendary,首領／世界王／賽季,new,名稱待命名；改變技能行為的專屬詞綴
+leg_sword_4,守燈神話劍#4,weapon,warden,16,星燈Ⅳ,30,6.36,mythic,首領／世界王／賽季,new,名稱待命名；改變技能行為的專屬詞綴
+leg_bow_1,林風傳奇弓#1,weapon,ranger,7,秘光,16,2.28,legendary,首領／世界王／賽季,new,名稱待命名；改變技能行為的專屬詞綴
+leg_bow_2,林風傳奇弓#2,weapon,ranger,10,月華,25,3.02,legendary,首領／世界王／賽季,new,名稱待命名；改變技能行為的專屬詞綴
+leg_bow_3,林風傳奇弓#3,weapon,ranger,12,極光,30,3.72,legendary,首領／世界王／賽季,new,名稱待命名；改變技能行為的專屬詞綴
+leg_bow_4,林風神話弓#4,weapon,ranger,16,星燈Ⅳ,30,6.36,mythic,首領／世界王／賽季,new,名稱待命名；改變技能行為的專屬詞綴
+leg_staff_1,餘燼傳奇杖#1,weapon,mystic,7,秘光,16,2.28,legendary,首領／世界王／賽季,new,名稱待命名；改變技能行為的專屬詞綴
+leg_staff_2,餘燼傳奇杖#2,weapon,mystic,10,月華,25,3.02,legendary,首領／世界王／賽季,new,名稱待命名；改變技能行為的專屬詞綴
+leg_staff_3,餘燼傳奇杖#3,weapon,mystic,12,極光,30,3.72,legendary,首領／世界王／賽季,new,名稱待命名；改變技能行為的專屬詞綴
+leg_staff_4,餘燼神話杖#4,weapon,mystic,16,星燈Ⅳ,30,6.36,mythic,首領／世界王／賽季,new,名稱待命名；改變技能行為的專屬詞綴
+leg_blades_1,影行傳奇雙刃#1,weapon,strider,7,秘光,16,2.28,legendary,首領／世界王／賽季,new,名稱待命名；改變技能行為的專屬詞綴
+leg_blades_2,影行傳奇雙刃#2,weapon,strider,10,月華,25,3.02,legendary,首領／世界王／賽季,new,名稱待命名；改變技能行為的專屬詞綴
+leg_blades_3,影行傳奇雙刃#3,weapon,strider,12,極光,30,3.72,legendary,首領／世界王／賽季,new,名稱待命名；改變技能行為的專屬詞綴
+leg_blades_4,影行神話雙刃#4,weapon,strider,16,星燈Ⅳ,30,6.36,mythic,首領／世界王／賽季,new,名稱待命名；改變技能行為的專屬詞綴
+leg_bo_1,禪燈傳奇棍#1,weapon,monk,7,秘光,16,2.28,legendary,首領／世界王／賽季,new,名稱待命名；改變技能行為的專屬詞綴
+leg_bo_2,禪燈傳奇棍#2,weapon,monk,10,月華,25,3.02,legendary,首領／世界王／賽季,new,名稱待命名；改變技能行為的專屬詞綴
+leg_bo_3,禪燈傳奇棍#3,weapon,monk,12,極光,30,3.72,legendary,首領／世界王／賽季,new,名稱待命名；改變技能行為的專屬詞綴
+leg_bo_4,禪燈神話棍#4,weapon,monk,16,星燈Ⅳ,30,6.36,mythic,首領／世界王／賽季,new,名稱待命名；改變技能行為的專屬詞綴
+myth_head_1,神話盔#1,head,all,16,星燈Ⅳ,30,6.0,mythic,星穹塔 100+ 層／賽季首領,new,名稱待命名
+myth_head_2,神話盔#2,head,all,16,星燈Ⅳ,30,6.0,mythic,星穹塔 100+ 層／賽季首領,new,名稱待命名
+myth_body_1,神話衣#1,body,all,16,星燈Ⅳ,30,6.0,mythic,星穹塔 100+ 層／賽季首領,new,名稱待命名
+myth_body_2,神話衣#2,body,all,16,星燈Ⅳ,30,6.0,mythic,星穹塔 100+ 層／賽季首領,new,名稱待命名
+myth_hands_1,神話手套#1,hands,all,16,星燈Ⅳ,30,6.0,mythic,星穹塔 100+ 層／賽季首領,new,名稱待命名
+myth_hands_2,神話手套#2,hands,all,16,星燈Ⅳ,30,6.0,mythic,星穹塔 100+ 層／賽季首領,new,名稱待命名
+myth_feet_1,神話靴#1,feet,all,16,星燈Ⅳ,30,6.0,mythic,星穹塔 100+ 層／賽季首領,new,名稱待命名
+myth_feet_2,神話靴#2,feet,all,16,星燈Ⅳ,30,6.0,mythic,星穹塔 100+ 層／賽季首領,new,名稱待命名
+myth_weapon_1,神話兵器#1,weapon,all,16,星燈Ⅳ,30,6.0,mythic,星穹塔 100+ 層／賽季首領,new,名稱待命名
+myth_weapon_2,神話兵器#2,weapon,all,16,星燈Ⅳ,30,6.0,mythic,星穹塔 100+ 層／賽季首領,new,名稱待命名
+myth_cloak_1,神話披風#1,cloak,all,16,星燈Ⅳ,30,6.0,mythic,星穹塔 100+ 層／賽季首領,new,名稱待命名
+myth_cloak_2,神話披風#2,cloak,all,16,星燈Ⅳ,30,6.0,mythic,星穹塔 100+ 層／賽季首領,new,名稱待命名
+myth_charm_1,神話護符#1,charm,all,16,星燈Ⅳ,30,6.0,mythic,星穹塔 100+ 層／賽季首領,new,名稱待命名
+myth_charm_2,神話護符#2,charm,all,16,星燈Ⅳ,30,6.0,mythic,星穹塔 100+ 層／賽季首領,new,名稱待命名
+myth_relic_1,神話信物#1,relic,all,16,星燈Ⅳ,30,6.0,mythic,星穹塔 100+ 層／賽季首領,new,名稱待命名
+myth_relic_2,神話信物#2,relic,all,16,星燈Ⅳ,30,6.0,mythic,星穹塔 100+ 層／賽季首領,new,名稱待命名

@@ -108,14 +108,19 @@ export function getVfxGeometry(key) { return _geos.get(key) || sharedFallbackSph
  * 掛載於場景上的 3D 特效控制器（單一實例管理所有活躍 VFX，支援零洩漏自動回收）
  */
 export class VfxEngine {
-  constructor(scene) {
+  constructor(scene, opts = {}) {
     this.scene = scene;
     this.items = [];
     this.maxActive = 110;
-    preloadVfxAssets();
+    if (!opts.lazy) preloadVfxAssets();
+  }
+
+  preload() {
+    return preloadVfxAssets();
   }
 
   _add(entry) {
+    if (!_loadPromise) preloadVfxAssets();
     if (this.items.length >= this.maxActive) {
       this._removeAt(0);
     }

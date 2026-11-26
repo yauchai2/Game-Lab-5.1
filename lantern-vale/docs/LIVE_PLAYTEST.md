@@ -55,7 +55,7 @@ HOST=192.168.31.89 PORT=8081 LV_DATABASE=:memory: LV_DEV_LOGS=0 node server/serv
 
 短期外網試玩使用 Cloudflare Quick Tunnel，朋友用瀏覽器開 HTTPS 網址及輸入試玩密碼。主持人的 Mac 和兩項背景服務需保持運作。重開 Tunnel 會得到新網址。
 
-本機外網版本使用 `127.0.0.1:8082` 的獨立遊戲服務、記憶體公會資料庫及 `LV_PLAYTEST_PASS_FILE`。啟動時用權限 0600 的本機檔案提供至少 22 字元的隨機 URL-safe 密碼。先啟動遊戲服務，再用 `cloudflared tunnel --url http://127.0.0.1:8082` 建立 HTTPS 入口。玩家登入後才可載入遊戲與素材，以及連上多人 WebSocket。受保護的測試服務關閉 Dev Mode 上傳。
+本機外網版本使用 `127.0.0.1:8082` 的獨立遊戲服務、記憶體公會資料庫及 `LV_PLAYTEST_PASS_FILE`。啟動時從權限 0600 的本機檔案讀取密碼，預設至少 22 字元。按主持人選擇，現行測試場以 `LV_PLAYTEST_ALLOW_SHORT_PIN=1` 使用四位數 PIN。先啟動遊戲服務，再用 `cloudflared tunnel --url http://127.0.0.1:8082` 建立 HTTPS 入口。玩家登入後才可載入遊戲與素材，以及連上多人 WebSocket。受保護的測試服務關閉 Dev Mode 上傳。每個來源在 10 分鐘內連續輸錯 5 次後會暫時鎖定。只在遊戲服務綁定本機、並由 Cloudflare Tunnel 對外處理連線時啟用 `LV_PLAYTEST_TRUST_CLOUDFLARE=1`，以依訪客來源計算。輪替密碼後重啟遊戲服務，舊登入會失效。
 
 目前 macOS 背景服務可用以下指令停止：
 

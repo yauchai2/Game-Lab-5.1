@@ -16,7 +16,7 @@ import { bindCodexUI } from './codex.js';
 import { StatusCard } from './statuscard.js';
 import { t } from './i18n.js';
 import * as THREE from 'three';
-import { resolveArtId, itemIconUrl } from './itemdb.js';
+import { legacyGearRank, resolveArtId, itemIconUrl } from './itemdb.js';
 import { RARITY, SLOTS, itemLines, itemScore, BOONS, deserializeItem, tierInfo, CORRUPT_COST, corruptItem } from './loot.js';
 import { activeMountDef, mountStatuses, unlockMountSaddle } from './mounts.js';
 import { MONSTER_SOULS, SOUL_SLOTS, ensureSouls, equipSoul, unequipSoul, soulTier } from './souls.js';
@@ -27,6 +27,7 @@ import { STAT_DEFS, ensureMmoState, availableStatPoints, allocateStat, resetStat
 import { LIFE_SKILLS, LIFE_SKILL_IDS, getLifeSkillInfo, TITLE_DEFS, ensureTitles, equipTitle, computeTitleBonuses, spawnWorldBoss, getSimAdventurers, getSimConfig, DEFAULT_SIM_COUNT, setSimConfig, triggerSimEvent, assistSimTask } from './mmo_world.js';
 import { spawnDynamicEvent, getPartyIds, getActivePartySynergy, computeTowerBonuses } from './mmo_endgame.js';
 import { ALL_GEMS, addGemToBag } from './puzzle.js';
+import { beginOpening, openingStep } from './opening.js';
 import { MEADOW_CAVE } from './meadow_cave.js';
 import { MEADOW_TIERS, expeditionRoute, isMeadowIntro, meadowExpedition, meadowStage } from './expedition.js';
 import { getActiveAccount, slotKeys } from './account.js';
@@ -43,7 +44,7 @@ const v3 = new THREE.Vector3();
 
 function showExpeditionTracker(g) {
   const profile = g.meta.p;
-  return isMeadowIntro(profile) && (!!meadowExpedition(profile).active || g.field === 1 || g.depth < 0);
+  return !!openingStep(profile) || (isMeadowIntro(profile) && (!!meadowExpedition(profile).active || g.field === 1 || g.depth < 0));
 }
 
 export class UI {
@@ -165,12 +166,25 @@ export class UI {
     };
     const swBtn = $('btnSwitchChar'); if (swBtn) swBtn.onclick = () => { game.audio?.sfx?.('ui'); this.returnToCharSelect?.(); };
     const qtEl = $('questTracker');
-    $('btnMeadowExpedition').onclick = () => this.openPanel('expedition');
+    const openJourney = () => this.openPanel(openingStep(game.meta.p) ? 'opening' : 'expedition');
+    $('btnMeadowExpedition').onclick = openJourney;
+    this.openTouchJourney = () => {
+      if (game.state !== 'play' || game.interior) return false;
+      if (game.caveRun) {
+        if (!game.cleared || !game.lastCaveClear) return false;
+        this.openPanel('caveClear');
+        return true;
+      }
+      if (!showExpeditionTracker(game)) return false;
+      openJourney();
+      return true;
+    };
     if (qtEl) qtEl.onclick = () => {
-      if (showExpeditionTracker(game)) {
-        this.openPanel('expedition');
+      if (game.caveRun && game.cleared && game.lastCaveClear) {
+        this.openPanel('caveClear');
         return;
       }
+      if (showExpeditionTracker(game)) { openJourney(); return; }
       const cur = getCurrentChapter(game.meta?.p);
       if (!cur || !cur.done) return;
       const rew = claimChapterReward(game.meta.p);
@@ -246,10 +260,13 @@ export class UI {
       game.audio.init(); game.audio.sfx('ui');
       game.playerName = ($('inName').value.trim() || '旅人').slice(0, 12); game.party = cleanPartyCode($('inParty').value);
       enterCharacter();
+      beginOpening(game.meta.p);
+      game.meta.save();
       game.net.connect(game.playerName, game.hoodIdx, game.party);
       $('title').classList.add('hide'); $('hud').classList.remove('hide'); game.enterTown();
       syncHotbarKeyLabels(game);
     };
+    $('btnQuickStart').onclick = () => $('btnStart').click();
     $('btnRetry').onclick = () => { $('dead').classList.add('hide'); game.startRun(); };
     $('btnAgain').onclick = () => { $('win').classList.add('hide'); game.startRun(); };
     document.querySelectorAll('[data-scale]').forEach(b => b.onclick = () => {
@@ -275,7 +292,7 @@ export class UI {
         const gear = deserializeItem(targetItem.item);
         info.innerHTML = (isPreview && item ? `<div style="font-size:10px;opacity:.65;margin-bottom:2px">🔍 懸停預覽對比</div>` : '') + this.itemHTML(gear, game.player.equip[gear.slot]);
       } else {
-        const ti = tierInfo(targetItem.tier || 1);
+        const ti = tierInfo(legacyGearRank(targetItem.tier));
         const art = this.artImg(targetItem, 256, 'tip-art');
         info.innerHTML = `<div class="tip-head rar-0">${art}<div class="tip-title"><div class="iname"><span class="tier-tag" style="color:${ti.color}">${ti.tag}</span>${art ? '' : (targetItem.icon || '') + ' '}${targetItem.name}${(targetItem.qty || 1) > 1 ? ` <small>×${targetItem.qty}</small>` : ''}</div><div class="ibase">${ti.name} · 消耗品</div></div></div><div class="sep"></div><div class="mod-desc">${targetItem.desc || '物理背包物品'}</div>`;
       }
@@ -374,7 +391,7 @@ export class UI {
       const art = this.artImg(it, 128);
       return `<button type="button" class="eq-mini eq-slot rar-${it.rarity}${it.corrupted ? ' corrupted' : ''}" data-eqslot="${k}" aria-label="${it.name}">${art || `<i class="eq-glyph">${sl.icon}</i>`}<b class="eq-tier" style="color:${ti.color}">${ti.tag}</b>${it.enhance ? `<b class="eq-enh">+${it.enhance}</b>` : ''}${it.corrupted ? '<b class="eq-skull">☠</b>' : ''}</button>`;
     };
-    el.innerHTML = `<div class="hero-card"><div class="hero-ribbon">英雄 HERO</div>
+    el.innerHTML = `<div class="hero-card"><div class="hero-ribbon">裝備</div>
       <div class="hero-grid">
         <div class="hero-col">${['head', 'body', 'hands', 'feet'].map(cell).join('')}</div>
         <div class="hero-mid">
@@ -1114,7 +1131,7 @@ export class UI {
       if (showQt) {
         const curCh = getCurrentChapter(g.meta?.p);
         const showExpedition = showExpeditionTracker(g);
-        qt.disabled = !!g.caveRun || (!showExpedition && !curCh?.done);
+        qt.disabled = g.caveRun ? !(g.cleared && g.lastCaveClear) : !showExpedition && !curCh?.done;
         const qTi = $('qtTitle'), qDs = $('qtDesc'), qFl = $('qtFill');
         if (g.caveRun) {
           const cave = MEADOW_CAVE[g.caveRun.tier];
@@ -1123,8 +1140,23 @@ export class UI {
           qt.dataset.stage = 'cave';
           qt.title = '';
           qTi.textContent = `草原洞窟 · ${cave.name}`;
-          qDs.textContent = g.cleared ? '通關 · 前往返程門' : `${stage + 1}/${cave.stages.length} · ${cave.stages[stage].name}`;
+          qDs.textContent = g.cleared ? '通關 · 查看結算' : `${stage + 1}/${cave.stages.length} · ${cave.stages[stage].name}`;
           qFl.style.width = `${g.cleared ? 100 : stage * 100 / cave.stages.length}%`;
+        } else if (openingStep(g.meta.p)) {
+          const step = openingStep(g.meta.p);
+          qt.classList.remove('done');
+          qt.dataset.stage = 'opening';
+          qt.title = '';
+          qTi.textContent = '巡燈旅程';
+          qDs.textContent = {
+            lamp: g.field === 1 ? '點亮南門路燈' : '前往南門，點亮第一盞燈',
+            spar: '側閃幼狂豬的衝鋒，趁收招反擊',
+            support: '準備寶石，進入草原洞窟',
+            resume: '繼續草原洞窟',
+            badge: '打造首通獎勵 · 巡燈徽章',
+            next: '選擇下一站 · 精英洞窟或低語森林',
+          }[step];
+          qFl.style.width = '0%';
         } else if (showExpedition) {
           const { active } = meadowExpedition(g.meta.p);
           const stage = meadowStage(active);
@@ -1278,9 +1310,13 @@ export class UI {
       if (parts.length) mealEl.textContent = parts.join(' · ');
     }
     const compass = $('fieldCompass');
+    const townOpening = g.zone === 'town' && !g.interior && g.state === 'play' && openingStep(g.meta.p) === 'lamp';
     const destination = navigationTarget(g);
-    compass.hidden = !destination;
-    if (destination) {
+    compass.hidden = !destination && !townOpening;
+    if (townOpening) {
+      const label = '點亮南門路燈 · 打開任務出發';
+      if (compass.textContent !== label) compass.textContent = label;
+    } else if (destination) {
       const label = `${destination.label} · ${describeMapTarget(p.pos, destination)}`;
       if (compass.textContent !== label) compass.textContent = label;
     }

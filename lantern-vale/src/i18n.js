@@ -200,7 +200,7 @@ export function applyDOMLanguage(lang) {
   if (typeof document === 'undefined') return;
   document.documentElement.lang = lang;
   const set = (sel, key) => { const el = document.querySelector(sel); if (el) el.textContent = t(lang, key); };
-  set('#title h1', 'title');
+  { const h = document.querySelector('#title h1'); if (h) { const img = h.querySelector('img'); if (img) img.alt = t(lang, 'title'); else h.textContent = t(lang, 'title'); } }
   set('#title .sub', 'subtitle');
   set('#btnStart', 'start');
   set('#btnSetTitle', 'settings');

@@ -6,15 +6,20 @@ const { spawn } = require('node:child_process');
 const { once } = require('node:events');
 const { randomBytes } = require('node:crypto');
 const WebSocket = require('ws');
+const { createPlaytestGate } = require('../server/playtest_gate.cjs');
 
 (async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'lantern-gate-'));
   const file = path.join(dir, 'pass');
-  const pass = randomBytes(18).toString('base64url');
-  await writeFile(file, pass, { mode: 0o600 });
+  const usePin = process.argv.includes('--pin');
+  const pass = usePin ? '1234' : randomBytes(18).toString('base64url');
+  await writeFile(file, '1234', { mode: 0o600 });
+  assert.throws(() => createPlaytestGate(file), /Invalid playtest passcode/);
+  await writeFile(file, pass);
   const server = spawn(process.execPath, ['server/server.js'], {
     cwd: path.join(__dirname, '..'), env: {
-      ...process.env, HOST: '127.0.0.1', PORT: '0', LV_DATABASE: ':memory:', LV_PLAYTEST_PASS_FILE: file,
+      ...process.env, HOST: '127.0.0.1', PORT: '0', LV_DATABASE: ':memory:',
+      LV_PLAYTEST_PASS_FILE: file, LV_PLAYTEST_TRUST_CLOUDFLARE: '0', LV_PLAYTEST_ALLOW_SHORT_PIN: usePin ? '1' : '0',
     }, stdio: ['ignore', 'pipe', 'inherit'],
   });
 
@@ -60,7 +65,12 @@ const WebSocket = require('ws');
       const [data] = await once(invited, 'message');
       assert.equal(JSON.parse(data).t, 'welcome');
     } finally { invited.close(); }
-    console.log('Passed remote playtest passcode, asset access, Dev isolation, and WebSocket access.');
+    const failed = await Promise.all(Array.from({ length: 6 }, () => login('wrong')));
+    assert.equal(failed.filter(response => response.status === 401).length, 5);
+    const denied = failed.find(response => response.status === 429);
+    assert.ok(Number(denied.headers.get('retry-after')) > 0);
+    assert.equal((await login(pass)).status, 429);
+    console.log('Passed playtest authentication, concurrent login limits, Dev isolation, and WebSocket access.');
   } finally {
     if (server.exitCode === null && server.signalCode === null) {
       const done = once(server, 'exit');

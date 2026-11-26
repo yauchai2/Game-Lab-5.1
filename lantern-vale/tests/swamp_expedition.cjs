@@ -4,7 +4,7 @@ const { chromium } = require('playwright');
 (async () => {
   const browser = await chromium.launch({
     channel: process.env.LV_CHROMIUM_CHANNEL || 'chrome',
-    args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
+    args: process.env.LV_SOFTWARE_GL === '0' ? [] : ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
   });
   try {
     const page = await browser.newPage({ viewport: { width: 1180, height: 720 }, reducedMotion: 'reduce' });
@@ -50,6 +50,7 @@ const { chromium } = require('playwright');
     await page.locator('#btnMenu').click();
     await page.locator('#btnMeadowExpedition').click();
     await page.locator('[data-exp-tier="4"][data-exp-route="survey"]').click();
+    await page.keyboard.press('Escape');
     await goTo(2);
     await page.waitForFunction(() => document.getElementById('fieldCompass').textContent.includes('霧潮沼澤'));
     await goTo(3);
@@ -106,6 +107,7 @@ const { chromium } = require('playwright');
     assert.match(await page.locator('#panelM').textContent(), /孢囊破壞獎勵/);
     await screenshot('lantern-swamp-reward.png');
     await page.locator('[data-exp-gem="ember"]').click();
+    await page.waitForFunction(() => !!__game.meta.p.meadowExpedition.cleared[4]);
     assert.equal(await page.evaluate(() => __game.meta.p.mMats.moth_dust), before + 4);
     assert.equal(await page.evaluate(() => __game.meta.p.meadowExpedition.cleared[4].gemId), 'ember');
     assert.deepEqual(errors, []);

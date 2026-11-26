@@ -10,6 +10,7 @@ const createGuild = require('../server/guild.cjs');
   const lodge = await import(src('lodge.js'));
 
   const expedition = await import(src('expedition.js'));
+  const opening = await import(src('opening.js'));
   let traveler = { level: 1, coins: 10, keys: 0 };
   assert.equal(expedition.startMeadowExpedition(traveler, 2, 'hunt'), false);
   assert.equal(expedition.startMeadowExpedition(traveler, 1, 'survey'), true);
@@ -25,6 +26,8 @@ const createGuild = require('../server/guild.cjs');
   assert.equal(expedition.claimMeadowReward(traveler, 'haste'), null);
   assert.equal(expedition.claimMeadowReward(traveler, 'frost').xp, 240);
   assert.equal(expedition.claimMeadowReward(traveler, 'leech'), null);
+  assert.equal(opening.openingStep(traveler), 'support');
+  assert.equal(opening.openingSupport(traveler).gemUid, traveler.puzzle.bag[0].uid);
   assert.deepEqual([traveler.keys, traveler.coins, traveler.puzzle.bag.map(g => g.id)], [1, 95, ['frost']]);
   assert.equal(expedition.startMeadowExpedition(traveler, 1, 'hunt'), false);
   assert.equal(expedition.startMeadowExpedition(traveler, 2, 'hunt'), true);
@@ -56,6 +59,21 @@ const createGuild = require('../server/guild.cjs');
   assert.equal(cave.advanceMeadowCave(delver, repeat, 2).materials, 1);
   assert.equal(cave.enterMeadowCave(delver, 'elite').stage, 0);
   assert.equal(delver.keys, 0);
+
+  const firstRun = { level: 1, keys: 1, coins: 15 };
+  opening.beginOpening(firstRun);
+  assert.equal(opening.openingStep(firstRun), 'lamp');
+  const firstTicket = cave.enterMeadowCave(firstRun, 'normal');
+  assert.equal(opening.openingStep(firstRun), 'resume');
+  for (const stage of [0, 1, 2]) cave.advanceMeadowCave(firstRun, firstTicket, stage);
+  assert.equal(opening.openingStep(firstRun), 'badge');
+  const openingBadge = opening.craftOpeningBadge(firstRun, () => String);
+  assert.equal(openingBadge.implicit.v, 2);
+  assert.equal(openingBadge.reqLevel, 2);
+  assert.equal(opening.craftOpeningBadge(firstRun), null);
+  assert.equal(opening.openingStep(firstRun), 'next');
+  assert.equal(opening.openingStep(delver), 'resume');
+  assert.equal(delver.opening, undefined, 'Existing cave clears are not retroactively awarded');
 
   const skills = await import(src('puzzle.js'));
   const veteran = { level: 5, puzzle: skills.defaultPuzzle(2), meadowExpedition: {
@@ -365,7 +383,21 @@ const createGuild = require('../server/guild.cjs');
   // 12. Tier System (T1-T6) & 3D Mount Milestone System (4 mounts including Sakura Spirit Fox)
   const loot = await import(src('loot.js'));
   assert.equal(loot.tierInfo(1).tag, 'T1');
-  assert.equal(loot.tierInfo(5).name, '傳世階');
+  assert.equal(loot.tierInfo(9).name, '傳世階');
+  // 16 階階梯：舊 T1–T6 對應 1,3,5,7,9,11；Lv1–30 每 2–3 級一階，另有 4 階終局星燈階
+  assert.equal(loot.TIERS.length - 1, 16, 'Sixteen-rank equipment ladder');
+  assert.deepEqual([1, 3, 5, 7, 9, 11].map(k => loot.tierInfo(k).power), [1, 2, 3, 4, 5, 6], 'Legacy tiers keep their stat power');
+  assert.equal(loot.rankForLevel(1), 1); assert.equal(loot.rankForLevel(13), 6); assert.equal(loot.rankForLevel(30), 12);
+  { // 掉落階依等級；舊存檔階級換算；詞綴為整數
+    let seed = 3; const r = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    for (let i = 0; i < 300; i++) {
+      const it = loot.makeItem(r, 9, null); assert.ok(it.tier >= 1 && it.tier <= 12, 'drop tier within growth ranks');
+      for (const m of [it.implicit, ...it.mods]) assert.ok(Number.isInteger(m.v), 'integer affix values');
+    }
+    const old = loot.deserializeItem({ slot: 'staff', rarity: 1, tier: 6, name: 'x', mods: [] });
+    assert.equal(old.tier, 11, 'Legacy T6 save maps to rank 11');
+    assert.equal(loot.deserializeItem(loot.serializeItem(loot.makeItem(r, 20, 1, 'head', 14))).tier, 14, 'Endgame rank survives save');
+  }
   const mounts = await import(src('mounts.js'));
   assert.equal(mounts.MOUNTS.length, 4, 'Four original mounts defined');
   assert.equal(mounts.activeMountDef({ level: 1, kills: 0 }), null, 'New player starts with mounts locked');
@@ -555,6 +587,26 @@ const createGuild = require('../server/guild.cjs');
   assert.equal(aeRes.count, 1, 'Lv.30 player auto-equips strictly stronger gear from physics bag');
   assert.equal(aeMock.player.equip.staff.name, strongStaff.name, 'Stronger staff equipped');
   assert.ok(aeMock.meta.p.bagItems.some(b => b.kind === 'gear' && b.name === weakStaff.name), 'Replaced weak staff returned to bag');
+
+  assert.equal(aeMock.meta.p.gear.staff.name, strongStaff.name, 'Auto-equip persists the upgraded weapon');
+  const headBefore = loot.makeItem(() => 0.2, 0, 0, 'head');
+  const headNext = loot.makeItem(() => 0.8, 4, 0, 'head');
+  aeMock.player.equip.head = headBefore;
+  aeMock.audio = { sfx() {} };
+  aeMock.ui = { toast() {} };
+  let savedGear;
+  aeMock.meta.save = () => { savedGear = structuredClone(aeMock.meta.p); };
+  physbag.addGearToBag(aeMock.meta.p, headNext);
+  assert.ok(physbag.useBagItem(aeMock, aeMock.meta.p.bagItems.at(-1), 'bagItems'));
+  assert.equal(savedGear.gear.head.name, headNext.name, 'Manual equip persists the new item on the character');
+  assert.ok(savedGear.bagItems.some(entry => entry.name === headBefore.name), 'Previous gear is saved in the bag');
+  assert.ok(savedGear.bagItems.every(entry => entry.name !== headNext.name), 'New gear is saved exactly once');
+  for (const slot of ['head', 'body', 'hands', 'feet', 'relic']) {
+    const item = loot.makeItem(() => 0.8, 4, 0, slot);
+    assert.ok(loot.forgeItem('upgrade', item, () => 0.7).name.endsWith(item.base), 'Forge preserves the catalogue base');
+    const legacy = { ...item, base: undefined };
+    assert.ok(loot.forgeItem('upgrade', legacy, () => 0.7).name.endsWith(loot.SLOTS[slot].bases[0]));
+  }
 
   // 19. Salvage Trash Gear to Shards (preserves rare/unique & upgrades)
   const trashNormal = loot.makeItem(() => 0.1, 0, 0, 'staff');
@@ -1254,19 +1306,36 @@ const createGuild = require('../server/guild.cjs');
   assert.ok(impRes.ok && impRes.restored >= 1 && acctMod.slotHasData(1, 'AlanHero', mockStore), 'Account backup export/import restores character slots');
 
   // 48. Equipment Level Restrictions (T1 Lv.1 -> T6 Lv.27) & Tier-Specific Crafting Materials
+  // 16 階階梯：舊 T1–T6 為階梯 1,3,5,7,9,11（標示仍是 T1–T6），中間階標示為 T1+…T6+
   assert.equal(loot.itemReqLevel({ tier: 1 }), 1, 'T1 requires Lv.1');
-  assert.equal(loot.itemReqLevel({ tier: 2 }), 5, 'T2 requires Lv.5');
-  assert.equal(loot.itemReqLevel({ tier: 3 }), 10, 'T3 requires Lv.10');
-  assert.equal(loot.itemReqLevel({ tier: 4 }), 16, 'T4 requires Lv.16');
-  assert.equal(loot.itemReqLevel({ tier: 5 }), 22, 'T5 requires Lv.22');
-  assert.equal(loot.itemReqLevel({ tier: 6 }), 27, 'T6 requires Lv.27');
-  assert.equal(loot.canEquipItem({ tier: 3 }, 9), false, 'Lv.9 player cannot equip T3 (Lv.10) gear');
-  assert.equal(loot.canEquipItem({ tier: 3 }, 10), true, 'Lv.10 player can equip T3 gear');
+  assert.equal(loot.itemReqLevel({ tier: 3 }), 5, 'T2 requires Lv.5');
+  assert.equal(loot.itemReqLevel({ tier: 5 }), 10, 'T3 requires Lv.10');
+  assert.equal(loot.itemReqLevel({ tier: 7 }), 16, 'T4 requires Lv.16');
+  assert.equal(loot.itemReqLevel({ tier: 9 }), 22, 'T5 requires Lv.22');
+  assert.equal(loot.itemReqLevel({ tier: 11 }), 27, 'T6 requires Lv.27');
+  assert.equal(loot.itemReqLevel({ tier: 2 }), 3, 'Rank 2 (T1+) requires Lv.3');
+  const restoredBadge = loot.deserializeItem(JSON.parse(JSON.stringify(loot.serializeItem(openingBadge))));
+  assert.equal(loot.canEquipItem(restoredBadge, 1), false, 'Saved opening badge still requires Lv.2');
+  assert.equal(loot.canEquipItem(restoredBadge, 2), true);
+  assert.equal(loot.itemReqLevel(loot.deserializeItem({ ...loot.serializeItem(openingBadge), tv: undefined, reqLevel: undefined })), 2, 'Older opening badge saves recover the Lv.2 requirement');
+  assert.equal(loot.itemReqLevel({ tier: 3, reqLevel: 2 }), 5, 'Upgrading rank cannot bypass the higher requirement');
+
+  assert.deepEqual([1, 2, 3, 12, 13, 16].map(k => loot.tierInfo(k).tag), ['T1', 'T1+', 'T2', 'T6+', 'E1', 'E4']);
+  assert.equal(loot.canEquipItem({ tier: 5 }, 9), false, 'Lv.9 player cannot equip T3 (Lv.10) gear');
+  assert.equal(loot.canEquipItem({ tier: 5 }, 10), true, 'Lv.10 player can equip T3 gear');
   assert.equal(Object.keys(mmoRpg.TIER_CRAFT_MATS).length, 6, 'All 6 equipment tiers have dedicated crafting material definitions');
   const t1Rec = mmoRpg.GEAR_RECIPES.find(r => r.tier === 1);
   assert.ok(t1Rec && t1Rec.cost.goods?.wood > 0 && t1Rec.cost.mMats?.slime_gel > 0, 'T1 recipe requires wood + slime_gel');
   assert.equal(mmoRpg.canCraftRecipe({ coins: 500, goods: { wood: 0 }, mMats: { slime_gel: 5 } }, t1Rec), false, 'Cannot craft T1 without required tier goods (wood)');
   assert.equal(mmoRpg.canCraftRecipe({ coins: 500, goods: { wood: 2 }, mMats: { slime_gel: 3 } }, t1Rec), true, 'Can craft T1 with exact tier materials');
+  const tuskRecipe = mmoRpg.GEAR_RECIPES.find(r => r.id === 'rec_tusk_staff');
+  const firstClear = { level: 3, coins: 215, goods: { ore: 0 }, mMats: { boar_tusk: 3, thorn_bark: 3 } };
+  assert.deepEqual(mmoRpg.missingRecipeCosts(firstClear, tuskRecipe), [
+    { key: 'ore', count: 2 }, { key: 'boar_tusk', count: 1 },
+  ], 'First cave clear exposes the exact recipe shortfall');
+  firstClear.goods.ore = 2;
+  firstClear.mMats.boar_tusk = 4;
+  assert.ok(mmoRpg.canCraftRecipe(firstClear, tuskRecipe), 'Materials unlock crafting before Lv.5');
   const pbSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'physbag.js'), 'utf8');
   assert.ok(pbSrc.includes('canEquipItem(gear, p.level') && pbSrc.includes('canEquipItem(g, p.level'), 'physbag useBagItem & autoEquipBest enforce gear level gates');
 

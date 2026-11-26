@@ -158,6 +158,7 @@ export class AmbushTrial {
     const buildSpec = AMBUSH_BUILDS[this.build] || AMBUSH_BUILDS.none;
     this.active = {
       variant, round: this.index + 1, buildPreset: buildSpec.id, events: [], charges: [], damageTaken: 0, healingDone: 0, killOrder: [],
+      controlSegments: [{ ms: 0, controller: this.currentController() }],
       retryAfterMs: retry ? millis(now - this.endedAt) : null,
       retryOf: retry ? previous.id : null, id: this.attempts.length + 1,
     };
@@ -198,8 +199,18 @@ export class AmbushTrial {
     btn.textContent = this.botOn ? (this.active ? '🤖 AI 自動打中（停用）' : '🤖 AI 自動打：開') : '🤖 AI 自動打';
   }
 
+  currentController() {
+    if (window.__qaPlaytest) return 'automation';
+    return this.botOn ? 'bot' : 'human';
+  }
+
   toggleBot() {
     this.botOn = !this.botOn;
+    const controller = this.currentController();
+    const segments = this.active?.controlSegments;
+    if (segments && segments.at(-1).controller !== controller) {
+      segments.push({ ms: millis(performance.now() - this.beganAt), controller });
+    }
     const g = this.game;
     if (!this.botOn) {
       g.touchInput.x = g.touchInput.z = 0;
@@ -362,6 +373,7 @@ export class AmbushTrial {
     const attempt = this.active;
     attempt.durationMs = millis(this.endedAt - this.beganAt);
     attempt.outcome = outcome;
+    attempt.controller = attempt.controlSegments.length > 1 ? 'mixed' : attempt.controlSegments[0].controller;
     this.attempts.push(attempt);
     this.active = null;
     const g = this.game;
@@ -387,7 +399,7 @@ export class AmbushTrial {
 
   report() {
     return {
-      version: 2, build: document.querySelector('meta[name=lv-build]')?.content || null, encounter: 'meadow-cave-ambush', order: this.order,
+      version: 3, build: document.querySelector('meta[name=lv-build]')?.content || null, encounter: 'meadow-cave-ambush', order: this.order,
       input: matchMedia('(pointer: coarse)').matches ? 'touch-layout' : 'desktop-layout',
       attempts: this.attempts,
     };
