@@ -1,0 +1,269 @@
+{
+  "_note": "Colours are #rrggbb sRGB. Float arrays (water*, grade, shaft, fog) are linear 0-1 RGB multipliers/colours. ambient/sunI are three.js r155+ intensities BEFORE the x1.75 hemi / x2.3 sun physical-light multipliers.",
+  "biomes": [
+    {
+      "key": "meadow",
+      "name": "晨光草原",
+      "grass": "#9cd454",
+      "grassLight": "#c2e668",
+      "grassDark": "#74aa46",
+      "plateau": "#8bc650",
+      "sand": "#f4df9c",
+      "sandWet": "#d4be84",
+      "dirt": "#dc9e5a",
+      "rock": "#d2c4b4",
+      "rockDark": "#a49688",
+      "pine": [
+        "#3c8a52",
+        "#509e58",
+        "#2e724a"
+      ],
+      "leaf": [
+        "#8ec842",
+        "#e87042",
+        "#f2c24a",
+        "#64b04a"
+      ],
+      "trunk": "#8e5d3e",
+      "flower": [
+        "#ffffff",
+        "#ff9ec2",
+        "#ffe46b",
+        "#b8a2f6"
+      ],
+      "waterDeep": [
+        0.18,
+        0.52,
+        0.78
+      ],
+      "waterShallow": [
+        0.38,
+        0.82,
+        0.88
+      ],
+      "waterLine": [
+        0.66,
+        0.92,
+        0.98
+      ],
+      "sun": "#fff4da",
+      "sky": "#c6dcff",
+      "ground": "#e6be88",
+      "ambient": 0.84,
+      "sunI": 1.15,
+      "grade": [
+        1.04,
+        1.02,
+        0.96
+      ],
+      "shaft": [
+        1,
+        0.94,
+        0.7
+      ],
+      "fog": [
+        0.92,
+        0.96,
+        1
+      ]
+    },
+    {
+      "key": "autumn",
+      "name": "楓紅山徑",
+      "grass": "#c0bc5c",
+      "grassLight": "#dcd26c",
+      "grassDark": "#98a250",
+      "plateau": "#b0ac56",
+      "sand": "#f2d896",
+      "sandWet": "#cfb280",
+      "dirt": "#d2844c",
+      "rock": "#c0a898",
+      "rockDark": "#927c6b",
+      "pine": [
+        "#448250",
+        "#568c4c",
+        "#346848"
+      ],
+      "leaf": [
+        "#e65c32",
+        "#f29c3e",
+        "#f8cc4c",
+        "#c8462e"
+      ],
+      "trunk": "#825038",
+      "flower": [
+        "#ffe490",
+        "#ffa470",
+        "#ffffff",
+        "#f67262"
+      ],
+      "waterDeep": [
+        0.18,
+        0.48,
+        0.74
+      ],
+      "waterShallow": [
+        0.38,
+        0.78,
+        0.86
+      ],
+      "waterLine": [
+        0.62,
+        0.88,
+        0.96
+      ],
+      "sun": "#ffe8c2",
+      "sky": "#cebfff",
+      "ground": "#eaa878",
+      "ambient": 0.7,
+      "sunI": 1.16,
+      "grade": [
+        1.06,
+        1.01,
+        0.92
+      ],
+      "shaft": [
+        1,
+        0.85,
+        0.58
+      ],
+      "fog": [
+        1,
+        0.92,
+        0.84
+      ]
+    },
+    {
+      "key": "snow",
+      "name": "雪松高嶺",
+      "grass": "#dfe9f8",
+      "grassLight": "#f0f6ff",
+      "grassDark": "#bccce6",
+      "plateau": "#d4e0f4",
+      "sand": "#e6e2ee",
+      "sandWet": "#c4c4dc",
+      "dirt": "#c0865a",
+      "rock": "#c4c2de",
+      "rockDark": "#9a98ba",
+      "pine": [
+        "#386e60",
+        "#487e64",
+        "#2c5a52"
+      ],
+      "leaf": [
+        "#6e9a7c",
+        "#a0bcb0",
+        "#588870",
+        "#dce6f4"
+      ],
+      "trunk": "#784a3a",
+      "flower": [
+        "#ffffff",
+        "#c8e0ff",
+        "#ffccde",
+        "#dcd4ff"
+      ],
+      "waterDeep": [
+        0.2,
+        0.46,
+        0.74
+      ],
+      "waterShallow": [
+        0.42,
+        0.76,
+        0.9
+      ],
+      "waterLine": [
+        0.78,
+        0.92,
+        1
+      ],
+      "sun": "#fff8f0",
+      "sky": "#dce4ff",
+      "ground": "#e4dcf4",
+      "ambient": 0.92,
+      "sunI": 1.18,
+      "grade": [
+        0.98,
+        0.99,
+        1.04
+      ],
+      "shaft": [
+        0.92,
+        0.94,
+        1
+      ],
+      "fog": [
+        0.9,
+        0.93,
+        0.99
+      ]
+    },
+    {
+      "key": "ember",
+      "name": "餘燼古林",
+      "grass": "#bca85a",
+      "grassLight": "#d8c26c",
+      "grassDark": "#968a50",
+      "plateau": "#a89856",
+      "sand": "#edc890",
+      "sandWet": "#c2a47a",
+      "dirt": "#e09652",
+      "rock": "#c49ea6",
+      "rockDark": "#94768a",
+      "pine": [
+        "#387062",
+        "#447c60",
+        "#2e5e58"
+      ],
+      "leaf": [
+        "#f0763c",
+        "#fab048",
+        "#d0543e",
+        "#ffd668"
+      ],
+      "trunk": "#70463a",
+      "flower": [
+        "#ffb868",
+        "#ff7858",
+        "#ffe6a8",
+        "#d888ff"
+      ],
+      "waterDeep": [
+        0.16,
+        0.28,
+        0.56
+      ],
+      "waterShallow": [
+        0.34,
+        0.62,
+        0.76
+      ],
+      "waterLine": [
+        0.98,
+        0.74,
+        0.54
+      ],
+      "sun": "#ffd6a2",
+      "sky": "#c2a4ee",
+      "ground": "#e8a47a",
+      "ambient": 0.68,
+      "sunI": 1.15,
+      "grade": [
+        1.06,
+        0.99,
+        0.95
+      ],
+      "shaft": [
+        1,
+        0.76,
+        0.48
+      ],
+      "fog": [
+        1,
+        0.84,
+        0.74
+      ]
+    }
+  ]
+}

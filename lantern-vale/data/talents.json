@@ -1,0 +1,156 @@
+{
+  "_note": "Boons = passive picks offered between rooms. weight 0 = guaranteed skill unlock. needs = required unlocked skill. stack = may be taken repeatedly.",
+  "boons": [
+    {
+      "id": "unlockSlam",
+      "name": "大地之根",
+      "icon": "根",
+      "desc": "解鎖技能 Q「根鬚重擊」：範圍傷害並暈眩敵人",
+      "weight": 0,
+      "stack": false,
+      "skill": "slam",
+      "needs": null
+    },
+    {
+      "id": "unlockWisp",
+      "name": "螢火伴隨",
+      "icon": "螢",
+      "desc": "解鎖技能 E「螢火群」：召喚環繞的螢火蟲攻擊附近敵人",
+      "weight": 0,
+      "stack": false,
+      "skill": "wisp",
+      "needs": null
+    },
+    {
+      "id": "chain",
+      "name": "連鎖火花",
+      "icon": "鏈",
+      "desc": "餘燼彈擊中後彈射到附近 1 名敵人",
+      "weight": 1,
+      "stack": false,
+      "skill": null,
+      "needs": null
+    },
+    {
+      "id": "multi",
+      "name": "分焰",
+      "icon": "焰",
+      "desc": "餘燼彈 +1 發",
+      "weight": 1,
+      "stack": true,
+      "skill": null,
+      "needs": null
+    },
+    {
+      "id": "thick",
+      "name": "厚苔",
+      "icon": "苔",
+      "desc": "+30 最大生命，回滿生命",
+      "weight": 1,
+      "stack": true,
+      "skill": null,
+      "needs": null
+    },
+    {
+      "id": "gale",
+      "name": "疾風步",
+      "icon": "風",
+      "desc": "翻滾冷卻 -35%，翻滾後下一次揮擊 +60% 傷害",
+      "weight": 1,
+      "stack": false,
+      "skill": null,
+      "needs": null
+    },
+    {
+      "id": "moon",
+      "name": "月相",
+      "icon": "月",
+      "desc": "每第 4 次揮擊釋放一圈衝擊波",
+      "weight": 1,
+      "stack": false,
+      "skill": null,
+      "needs": null
+    },
+    {
+      "id": "feast",
+      "name": "野宴",
+      "icon": "宴",
+      "desc": "擊殺敵人回復 4 生命",
+      "weight": 1,
+      "stack": true,
+      "skill": null,
+      "needs": null
+    },
+    {
+      "id": "glass",
+      "name": "玻璃燈罩",
+      "icon": "燈",
+      "desc": "傷害 +40%，最大生命 -15%",
+      "weight": 0.7,
+      "stack": false,
+      "skill": null,
+      "needs": null
+    },
+    {
+      "id": "bramble",
+      "name": "荊棘外衣",
+      "icon": "棘",
+      "desc": "被擊中時對周圍敵人造成 20 傷害",
+      "weight": 1,
+      "stack": false,
+      "skill": null,
+      "needs": null
+    },
+    {
+      "id": "quake",
+      "name": "餘震",
+      "icon": "震",
+      "desc": "根鬚重擊範圍 +35%，冷卻 -20%",
+      "weight": 1,
+      "stack": false,
+      "skill": null,
+      "needs": "slam"
+    },
+    {
+      "id": "swarm",
+      "name": "蜂擁",
+      "icon": "群",
+      "desc": "螢火群 +3 隻且持續時間 +3 秒",
+      "weight": 1,
+      "stack": false,
+      "skill": null,
+      "needs": "wisp"
+    },
+    {
+      "id": "flask",
+      "name": "蜜酒葫蘆",
+      "icon": "壺",
+      "desc": "藥瓶上限 +1，藥瓶回復量 +25%",
+      "weight": 1,
+      "stack": true,
+      "skill": null,
+      "needs": null
+    },
+    {
+      "id": "swift",
+      "name": "輕盈",
+      "icon": "輕",
+      "desc": "+12% 移動速度 與 +12% 攻擊速度",
+      "weight": 1,
+      "stack": true,
+      "skill": null,
+      "needs": null
+    },
+    {
+      "id": "sharp",
+      "name": "銳眼",
+      "icon": "眼",
+      "desc": "+8% 暴擊率，+30% 暴擊傷害",
+      "weight": 1,
+      "stack": true,
+      "skill": null,
+      "needs": null
+    }
+  ],
+  "offerCount": 3
+}
