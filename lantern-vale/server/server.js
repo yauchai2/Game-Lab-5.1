@@ -34,6 +34,8 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(405, { Allow: 'GET, HEAD' }).end();
     } else if (url.pathname === '/health') {
       res.writeHead(200, { 'Content-Type': 'text/plain', 'X-Lantern-Vale-Server': 'zone-shards' }).end('ok');
+    } else if (url.pathname === '/test' || url.pathname === '/playtest') {
+      res.writeHead(302, { Location: '/?test' }).end();
     } else if (url.pathname === '/' || url.pathname === '/index.html') {
       const dev = !playtestGate && isLocalDevRequest(req) ? 'window.LV_DEV_DIAGNOSTICS=true;' : '';
       const html = (await fs.promises.readFile(path.join(GAME_DIR, 'index.html'), 'utf8'))

@@ -3,8 +3,16 @@ import { Game } from './game.js';
 import { UI } from './ui.js';
 import { Audio } from './audio.js';
 import { ambushTrialOrder } from './ambush_trial.js';
+import { isTestHub, mountTestHub } from './test_hub.js';
 import { installDevDiagnostics, recordDevSlowFrame, setDevContext } from './dev_diagnostics.js';
 
+if (isTestHub()) {
+  mountTestHub();
+} else {
+  startApp();
+}
+
+function startApp() {
 installDevDiagnostics();
 
 const pipe = new Pipeline(document.getElementById('view'));
@@ -41,3 +49,4 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
+}

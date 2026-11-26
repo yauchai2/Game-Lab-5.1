@@ -8,6 +8,11 @@
 - 外網試玩的 HTTPS 通道已另接在 `127.0.0.1:8082` 的隔離服務。入口密碼與目前網址分別從 `server/data/remote-playtest/passcode` 和 `tunnel.log` 讀取。公開入口使用試玩密碼，正式的 8080 及區網的 8081 保持各自服務。已從外網 HTTPS 驗證瀏覽器登入、岔道伏擊開場與兩個 WSS 連線加入同一分流。停止方式見 [跨網路邀請](docs/LIVE_PLAYTEST.md#跨網路邀請)。
 - 接手時 Dev Mode 的新待審紀錄只有遊玩期間的單次 184 ms 慢幀，尚未追到穩定重現條件。
 
+## 2026-11-26 統一測試入口頁（`?test`／`/test`／`/playtest`）
+
+- **建置雜湊**：`game/index.html` `15c53c3ab1b5`（1918KB）。`node tests/logic_verify.cjs`（55/55 全通過）與 `node tests/playtest_review.cjs` 全通過。
+- **單一整合入口（`src/test_hub.js`、`src/main.js`、`server/server.js`）**：於 `game/index.html` 內建零延遲測試總覽頁（`?test` 或 `?playtest=hub`），不載入 WebGL 即刻顯示目前建置雜湊，並集中提供岔道伏擊（AB／BA × 無寶石／❄ 霜緩／♥ 汲血）一鍵開打與複製連結、完整遊戲主畫面及多人同分流組隊入口。由於伺服器每次請求皆直接讀取最新 `game/index.html`，免重啟即可於本機 `8080`、區網 `8081` 與外網 Cloudflare HTTPS 立即生效；`server/server.js` 亦同步補上 `/test` 與 `/playtest` 導向 `/?test`。
+
 ## 2026-11-26 第九輪優化（最新自動試玩戰報審查、結算即時量化摘要、快捷構築切換與戰報精度修正）
 
 - **建置雜湊**：`game/index.html` `b30cffba5dc0`（1913KB）。`node tests/logic_verify.cjs`（55/55 全通過）與 `node tests/playtest_review.cjs` 全通過。
