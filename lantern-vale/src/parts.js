@@ -1,6 +1,7 @@
 // 部位破壞與精準掉落系統（Monster Hunter / The Surge 風格）
 // 針對頭目與重型魔物的特定方位部位集中攻擊，斬斷後弱化對應招式並必定掉落專屬神裝！
 import { AFFIXES } from './loot.js';
+import { legacyGearRank } from './itemdb.js';
 
 const fmtOf = k => AFFIXES.find(a => a.k === k)?.fmt || (k === 'baseDmg' ? (v => `基礎傷害 +${v}`) : (v => `${k} +${v}`));
 
@@ -116,7 +117,7 @@ export function buildPartDropItem(part) {
     id: _partDropUid++,
     slot: d.slot,
     rarity: d.rarity,
-    tier: d.tier,
+    tier: legacyGearRank(d.tier),
     name: d.name,
     base: d.base,
     special: d.special || null,

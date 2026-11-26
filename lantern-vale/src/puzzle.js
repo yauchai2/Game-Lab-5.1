@@ -335,6 +335,24 @@ export function suggestSupportFit(profile, gemId) {
   return best;
 }
 
+export function linkedSupportSkills(profile, uid) {
+  const puzzle = profile.puzzle;
+  const placed = puzzle?.presets?.[puzzle.activePreset];
+  const support = placed?.find(item => item.uid === uid);
+  const def = SUPPORT_GEMS[support?.id];
+  if (!def) return [];
+  const occupied = occupiedMap(placed);
+  const linked = new Map();
+  for (const [dx, dy] of rotateCells(def.shape, support.rot)) {
+    const x = support.x + dx, y = support.y + dy;
+    for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
+      const item = occupied.get(nx + ',' + ny);
+      if (item && ACTIVE_GEMS[item.id]) linked.set(item.uid, ACTIVE_GEMS[item.id].name);
+    }
+  }
+  return [...linked.values()];
+}
+
 export function applySupportFit(profile, uid) {
   const puzzle = profile.puzzle;
   const index = puzzle?.bag.findIndex(gem => gem.uid === uid) ?? -1;

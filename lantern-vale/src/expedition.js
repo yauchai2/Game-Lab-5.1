@@ -3,6 +3,7 @@ import { ALL_GEMS, addGemToBag } from './puzzle.js';
 import { mulberry32 } from './util.js';
 import { FIELDS } from './frontier.js';
 import { initParts } from './parts.js';
+import { openingStep } from './opening.js';
 
 const grassland = {
   field: 1, champion: '裂地獠牙', championType: 'boar',
@@ -104,7 +105,7 @@ export function claimMeadowReward(profile, gemId) {
     profile.mMats ||= {};
     for (const [id, count] of Object.entries(materials)) profile.mMats[id] = (profile.mMats[id] || 0) + count;
   }
-  cleared[active.tier] = { route: active.route, gemId };
+  cleared[active.tier] = { route: active.route, gemId, gemUid: entry.uid };
   profile.meadowExpedition.active = null;
   return { ...reward, materials, gem: ALL_GEMS[gemId], gemUid: entry.uid };
 }
@@ -134,6 +135,7 @@ function expeditionLocations(g) {
     'camp-0': find(14, -0.25), 'camp-1': find(20, -0.55), 'camp-2': find(19, 0.28),
     'lamp-0': find(13, 0.7), 'lamp-1': find(24, 0.35),
     champion: find(30, 0.05),
+    'opening-lamp': find(8, 0.1), 'opening-boar': find(13, -0.72),
   };
 }
 
@@ -157,6 +159,44 @@ function createTrailLamp(g, id, pos, name, ignition) {
     light.position.y = 1.2;
   }
   g.spots.push({ ...pos, kind: 'expedition_lamp', expeditionId: id, ignition, mesh, light, label, top: mesh.position.y + 2.7 });
+}
+
+export function syncOpeningEncounter(g) {
+  if (g.field !== 1 || g.interior) return;
+  const step = openingStep(g.meta.p);
+  if (step !== 'lamp' && step !== 'spar') return;
+  g.meadowLocations ||= expeditionLocations(g);
+  if (!g.spots.some(spot => spot.expeditionId === 'opening-lamp')) {
+    createTrailLamp(g, 'opening-lamp', g.meadowLocations['opening-lamp'], '南門路燈', false);
+  }
+  if (step !== 'spar') return;
+  const lamp = g.spots.find(spot => spot.expeditionId === 'opening-lamp');
+  lamp.label = '已點亮南門路燈';
+  lamp.light.material.color.setHex(0xffdf81);
+  if (g.enemies.some(enemy => enemy.openingPractice && !enemy.dead)) return;
+  const boar = g.spawnEnemy('boar', g.meadowLocations['opening-boar'], false);
+  boar.openingPractice = true;
+  initParts(boar, []);
+  boar.hp = boar.maxHp = Math.round(boar.maxHp * 0.61);
+  boar.dmg *= 0.48;
+  boar.cd = 0;
+  boar.chargeWindS = 1.1;
+  boar.chargeRecoveryS = 1.2;
+}
+
+export function lightOpeningLamp(g) {
+  if (g.field !== 1 || openingStep(g.meta.p) !== 'lamp') return false;
+  g.meta.p.opening.practice = 'spar';
+  g.meta.save();
+  syncOpeningEncounter(g);
+  g.ui.banner('南門路燈已亮', '看見直線預警就向側面閃，等狂豬收招再反打。');
+  return true;
+}
+
+export function finishOpeningPractice(g) {
+  g.meta.p.opening.practice = 'done';
+  g.meta.save();
+  g.ui.banner('南門小徑安全了', '打開任務，選擇清剿前哨或重燃路燈。');
 }
 
 export function syncMeadowExpedition(g) {
@@ -207,6 +247,12 @@ export function syncMeadowExpedition(g) {
 
 export function meadowObjective(g) {
   const { active } = meadowExpedition(g.meta.p);
+  const step = openingStep(g.meta.p);
+  if (g.field === 1 && (step === 'lamp' || step === 'spar')) {
+    const target = step === 'lamp' ? g.spots.find(s => s.expeditionId === 'opening-lamp')
+      : g.enemies.find(enemy => enemy.openingPractice && !enemy.dead)?.pos;
+    if (target) return { x: target.x, z: target.z, label: step === 'lamp' ? '點亮南門路燈' : '側閃幼狂豬的直線衝鋒' };
+  }
   const stage = meadowStage(active);
   if (!active || stage === 'reward' || g.interior) return null;
   const def = MEADOW_TIERS[active.tier];

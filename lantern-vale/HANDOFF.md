@@ -1,5 +1,47 @@
 # 交接說明（Claude → Codex，2026-11-22）
 
+## 2026-11-26 整合版上線
+
+- 原始碼整合提交 `3e52b75` 合併巡燈旅程、補料工坊、其他 Agent 的手機載入與 UI 更新，以及 16 階裝備與青藤階 24 件圖。裝備遷移保留舊階穿戴門檻、舊階數值和巡燈徽章的 Lv.2 條件。
+- GitHub Pages 部署提交 `3b0bc73`，公開建置 `2340e16ba983`。Chrome 以手機尺寸驗證公開網址可從選角到南門路燈，並載入青藤圖示。外網多人試玩接到建置 `fb89378cbe13`，用現有登入設定驗證 HTTPS、青藤圖示及 WebSocket 歡迎封包。
+- `npm test`、領獎、遠征、洞窟與沼澤瀏覽器回歸通過。公開 Pages 為靜態單人版，跨網路多人繼續使用受保護的試玩入口。終局四階已在階梯資料中，掉落來源依裝備規劃分階段接入。
+
+
+## 2026-11-26 手機端首屏流量瘦身（21.9MB → 2.6–3.0MB，降幅約 87%）與 Brotli 壓縮
+
+- **建置雜湊**：`game/index.html` `07a55910c6cf`（2039KB）。`node tests/logic_verify.cjs`（全通過）、`node tests/playtest_review.cjs` 與 `node --check server/server.js` 全通過。
+- **清除標題畫面冗餘下載（`src/vfx_engine.js`、`src/char_rig.js`、`src/characters.js`、`src/game.js`）**：
+  - `VfxEngine` 新增 `{ lazy: true }` 選項與 `preload()`，徹底避免標題畫面開局就下載 `vfx_meshes.glb`（3.78MB）與 25 張特效貼圖；改於進入城鎮、野外或副本時（`ensurePlayAssets()`）才預載。
+  - `createModularHero()` 新增 `lazyAnim` 與 `ensureAnims()`；行動裝置（`any-pointer: coarse`）移除 `preloadAllCharacterAnims()` 背景全載，5 位島嶼英雄僅在實際選中時才下載對應的單一 `anim_*.glb`（節省其餘 4 職業約 10MB 動畫）。
+  - 行動裝置於標題畫面延後 `preloadNatureAssets()`（13 組自然樹石＋7 座城鎮地標＋4 隻怪物模型），直到點擊開始冒險進入遊戲後才於背景載入。
+- **修正伺服器壓縮正規表達式並升級 Brotli（`server/server.js`）**：修正前次 Gzip `Accept-Encoding` 正規表達式誤植導致壓縮未觸發的問題，新增 **Brotli (`br`)** 優先於 Gzip 壓縮（涵蓋 `game/index.html` 與 `.glb`/`.gltf`/`.bin`/`.svg`/`.json`/`.js`/`.css`，並對壓縮後 HTML 加入記憶體快取，同時嚴格保留 `playtestGate` 的 `private, no-store` 標頭）。重啟背景 8082 服務後，手機 5G 首屏總傳輸量由原本約 19–22MB 驟降至約 **2.6–3.0MB**（核心 HTML 533KB + 浮島 402KB + 基礎英雄 1,195KB + 單職業動畫 454–946KB）。
+
+## 2026-11-26 手機 5G 載入大幅優化、3D 浮島／英雄佔位模型與載入進度膠囊
+
+- **建置雜湊**：`game/index.html` `97a2863c0129`（2038KB）。`node tests/logic_verify.cjs`（全通過）與 `node tests/playtest_review.cjs` 全通過。
+- **3D 浮島與 5 位英雄即時佔位模型（`src/characters.js`、`src/char_rig.js`）**：針對手機 5G 下載 GLB 期間出現「空白海面漂浮編號」問題，新增低面 3D 沙洲山丘與樹木佔位浮島（`placeholderIsland`）以及 5 職業分色 3D 英雄剪影佔位體（呼吸起伏），待真實 `creator_mountain_ship.glb` 與 `adventurer_base.glb` 載入完成瞬間無縫替換並釋放佔位幾何資源。
+- **非阻斷式載入進度膠囊與手機端寬頻分流（`src/characters.js`、`src/index.html`）**：標題頂部新增柔和半透明進度膠囊（`#titleLoadPill`）即時回報 3D 浮島下載百分比並在就緒後自動淡出；手機端（`any-pointer: coarse`）將原本同時搶佔 12.2MB 頻寬的 5 份 `anim_*.glb` 延後 2.2 秒再背景預載，優先讓 1.3MB 浮島與 2.2MB 基礎英雄瞬間成型；同步將手機端 `DEV MODE` 徽章移至左下角避免壓蓋角色存檔選單。
+- **伺服器 Gzip 壓縮與快取（`server/server.js`）**：對 `game/index.html`（壓縮後約降 76%）與 `.glb`/`.gltf`/`.svg`/`.json` 啟用 Gzip 壓縮，非密碼保護環境加 `Cache-Control: public, max-age=86400`（保留 `playtestGate` 的 `private, no-store` 測試契約）。重啟背景 8082 服務即可享有 Gzip 加速。
+
+## 2026-11-26 UI 簡約大改階段二＋三（標題選角、背包與世界地圖去冗餘與去 Emoji）
+
+- **標題選角極簡化（`src/characters.js`、`src/index.html`）**：底部職業標籤去除編號、英文重複與 Emoji（僅留純職業名），強化底部「開始冒險」鮮明主按鈕，並統一清理頂部與換裝工坊按鈕上的雜亂系統 Emoji 與中英雙標題。
+- **新版 8 格背包與世界地圖減法重構（`src/index.html`、`src/ui.js`）**：標題統一為純繁中（`背包`／`裝備`），清除背包分頁與底部按鈕的系統彩色 Emoji 與常駐教學長條（僅在選取物品時顯示詳情），並以視覺隱藏（保留無障礙與鍵盤相容）移除破壞像素畫風的原生 `<select>` 下拉框（`bagItemPicker`、`stashItemPicker`、`map-island-picker`）。
+
+## 2026-11-26 巡燈旅程實作
+
+- 首畫面新增直接出發。初次玩家的任務引導從南門路燈開始，用本機分開呈現的幼狂豬練習橫向閃避與收招反擊，也可略過。兩條晨光遠征及既有洞窟三段共用原戰鬥與數值。
+- 角色存檔保存首趟練習、寶石實例、洞窟段落與首通徽章進度。桌機與手機任務使用同一個恢復入口。關閉結算或重開角色可重新打開下一步。已跨區推進的舊角色沿用原遠征清單。
+- 首次普通洞窟可在工坊做 Lv.2 巡燈徽章（基礎傷害 +2）。空飾品欄可直接穿戴。之後能選精英或低語森林，原精鋼戰杖仍保有 Lv.5 條件。Chrome 兩分頁同時點擊的回歸只發出一份遠征獎勵和一個徽章。
+- 桌機霜緩／重燃路燈與手機尺寸汲血／清剿前哨均以未加速戰鬥走到森林入口，兩場都有實際寶石效果。回歸通過首趟、森林、沼澤、洞窟段落恢復及工坊重開還原。真人新手的耗時、回訪、實機操控及合作熟悉度留待真人試玩。
+
+
+## 2026-11-26 首 10 分鐘開局審查
+
+- Chrome 建置 `827cc1ef2ffe` 的兩個新檔以實際操作跑通雙遠征路線、汲血配裝、普通洞窟與工坊。另驗證手機尺寸的出生和任務入口，並從 Lv.2 選低語森林，領獎後達 Lv.3 477/531 XP。腳本知道按鈕與目標；時間留作流程定位。
+- 領汲血後先關介面，HUD 立即改回擊殺章節，任務卡無法點選，遠征選單也沒有恢復「裝上寶石」。兩條首通路線回工坊時仍距 Lv.5 約 1,300 XP。優先做可恢復的首趟引導、共通讀招練習和首通立即可用獎勵。詳細分段、狀態設計及真人驗收見 [首 10 分鐘審查](docs/FIRST_TEN_MINUTES_REVIEW.md)。
+
+
 ## 2026-11-26 物理背包去線框化：依去背 PNG 真實圖片輪廓物理碰撞與像素級拾取
 
 - **建置雜湊**：`game/index.html` `1de1b74ad92e`（2024KB）。`node tests/logic_verify.cjs`（全通過）與 `node tests/playtest_review.cjs` 全通過。

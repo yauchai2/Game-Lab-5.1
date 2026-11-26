@@ -1,9 +1,8 @@
 // 孤山獨影（Cairn）風格 2D 重力物理掉落背包與倉庫系統（不同形狀大小＋物品物理碰撞合成）
-import { RARITY, SLOTS, serializeItem, deserializeItem, makeItem, itemScore, canEquipItem, itemReqLevel } from './loot.js';
-import { rememberGear } from './frontier.js';
+import { RARITY, SLOTS, tierInfo, tierPower, storedGearRank, serializeItem, deserializeItem, makeItem, itemScore, canEquipItem, itemReqLevel, rememberGear } from './loot.js';
 import { canvasUiFont } from './ui_typography.js';
 import { t } from './i18n.js';
-import { resolveArtId, loadItemImage, getItemSilhouette } from './itemdb.js';
+import { legacyGearRank, resolveArtId, loadItemImage, getItemSilhouette } from './itemdb.js';
 
 // 物理碰撞合成配方（在背包中拖曳或拋撞兩個相容物件即可當場融合！）
 export const BAG_RECIPES = [
@@ -389,8 +388,8 @@ export class PhysicsContainer {
     }
     if (this.hover) {
       const d = this.hover.data;
-      const tierNum = d.item?.tier || d.tier || 1;
-      const txt = `[T${tierNum}] ${d.name}`;
+      const tierNum = d.item ? storedGearRank(d.item) : legacyGearRank(d.tier);
+      const txt = `[${tierInfo(tierNum).tag}] ${d.name}`;
       ctx.font = canvasUiFont(12, 700);
       const tw = Math.min(W - 12, ctx.measureText(txt).width + 14);
       const ex = this._extents(this.hover);
@@ -627,7 +626,7 @@ export function salvageTrashGear(game) {
     if (g.rarity > 1 || g.corrupted) continue;
     const eq = game.player?.equip?.[g.slot];
     if (!eq || itemScore(g) >= itemScore(eq)) continue;
-    const val = (g.rarity === 0 ? 4 : 8) + Math.max(0, (g.tier || 1) - 1) * 2;
+    const val = (g.rarity === 0 ? 4 : 8) + Math.max(0, Math.round((tierPower(g.tier) - 1) * 2));
     list.splice(i, 1);
     count++;
     shards += val;

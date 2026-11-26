@@ -584,6 +584,9 @@ body.holding-gem,body.holding-gem *{cursor:grabbing!important}
 /* 影片同款：底部 ◀ 職業名 ▶ 切換條＋編號點 */
 .cr-stage-bar{position:absolute;bottom:20px;left:32%;transform:translateX(-50%);z-index:5;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none}
 #title.mode-dressup .cr-stage-bar{display:none}
+#btnQuickStart{pointer-events:auto;min-height:44px;padding:5px 16px}
+#title.mode-focus #btnQuickStart{display:none}
+#questTracker[data-stage=opening] .qt-bar{display:none}
 .cr-pins{display:flex;gap:8px;pointer-events:auto}
 .hero-pin-btn{width:28px;height:28px;border-radius:50%!important;border:2px solid #fff!important;background:rgba(43,29,34,.72);color:#fff8e4;font:inherit;font-size:12px;font-weight:900;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.35)!important;transition:transform .15s,background .15s}
 .hero-pin-btn.on,.hero-pin-btn:hover{background:#e8734a;transform:scale(1.16);border-color:#ffd85a!important}
@@ -2008,6 +2011,22 @@ body:has(#menuPop:not(.hide),[aria-modal="true"]:not(.hide)) #toasts{opacity:0}
 #dimVeil{position:fixed;inset:0;pointer-events:none;z-index:4;opacity:0;transition:opacity .8s;
   background:radial-gradient(ellipse closest-side at center,rgba(var(--veil-rgb,6,8,20),0) var(--veil-in,62%),rgba(var(--veil-rgb,6,8,20),var(--veil-a,.4)) 100%)}
 #dimVeil.on{opacity:1}
+/* ===== 階段二＋三：隱藏冗餘原生下拉框、精簡標題與核心面板 ===== */
+#inv .item-picker,#worldMap .map-island-picker{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip-path:inset(50%)!important;border:0!important;white-space:nowrap!important}
+#inv .inv-tabs button{letter-spacing:.03em}
+#inv #bagSelInfo:empty,#inv #stashSelInfo:empty{display:none}
+#title .cr-stage-bar{gap:10px!important}
+#title #btnQuickStart{background:#3a7d5c!important;color:#fff8e6!important;border-color:#244f3a!important;padding:8px 18px!important;font-size:14px!important;font-weight:800!important}
+#titleLoadPill{position:fixed;top:64px;left:50%;transform:translateX(-50%);z-index:26;display:flex;align-items:center;gap:8px;padding:6px 14px;border-radius:999px;background:rgba(28,19,34,.74);border:1px solid rgba(255,224,150,.38);color:#fff6e2;font-size:12px;backdrop-filter:blur(4px);pointer-events:none;transition:opacity .35s ease,transform .35s ease}
+#titleLoadPill i{width:7px;height:7px;border-radius:50%;background:#ffd85a;animation:bsGlow .8s ease-in-out infinite alternate}
+#titleLoadPill.done{opacity:0;transform:translate(-50%,-8px)}
+@media (max-width:640px){#devBadge,#devModeBadge,.dev-badge{top:auto!important;bottom:8px!important;left:8px!important;transform:none!important;opacity:.7!important}}
+/* ===== 階段四：城鎮面板分頁化（鐵匠鋪／素材工坊／公會大廳） ===== */
+.panel-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 10px}
+.panel-tabs button{border-image:none!important;border:0!important;border-radius:0!important;background:var(--cp-wood)!important;color:var(--cp-parchment-hi)!important;text-shadow:0 1px 0 var(--cp-ink)!important;font-weight:800!important;padding:5px 11px!important;box-shadow:inset 0 2px 0 var(--cp-wood-hi),inset 0 -3px 0 var(--cp-wood-shadow),var(--cp-box)!important;cursor:pointer;font-family:inherit;font-size:13px}
+.panel-tabs button:hover{background:var(--cp-wood-hi)!important;color:var(--cp-ink)!important;text-shadow:none!important}
+.panel-tabs button.on{background:var(--cp-gold)!important;color:var(--cp-ink)!important;text-shadow:0 1px 0 var(--cp-gold-hi)!important;box-shadow:inset 0 3px 0 var(--cp-gold-hi),inset 0 -3px 0 var(--cp-gold-sh),var(--cp-box)!important;transform:translateY(-2px)}
+@media(pointer:coarse){.panel-tabs button{min-height:40px}}
 </style>
 </head>
 <body>
@@ -2175,27 +2194,29 @@ body:has(#menuPop:not(.hide),[aria-modal="true"]:not(.hide)) #toasts{opacity:0}
 <div id="title">
   <canvas id="creatorCanvas" aria-label="3D 英雄浮島與換裝舞台"></canvas>
   <div id="heroPins3d" class="cr-pins-3d"></div>
+  <div id="titleLoadPill" role="status" aria-live="polite"><i></i><span>載入島嶼與英雄…</span></div>
   <header class="cr-top">
     <div class="cr-brand"><h1>Beaconfall</h1><div class="en">RELIGHT THE GREAT BEACON</div></div>
     <div class="cr-top-right">
-      <button type="button" id="btnAccount" class="btn small" style="background:#5a463a;color:#fff8e6">👤 訪客登入</button>
+      <button type="button" id="btnAccount" class="btn small" style="background:#5a463a;color:#fff8e6">帳號</button>
       <select id="characterSlot" class="cr-slot-sel" aria-label="角色存檔"></select>
-      <button id="btnSetTitle" class="btn small" style="background:var(--teal)">⚙ 設定</button>
+      <button id="btnSetTitle" class="btn small" style="background:var(--teal)">設定</button>
     </div>
   </header>
 
   <div class="cr-stage-bar">
-    <button type="button" class="cr-ov-btn" id="btnOverview" hidden>← 返回全隊總覽</button>
+    <button type="button" class="cr-ov-btn" id="btnOverview" hidden>← 全隊</button>
     <div class="cr-pill">
       <button type="button" id="btnHeroPrev" aria-label="上一位英雄">◀</button>
-      <span id="heroPillName">1. 🛡 守燈衛士 · Fighter</span>
+      <span id="heroPillName">守燈衛士</span>
       <button type="button" id="btnHeroNext" aria-label="下一位英雄">▶</button>
     </div>
+    <button type="button" class="btn small on" id="btnQuickStart" data-i18n="start">開始冒險</button>
   </div>
 
   <!-- Stage 1 右側：極簡輕量英雄卡（僅聚焦英雄時優雅滑入，總覽時保持純淨大視野） -->
   <aside class="cr-book" aria-label="英雄檔案卡">
-    <div class="sb-tape" id="sbClassTag">🛡 守燈衛士 · Fighter</div>
+    <div class="sb-tape" id="sbClassTag">守燈衛士</div>
     <p class="sb-desc" id="sbClassDesc"></p>
     <details class="sb-skills-fold">
       <summary data-i18n="heroDetails">職業與初始技能</summary>
@@ -2211,8 +2232,8 @@ body:has(#menuPop:not(.hide),[aria-modal="true"]:not(.hide)) #toasts{opacity:0}
       </details>
     </div>
     <div class="sb-ctas">
-      <button type="button" class="btn small" id="btnOpenDressup" style="background:#5a78b8">✨ 外觀</button>
-      <button type="button" class="btn" id="btnStart">🏮 提燈出發</button>
+      <button type="button" class="btn small" id="btnOpenDressup" style="background:#5a78b8">外觀</button>
+      <button type="button" class="btn" id="btnStart">開始冒險</button>
     </div>
   </aside>
 
@@ -2226,16 +2247,16 @@ body:has(#menuPop:not(.hide),[aria-modal="true"]:not(.hide)) #toasts{opacity:0}
   <!-- Stage 2 右側：參考圖 2 暖光木屋換裝間 -->
   <aside class="du-panel" aria-label="造型換裝工坊">
     <div class="du-head">
-      <h2>✨ 挑選造型 · Pick Outfit</h2>
+      <h2>挑選造型</h2>
       <button type="button" class="modal-x" id="btnDressBack" aria-label="返回">✕</button>
     </div>
     <div class="du-tabs" id="duTabs"></div>
     <div class="du-swatches" id="duSwatches"></div>
     <div class="du-grid" id="duGrid"></div>
     <div class="du-foot">
-      <button type="button" class="du-btn-fav" id="btnFavOutfit">⭐ 最愛套裝</button>
-      <button type="button" class="du-btn-rnd" id="randomLook">🎲 隨機</button>
-      <button type="button" class="du-btn-save" id="btnSaveDressup">✔ 儲存造型</button>
+      <button type="button" class="du-btn-fav" id="btnFavOutfit">最愛套裝</button>
+      <button type="button" class="du-btn-rnd" id="randomLook">隨機</button>
+      <button type="button" class="du-btn-save" id="btnSaveDressup">儲存造型</button>
     </div>
   </aside>
 </div>
@@ -2323,28 +2344,28 @@ body:has(#menuPop:not(.hide),[aria-modal="true"]:not(.hide)) #toasts{opacity:0}
 <div id="boons" class="modal hide"><h2>選擇一份祝福</h2><div class="cards"></div></div>
 <div id="inv" class="modal hide" data-dialog-label="背包與裝備"><div class="panel">
   <div class="inv-tabs">
-    <button type="button" data-invtab="bag" class="on">🎒 背包與裝備</button>
-    <button type="button" data-invtab="souls">👻 怪物靈魂</button>
-    <button type="button" data-invtab="atlas">🗺️ 副本設計台</button>
-    <button type="button" data-invtab="style">✨ 外觀與坐騎</button>
-    <button type="button" data-invtab="stash">📦 <span data-i18n="stash">倉庫</span></button>
+    <button type="button" data-invtab="bag" class="on">背包與裝備</button>
+    <button type="button" data-invtab="souls">怪物靈魂</button>
+    <button type="button" data-invtab="atlas">副本設計台</button>
+    <button type="button" data-invtab="style">外觀與坐騎</button>
+    <button type="button" data-invtab="stash"><span data-i18n="stash">倉庫</span></button>
     <button type="button" id="btnInvClose" class="modal-x" aria-label="關閉背包">✕</button>
   </div>
   <div class="inv-pane" id="pane-bag">
     <div class="bag-two-col">
       <div class="bag-left">
-        <div class="rpg-ribbon"><span>背包 INVENTORY</span><b id="bagCount">0</b></div>
+        <div class="rpg-ribbon"><span>背包</span><b id="bagCount">0</b></div>
         <canvas id="bagCanvas" class="phys-cv" width="420" height="300"></canvas>
         <label class="item-picker" for="bagItemPicker"><span data-i18n="pickBag">選取背包物品</span><select id="bagItemPicker"></select></label>
         <div class="bag-actions">
-          <button type="button" class="btn small" id="btnAutoEquip" style="background:#2f8a7e">⚡ 一鍵裝備最強</button>
-          <button type="button" class="btn small" id="btnSalvageBag" style="background:#9b5428">♻️ 分解低階裝</button>
-          <button type="button" class="btn small" id="btnShakeBag">🎲 搖一搖</button>
+          <button type="button" class="btn small" id="btnAutoEquip" style="background:#2f8a7e">一鍵換裝</button>
+          <button type="button" class="btn small" id="btnSalvageBag" style="background:#9b5428">分解低階</button>
+          <button type="button" class="btn small" id="btnShakeBag">搖一搖</button>
         </div>
       </div>
       <div class="bag-right">
         <div id="bagEquipStrip"></div>
-        <div id="bagSelInfo" class="pz-info" style="margin:0">拖曳相容物品可物理碰撞合成；點擊物品或上方裝備檢視數值比較！</div>
+        <div id="bagSelInfo" class="pz-info" style="margin:0"></div>
         <div style="display:flex;gap:6px;flex-wrap:wrap" id="bagBtns"></div>
         <details class="detail-fold"><summary data-i18n="characterStats">角色屬性</summary><div id="invStats"></div></details>
         <details class="detail-fold"><summary data-i18n="characterPerks">天賦與祝福</summary><div id="invBoons"></div></details>
@@ -2354,16 +2375,16 @@ body:has(#menuPop:not(.hide),[aria-modal="true"]:not(.hide)) #toasts{opacity:0}
   <div class="inv-pane hide" id="pane-souls"><div id="soulsRoot"></div></div>
   <div class="inv-pane hide" id="pane-atlas"><div id="atlasRoot"></div></div>
   <div class="inv-pane hide" id="pane-style">
-    <h3>🦌 坐騎里程碑</h3><div id="mountsRoot"></div>
+    <h3>坐騎里程碑</h3><div id="mountsRoot"></div>
     <div style="margin-top:14px;padding-top:12px;border-top:2px dashed rgba(59,42,42,.3)"><div id="cosmeticsRoot"></div></div>
   </div>
   <div class="inv-pane hide" id="pane-stash">
     <div class="phys-wrap">
       <div><canvas id="stashCanvas" class="phys-cv" width="420" height="300"></canvas><label class="item-picker" for="stashItemPicker"><span data-i18n="pickStash">選取倉庫物品</span><select id="stashItemPicker"></select></label></div>
       <div class="phys-side">
-        <div id="stashSelInfo" class="pz-info">倉庫與背包皆具備重力物理掉落效果，可於雙城存取！</div>
+        <div id="stashSelInfo" class="pz-info"></div>
         <div style="display:flex;gap:6px;flex-wrap:wrap" id="stashBtns"></div>
-        <button type="button" class="btn small" id="btnShakeStash">🎲 搖一搖倉庫</button>
+        <button type="button" class="btn small" id="btnShakeStash">搖一搖</button>
       </div>
     </div>
   </div>

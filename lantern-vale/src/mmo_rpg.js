@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { buildPlayer } from './models.js';
 import { grantLifeXp, addDailyActivity } from './mmo_world.js';
 import { getPartyIds } from './mmo_endgame.js';
+import { legacyGearRank } from './itemdb.js';
 
 // ============================================================================
 // 1. 經典 MMORPG 角色四維屬性配點（每升 1 級獲得 3 點屬性點，可免費重置）
@@ -341,20 +342,20 @@ export const GEAR_RECIPES = [
   },
 ];
 
+export function missingRecipeCosts(profile, recipe) {
+  const cost = recipe.cost || {};
+  const requirements = [
+    { key: 'coins', need: cost.coins || 0, have: profile.coins || 0 },
+    { key: 'shards', need: cost.shards || 0, have: profile.shards || 0 },
+    ...Object.entries(cost.goods || {}).map(([key, need]) => ({ key, need, have: profile.goods?.[key] || 0 })),
+    ...Object.entries(cost.mMats || {}).map(([key, need]) => ({ key, need, have: profile.mMats?.[key] || 0 })),
+  ];
+  return requirements.filter(cost => cost.have < cost.need)
+    .map(({ key, need, have }) => ({ key, count: need - have }));
+}
+
 export function canCraftRecipe(profile, recipe) {
-  if (!profile || !recipe) return false;
-  const c = recipe.cost || {};
-  if ((profile.coins || 0) < (c.coins || 0)) return false;
-  if ((profile.shards || 0) < (c.shards || 0)) return false;
-  const gd = profile.goods || {};
-  for (const [k, need] of Object.entries(c.goods || {})) {
-    if ((gd[k] || 0) < need) return false;
-  }
-  const mm = profile.mMats || {};
-  for (const [k, need] of Object.entries(c.mMats || {})) {
-    if ((mm[k] || 0) < need) return false;
-  }
-  return true;
+  return !!(profile && recipe && missingRecipeCosts(profile, recipe).length === 0);
 }
 
 export function craftMonsterGear(profile, recipeId, fmtResolver = (k => v => `${k} +${v}`)) {
@@ -372,7 +373,7 @@ export function craftMonsterGear(profile, recipeId, fmtResolver = (k => v => `${
     id: Math.floor(Math.random() * 1e9),
     slot: rec.slot,
     rarity: rec.rarity,
-    tier: rec.tier,
+    tier: legacyGearRank(rec.tier),
     reqLevel: rec.reqLevel || 1,
     enhance: 0,
     setId: rec.setId || null,

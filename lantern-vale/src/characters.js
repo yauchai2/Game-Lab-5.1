@@ -255,9 +255,34 @@ function buildMountainShipStage(onReady) {
     buoys.push({ group: bg, x: bx, z: bz, ph: idx * 2.4, bounceT: 0 });
   });
 
+  // 3D 浮島極簡低面佔位體（下載 1.3MB 島嶼模型前先托住沙灘與五位英雄，避免空海漂浮）
+  let placeholderIsland = new THREE.Group();
+  const phSand = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 3.8, 0.55, 16), new THREE.MeshStandardMaterial({ color: 0xe6d2a4, roughness: 0.92 }));
+  phSand.position.set(0, -0.1, 0.3); phSand.receiveShadow = true;
+  const phPeak = new THREE.Mesh(new THREE.ConeGeometry(1.75, 2.7, 7), new THREE.MeshStandardMaterial({ color: 0x9aa498, roughness: 0.95 }));
+  phPeak.position.set(0.45, 1.35, -0.75);
+  const phTree1 = new THREE.Mesh(new THREE.ConeGeometry(0.45, 1.05, 6), new THREE.MeshStandardMaterial({ color: 0x6ea858, roughness: 0.9 }));
+  phTree1.position.set(-1.35, 0.72, -0.2);
+  const phTree2 = new THREE.Mesh(new THREE.ConeGeometry(0.38, 0.9, 6), new THREE.MeshStandardMaterial({ color: 0x7cb862, roughness: 0.9 }));
+  phTree2.position.set(1.65, 0.65, 0.1);
+  placeholderIsland.add(phSand, phPeak, phTree1, phTree2);
+  grp.add(placeholderIsland);
+  const loadPill = typeof document !== 'undefined' ? document.getElementById('titleLoadPill') : null;
+  const setLoadPct = pct => {
+    if (!loadPill) return;
+    const txt = loadPill.querySelector('span');
+    if (txt) txt.textContent = pct >= 100 ? '島嶼就緒' : `載入島嶼與英雄… ${pct}%`;
+  };
+
   const SCENE_SCALE = 0.22;
   const loader = new GLTFLoader();
   loader.load('assets/scenes/creator_mountain_ship.glb', gltf => {
+    if (placeholderIsland) {
+      grp.remove(placeholderIsland);
+      placeholderIsland.traverse(o => { o.geometry?.dispose?.(); o.material?.dispose?.(); });
+      placeholderIsland = null;
+    }
+    if (loadPill) { setLoadPct(100); loadPill.classList.add('done'); }
     const model = gltf.scene;
     model.scale.setScalar(SCENE_SCALE);
     model.position.set(0, -4.69 * SCENE_SCALE, 0);
@@ -327,7 +352,10 @@ function buildMountainShipStage(onReady) {
     }
 
     onReady?.(walkMeshes, { animItems, interactMeshes, towerLanternGrp });
-  }, undefined, err => {
+  }, xhr => {
+    if (xhr?.total > 0) setLoadPct(Math.min(99, Math.round((xhr.loaded / xhr.total) * 100)));
+  }, err => {
+    if (loadPill) loadPill.classList.add('done');
     console.warn('[CreatorScene] Failed to load creator_mountain_ship.glb:', err);
   });
 
@@ -388,7 +416,8 @@ export function bindCharacters(game) {
   const slotsSel = $('characterSlot');
   if (!titleEl || !canvas) return () => {};
 
-  preloadAllCharacterAnims();
+  const isMobileNet = typeof matchMedia !== 'undefined' && matchMedia('(any-pointer: coarse)').matches;
+  if (!isMobileNet) preloadAllCharacterAnims();
 
   let slot = clampIdx(read(slotKeys(0).activeSlotKey), 3);
   function refreshSlotsUI(keepSlot = true) {
@@ -478,7 +507,7 @@ export function bindCharacters(game) {
   });
   islandStage.add(islandGeo);
   scene.add(islandStage);
-  const theaterVfx = new VfxEngine(islandStage);
+  const theaterVfx = new VfxEngine(islandStage, { lazy: isMobileNet });
 
   // 漂浮發光海風星火粒子
   const sparkPos = new Float32Array(28 * 3);
@@ -499,10 +528,10 @@ export function bindCharacters(game) {
   dressupStage.add(buildDressupRug());
   scene.add(dressupStage);
 
-  // 5 位英雄實機 3D 角色（各自呈現招牌展示 Pose：弓手拉弓搭箭、戰士橫斧、法師舉杖、影刃亮刃、武僧執聖杖）
+  // 5 位英雄實機 3D 角色（行動裝置僅按需載入選中角色動畫，大幅縮減首屏傳輸量）
   islandHeroes = ISLAND_SPOTS.map(sp => {
     const presetLook = normalizeCharacterLook(CHAR_CATALOG.classPresets[sp.job], sp.job);
-    const hero = createModularHero(presetLook, { scale: 0.68, initialState: 'combatIdle', showcasePose: sp.pose });
+    const hero = createModularHero(presetLook, { scale: 0.68, initialState: 'combatIdle', showcasePose: sp.pose, lazyAnim: isMobileNet });
     hero.root.position.set(sp.x, sp.y, sp.z);
     hero.root.rotation.y = sp.rotY;
     // 點擊透明碰撞盒（Raycaster 命中更精準）
@@ -518,7 +547,7 @@ export function bindCharacters(game) {
   });
 
   // 換裝間單人展示角色 + 換裝星星粒子迸發（Phase C6）
-  const dressHero = createModularHero(CHAR_CATALOG.classPresets[0], { scale: 0.92, initialState: 'idle' });
+  const dressHero = createModularHero(CHAR_CATALOG.classPresets[0], { scale: 0.92, initialState: 'idle', lazyAnim: isMobileNet });
   dressupStage.add(dressHero.root);
   const DU_SPARK_N = 24;
   const duSparkPos = new Float32Array(DU_SPARK_N * 3);
@@ -586,6 +615,7 @@ export function bindCharacters(game) {
   function syncHeroMeshes() {
     const h = islandHeroes[selectedJob];
     if (h) {
+      h.hero.ensureAnims?.();
       h.hero.setLook(activeSlotLook, CLASSES[selectedJob]?.weapon || 'staff');
       selRing.position.set(h.x, h.y + 0.04, h.z);
       selBeam.position.set(h.x, h.y + 2.2, h.z);
@@ -613,14 +643,16 @@ export function bindCharacters(game) {
       const sp = ISLAND_SPOTS[selectedJob];
       const hObj = islandHeroes[selectedJob];
       if (hObj) hObj.hopT = 0.55; // 可愛雀躍小跳反應！
-      // Phase V5：選角聚焦時於英雄腳下綻放專屬 Piloto 3D 法陣與招牌迷你特效（不再播跳躍 Buff 導致彈跳或歸零硬直！）
-      const th = CLASSES[selectedJob]?.auraTheme || 'holy';
-      theaterVfx.spawnDecal(selectedJob === 4 || selectedJob === 0 ? 'holy_ring' : 'magic_circle', sp.x, sp.y, sp.z, { theme: th, scaleStart: 0.8, scaleEnd: 1.75, dur: 1.2, spinY: 1.8 });
-      if (selectedJob === 4) theaterVfx.spawnSummon('lotus_burst', sp.x, sp.y, sp.z, 0, 1, { theme: 'lotus' });
-      else if (selectedJob === 2) theaterVfx.spawnMesh('tornado', { x: sp.x, y: sp.y + 0.55, z: sp.z, theme: 'bluefire', scaleStart: 0.4, scaleEnd: 0.65, dur: 1.1, spinY: 5 });
-      else if (selectedJob === 1) theaterVfx.spawnMesh('ring_wind', { x: sp.x, y: sp.y + 0.45, z: sp.z, theme: 'wind', scaleStart: 0.55, scaleEnd: 0.9, dur: 1.0, spinY: 6 });
-      else if (selectedJob === 3) theaterVfx.spawnDecal('mana_runes', sp.x, sp.y, sp.z, { theme: 'death', scaleStart: 0.6, scaleEnd: 1.9, dur: 1.1 });
-      else theaterVfx.spawnSlash(sp.x, sp.y, sp.z, sp.rotY, { theme: 'holy', scale: 0.95 });
+      if (!isMobileNet) {
+        // Phase V5：選角聚焦時於英雄腳下綻放專屬 Piloto 3D 法陣與招牌迷你特效（行動裝置延後至進遊戲再載入 3.8MB 特效包）
+        const th = CLASSES[selectedJob]?.auraTheme || 'holy';
+        theaterVfx.spawnDecal(selectedJob === 4 || selectedJob === 0 ? 'holy_ring' : 'magic_circle', sp.x, sp.y, sp.z, { theme: th, scaleStart: 0.8, scaleEnd: 1.75, dur: 1.2, spinY: 1.8 });
+        if (selectedJob === 4) theaterVfx.spawnSummon('lotus_burst', sp.x, sp.y, sp.z, 0, 1, { theme: 'lotus' });
+        else if (selectedJob === 2) theaterVfx.spawnMesh('tornado', { x: sp.x, y: sp.y + 0.55, z: sp.z, theme: 'bluefire', scaleStart: 0.4, scaleEnd: 0.65, dur: 1.1, spinY: 5 });
+        else if (selectedJob === 1) theaterVfx.spawnMesh('ring_wind', { x: sp.x, y: sp.y + 0.45, z: sp.z, theme: 'wind', scaleStart: 0.55, scaleEnd: 0.9, dur: 1.0, spinY: 6 });
+        else if (selectedJob === 3) theaterVfx.spawnDecal('mana_runes', sp.x, sp.y, sp.z, { theme: 'death', scaleStart: 0.6, scaleEnd: 1.9, dur: 1.1 });
+        else theaterVfx.spawnSlash(sp.x, sp.y, sp.z, sp.rotY, { theme: 'holy', scale: 0.95 });
+      }
     }
     renderScrapbook();
     updateStageClasses();
@@ -635,6 +667,7 @@ export function bindCharacters(game) {
     stageMode = 'dressup';
     dressRotY = 0;
     dressHero.root.rotation.y = 0;
+    dressHero.ensureAnims?.();
     syncHeroMeshes();
     dressHero.play('buff', { once: true, force: true });
     renderDressupUI();
@@ -671,7 +704,7 @@ export function bindCharacters(game) {
     const pill = $('heroPillName');
     const cls = CLASSES[selectedJob] || CLASSES[0];
     const sp = ISLAND_SPOTS[selectedJob] || ISLAND_SPOTS[0];
-    if (pill) pill.textContent = `${selectedJob + 1}. ${cls.icon} ${cls.name} · ${sp.en}`;
+    if (pill) pill.textContent = cls.name;
     document.querySelectorAll('.hero-pin-btn,.hero-pin-3d').forEach((b, i) => b.classList.toggle('on', i === selectedJob));
     selRing.visible = stageMode === 'focus';
     selBeam.visible = stageMode === 'focus';

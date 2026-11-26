@@ -89,9 +89,10 @@ export function bindTouch(g) {
 
   const details = el('touchDetails');
   details.onclick = () => {
+    reset();
+    if (g.ui.openTouchJourney?.()) return;
     const open = hud.classList.toggle('touch-details-open');
     details.setAttribute('aria-expanded', String(open));
-    reset();
   };
   el('btnRegionMap').onclick = () => g.ui.toggleRegionMap(g);
   el('btnRegionMapClose').onclick = () => g.ui.toggleRegionMap(g);

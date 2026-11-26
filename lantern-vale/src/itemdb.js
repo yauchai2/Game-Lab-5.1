@@ -2,10 +2,20 @@
 // 圖示放在 game/assets/items/{128,256}/{id}.png（透明背景）；沒有圖的物品用欄位剪影頂替，清單見 data/item_art_missing.txt。
 import ITEMS from '../data/items.json' with { type: 'json' };
 import ART_MAP from '../data/item_art_map.json' with { type: 'json' };
+import LADDER from '../data/equipment_catalog.json' with { type: 'json' };
 
 export const ITEM_DB = ITEMS;
 export const ITEM_BY_ID = Object.fromEntries(ITEMS.map(i => [i.id, i]));
-const BY_NAME = Object.fromEntries(ITEMS.map(i => [i.name, i]));
+// 16 階階梯目錄（data/equipment_catalog.json，docs/EQUIPMENT_LADDER_PLAN.md）。
+// 舊企劃的 T1–T6 對應階梯 1,3,5,7,9,11（已有圖）；階梯目錄只補其餘的階，避免同階重複。
+const LEGACY_RANK = [0, 1, 3, 5, 7, 9, 11];
+export const legacyGearRank = tier => LEGACY_RANK[Math.min(6, Math.max(1, Math.round(tier || 1)))];
+const ANCHOR_RANKS = new Set(LEGACY_RANK.slice(1));
+const CATALOG = [
+  ...ITEMS.map(i => (i.tier ? { ...i, rank: LEGACY_RANK[i.tier] || i.tier } : i)),
+  ...LADDER.filter(i => !ANCHOR_RANKS.has(i.rank)),
+];
+const BY_NAME = Object.fromEntries(CATALOG.map(i => [i.name, i]));
 
 // 企劃欄位 → 遊戲欄位（weapon 沿用舊的 staff 欄位鍵，存檔相容）
 export const PLAN_SLOT_TO_GAME = { weapon: 'staff', head: 'head', body: 'body', hands: 'hands', feet: 'feet', cloak: 'cloak', charm: 'charm', relic: 'relic' };
@@ -17,11 +27,11 @@ export function itemIconUrl(id, size = 128) { return hasArt(id) ? `assets/items/
 // 依裝備欄位與品階抽一個企劃物品（優先挑有圖的）
 export function pickCatalogGear(r, gameSlot, tier) {
   const planSlot = GAME_TO_PLAN[gameSlot];
-  const pool = ITEMS.filter(i => i.slot === planSlot);
+  const pool = CATALOG.filter(i => i.slot === planSlot && i.rank);
   if (!pool.length) return null;
-  const t = Math.max(1, Math.min(6, tier || 1));
-  let tiers = pool.filter(i => i.tier === t);
-  if (!tiers.length) { const best = Math.max(...pool.filter(i => i.tier <= t).map(i => i.tier), 1); tiers = pool.filter(i => i.tier === best); }
+  const t = Math.max(1, Math.min(16, tier || 1));
+  let tiers = pool.filter(i => i.rank === t);
+  if (!tiers.length) { const best = Math.max(...pool.filter(i => i.rank <= t).map(i => i.rank), 1); tiers = pool.filter(i => i.rank === best); }
   const withArt = tiers.filter(i => hasArt(i.id));
   const use = withArt.length ? withArt : tiers;
   return use[Math.floor(r() * use.length)];

@@ -301,6 +301,7 @@ function toToonMaterial(src) {
 /**
  * 建立一個獨立的模組化 3D 角色控制器（自動共用幾何體、獨立材質與骨骼動畫機）
  */
+const JOB_PLACEHOLDER_COLORS = [0xd88844, 0x5ca46a, 0x5c7ec8, 0x7a5ca8, 0xd8a84e];
 export function createModularHero(lookInput, opts = {}) {
   const root = new THREE.Group();
   const rigHolder = new THREE.Group();
@@ -315,18 +316,57 @@ export function createModularHero(lookInput, opts = {}) {
   let pendingPose = opts.showcasePose || null;
   const scale = opts.scale ?? 0.68;
 
+  // 3D 模型下載前的極簡剪影佔位體（免除空白海面漂浮編號，實機模型就緒即刻無縫替換）
+  let placeholder = new THREE.Group();
+  let phT = Math.random() * 6.28;
+  const phCol = JOB_PLACEHOLDER_COLORS[look.job % JOB_PLACEHOLDER_COLORS.length] || 0xc8a468;
+  const phMat = new THREE.MeshStandardMaterial({ color: phCol, roughness: 0.85, transparent: true, opacity: 0.88 });
+  const phHeadMat = new THREE.MeshStandardMaterial({ color: 0xffe4c4, roughness: 0.85, transparent: true, opacity: 0.9 });
+  const phBody = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.28, 0.68, 10), phMat);
+  phBody.position.y = 0.36; phBody.castShadow = true;
+  const phHead = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 10), phHeadMat);
+  phHead.position.y = 0.86; phHead.castShadow = true;
+  placeholder.add(phBody, phHead);
+  placeholder.scale.setScalar(scale / 0.68);
+  rigHolder.add(placeholder);
+  const clearPlaceholder = () => {
+    if (!placeholder) return;
+    rigHolder.remove(placeholder);
+    placeholder.traverse(o => { o.geometry?.dispose?.(); o.material?.dispose?.(); });
+    placeholder = null;
+  };
+
+  let lazyAnim = !!opts.lazyAnim;
+  let animRequested = false;
+  const loadHeroAnims = () => {
+    if (disposed || !animator) return;
+    animRequested = true;
+    const arch = JOB_ARCHETYPES[look.job] || 'fighter';
+    loadArchetypeAnims(arch).then(clips => {
+      if (!disposed && animator) {
+        animator.setClips(clips, arch);
+        if (pendingPose) animator.setShowcasePose(pendingPose.state, pendingPose.t, pendingPose.amp);
+        else animator.play(pendingState, { force: true, fade: 0.05 });
+      }
+    });
+  };
+
   const ctrl = {
     root,
     rigHolder,
     ready: false,
     get animator() { return animator; },
     get look() { return look; },
+    ensureAnims() {
+      lazyAnim = false;
+      if (animator && !animRequested) loadHeroAnims();
+    },
     setLook(nextLook, nextWeapon) {
       look = normalizeCharacterLook(nextLook);
       if (nextWeapon !== undefined) equipWeapon = nextWeapon;
       if (rig) applyModularLook(rig, look, equipWeapon);
       const arch = JOB_ARCHETYPES[look.job] || 'fighter';
-      if (animator && animator.archetype !== arch) {
+      if (!lazyAnim && animator && animator.archetype !== arch) {
         loadArchetypeAnims(arch).then(clips => {
           if (!disposed && animator) {
             animator.setClips(clips, arch);
@@ -355,9 +395,16 @@ export function createModularHero(lookInput, opts = {}) {
     },
     update(dt) {
       if (animator) animator.update(dt);
+      else if (placeholder) {
+        phT += dt * 3.2;
+        placeholder.position.y = Math.sin(phT) * 0.04;
+        const s = (scale / 0.68) * (1 + Math.sin(phT * 1.5) * 0.025);
+        placeholder.scale.set(s, s, s);
+      }
     },
     dispose() {
       disposed = true;
+      clearPlaceholder();
       if (animator) { animator.dispose(); animator = null; }
       if (rig) {
         rig.traverse(o => {
@@ -399,18 +446,12 @@ export function createModularHero(lookInput, opts = {}) {
         }
       }
     });
+    clearPlaceholder();
     rigHolder.add(rig);
     applyModularLook(rig, look, equipWeapon);
     animator = new CharAnimator(rig);
     ctrl.ready = true;
-    const arch = JOB_ARCHETYPES[look.job] || 'fighter';
-    loadArchetypeAnims(arch).then(clips => {
-      if (!disposed && animator) {
-        animator.setClips(clips, arch);
-        if (pendingPose) animator.setShowcasePose(pendingPose.state, pendingPose.t, pendingPose.amp);
-        else animator.play(pendingState, { force: true, fade: 0.05 });
-      }
-    });
+    if (!lazyAnim) loadHeroAnims();
     opts.onReady?.(ctrl);
   });
 

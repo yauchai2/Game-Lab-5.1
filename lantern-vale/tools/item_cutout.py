@@ -2,17 +2,17 @@ import sys,numpy as np
 from PIL import Image
 from scipy import ndimage as ndi
 BG=np.array([26,6,6],float)
-def cut(src,dst,sizes=(256,128)):
+def cut(src,dst,sizes=(256,128),bg=BG,tol=26,soft_lo=14,soft_w=26,fill_holes=False):
     a=np.asarray(Image.open(src).convert('RGB')).astype(float)
-    d=np.sqrt(((a-BG)**2).sum(2))
-    cand=d<26
+    d=np.sqrt(((a-np.asarray(bg,float))**2).sum(2))
+    cand=d<tol
     lab,n=ndi.label(cand)
     border=set(np.unique(np.concatenate([lab[0],lab[-1],lab[:,0],lab[:,-1]])))-{0}
     bg=np.isin(lab,list(border))
     # enclosed bg-colored holes (ring loops) - only large ones
     inner=cand&~bg
     il,ni=ndi.label(inner)
-    if ni:
+    if ni and not fill_holes:
         isz=ndi.sum(inner,il,range(1,ni+1)); big=[i+1 for i,v in enumerate(isz) if v>600]
         bg|=np.isin(il,big)
     fg=~bg
@@ -23,7 +23,7 @@ def cut(src,dst,sizes=(256,128)):
     # soft edge: pixels in 2px rim blend by closeness to bg colour
     rim=fg&~ndi.binary_erosion(fg,iterations=2)
     alpha=fg.astype(float)
-    soft=np.clip((d-14)/26,0,1)
+    soft=np.clip((d-soft_lo)/soft_w,0,1)
     alpha[rim]=soft[rim]
     alpha=ndi.gaussian_filter(alpha,0.6)
     alpha=np.where(fg|ndi.binary_dilation(fg,iterations=1),alpha,0)
