@@ -27,7 +27,7 @@ import { STAT_DEFS, ensureMmoState, availableStatPoints, allocateStat, resetStat
 import { LIFE_SKILLS, LIFE_SKILL_IDS, getLifeSkillInfo, TITLE_DEFS, ensureTitles, equipTitle, computeTitleBonuses, spawnWorldBoss, getSimAdventurers, getSimConfig, DEFAULT_SIM_COUNT, setSimConfig, triggerSimEvent, assistSimTask } from './mmo_world.js';
 import { spawnDynamicEvent, getPartyIds, getActivePartySynergy, computeTowerBonuses } from './mmo_endgame.js';
 import { ALL_GEMS, addGemToBag } from './puzzle.js';
-import { beginOpening, openingStep } from './opening.js';
+import { beginOpening, openingPracticeOpponent, openingStep, recordOpeningEvent } from './opening.js';
 import { MEADOW_CAVE } from './meadow_cave.js';
 import { MEADOW_TIERS, expeditionRoute, isMeadowIntro, meadowExpedition, meadowStage } from './expedition.js';
 import { getActiveAccount, slotKeys } from './account.js';
@@ -50,6 +50,7 @@ function showExpeditionTracker(g) {
 export class UI {
   constructor() {
     this.nums = [];
+    this.touchInputMedia = matchMedia('(any-pointer: coarse)');
     this.invOpen = false;
     this.invTab = 'bag';
     this.boonChoices = null;
@@ -261,9 +262,12 @@ export class UI {
       game.playerName = ($('inName').value.trim() || '旅人').slice(0, 12); game.party = cleanPartyCode($('inParty').value);
       enterCharacter();
       beginOpening(game.meta.p);
+      game.questGuide.enabled = true;
       game.meta.save();
       game.net.connect(game.playerName, game.hoodIdx, game.party);
       $('title').classList.add('hide'); $('hud').classList.remove('hide'); game.enterTown();
+      const step = openingStep(game.meta.p);
+      if (step) recordOpeningEvent(game, 'player_ready', step);
       syncHotbarKeyLabels(game);
     };
     $('btnQuickStart').onclick = () => $('btnStart').click();
@@ -836,7 +840,7 @@ export class UI {
   }
 
   flushToasts(box) {
-    while (box.children.length < 2 && this.toastQueue.length) {
+    while (!this.practiceFocused && box.children.length < 2 && this.toastQueue?.length) {
       const { text, color } = this.toastQueue.shift();
       const el = document.createElement('div');
       el.className = 'toast';
@@ -848,9 +852,43 @@ export class UI {
   }
   banner(title, sub) {
     const b = $('banner'); b.querySelector('h2').textContent = title; b.querySelector('p').textContent = sub;
-    const bossOn = !$('boss')?.classList.contains('hide');
-    b.style.top = bossOn ? '23%' : '13%';
     b.classList.remove('show'); void b.offsetWidth; b.classList.add('show');
+  }
+  showOpeningSupport(id) {
+    const cue = $('openingSupportCue');
+    cue.textContent = id === 'leech' ? '汲血生效 · 已回復生命' : '霜緩生效 · 敵人減速';
+    cue.hidden = false;
+    clearTimeout(this.openingSupportTimer);
+    this.openingSupportTimer = setTimeout(() => { cue.hidden = true; }, 2600);
+  }
+  updateOpeningCue(g) {
+    const hud = $('hud'), cue = $('openingCombatCue');
+    const enemy = openingPracticeOpponent(g);
+    const focus = !!enemy;
+    const touch = this.touchInputMedia.matches;
+    const action = focus && (enemy.state === 'wind' || enemy.state === 'charge' ? 'dodge'
+      : enemy.state === 'rest' ? 'counter' : '');
+    if (this.practiceFocused !== focus) {
+      this.practiceFocused = focus;
+      if (!focus) this.flushToasts($('toasts'));
+    }
+    hud.classList.toggle('opening-combat', focus);
+    hud.classList.toggle('opening-arrival', g.state === 'play' && g.zone === 'town' && openingStep(g.meta.p) === 'lamp');
+    hud.classList.toggle('opening-cave-boss', !!g.caveRun && g.waveIdx === g.waves.length - 1 && !g.cleared);
+    if (!g.caveRun || g.state !== 'play') $('openingSupportCue').hidden = true;
+    cue.hidden = !action || !g.canUseTouchControls();
+    cue.dataset.action = action || '';
+    if (!cue.hidden) {
+      const text = action === 'dodge'
+        ? (touch ? '向側推搖桿，再按翻滾' : '向側面移動，再按空白鍵翻滾')
+        : '狂豬收招 · 現在反擊';
+      if (cue.textContent !== text) cue.textContent = text;
+      if (action === 'counter') {
+        const [x, y] = this.screenPos(enemy.pos.x, enemy.pos.y + 2.6, enemy.pos.z);
+        cue.style.setProperty('--cue-x', `${Math.min(innerWidth - 90, Math.max(90, x))}px`);
+        cue.style.setProperty('--cue-y', `${Math.min(innerHeight * 0.72, Math.max(innerHeight * 0.32, y))}px`);
+      }
+    }
   }
   bossBar(on, name, frac, parts) {
     const b = $('boss'); b.classList.toggle('hide', !on);
@@ -914,6 +952,7 @@ export class UI {
   }
   update(g) {
     const lang = g.settings?.lang || 'zh-TW';
+    this.updateOpeningCue(g);
     // 物理背包／倉庫 60fps 重力模擬
     if (this.invOpen) {
       if (this.invTab === 'bag' && this.bagPhys) { this.bagPhys.step(1 / 60); this.bagPhys.draw(); }
@@ -1154,7 +1193,7 @@ export class UI {
             support: '準備寶石，進入草原洞窟',
             resume: '繼續草原洞窟',
             badge: '打造首通獎勵 · 巡燈徽章',
-            next: '選擇下一站 · 精英洞窟或低語森林',
+            next: '選擇下一站 · 遠征或洞窟',
           }[step];
           qFl.style.width = '0%';
         } else if (showExpedition) {
@@ -1278,7 +1317,7 @@ export class UI {
     const cbEl = $('comboBadge');
     if (cbEl) {
       const cnt = g.combo?.count || 0;
-      const show = cnt >= 2 && (g.combo?.timer || 0) > 0;
+      const show = !this.practiceFocused && cnt >= 2 && (g.combo?.timer || 0) > 0;
       cbEl.classList.toggle('hide', !show);
       if (show && cbEl._last !== cnt) {
         cbEl._last = cnt;
@@ -1291,10 +1330,16 @@ export class UI {
     let nearest = null, distance = 7;
     if (g.field && g.state === 'play') for (const enemy of g.enemies) {
       const d = enemy.pos.distanceTo(p.pos);
-      if (!enemy.dead && d < distance) { nearest = enemy; distance = d; }
+      if (!enemy.dead && !enemy.openingHidden && d < distance) { nearest = enemy; distance = d; }
     }
     target.hidden = !nearest;
-    if (nearest) target.textContent = (nearest.expeditionName || (nearest.rival ? '演武旅人' : nearest.legendary ? '傳奇' : nearest.elite ? '精英' : '普通')) + ' · Lv.' + nearest.level + '　' + Math.ceil(nearest.hp) + ' / ' + Math.ceil(nearest.maxHp);
+    if (nearest) {
+      const name = nearest.openingPractice ? '幼狂豬' : nearest.expeditionName
+        || (nearest.rival ? '演武旅人' : nearest.legendary ? '傳奇' : nearest.elite ? '精英' : '普通');
+      const level = Number.isFinite(nearest.level) ? ` · Lv.${nearest.level}` : '';
+      const label = `${name}${level}　${Math.ceil(nearest.hp)} / ${Math.ceil(nearest.maxHp)}`;
+      if (target.textContent !== label) target.textContent = label;
+    }
     const M = g.meta, pr = M.p;
     $('shardInfo').textContent = `✦ ${pr.shards}${M.runShards ? ` (+${M.runShards})` : ''}` + (g.depth >= 0 && pr.mods.length ? ' · ' + M.activeMods().map(m => m.name).join('') : '');
     const coinEl = $('coinInfo'); if (coinEl) coinEl.textContent = `🪙 ${pr.coins}`;
@@ -1312,8 +1357,8 @@ export class UI {
     const compass = $('fieldCompass');
     const townOpening = g.zone === 'town' && !g.interior && g.state === 'play' && openingStep(g.meta.p) === 'lamp';
     const destination = navigationTarget(g);
-    compass.hidden = !destination && !townOpening;
-    if (townOpening) {
+    compass.hidden = this.practiceFocused || (!destination && !townOpening);
+    if (townOpening && !destination) {
       const label = '點亮南門路燈 · 打開任務出發';
       if (compass.textContent !== label) compass.textContent = label;
     } else if (destination) {
