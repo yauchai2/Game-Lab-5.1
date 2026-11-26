@@ -261,6 +261,7 @@ export class UI {
       game.playerName = ($('inName').value.trim() || '旅人').slice(0, 12); game.party = cleanPartyCode($('inParty').value);
       enterCharacter();
       beginOpening(game.meta.p);
+      game.questGuide.enabled = true;
       game.meta.save();
       game.net.connect(game.playerName, game.hoodIdx, game.party);
       $('title').classList.add('hide'); $('hud').classList.remove('hide'); game.enterTown();

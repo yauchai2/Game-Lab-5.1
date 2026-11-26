@@ -791,10 +791,7 @@ export function buildPanels(g) {
   }
   g.ui.openPanel = (k, { recipeId = null } = {}) => {
     kind = k;
-    if (k === 'opening' || k === 'expedition') {
-      g.questGuide.showByDefault();
-      if (k === 'opening') recordOpeningEvent(g, 'quest_opened', openingStep(g.meta.p));
-    }
+    if (k === 'opening') recordOpeningEvent(g, 'quest_opened', openingStep(g.meta.p));
     workshopRecipe = recipeId; g.ui.guildMarketOpen = k === 'exchange';
     g.ui.panelOpen = true; root.classList.remove('hide'); render(); syncGuideControls();
     if (k === 'shards' && g.net.zoneShards) g.net.send({ t: 'shard_list' });

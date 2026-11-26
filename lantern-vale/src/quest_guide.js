@@ -117,13 +117,9 @@ function pixelTexture(paint) {
 }
 
 export class QuestGuide {
-  enabled = null;
+  enabled = false;
   route = [];
   points = [];
-
-  showByDefault() {
-    this.enabled ??= true;
-  }
 
   createLights(scene) {
     const spark = pixelTexture(rect => {
