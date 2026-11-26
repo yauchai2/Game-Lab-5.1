@@ -4067,37 +4067,70 @@ export class Game {
       }
       const recDur = e.chargeRecoveryS || 0;
       const inRestOpening = e.state === 'rest' && recDur > 0 && e.t < recDur;
+      let restRollZ = 0;
       if (inRestOpening) {
         const rem = Math.max(0, 1 - e.t / recDur);
         const ease = Math.min(1, e.t / 0.12) * Math.min(1, (recDur - e.t) / 0.2);
         if (e.type === 'boar') {
-          e.m.body.rotation.x = 0.28 * ease;
-          const pant = Math.sin(e.t * 14) * 0.09;
+          e.m.body.rotation.x = 0.42 * ease;
+          restRollZ = Math.sin(e.t * 15) * 0.11 * ease;
+          const pant = Math.sin(e.t * 14) * 0.10;
           if (e.squash > 0) e.m.body.scale.set(1 + e.squash * 0.7, 1 - e.squash * 0.55, 1 + e.squash * 0.7);
           else e.m.body.scale.set(1 + pant, 1 - pant * 0.85, 1 + pant);
         } else if (e.type === 'slime') {
           if (e.squash > 0) e.m.body.scale.set(1 + e.squash * 0.7, 1 - e.squash * 0.55, 1 + e.squash * 0.7);
-          else e.m.body.scale.set(1.28, 0.62, 1.28);
+          else {
+            const flat = 1.38 - 0.18 * (1 - rem);
+            const hgt = 0.50 + 0.20 * (1 - rem);
+            e.m.body.scale.set(flat, hgt, flat);
+          }
         } else if (e.type === 'thorn') {
-          e.m.body.rotation.x = -0.24 * ease;
+          e.m.body.rotation.x = -0.34 * ease;
+          restRollZ = Math.sin(e.t * 14) * 0.12 * ease;
           if (e.squash > 0) e.m.body.scale.set(1 + e.squash * 0.7, 1 - e.squash * 0.55, 1 + e.squash * 0.7);
         } else if (e.type === 'golem' || e.type === 'stag') {
-          e.m.body.rotation.x = 0.22 * ease;
+          e.m.body.rotation.x = 0.30 * ease;
+          restRollZ = Math.sin(e.t * 10) * 0.06 * ease;
+          if (e.squash > 0) e.m.body.scale.set(1 + e.squash * 0.7, 1 - e.squash * 0.55, 1 + e.squash * 0.7);
+        } else if (e.type === 'moth' || e.type === 'skyray') {
+          restRollZ = Math.sin(e.t * 10) * 0.22 * ease;
           if (e.squash > 0) e.m.body.scale.set(1 + e.squash * 0.7, 1 - e.squash * 0.55, 1 + e.squash * 0.7);
         }
-        if (!e.m.restRing) {
-          const rg = new THREE.RingGeometry(0.84, 1.0, 28); rg.rotateX(-Math.PI / 2);
-          e.m.restRing = new THREE.Mesh(rg, new THREE.MeshBasicMaterial({ color: 0xffcf4a, transparent: true, opacity: 0.78, side: THREE.DoubleSide, depthWrite: false }));
-          e.m.restRing.position.y = 0.09; e.m.restRing.userData.noNormal = true; e.m.restRing.renderOrder = 3;
-          e.m.root.add(e.m.restRing);
+        if (!e.m.restStars) {
+          const grp = new THREE.Group();
+          const sSize = e.type === 'stag' ? 0.19 : e.type === 'golem' ? 0.15 : 0.125;
+          const sRad = e.type === 'stag' ? 1.05 : e.type === 'golem' ? 0.76 : 0.54;
+          const sY = e.type === 'stag' ? 3.25 : e.type === 'golem' ? 2.15 : e.type === 'thorn' ? 1.75 : e.type === 'slime' ? 1.15 : 1.48;
+          const sGeo = new THREE.OctahedronGeometry(sSize, 0);
+          const sMat = new THREE.MeshBasicMaterial({ color: 0xffdf54, transparent: true, opacity: 0.95 });
+          for (let i = 0; i < 3; i++) {
+            const a = (i / 3) * Math.PI * 2;
+            const st = new THREE.Mesh(sGeo, sMat);
+            st.position.set(Math.cos(a) * sRad, 0, Math.sin(a) * sRad);
+            st.scale.set(1, 1.35, 1);
+            st.userData.noNormal = true;
+            grp.add(st);
+          }
+          grp.position.y = sY;
+          grp.rotation.z = 0.14;
+          grp.userData.noNormal = true;
+          grp.userData.mat = sMat;
+          e.m.root.add(grp);
+          e.m.restStars = grp;
         }
-        e.m.restRing.visible = true;
-        const ringMul = e.type === 'stag' ? 1.8 : 1;
-        e.m.restRing.scale.setScalar((0.45 + 1.25 * rem) * ringMul);
-        e.m.restRing.material.opacity = 0.35 + 0.55 * rem;
+        e.m.restStars.visible = true;
+        e.m.restStars.rotation.y += dt * (2.6 + 4.8 * rem);
+        const starSc = 0.52 + 0.56 * rem;
+        e.m.restStars.scale.setScalar(starSc);
+        e.m.restStars.userData.mat.opacity = Math.min(1, 0.35 + 0.75 * rem);
+        for (let i = 0; i < e.m.restStars.children.length; i++) {
+          const st = e.m.restStars.children[i];
+          st.rotation.y += dt * 5.2;
+          st.position.y = Math.sin(this.time * 7 + i * 2.1) * 0.08;
+        }
       } else {
         if (e.type === 'boar' || e.type === 'thorn' || e.type === 'golem' || e.type === 'stag') e.m.body.rotation.x = 0;
-        if (e.m.restRing) e.m.restRing.visible = false;
+        if (e.m.restStars) e.m.restStars.visible = false;
         if (e.squash > 0) e.m.body.scale.set(1 + e.squash * 0.7, 1 - e.squash * 0.55, 1 + e.squash * 0.7);
         else if (e.type !== 'slime' && e.state !== 'aim') e.m.body.scale.set(1, 1, 1);
       }
@@ -4109,7 +4142,7 @@ export class Game {
       else if (est.shock > 0) e.m.mat.emissive.setRGB(0.45, 0.25, 0.72);
       else if (inRestOpening) { const gp = 0.6 + Math.sin(e.t * 14) * 0.4; e.m.mat.emissive.setRGB(0.28 * gp, 0.20 * gp, 0.04 * gp); }
       else e.m.mat.emissive.setRGB(0, 0, 0);
-      if (e.stun > 0) e.m.body.rotation.z = Math.sin(this.time * 20) * 0.1; else e.m.body.rotation.z = 0;
+      e.m.body.rotation.z = e.stun > 0 ? Math.sin(this.time * 20) * 0.1 : restRollZ;
     }
     this.enemies = this.enemies.filter(e => !e.dead);
     if (this.boss) this.ui.bossBar(!this.field || this.boss.pos.distanceTo(p.pos)<10, null, this.boss.hp / this.boss.maxHp, this.boss.parts);
