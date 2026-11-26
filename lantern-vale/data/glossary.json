@@ -1,0 +1,14 @@
+{
+  "_note": "Beaconfall glossary. Display names only; internal ids and save keys stay unchanged. Source of truth for rename phases.",
+  "brand": { "name": "Beaconfall", "legacyNames": ["燈谷行", "Lantern Vale"], "storageKeysUnchanged": ["lv_profile", "lv_settings", "lv_mute", "lv_dev_mode"] },
+  "world": { "name": "Lumen Isles", "layers": { "surface": "Surface Realm", "abyss": "Drowned Deep", "sky": "Starbound Reach" } },
+  "towns": { "0": "Emberhearth", "100": "Windmere Harbor" },
+  "zones": { "1": "Dawnmeadow", "2": "Whisperwood", "3": "Mirefog Marsh", "4": "Rimewind Tundra", "5": "Cinderreach", "6": "Elderwood" },
+  "zoneLegacy": { "1": "晨光草原", "2": "低語森林", "3": "霧潮沼澤", "4": "霜冬雪原", "5": "燼煙火岩區", "6": "古樹林" },
+  "bosses": { "cleaver_tusk": "Cleaver Tusk", "hookthorn_elder": "Hookthorn Elder", "sporebloat_colossus": "Sporebloat Colossus", "orld": "Orld, the Antlered Elder", "morvane": "Morvane, the Unlit King" },
+  "classes": { "warden": "Lightwarden", "ranger": "Galewatch Ranger", "mystic": "Emberseer", "strider": "Duskblade", "monk": "Lotus Monk" },
+  "subclasses": { "bastion": "Radiant Bastion", "earthwalker": "Vale Sentinel", "skywarden": "Sky Pathfinder", "starhunter": "Starbrand Hunter", "starcaller": "Starburn Sage", "frostweaver": "Frostlight Dreamweaver", "crimsonblade": "Crimson Moon Dancer", "mistphantom": "Mist Phantom", "lotussage": "Lotus Sage", "thunderfist": "Thunderfist" },
+  "factions": ["Order of the Wick", "Skyfarers' League", "Emberbound Conclave", "The Duskblades", "Lotus Sanctum", "Merchant Concord", "The Hollow Court"],
+  "terms": { "Flame": "燈焰值", "Hollow": "空洞", "Ember Tide": "餘燼潮汐", "Starshards": "星砂", "Star Lanterns": "星燈", "Keystone Rifts": "鑰石裂隙", "Lamplighter": "提燈者", "Dimming": "黯淡" },
+  "tiers": ["Wayfarer", "Greenvine", "Tempered Steel", "Lampbrass", "Starsilver", "Glasslight", "Arcglow", "Redflame", "Heirloom", "Moonbloom", "Zenith", "Aurora", "Starlantern I", "Starlantern II", "Starlantern III", "Starlantern IV"]
+}

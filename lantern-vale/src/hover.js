@@ -151,7 +151,7 @@ export function describeWorldTarget(hit, g) {
       title: `${isBot ? '💬' : '🏮'} ${r.name}`,
       key: isBot ? '點擊／F' : distM(r.x, r.z),
       chips: [isBot ? '城鎮居民' : '線上旅人', `距離 ${distM(r.x, r.z)}`],
-      body: isBot ? '點擊可直接自動走近並與其交談，獲取冒險提示與城鎮秘聞。' : '同在燈谷行冒險的旅人！按 1–4 可發送可愛表情打招呼。',
+      body: isBot ? '點擊可直接自動走近並與其交談，獲取冒險提示與城鎮秘聞。' : '同在 Beaconfall 冒險的旅人！按 1–4 可發送可愛表情打招呼。',
       accent: '#7fe08a',
     };
   }
@@ -488,7 +488,7 @@ export function installHoverSystem(game) {
     }
     const MENU_TIPS = {
       btnWiki: ['📖 燈谷百科資料庫', '查詢所有職業、技能拼圖、異常狀態、元素連鎖與物理背包合成配方。'],
-      btnChangelog: ['📜 更新日誌', '查看《燈谷行》歷代版本更新與新系統說明。'],
+      btnChangelog: ['📜 更新日誌', '查看《Beaconfall》歷代版本更新與新系統說明。'],
       btnSet: ['⚙ 遊戲設定', '調整像素畫質、視角預設、鏡頭震動（預設關閉）、音量、三語介面與自訂按鍵。'],
       btnInvite: ['🔗 複製組隊連結', '一鍵複製專屬組隊網址，傳給朋友即可在 5 秒內同隊出發！'],
       btnMute: ['🔊 音效開關', '立即靜音或恢復所有背景音樂與戰鬥／介面音效。'],

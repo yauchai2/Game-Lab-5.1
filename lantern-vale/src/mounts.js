@@ -1,4 +1,4 @@
-// 燈谷行 3D 坐騎系統與里程碑解鎖規劃（按 G 鍵召喚／下馬）
+// Beaconfall 3D 坐騎系統與里程碑解鎖規劃（按 G 鍵召喚／下馬）
 import * as THREE from 'three';
 import { toonMat } from './world.js';
 
