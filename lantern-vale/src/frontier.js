@@ -4,7 +4,7 @@ import { BIOMES, mulberry32 } from './util.js';
 import { toonMat, part } from './world.js';
 import { attachLandmarkGlb, attachPalmovPoi } from './assets.js';
 import { FIELD_BLUEPRINTS, uvToWorld } from './field_blueprints.js';
-import { makeItem, serializeItem, deserializeItem } from './loot.js';
+import { makeItem, deserializeItem, rememberGear } from './loot.js';
 import { ALL_GEMS, addGemToBag } from './puzzle.js';
 import { spawnSkyFeatures, startGatherMini, openHighChest, FIELD_NPCS } from './world_alive.js';
 import { buildZoneLandmarks } from './harbor.js';
@@ -66,10 +66,7 @@ export const progressDefaults = {
   level: 1, xp: 0, coins: 15, keys: 1, goods: { wood: 0, ore: 0, fish: 0 }, graves: {}, timers: {},
   gear: {}, species: {}, home: 0, mealUntil: 0, weapon: 'staff', gem: false, sales: [],
 };
-export function rememberGear(g) {
-  g.meta.p.gear = Object.fromEntries(Object.entries(g.player.equip).map(([slot,it]) => [slot, serializeItem(it)]));
-  g.meta.save();
-}
+export { rememberGear };
 export function restoreGear(g, player) {
   for (const [slot, item] of Object.entries(g.meta.p.gear)) {
     if (item && Object.hasOwn(player.equip, slot)) player.equip[slot] = deserializeItem(item);
@@ -609,10 +606,8 @@ export function setupField(g, restored = false) {
   else buildZoneLandmarks(g);
   g.fieldClock = restored ? 1 : 0; g.dueling = false;
   const sub = restored
-    ? '【常駐區域 · 已延續先前探索進度】'
-    : bp
-      ? `【v5 藍圖 · ${bp.planSize}】Lv.${f.level}+ · ${spawns.length} 隻魔物 · ${g.checkpoints.length} 座藍光檢查點`
-      : `【常駐超大地圖】Lv.${f.level}+ · ${spawns.length} 隻魔物聚落出沒`;
+    ? '已延續先前探索進度'
+    : g.field === 1 ? '北向草原深入探索 · 南門可返回燈谷鎮' : `建議 Lv.${f.level} · 沿路探索聚落與檢查點`;
   g.ui.banner(f.name, sub);
 }
 const MEADOW_PACK = ['boar', 'slime', 'thorn', 'slime', 'boar', 'slime', 'thorn', 'slime'];
