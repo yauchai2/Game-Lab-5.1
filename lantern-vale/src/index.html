@@ -2016,6 +2016,38 @@ body:has(#menuPop:not(.hide),[aria-modal="true"]:not(.hide)) #toasts{opacity:0}
 .panel-tabs button:hover{background:var(--cp-wood-hi)!important;color:var(--cp-ink)!important;text-shadow:none!important}
 .panel-tabs button.on{background:var(--cp-gold)!important;color:var(--cp-ink)!important;text-shadow:0 1px 0 var(--cp-gold-hi)!important;box-shadow:inset 0 3px 0 var(--cp-gold-hi),inset 0 -3px 0 var(--cp-gold-sh),var(--cp-box)!important;transform:translateY(-2px)}
 @media(pointer:coarse){.panel-tabs button{min-height:40px}}
+/* Opening guidance shares the HUD without covering the ground telegraphs. */
+#openingCombatCue,#openingSupportCue{
+  position:absolute;left:50%;transform:translateX(-50%);z-index:16;text-align:center;
+  padding:5px 9px;max-width:calc(100% - 24px);width:max-content;
+  color:var(--cp-parchment-hi);background:var(--cp-ink);border:2px solid var(--cp-gold);
+  box-shadow:var(--cp-boxsh);font-size:13px;pointer-events:none;
+}
+#openingCombatCue{top:max(100px,24%);}
+#openingCombatCue[data-action=counter]{top:var(--cue-y);left:var(--cue-x);border-color:var(--cp-ok-hi);}
+#openingSupportCue{bottom:24%;border-color:var(--cp-ok-hi);}
+#hud.opening-combat ~ #toasts,#hud.opening-combat #worldActivity,#hud.opening-combat #banner,
+#hud:is(.opening-arrival,.opening-combat) #tags .sim-adv{visibility:hidden}
+#hud.opening-cave-boss #banner{top:32%!important;width:min(90%,420px)}
+#hud.opening-cave-boss #banner h2{font-size:clamp(16px,3vw,24px)}
+#hud.opening-cave-boss ~ #toasts{top:calc(var(--edge-top, 10px) + 202px)!important}
+#banner{width:min(90%,500px)}
+#banner h2{max-width:100%;text-wrap:balance}
+#heroPillRole{color:var(--cp-parchment-hi);background:var(--cp-ink);border:1px solid var(--cp-gold);padding:2px 7px;text-align:center;font-size:12px;}
+#title .cr-brand{white-space:nowrap}
+@media(max-width:760px){
+  #title .cr-top{display:grid;gap:5px}
+  #title .cr-top-right :is(button,select){white-space:nowrap}
+}
+@media(max-width:600px){
+  #hud.opening-cave-boss #banner{top:max(268px,35%)!important}
+  #hud.opening-combat #fieldTarget{top:max(160px,calc(var(--edge-top) + 154px))!important}
+  #openingCombatCue{top:max(209px,25%)}
+}
+
+.opening-badge-card{padding:12px;border:2px solid var(--cp-gold);background:var(--cp-parchment-hi)}
+.opening-badge-card p{margin:6px 0}
+.opening-badge-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 </style>
 </head>
 <body>
@@ -2176,6 +2208,7 @@ body:has(#menuPop:not(.hide),[aria-modal="true"]:not(.hide)) #toasts{opacity:0}
   <div id="tags"></div><div class="ptag me" id="myTag"></div><div class="pbub" id="myBub"></div>
   <div id="chat"><div id="chatLog"></div><input id="chatIn" class="hide" maxlength="120" placeholder="說點什麼…" autocomplete="off"><div class="touch-only" id="touchChatActions"><button type="button" class="touch-key" id="btnChatClose" data-i18n="close">關閉</button><button type="button" class="touch-key" id="btnChatSend" data-i18n="touchSend">送出</button></div><div class="chatHint">Enter 聊天 · 1–4 表情</div></div>
   <div id="banner"><h2></h2><p></p></div>
+  <div id="openingCombatCue" role="status" hidden></div><div id="openingSupportCue" role="status" hidden></div>
 </div>
 
 <div id="title">
@@ -2198,6 +2231,7 @@ body:has(#menuPop:not(.hide),[aria-modal="true"]:not(.hide)) #toasts{opacity:0}
       <span id="heroPillName">守燈衛士</span>
       <button type="button" id="btnHeroNext" aria-label="下一位英雄">▶</button>
     </div>
+    <div id="heroPillRole">近身穩守 · 聖劍震暈</div>
     <button type="button" class="btn small on" id="btnQuickStart" data-i18n="start">開始冒險</button>
   </div>
 
