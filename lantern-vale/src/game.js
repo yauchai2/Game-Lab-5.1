@@ -1414,6 +1414,7 @@ export class Game {
     if (this.dev?.on && this.dev?.god) return;
     if (p.roll > 0 && this.state === 'play' && this.depth >= 0) {
       if ((p.perfectDodgeCd || 0) <= 0) {
+        // 極限閃避：零文字藍光衝擊環＋1.5 秒必暴光環
         p.perfectDodgeCd = 3.2;
         p.perfectCritT = 1.5;
         this.hitstop = Math.max(this.hitstop || 0, 0.08);
@@ -1421,8 +1422,10 @@ export class Game {
         if (this.tide) this.tide.ultCharge = Math.min(100, (this.tide.ultCharge || 0) + 12);
         this.audio.sfx('perfect');
         this.fx.burst(p.pos.x, p.y + 0.9, p.pos.z, 16, { c: [0x62e8ff, 0xffe87a, 0xffffff], s: 0.15, speed: 6, up: 3.2, life: 0.45 });
-        this.ui.dmgNum(p.pos.x, p.y + 2.3, p.pos.z, '⚡ 極限閃避!', 'comic');
-        this.ui.toast('⚡ 極限閃避！大絕 +12% · 1.5 秒必暴反擊！', '#62e8ff');
+        const dg = new THREE.RingGeometry(0.42, 0.72, 24); dg.rotateX(-Math.PI / 2);
+        const dm = new THREE.Mesh(dg, new THREE.MeshBasicMaterial({ color: 0x62e8ff, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide }));
+        dm.position.set(p.pos.x, p.y + 0.16, p.pos.z); dm.userData.noNormal = true; this.scene.add(dm);
+        this.rings.push({ mesh: dm, t: 0, max: 0.24, radius: 2.2 });
       }
       return;
     }
@@ -2310,13 +2313,16 @@ export class Game {
 
   aimForTouch() {
     const { pos, facing } = this.player;
-    let range = 16;
+    let bestScore = 16;
     let target = null;
     for (const enemy of this.enemies) {
       if (enemy.dead || !enemy.m.root.visible) continue;
       const distance = Math.hypot(enemy.pos.x - pos.x, enemy.pos.z - pos.z);
-      if (distance >= range) continue;
-      range = distance;
+      if (distance >= 16) continue;
+      const openBonus = distance <= 7.5 && ((enemy.state === 'rest' && enemy.t < (enemy.chargeRecoveryS || 0)) || (enemy.type === 'thorn' && enemy.state === 'aim')) ? -3.2 : 0;
+      const score = distance + openBonus;
+      if (score >= bestScore) continue;
+      bestScore = score;
       target = enemy;
     }
     if (target) this.aim.copy(target.pos);
@@ -3870,22 +3876,27 @@ export class Game {
         else if (e.state === 'charge') e.facing = Math.atan2(e.cdir.x, e.cdir.y);
       } else if (e.type === 'moth') {
         e.cd -= dt;
-        if (dist > 7) follow(); else if (dist < 5) { mvx = -dirP.x * spd; mvz = -dirP.y * spd; }
-        else { mvx = -dirP.y * spd * 0.6; mvz = dirP.x * spd * 0.6; }
-        if (e.cd <= 0 && dist < 11) {
-          e.cd = 3.4 + Math.random();
-          const n = e.elite ? 5 : 3;
-          for (let i = 0; i < n; i++) {
-            const ox = i === 0 ? p.vel.x * 0.5 : (Math.random() - 0.5) * 5, oz = i === 0 ? p.vel.z * 0.5 : (Math.random() - 0.5) * 5;
-            const cx = p.pos.x + ox, cz = p.pos.z + oz;
-            this.addDecal('circle', cx, cz, 1.3, 0xc070ff, 1.15, null, () => {
-              this.puffs.burst(cx, 0.3, cz, 10, { c: [0xc08cff, 0xffd27a], s: 0.18, speed: 3, up: 4, life: 0.5 });
-              if (Math.hypot(p.pos.x - cx, p.pos.z - cz) < 1.4) this.hurtPlayer(e.dmg, new V3(cx, 0, cz));
-            });
+        if (e.state === 'rest') {
+          if (e.t >= (e.chargeRecoveryS ?? 0.75)) { e.state = 'move'; }
+        } else {
+          if (dist > 7) follow(); else if (dist < 5) { mvx = -dirP.x * spd; mvz = -dirP.y * spd; }
+          else { mvx = -dirP.y * spd * 0.6; mvz = dirP.x * spd * 0.6; }
+          if (e.cd <= 0 && dist < 11) {
+            e.cd = 3.4 + Math.random();
+            const n = e.elite ? 5 : 3;
+            for (let i = 0; i < n; i++) {
+              const ox = i === 0 ? p.vel.x * 0.5 : (Math.random() - 0.5) * 5, oz = i === 0 ? p.vel.z * 0.5 : (Math.random() - 0.5) * 5;
+              const cx = p.pos.x + ox, cz = p.pos.z + oz;
+              this.addDecal('circle', cx, cz, 1.3, 0xc070ff, 1.15, null, () => {
+                this.puffs.burst(cx, 0.3, cz, 10, { c: [0xc08cff, 0xffd27a], s: 0.18, speed: 3, up: 4, life: 0.5 });
+                if (Math.hypot(p.pos.x - cx, p.pos.z - cz) < 1.4) this.hurtPlayer(e.dmg, new V3(cx, 0, cz));
+              });
+            }
+            e.state = 'rest'; e.t = 0; e.chargeRecoveryS = 0.75;
           }
         }
-        e.m.body.position.y = 0.9 + Math.sin(e.t * 3 + e.ph) * 0.15;
-        const fl = Math.sin(e.t * 22) * 0.6;
+        e.m.body.position.y = (e.state === 'rest' ? 0.52 : 0.9) + Math.sin(e.t * 3 + e.ph) * 0.15;
+        const fl = Math.sin(e.t * (e.state === 'rest' ? 8 : 22)) * (e.state === 'rest' ? 0.25 : 0.6);
         e.m.wings[0].rotation.z = fl; e.m.wings[1].rotation.z = -fl;
       } else if (e.type === 'skyray') {
         e.groundedT = Math.max(0, (e.groundedT || 0) - dt);
@@ -4469,6 +4480,20 @@ export class Game {
       m.leechRing.material.opacity = 0.25 + 0.45 * lr;
     } else if (m.leechRing) {
       m.leechRing.visible = false;
+    }
+    if ((p.perfectCritT || 0) > 0 && this.state === 'play') {
+      if (!m.critRing) {
+        const cg = new THREE.RingGeometry(0.76, 0.88, 24); cg.rotateX(-Math.PI / 2);
+        m.critRing = new THREE.Mesh(cg, new THREE.MeshBasicMaterial({ color: 0x62e8ff, transparent: true, opacity: 0.75, side: THREE.DoubleSide, depthWrite: false }));
+        m.critRing.position.y = 0.09; m.critRing.userData.noNormal = true; m.critRing.renderOrder = 3;
+        m.root.add(m.critRing);
+      }
+      const cr = Math.min(1, p.perfectCritT / 1.5);
+      m.critRing.visible = true;
+      m.critRing.scale.setScalar(0.8 + 0.25 * cr);
+      m.critRing.material.opacity = 0.3 + 0.5 * cr;
+    } else if (m.critRing) {
+      m.critRing.visible = false;
     }
     // blink when invulnerable（陣亡時若已載入骨骼角色則保留可見以播放完整倒地動畫）
     m.root.visible = (this.state !== 'dead' || !!p.heroRig?.ready) && !(p.iframes > 0 && Math.floor(this.time * 20) % 2 === 0);

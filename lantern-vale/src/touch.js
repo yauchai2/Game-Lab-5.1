@@ -50,11 +50,18 @@ export function bindTouch(g) {
     g.audio.init();
     g.tryJump();
   }
+  function roll() {
+    if (g.raid || !g.canUseTouchControls()) return;
+    g.audio.init();
+    g.aimForTouch();
+    g.tryRoll();
+  }
 
   const releaseMove = hold(pad, move, () => { input.x = input.z = 0; knob.style.transform = ''; }, move);
   const releaseAttack = hold(el('touchAttack'), () => { input.attack = true; attack(); }, () => { input.attack = false; });
   const releaseJump = hold(el('touchJump'), () => { input.glide = !g.raid; jump(); }, () => { input.glide = false; });
-  const reset = () => { releaseMove(); releaseAttack(); releaseJump(); };
+  const releaseRoll = hold(el('touchRoll'), roll, () => {});
+  const reset = () => { releaseMove(); releaseAttack(); releaseJump(); releaseRoll(); };
   g.clearTouchInput = reset;
   window.addEventListener('blur', reset);
   document.addEventListener('visibilitychange', reset);
@@ -62,11 +69,7 @@ export function bindTouch(g) {
 
   el('touchAttack').onclick = e => { if (e.detail === 0 && g.canUseTouchControls()) attack(); };
   el('touchJump').onclick = e => { if (e.detail === 0 && g.canUseTouchControls()) jump(); };
-  el('touchRoll').onclick = () => {
-    if (g.raid || !g.canUseTouchControls()) return;
-    g.aimForTouch();
-    g.tryRoll();
-  };
+  el('touchRoll').onclick = e => { if (e.detail === 0 && g.canUseTouchControls()) roll(); };
   interact.onclick = () => {
     if (g.raid) { g.net.send({ t: 'raidLeave' }); return; }
     if (g.gatherActive) { g.gatherActive.trigger(); return; }
