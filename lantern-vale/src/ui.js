@@ -1310,7 +1310,7 @@ export class UI {
     const townOpening = g.zone === 'town' && !g.interior && g.state === 'play' && openingStep(g.meta.p) === 'lamp';
     const destination = navigationTarget(g);
     compass.hidden = !destination && !townOpening;
-    if (townOpening) {
+    if (townOpening && !destination) {
       const label = '點亮南門路燈 · 打開任務出發';
       if (compass.textContent !== label) compass.textContent = label;
     } else if (destination) {

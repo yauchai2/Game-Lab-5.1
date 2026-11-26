@@ -51,6 +51,7 @@ function frame(now) {
   last = now;
   const t0 = performance.now();
   game.update(dt);
+  game.questGuide.update(game);
   const t1 = performance.now();
   pipe.render(game.scene, game.camera, game.time);
   const t2 = performance.now();

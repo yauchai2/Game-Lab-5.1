@@ -22,6 +22,7 @@ import { Net } from './net.js';
 import { Meta } from './meta.js';
 import { AmbushTrial, AMBUSH_SEED, AMBUSH_START, AMBUSH_BOAR, AMBUSH_LAYOUTS, hitsAmbushCover } from './ambush_trial.js';
 import { buildPanels } from './panels.js';
+import { QuestGuide } from './quest_guide.js';
 const EMOTES = ['嗨～', '♥', '哈哈', 'zZ'];
 const meleeReach = p => (p.air ? 2.9 : 2.3) * (1 + p.stats.area / 100);
 import { HOODS } from './characters.js';
@@ -144,6 +145,7 @@ export class Game {
   constructor(pipe, ui, audio, trialOrder = null) {
     this.pipe = pipe; this.ui = ui; this.audio = audio;
     this.scene = new THREE.Scene();
+    this.questGuide = new QuestGuide();
     this.camera = new THREE.PerspectiveCamera(34, 16 / 9, 2, 190);
     pipe.onResize = (w, h) => { this.camera.aspect = w / h; this.camera.updateProjectionMatrix(); };
     pipe.onResize(pipe.w, pipe.h);
