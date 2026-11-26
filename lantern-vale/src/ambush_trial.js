@@ -139,7 +139,7 @@ export class AmbushTrial {
     const variant = this.order[this.index];
     const buildSpec = AMBUSH_BUILDS[this.build] || AMBUSH_BUILDS.none;
     this.active = {
-      variant, round: this.index + 1, buildPreset: buildSpec.id, events: [], charges: [], damageTaken: 0, killOrder: [],
+      variant, round: this.index + 1, buildPreset: buildSpec.id, events: [], charges: [], damageTaken: 0, healingDone: 0, killOrder: [],
       retryAfterMs: retry ? millis(now - this.endedAt) : null,
       retryOf: retry ? previous.id : null, id: this.attempts.length + 1,
     };
@@ -228,6 +228,11 @@ export class AmbushTrial {
     if (!this.active) return;
     this.active.damageTaken += amount;
     this.event('playerHit', { amount, enemy, attack });
+  }
+
+  healed(amount) {
+    if (!this.active || !(amount > 0)) return;
+    this.active.healingDone += Math.round(amount);
   }
 
   kill(enemy) {

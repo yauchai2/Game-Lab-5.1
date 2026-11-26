@@ -120,8 +120,8 @@ export const SUPPORT_GEMS = {
   chain: { id: 'chain', type: 'support', name: '連鎖跳躍', short: '連鎖', icon: '⚡', color: '#4f7ed6', price: 16, shape: [[0,0],[1,0],[1,1],[2,1]], desc: '相鄰投射物命中後額外彈跳 +2 個目標。' },
   haste: { id: 'haste', type: 'support', name: '極速詠唱', short: '極速', icon: '⏩', color: '#58a858', price: 13, shape: [[0,0]], desc: '相鄰主動技能冷卻時間縮減 18%。' },
   frost: { id: 'frost', type: 'support', name: '霜緩附魔', short: '霜緩', icon: '❄', color: '#5aa0e0', price: 14, shape: [[0,0],[1,0]], desc: '相鄰主動技能命中時緩速敵人 45%。' },
-  leech: { id: 'leech', type: 'support', name: '生命汲取', short: '汲血', icon: '♥', color: '#c84862', price: 14, shape: [[0,0]], desc: '相鄰主動技能命中敵人時回復 4 點生命。' },
-  vamp:  { id: 'vamp',  type: 'support', name: '血月汲取', short: '血月', icon: '🩸', color: '#a8324c', price: 20, shape: [[0,0],[0,1]], desc: '相鄰主動技能傷害 +15% 且每次命中回復 6 點生命。' },
+  leech: { id: 'leech', type: 'support', name: '生命汲取', short: '汲血', icon: '♥', color: '#c84862', price: 14, shape: [[0,0]], desc: '相鄰主動技能命中回復 8 點生命，並賦予 3.5 秒汲血光環（普攻每次命中回復 3 點生命）。' },
+  vamp:  { id: 'vamp',  type: 'support', name: '血月汲取', short: '血月', icon: '🩸', color: '#a8324c', price: 20, shape: [[0,0],[0,1]], desc: '相鄰主動技能傷害 +15%、命中回復 10 點生命並賦予 3.5 秒汲血光環。' },
   storm: { id: 'storm', type: 'support', name: '雷鳴連鎖', short: '雷鳴', icon: '🌩', color: '#4a6cd8', price: 20, shape: [[0,0],[1,0]], desc: '相鄰主動技能附加感電（+25% 易傷）且額外連鎖 +1 目標。' },
   split: { id: 'split', type: 'support', name: '分裂稜鏡', short: '分裂', icon: '⑂',  color: '#e88c38', price: 22, shape: [[0,0],[1,0],[0,1]], desc: '相鄰投射物命中目標時向四周分裂出 3 枚次級火花！' },
   coh:   { id: 'coh',   type: 'support', name: '命中觸發器', short: '命中觸發', icon: '🔗', color: '#b85cf0', price: 26, shape: [[0,0],[1,0]], desc: '【邏輯電路】橋接兩顆主動技能：前招命中時自動觸發相鄰另一招（0.65 秒保護冷卻）。' },
@@ -281,8 +281,8 @@ export function computeBoard(placed, partyGemId = null) {
       if (s.id === 'chain') mod.chain += 2;
       if (s.id === 'haste') mod.cdr = Math.min(0.6, mod.cdr + 0.18);
       if (s.id === 'frost') mod.frost += 1;
-      if (s.id === 'leech') mod.leech += 4;
-      if (s.id === 'vamp') { mod.dmgMult += 0.15; mod.leech += 6; }
+      if (s.id === 'leech') mod.leech += 8;
+      if (s.id === 'vamp') { mod.dmgMult += 0.15; mod.leech += 10; }
       if (s.id === 'storm') { mod.shock += 4.5; mod.chain += 1; }
       if (s.id === 'split') mod.split = true;
       if (s.id === 'orbit') mod.orbit = true;

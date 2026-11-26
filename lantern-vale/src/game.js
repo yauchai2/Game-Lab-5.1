@@ -593,6 +593,9 @@ export class Game {
   }
   startMeadowCave(tier) {
     if (this.state !== 'play' || this.field !== 1 || this.nearSpot()?.kind !== 'meadowCave') return false;
+    return this.startMeadowCaveDirect(tier);
+  }
+  startMeadowCaveDirect(tier) {
     const cave = enterMeadowCave(this.meta.p, tier);
     if (!cave) return false;
     this.meta.save();
@@ -1074,6 +1077,7 @@ export class Game {
       e.chargeRecoveryS = 0.75;
       e.stun = Math.max(e.stun, 0.35);
       e.m.body.scale.set(1, 1, 1);
+      this.ambushTrial?.event('thornInterrupt');
     }
     const isCounter = isAimInterrupt || (!opts.isDoT && e.state === 'rest' && e.t < (e.chargeRecoveryS || 0));
     if (isCounter) {
@@ -1171,7 +1175,13 @@ export class Game {
     this.ui.dmgNum(e.pos.x, e.pos.y + 1.2 * e.m.root.scale.x + (e.type === 'stag' ? 2.5 : 0), e.pos.z, dmg, (hit.crit || opts.aerial) ? 'crit' : hit.fire ? 'fire' : opts.isDoT ? 'heal' : '');
     this.fx.burst(e.pos.x, e.pos.y + 0.6, e.pos.z, hit.crit ? 12 : opts.isDoT ? 3 : 6, { c: hit.fire ? [0xffb040, 0xff7030] : hit.crit ? [0xffe47a, 0xffffff, 0xff9a50] : [0xffffff, 0xfff2b0], s: hit.crit ? 0.13 : 0.1, speed: hit.crit ? 6.5 : 5, up: 3.5, life: 0.38 });
     if (p.stats.lifeOnHit && !opts.isDoT) this.heal(p.stats.lifeOnHit, false);
-    if (opts.leech && !opts.isDoT) this.heal(opts.leech, false);
+    if (opts.leech && !opts.isDoT) {
+      p.leechBuffT = Math.max(p.leechBuffT || 0, 3.5);
+      this.heal(opts.leech, true);
+      this.fx.burst(p.pos.x, p.y + 0.8, p.pos.z, 6, { c: [0xff7a9a, 0x7fe08a], s: 0.09, speed: 2.4, up: 2.2, life: 0.35 });
+    } else if (!opts.isDoT && !opts.isTrigger && (p.leechBuffT || 0) > 0) {
+      this.heal(3, true);
+    }
     if (opts.hitstop) this.hitstop = Math.max(this.hitstop, opts.hitstop);
     // 技能邏輯電路：命中觸發器 (CoH) 與暴擊觸發器 (CoC)，接通 Phase M4A 250ms 獨立 ICD 保護
     if (!opts.isDoT && !opts.isTrigger) {
@@ -1393,7 +1403,10 @@ export class Game {
     const p = this.player; const before = p.hp;
     p.hp = Math.min(p.stats.maxHp, p.hp + v);
     const gained = p.hp - before;
-    if (gained > 0 && this.runStats) this.runStats.healsDone += gained;
+    if (gained > 0) {
+      if (this.runStats) this.runStats.healsDone += gained;
+      this.ambushTrial?.healed(gained);
+    }
     if (show && gained > 0) this.ui.dmgNum(p.pos.x, 1.6, p.pos.z, `+${Math.round(gained)}`, 'heal');
   }
   hurtPlayer(dmg, src, statusKind = null, trialSource = null, trialAttack = null) {
@@ -1607,6 +1620,8 @@ export class Game {
       if (enemy.meadowPounce) {
         enemy.chargeRecoveryS = 0.72;
         this.moveEntity(enemy.pos, x - enemy.pos.x, z - enemy.pos.z, enemy.r);
+      } else if (enemy.expeditionName) {
+        enemy.chargeRecoveryS = 0.95;
       }
       this.audio.sfx('slam');
       this.puffs.burst(x, y + 0.25, z, 8, { c: [0xffbe73, 0xffe8ac], s: 0.18, speed: 3.6, life: 0.45 });
@@ -3137,6 +3152,7 @@ export class Game {
       p.iframes = Math.max(0, p.iframes - dt);
       p.perfectDodgeCd = Math.max(0, (p.perfectDodgeCd || 0) - dt);
       p.perfectCritT = Math.max(0, (p.perfectCritT || 0) - dt);
+      p.leechBuffT = Math.max(0, (p.leechBuffT || 0) - dt);
       p.mana = Math.min(S.mana, p.mana + dt * 7 * (1 + (S.manaRegen || 0) / 100));
       if (S.regen) this.heal(S.regen * dt, false);
       if (p.specials.has('mossRegen')) this.heal(S.maxHp * 0.02 * dt, false);
@@ -3593,14 +3609,20 @@ export class Game {
     if (this.ambushTrial) { this.ambushTrial.finish('cleared'); return; }
     const p = this.player;
     if (this.caveRun) {
+      const tier = this.caveRun.tier;
       const result = advanceMeadowCave(this.meta.p, this.caveRun, this.waveIdx - 1);
       if (result?.complete) {
         grantExperience(this, result.xp);
         this.bankRun(1);
         this.boss = null;
         this.ui.bossBar(false);
+        this.lastCaveClear = { ...result, tier };
         this.ui.banner(result.firstClear ? '草原洞窟首通' : '草原洞窟通關',
           `經驗 +${result.xp} · 金幣 +${result.coins} · 狂豬利牙與荊棘硬木各 +${result.materials}`);
+        const seed = this.runSeed;
+        setTimeout(() => {
+          if (this.state === 'play' && this.caveRun && this.runSeed === seed && !this.ui.panelOpen) this.ui.openPanel('caveClear');
+        }, 900);
       }
       this.activateExits();
       return;
@@ -3905,10 +3927,12 @@ export class Game {
             });
           }
         } else if (e.state === 'spore-burst') {
-          if (e.t > 1.8) { e.state = 'move'; e.cd = 1.35; }
+          if (e.t > 1.8) { e.state = 'rest'; e.t = 0; e.chargeRecoveryS = 0.85; }
         } else if (e.state === 'slam') {
           e.m.body.position.y = Math.sin(Math.min(1, e.t / 0.85) * Math.PI) * 0.45;
-          if (e.t > 1.05) { e.state = 'move'; e.cd = 2.8 + Math.random(); }
+          if (e.t > 1.05) { e.state = 'rest'; e.t = 0; e.chargeRecoveryS = 0.85; }
+        } else if (e.state === 'rest' && e.t >= (e.chargeRecoveryS ?? 0.85)) {
+          e.state = 'move'; e.cd = e.sporeGuardian ? 1.35 : 2.2 + Math.random();
         }
       } else if (e.type === 'stag') this.updateBoss(e, dt, dist, dirP, follow, (x, z) => { mvx = x; mvz = z; });
 
@@ -3977,6 +4001,9 @@ export class Game {
         } else if (e.type === 'thorn') {
           e.m.body.rotation.x = -0.24 * ease;
           if (e.squash > 0) e.m.body.scale.set(1 + e.squash * 0.7, 1 - e.squash * 0.55, 1 + e.squash * 0.7);
+        } else if (e.type === 'golem') {
+          e.m.body.rotation.x = 0.22 * ease;
+          if (e.squash > 0) e.m.body.scale.set(1 + e.squash * 0.7, 1 - e.squash * 0.55, 1 + e.squash * 0.7);
         }
         if (!e.m.restRing) {
           const rg = new THREE.RingGeometry(0.84, 1.0, 28); rg.rotateX(-Math.PI / 2);
@@ -3988,7 +4015,7 @@ export class Game {
         e.m.restRing.scale.setScalar(0.45 + 1.25 * rem);
         e.m.restRing.material.opacity = 0.35 + 0.55 * rem;
       } else {
-        if (e.type === 'boar' || e.type === 'thorn') e.m.body.rotation.x = 0;
+        if (e.type === 'boar' || e.type === 'thorn' || e.type === 'golem') e.m.body.rotation.x = 0;
         if (e.m.restRing) e.m.restRing.visible = false;
         if (e.squash > 0) e.m.body.scale.set(1 + e.squash * 0.7, 1 - e.squash * 0.55, 1 + e.squash * 0.7);
         else if (e.type !== 'slime' && e.state !== 'aim') e.m.body.scale.set(1, 1, 1);

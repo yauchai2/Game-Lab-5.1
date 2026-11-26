@@ -120,6 +120,31 @@ export function buildPanels(g) {
     }
   }
 
+  function renderCaveClear() {
+    const res = g.lastCaveClear;
+    if (!res) { g.ui.closePanel(); return; }
+    const { clears } = meadowCaveProgress(M.p);
+    const nextTier = (res.tier === 'normal' && clears.normal) ? 'elite' : res.tier;
+    const nextSpec = MEADOW_CAVE[nextTier];
+    const canContinue = (M.p.keys || 0) >= 1;
+    title.textContent = res.firstClear ? '草原洞窟首通' : '草原洞窟通關';
+    body.innerHTML = `<p><b>經驗 +${res.xp} · 金幣 +${res.coins}</b></p>
+      <p>狂豬利牙 ×${res.materials}、荊棘硬木 ×${res.materials} 已收入素材包（剩餘鑰石 ${M.p.keys || 0} 枚）。</p>`
+      + row(`<div><b>${nextTier === 'elite' && res.tier === 'normal' ? '挑戰精英難度' : `再打一場（${nextSpec.name}）`}</b></div><small>建議 Lv.${nextSpec.level} · 消耗 1 枚鑰石直接開打</small>`,
+        `<button type="button" class="btn small${canContinue ? ' on' : ''}" data-cc-next ${canContinue ? '' : 'disabled'}>${canContinue ? '立即出發' : '鑰石不足'}</button>`)
+      + row('<div><b>直達燈谷鎮工坊鍛造</b></div><small>省去跑圖，直接用剛獲得的素材打造精鋼階裝備</small>',
+        '<button type="button" class="btn small" data-cc-forge>前往工坊</button>')
+      + row('<div><b>調整技能拼圖</b></div><small>更換寶石構築後再挑戰下一場</small>',
+        '<button type="button" class="btn small" data-cc-puzzle>開啟拼圖</button>');
+    body.querySelector('[data-cc-next]').onclick = () => { if (!g.startMeadowCaveDirect(nextTier)) renderCaveClear(); };
+    body.querySelector('[data-cc-forge]').onclick = () => {
+      g.ui.closePanel();
+      g.state = 'transition'; g.audio.sfx('warp');
+      g.ui.wipe(() => { g.enterTown(); g.ui.openPanel('workshop'); });
+    };
+    body.querySelector('[data-cc-puzzle]').onclick = openRewardPuzzle;
+  }
+
   function renderExpedition() {
     const { active } = meadowExpedition(M.p);
     const stage = meadowStage(active);
@@ -562,11 +587,12 @@ export function buildPanels(g) {
 
   function render() {
     M = g.meta;
-    foot.hidden = ['map', 'shards', 'expedition', 'meadowCave', 'field_quest'].includes(kind);
+    foot.hidden = ['map', 'shards', 'expedition', 'meadowCave', 'caveClear', 'field_quest'].includes(kind);
     head();
     if (kind === 'shards') { renderShards(); return; }
     if (kind === 'expedition') { renderExpedition(); return; }
     if (kind === 'meadowCave') { renderMeadowCave(); return; }
+    if (kind === 'caveClear') { renderCaveClear(); return; }
     if (kind === 'exchange') { drawExchange(g,body,title); return; }
     if (kind === 'guild') { renderGuildHall(); return; }
     if (kind === 'ascend') { renderAscend(); return; }
