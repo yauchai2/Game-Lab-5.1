@@ -3,6 +3,7 @@ import { bindGuild, updateRaid } from './guild.js';
 import { FIELDS, FIELD_BOSS_SPEC, fieldBiome, awardKill, grantExperience, setupField, tickField, useFieldSpot, leaveGrave, refreshGraveSpot, rememberGear, restoreGear } from './frontier.js';
 import { FIELD_BLUEPRINTS } from './field_blueprints.js';
 import { getTerrainEffect, updateFieldTerrainFx, updateRealmRule } from './terrain_fx.js';
+import { refreshWick, bindWick, updateWick, wickMechFull, offsetSpeedMul } from './wick.js';
 import { updateFlame, onBasicHit, onKill as onFlameKill, onPlayerHurt as onFlameHurt, findRespawn, applyRespawnState, FLAME_CFG } from './flame.js';
 import { syncLightRings } from './flame_fx.js';
 import { buildDungeonScenery } from './dungeon_scene.js';
@@ -371,6 +372,7 @@ export class Game {
     if (p.flask) p.flask.max = Math.max(baseFlaskMax, p.flask.max || 1);
     const sc = findSecondClass(profile.secondClass);
     if (sc) for (const [k, v] of Object.entries(sc.bonuses)) s[k] = (s[k] || 0) + v;
+    refreshWick(this); bindWick(this);              // Phase 4: class wick + advancement stance
     if (p.m?.aura) { p.m.aura.visible = !!sc; if (sc && p.m.auraMat) p.m.auraMat.color.setHex(sc.aura); }
     if (this.tide && !this.tide._ultJobSynced) {
       this.tide.ultIndex = Math.max(0, Math.min(4, cls.id || 0));
@@ -1062,9 +1064,10 @@ export class Game {
     const s = this.player.stats;
     const comboCrit = Math.min(22.5, (this.combo?.count || 0) * 1.5);
     const furyMul = (this.shrineBuffs?.fury || 0) > 0 ? 1.45 : 1;
-    let dmg = (s.baseDmg + s.addFire) * (1 + s.dmgPct / 100) * mult * furyMul;
+    const wfx = this.player.wickFx;
+    let dmg = (s.baseDmg + s.addFire) * (1 + (s.dmgPct + (wfx?.dmgPct || 0)) / 100) * mult * furyMul;
     const random = this.ambushTrial ? this.rng : Math.random;
-    const crit = (this.player.perfectCritT || 0) > 0 || random() * 100 < (s.crit + comboCrit);
+    const crit = (this.player.perfectCritT || 0) > 0 || random() * 100 < (s.crit + comboCrit + (wfx?.crit || 0));
     if (crit) dmg *= s.critMult / 100;
     return { dmg: Math.round(dmg * (0.9 + random() * 0.2)), crit, fire };
   }
@@ -1498,7 +1501,7 @@ export class Game {
     const rawDmg = dmg * shockMul * dangerMul * (this.meta.has('fragile') ? 1.35 : 1);
     const resKey = statusKind === 'burn' ? 'resFire' : statusKind === 'freeze' ? 'resIce' : statusKind === 'shock' ? 'resLightning' : statusKind === 'poison' ? 'resPoison' : null;
     const elemRes = resKey ? (p.stats[resKey] || 0) : 0;
-    const afterArmor = rawDmg * (1 - p.stats.armor / 100);
+    const afterArmor = rawDmg * (1 - (p.stats.armor + (p.wickFx?.armor || 0)) / 100);
     dmg = Math.max(1, Math.round(afterArmor * (1 - elemRes / 100)));
     if (this.runStats) this.runStats.dmgMitigated += Math.max(0, Math.round(rawDmg - dmg));
     this.ambushTrial?.playerHit(Math.min(dmg, p.hp), trialSource, trialAttack);
@@ -1887,6 +1890,8 @@ export class Game {
         this.heal(p.stats.maxHp * 0.14, true);
         this.ui.toast('🪷 【蓮華禪韻】綻放！全隊回復生命並獲得靈動加速！', '#ff8eb8');
       }
+      const wm = wickMechFull(this);
+      if (wm && (wm.flame > 0.5 || wm.spent > 0.5)) this.ui.toast(`🕯️ 燈芯共鳴：${wm.flame > 0.5 ? ` Flame +${Math.round(wm.flame)}` : ''}${wm.spent > 0.5 ? ` Flame -${Math.round(wm.spent)}${wm.mana ? ` · 法力 +${wm.mana}` : ''}${wm.heal ? ' · 回復生命' : ''}` : ''}`, '#ffb347');
       this.audio.sfx('boon');
     }
   }
@@ -3266,7 +3271,7 @@ export class Game {
       p.perfectCritT = Math.max(0, (p.perfectCritT || 0) - dt);
       p.leechBuffT = Math.max(0, (p.leechBuffT || 0) - dt);
       const dimRegen = this.flameRt?.fx?.regenMul ?? 1;            // Flame: Dimming lowers natural regen
-      p.mana = Math.min(S.mana, p.mana + dt * 7 * (1 + (S.manaRegen || 0) / 100) * dimRegen);
+      p.mana = Math.min(S.mana, p.mana + dt * 7 * (1 + ((S.manaRegen || 0) + (p.wickFx?.manaRegen || 0)) / 100) * dimRegen);
       if (S.regen) this.heal(S.regen * dt * dimRegen, false);
       if (p.specials.has('mossRegen')) this.heal(S.maxHp * 0.02 * dt * dimRegen, false);
       if (p.healOver > 0) { p.healOver -= dt; this.heal(p.healRate * dt, false); }
@@ -3346,7 +3351,7 @@ export class Game {
       }
       updateFieldTerrainFx(this, dt);
       updateRealmRule(this, dt, this.field ? FIELDS[this.field]?.realmRule : null);
-      updateFlame(this, dt); syncLightRings(this, dt);
+      updateFlame(this, dt); updateWick(this, dt); syncLightRings(this, dt);
       p.sprinting = false;
       const frozen = (p.statuses?.freeze || 0) > 0;
       const mountDef = this.mount?.def || null;
@@ -3374,7 +3379,7 @@ export class Game {
         const mountSpd = mountDef ? mountDef.speedMult : 1;
         const buffSpd = ((this.shrineBuffs?.fury || 0) > 0 ? 1.2 : 1) * ((this.shrineBuffs?.sheep || 0) > 0 ? 1.1 : 1);
         const glideSpd = p.gliding ? (p.souls?.mobility?.id === 'skyray' ? 1.95 : 1.35) : 1;
-        const terrainSpd = (p.terrainFx ? (p.terrainFx.speedMult || 1) : 1) * (p.realmRule?.speedMult || 1) * (this.flameRt?.fx?.speedMul ?? 1);
+        const terrainSpd = (p.terrainFx ? (p.terrainFx.speedMult || 1) : 1) * (p.realmRule?.speedMult || 1) * offsetSpeedMul(this.flameRt?.fx?.speedMul ?? 1, p.wickFx?.speedOffset);
         const devSpd = (this.dev?.on && this.dev?.fastMove) ? 2.2 : 1;
         const f = chillMul * mountSpd * buffSpd * terrainSpd * devSpd * (attacking ? 0.55 : 1) * (p.climbing ? 0.22 : 1) * glideSpd * (canSprint ? 1.25 : 1);
         if (mountDef?.ramKnockback && mv.lengthSq() > 0.2) {

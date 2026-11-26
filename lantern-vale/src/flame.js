@@ -136,7 +136,7 @@ export function canSpend(g, n) { return getFlame(g) >= n * wickCost(g) - 1e-6; }
 export function onBasicHit(g, kind = 'melee') { return addFlame(g, kind === 'bow' ? CFG.gain.bowShot : CFG.gain.basicHit, 'basicHit'); }
 export function onKill(g, enemy) {
   const n = enemy?.type === 'stag' || enemy?.isWorldBoss || enemy?.isTideBoss ? CFG.gain.bossKill : enemy?.elite ? CFG.gain.eliteKill : CFG.gain.kill;
-  return addFlame(g, n, 'kill');
+  return addFlame(g, n * (mods(g)?.killGainMul ?? 1), 'kill');
 }
 /** Returns false (and spends nothing) only when ultimateGate is on and Flame is short. */
 export function onUltimate(g) {
@@ -183,7 +183,7 @@ export function updateFlame(g, dt) {
   const maxStacks = dimmingMaxStacks(g);
 
   if (lit) {
-    rec.v = Math.min(max, rec.v + CFG.regen.insideLightPerSec * dt);
+    rec.v = Math.min(max, rec.v + CFG.regen.insideLightPerSec * (mods(g)?.lightRegenMul ?? 1) * dt);
     rt.outT = rt.stackT = 0;
     if (rt.dim > 0) {
       rt.decayT += dt;

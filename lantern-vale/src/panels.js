@@ -7,7 +7,8 @@ import { canCorruptGear, CORRUPT_UNLOCK_LV } from './progression.js';
 import { isFeatureEnabled } from './mmo_protocol.js';
 import { MODS, MOD_MAX } from './meta.js';
 import { CLASSES, ALL_GEMS, addGemToBag, applySupportFit, suggestSupportFit } from './puzzle.js';
-import { SECOND_CLASSES, findSecondClass, checkAscendEligibility, performAscend } from './world_alive.js';
+import { stanceById, classWickByJob } from './wick.js';
+import { SECOND_CLASSES, ASCEND_REQ, findSecondClass, checkAscendEligibility, performAscend } from './world_alive.js';
 import { SANCTUARY_TALENTS, ensureTalents, talentCost, buyTalent, respecTalents, getBloodEclipseField } from './survivor.js';
 import { enhanceInfo, enhanceItem, computeEnhanceResonance, AI_COMPANIONS, getCompanionBondInfo, spawnCompanion3D, recordStoryEvent, GUILD_BOUNTIES, claimGuildBounty, getGuildRepInfo, ADVENTURER_RANKS, computeAdventurerRank, claimRankReward } from './mmo_rpg.js';
 import { RUNE_DEFS, RUNE_IDS, ensureRunes, socketRune, DAILY_CHESTS, ensureDailyActivity, claimDailyChest, spawnWorldBoss } from './mmo_world.js';
@@ -528,34 +529,60 @@ export function buildPanels(g) {
     }
   }
 
+  let vowId = null;                                   // advanced class whose vow scene is open (Phase 4 story choice)
+  function stanceHtml(st) {
+    if (!st) return '';
+    return `<div style="margin:4px 0;padding:6px 8px;border-left:3px solid #d4a44a;background:rgba(255,207,74,.14)"><b>${st.icon} ${esc(st.name)}</b> <small>${esc(st.nameEn)}</small><br><small><i>${esc(st.stance)}</i></small><br><small>🕯️ ${esc(st.gain)}</small><br><small>🌑 ${esc(st.price)}</small></div>`;
+  }
+  function renderVow(cls, sc) {
+    const st = stanceById(sc.id), cw = classWickByJob(cls.id);
+    title.textContent = `星燈覺醒祭壇 · ${sc.icon} ${st ? st.name : sc.name}`;
+    body.replaceChildren();
+    const d = document.createElement('div'); d.className = 'psmall'; d.style.textAlign = 'left';
+    d.innerHTML = `<p>${esc(st?.scene || sc.desc)}</p><p><b>${esc(st?.vow || '')}</b></p>${stanceHtml(st)}`
+      + (cw ? `<small>燈芯：${cw.icon} ${esc(cw.name)}（${esc(cw.nameEn)}）會與這個誓言疊加。</small>` : '')
+      + `<p><small>覺醒需支付 🪙${ASCEND_REQ.coins} 與 💎${ASCEND_REQ.shards}。這是一個故事選擇：選了「${esc(sc.name)}」，另一條路的誓言就不再是你的。之後仍可回祭壇改誓，但要再付一次費用。</small></p>`;
+    body.append(d);
+    const row = document.createElement('div'); row.className = 'prow';
+    const ok = document.createElement('button'); ok.className = 'btn small on'; ok.textContent = '✨ 立下誓言並覺醒';
+    ok.onclick = () => {
+      const res = performAscend(M.p, sc.id, !!g.dev?.on);
+      if (!res.ok) { g.ui.toast(res.reason || '尚未達成試煉條件', '#ff8a8a'); vowId = null; render(); return; }
+      recordStoryEvent(M.p, 'ascend', 1);
+      M.save(); g.recalc(); g.audio.sfx('classup');
+      g.vfx?.spawnKiAscension(g.player.pos.x, g.player.y || 0, g.player.pos.z, 'holy');
+      g.ui.toast(`✨ 二轉覺醒完成：${sc.icon} ${sc.name}！獲贈寶石「${ALL_GEMS[sc.gem].name}」與稱號「${sc.title}」`, '#ffd85a');
+      if (st?.epilogue) g.ui.toast(`🕯️ ${st.epilogue}`, '#ffcf8a');
+      vowId = null; render();
+    };
+    const back = document.createElement('button'); back.className = 'btn small'; back.textContent = '← 再想想';
+    back.onclick = () => { vowId = null; render(); };
+    row.append(back, ok); body.append(row);
+  }
+
   function renderAscend() {
     const cls = CLASSES[g.character?.job ?? 0] || CLASSES[0];
     const cur2 = findSecondClass(M.p.secondClass);
+    const vowSc = vowId && (SECOND_CLASSES[cls.id] || []).find(c => c.id === vowId);
+    if (vowSc) { renderVow(cls, vowSc); return; }
     title.textContent = `星燈覺醒祭壇 · ${cls.icon} ${cls.name}二轉試煉`;
     body.replaceChildren();
     const info = document.createElement('div'); info.className = 'psmall';
+    const curSt = stanceById(cur2?.id);
     info.innerHTML = cur2
-      ? `目前已覺醒：<b>${cur2.icon} ${cur2.name}</b>（稱號：${cur2.title || cur2.name} · ${cur2.desc}）`
-      : `<b>⚠️ 二轉為重大職業晉升</b>：需同時達成 <b>Lv.12</b>、<b>40 隻魔物討伐</b>、<b>3 隻高危精英</b>、<b>職業專屬試煉</b>，並支付 <b>🪙300 金幣 + 💎45 星砂</b>。`;
+      ? `目前已覺醒：<b>${cur2.icon} ${cur2.name}</b>（稱號：${cur2.title || cur2.name} · ${cur2.desc}）${curSt ? `<br><small>誓言：${esc(curSt.vow)}</small>` : ''}`
+      : `<b>⚠️ 二轉為重大職業晉升</b>：需同時達成 <b>Lv.12</b>、<b>40 隻魔物討伐</b>、<b>3 隻高危精英</b>、<b>職業專屬試煉</b>，並支付 <b>🪙300 金幣 + 💎45 星砂</b>。<br><small>兩條路是兩種對燈火的態度，選擇會改變你的燈芯。</small>`;
     body.append(info);
     for (const sc of SECOND_CLASSES[cls.id] || []) {
       const isCur = M.p.secondClass === sc.id;
       const elig = checkAscendEligibility(M.p, sc, !!g.dev?.on);
       const d = document.createElement('div'); d.className = 'prow';
       const chkHtml = elig.checks.map(c => `<span style="display:inline-block;margin:2px 6px 2px 0;font-size:11.5px;color:${c.ok ? '#267346' : '#a83434'};font-weight:${c.ok ? '700' : '600'}">${c.ok ? '✔' : '✖'} ${esc(c.label)}</span>`).join('');
-      d.innerHTML = `<div class="pl"><b>${sc.icon} ${sc.name}</b> <small>（稱號：${esc(sc.title || '')}）</small><br><small>${esc(sc.desc)}</small><div class="pbar" style="margin:4px 0"><i style="width:${Math.round(elig.prog * 100)}%"></i></div><div>${chkHtml}</div></div>`;
+      d.innerHTML = `<div class="pl"><b>${sc.icon} ${sc.name}</b> <small>（稱號：${esc(sc.title || '')}）</small><br><small>${esc(sc.desc)}</small>${stanceHtml(stanceById(sc.id))}<div class="pbar" style="margin:4px 0"><i style="width:${Math.round(elig.prog * 100)}%"></i></div><div>${chkHtml}</div></div>`;
       const b = document.createElement('button'); b.className = 'btn small' + (isCur || elig.eligible ? ' on' : '');
-      b.textContent = isCur ? '已覺醒 ✔' : elig.eligible ? '✨ 執行覺醒儀式' : `🔒 試煉 ${elig.passed}/${elig.total}`;
+      b.textContent = isCur ? '已覺醒 ✔' : elig.eligible ? '🕯️ 面對誓言' : `🔒 試煉 ${elig.passed}/${elig.total}`;
       b.disabled = isCur || !elig.eligible;
-      b.onclick = () => {
-        const res = performAscend(M.p, sc.id, !!g.dev?.on);
-        if (!res.ok) { g.ui.toast(res.reason || '尚未達成試煉條件', '#ff8a8a'); return; }
-        recordStoryEvent(M.p, 'ascend', 1);
-        M.save(); g.recalc(); g.audio.sfx('classup');
-        g.vfx?.spawnKiAscension(g.player.pos.x, g.player.y || 0, g.player.pos.z, 'holy');
-        g.ui.toast(`✨ 二轉覺醒完成：${sc.icon} ${sc.name}！獲贈寶石「${ALL_GEMS[sc.gem].name}」與稱號「${sc.title}」`, '#ffd85a');
-        render();
-      };
+      b.onclick = () => { vowId = sc.id; render(); };
       d.append(b); body.append(d);
     }
 
@@ -647,7 +674,7 @@ export function buildPanels(g) {
     }
   }
   g.ui.openPanel = (k, { recipeId = null } = {}) => {
-    kind = k;
+    kind = k; vowId = null;
     workshopRecipe = recipeId; g.ui.guildMarketOpen = k === 'exchange';
     g.ui.panelOpen = true; root.classList.remove('hide'); render();
     if (k === 'shards' && g.net.zoneShards) g.net.send({ t: 'shard_list' });

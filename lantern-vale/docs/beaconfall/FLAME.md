@@ -44,10 +44,14 @@ g.player.flameWick = {
   costMul: 1.0,    // multiplies every spendFlame
   maxBonus: 0,     // added to max Flame
   drainMul: 1.0,   // multiplies outside-light drain (Duskblade: < 1 in the dark, etc.)
+  lightRegenMul: 1.0, // multiplies in-light refill (Phase 4)
+  killGainMul: 1.0,   // multiplies Flame from kills (Phase 4)
 };
 ```
 Class abilities should cost Flame with `spendFlame(g, n, 'skillId')` and gate themselves with `canSpend`. React to the lamp with `onFlame(...)` (for example Lotus Monk purifies on `enterLight`, Duskblade empowers on `dim`). Merge each `classMech` into its wick by reading `flameSnapshot(g)` next to `p.classRes`; the HUD already keeps both bars.
 Keep Flame numbers in `data/flame.json` (or a new `data/wicks.json`), never inline.
+
+Phase 4 is implemented: see `WICKS.md` (class wicks and advancement stances, `src/wick.js`).
 
 ## Balance notes
 - A full bar lasts about 200 s outside light, and combat gains offset drain, so a fight-heavy route never starves. Stacks only appear after 14 s of standing in the dark.

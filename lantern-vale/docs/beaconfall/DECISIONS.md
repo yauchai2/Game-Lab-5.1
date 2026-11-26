@@ -19,4 +19,5 @@ Alan approved "go with recommendations". These are final unless Alan changes the
 - Phase 0: done (glossary, string audit script and report, decisions, save schema).
 - Phase 1: done for branding/title/about/boot splash/server and test strings; Flame HUD placeholder deferred to Phase 2 (a bar with no data would mislead).
 - Phase 2: done (Flame, light radius, lantern respawn, Dimming). API and tuning guide: `docs/beaconfall/FLAME.md`, numbers in `data/flame.json`. Phase 4 hooks in through `player.flameWick` and `onFlame()`.
+- Phase 4: done for class wicks (5) and advancement stances (10) with the altar vow scene. Guide: `docs/beaconfall/WICKS.md`, numbers and story text in `data/wicks.json`.
 - Not changed yet: zone/island/boss names, NPC text, quests, class/skill names, items (Phases 3–5).
