@@ -2,7 +2,7 @@
 import { RARITY, SLOTS, serializeItem, deserializeItem, makeItem, itemScore, canEquipItem, itemReqLevel, rememberGear } from './loot.js';
 import { canvasUiFont } from './ui_typography.js';
 import { t } from './i18n.js';
-import { resolveArtId, loadItemImage } from './itemdb.js';
+import { resolveArtId, loadItemImage, getItemSilhouette } from './itemdb.js';
 
 // 物理碰撞合成配方（在背包中拖曳或拋撞兩個相容物件即可當場融合！）
 export const BAG_RECIPES = [
@@ -117,21 +117,35 @@ export class PhysicsContainer {
     this._bind();
   }
 
+  _drawSize(it) {
+    const slot = it.item?.slot || it.slot;
+    if (it.kind === 'gear') {
+      if (slot === 'staff' || slot === 'weapon') return 78;
+      if (slot === 'body' || slot === 'cloak') return 68;
+      return 58;
+    }
+    if (it.shape === 'crate') return 58;
+    if (it.shape === 'flask') return 56;
+    if (it.shape === 'diamond') return 50;
+    return 46;
+  }
+
   sync(items) {
     const map = new Map(this.bodies.map(b => [b.data.uid, b]));
     const next = [];
     items.forEach((it, idx) => {
       const sh0 = shapeForItem(it), K = 1.18;
       const sh = { shape: sh0.shape, hw: sh0.hw * K, hh: sh0.hh * K, r: sh0.r * K };
+      const dSize = this._drawSize(it);
       const old = map.get(it.uid);
       if (old) {
         old.data = it;
-        old.shape = sh.shape; old.hw = sh.hw; old.hh = sh.hh; old.r = sh.r;
+        old.shape = sh.shape; old.hw = sh.hw; old.hh = sh.hh; old.r = sh.r; old.dSize = dSize;
         next.push(old);
       } else {
         next.push({
           data: it,
-          shape: sh.shape, hw: sh.hw, hh: sh.hh, r: sh.r,
+          shape: sh.shape, hw: sh.hw, hh: sh.hh, r: sh.r, dSize,
           x: it._sx ?? (48 + ((idx * 63) % (this.W - 96)) + (Math.random() - 0.5) * 14),
           y: it._sy ?? (34 + Math.floor(idx / 4) * 22),
           vx: (Math.random() - 0.5) * 90,
@@ -163,63 +177,129 @@ export class PhysicsContainer {
     }
   }
 
+  _img(b) {
+    const id = b.data._art !== undefined ? b.data._art : (b.data._art = resolveArtId(b.data));
+    if (!id) return null;
+    const im = loadItemImage(id, 128, () => { this._dirty = true; });
+    return im && im._ready ? im : null;
+  }
+
+  _dims(b, im) {
+    const sz = b.dSize || 56;
+    if (!im || !im.naturalWidth || !im.naturalHeight) return { dw: sz, dh: sz };
+    const k = sz / Math.max(im.naturalWidth, im.naturalHeight);
+    return { dw: im.naturalWidth * k, dh: im.naturalHeight * k };
+  }
+
+  _worldCircles(b) {
+    const im = this._img(b);
+    const sil = im ? getItemSilhouette(im) : null;
+    const { dw, dh } = this._dims(b, im);
+    const cos = Math.cos(b.ang), sin = Math.sin(b.ang);
+    if (!sil) return [{ x: b.x, y: b.y, r: Math.max(14, b.r * 0.72), rx: 0, ry: 0 }];
+    const scaleR = Math.min(dw, dh);
+    return sil.circles.map(c => {
+      const lx = c.x * dw, ly = c.y * dh;
+      const rx = lx * cos - ly * sin, ry = lx * sin + ly * cos;
+      return { x: b.x + rx, y: b.y + ry, r: Math.max(5, c.r * scaleR), rx, ry };
+    });
+  }
+
   _extents(b) {
-    const c = Math.abs(Math.cos(b.ang)), s = Math.abs(Math.sin(b.ang));
-    return { ex: b.hw * c + b.hh * s, ey: b.hw * s + b.hh * c };
+    const cs = this._worldCircles(b);
+    let ex = 14, ey = 14;
+    for (const c of cs) {
+      ex = Math.max(ex, Math.abs(c.rx) + c.r);
+      ey = Math.max(ey, Math.abs(c.ry) + c.r);
+    }
+    return { ex, ey };
   }
 
   step(dt) {
-    const g = 900, pad = 12, W = this.W, H = this.H;
+    const g = 900, pad = 10, W = this.W, H = this.H;
+    const circleCache = new Map();
+    const getCs = b => {
+      let cs = circleCache.get(b);
+      if (!cs) { cs = this._worldCircles(b); circleCache.set(b, cs); }
+      return cs;
+    };
     for (const b of this.bodies) {
       if (this.drag && this.drag.body === b) continue;
       b.vy += g * dt;
-      b.vx *= 0.992; b.vy *= 0.995;
+      b.vx *= 0.99; b.vy *= 0.994;
       b.x += b.vx * dt; b.y += b.vy * dt;
-      b.ang += b.vang * dt; b.vang *= 0.95;
-      const { ex, ey } = this._extents(b);
-      if (b.x - ex < pad) { b.x = pad + ex; b.vx = Math.abs(b.vx) * 0.42; }
-      if (b.x + ex > W - pad) { b.x = W - pad - ex; b.vx = -Math.abs(b.vx) * 0.42; }
-      if (b.y - ey < pad) { b.y = pad + ey; b.vy = Math.abs(b.vy) * 0.35; }
-      if (b.y + ey > H - pad) {
-        b.y = H - pad - ey;
-        b.vy = -Math.abs(b.vy) * 0.3;
-        if (Math.abs(b.vy) < 22) b.vy = 0;
-        b.vx *= 0.82;
-        if (b.shape === 'rect' || b.shape === 'crate' || b.shape === 'capsule') {
-          const snap = Math.round(b.ang / (Math.PI / 2)) * (Math.PI / 2);
-          b.vang += (snap - b.ang) * 4 * dt;
-        } else {
-          b.vang = b.vx * 0.025;
+      b.ang += b.vang * dt; b.vang *= 0.93;
+      const cs = getCs(b);
+      let grounded = false;
+      for (const c of cs) {
+        if (c.x - c.r < pad) {
+          const pen = pad - (c.x - c.r);
+          b.x += pen; b.vx = Math.abs(b.vx) * 0.35;
+          b.vang -= (c.ry * 0.0025) * pen;
+          circleCache.delete(b);
+        } else if (c.x + c.r > W - pad) {
+          const pen = (c.x + c.r) - (W - pad);
+          b.x -= pen; b.vx = -Math.abs(b.vx) * 0.35;
+          b.vang += (c.ry * 0.0025) * pen;
+          circleCache.delete(b);
+        }
+        if (c.y - c.r < pad) {
+          const pen = pad - (c.y - c.r);
+          b.y += pen; b.vy = Math.abs(b.vy) * 0.3;
+          circleCache.delete(b);
+        } else if (c.y + c.r > H - pad) {
+          const pen = (c.y + c.r) - (H - pad);
+          b.y -= pen;
+          b.vy = -Math.abs(b.vy) * 0.26;
+          if (Math.abs(b.vy) < 22) b.vy = 0;
+          // 依接觸點相對於重心的水平臂長產生自然傾倒力矩
+          b.vang -= c.rx * 0.012;
+          grounded = true;
+          circleCache.delete(b);
         }
       }
+      if (grounded) b.vx *= 0.84;
     }
-    // 碰撞解算與「高速撞擊物理合成」偵測
+    // 多圓真實圖片輪廓碰撞解算與「高速撞擊物理合成」偵測
     let fusedPair = null;
-    for (let iter = 0; iter < 2; iter++) {
+    for (let iter = 0; iter < 3; iter++) {
+      circleCache.clear();
       for (let i = 0; i < this.bodies.length; i++) {
         for (let j = i + 1; j < this.bodies.length; j++) {
           const a = this.bodies[i], b = this.bodies[j];
-          const dx = b.x - a.x, dy = b.y - a.y;
-          const dist = Math.hypot(dx, dy) || 0.01;
-          const ea = this._extents(a), eb = this._extents(b);
-          const nx = dx / dist, ny = dy / dist;
-          const ra = Math.abs(nx) * ea.ex + Math.abs(ny) * ea.ey;
-          const rb = Math.abs(nx) * eb.ex + Math.abs(ny) * eb.ey;
-          const minD = (ra + rb) * 0.78 + 2;
-          if (dist < minD) {
+          const bdx = b.x - a.x, bdy = b.y - a.y;
+          const maxSpan = ((a.dSize || 56) + (b.dSize || 56)) * 0.65;
+          if (bdx * bdx + bdy * bdy > maxSpan * maxSpan) continue;
+          const cA = getCs(a), cB = getCs(b);
+          let hit = false;
+          for (const ca of cA) {
+            for (const cb of cB) {
+              const dx = cb.x - ca.x, dy = cb.y - ca.y;
+              const minD = ca.r + cb.r;
+              const d2 = dx * dx + dy * dy;
+              if (d2 >= minD * minD) continue;
+              const dist = Math.sqrt(d2) || 0.01;
+              const nx = dx / dist, ny = dy / dist;
+              const overlap = (minD - dist) * 0.5;
+              const dragA = this.drag && this.drag.body === a;
+              const dragB = this.drag && this.drag.body === b;
+              if (!dragA) { a.x -= nx * overlap; a.y -= ny * overlap; }
+              if (!dragB) { b.x += nx * overlap; b.y += ny * overlap; }
+              const rvx = b.vx - a.vx, rvy = b.vy - a.vy;
+              const vn = rvx * nx + rvy * ny;
+              if (vn < 0) {
+                const imp = -vn * 0.48;
+                if (!dragA) { a.vx -= imp * nx; a.vy -= imp * ny; a.vang -= (ca.rx * ny - ca.ry * nx) * imp * 0.00045; }
+                if (!dragB) { b.vx += imp * nx; b.vy += imp * ny; b.vang += (cb.rx * ny - cb.ry * nx) * imp * 0.00045; }
+              }
+              hit = true;
+            }
+          }
+          if (hit) {
+            circleCache.delete(a); circleCache.delete(b);
             const relSpd = Math.hypot(b.vx - a.vx, b.vy - a.vy);
             if (!fusedPair && this.onSynthesize && relSpd > 145 && findRecipe(a.data, b.data)) {
               fusedPair = [a, b];
-            }
-            const overlap = (minD - dist) * 0.5;
-            if (!this.drag || this.drag.body !== a) { a.x -= nx * overlap; a.y -= ny * overlap; }
-            if (!this.drag || this.drag.body !== b) { b.x += nx * overlap; b.y += ny * overlap; }
-            const rvx = b.vx - a.vx, rvy = b.vy - a.vy;
-            const vn = rvx * nx + rvy * ny;
-            if (vn < 0) {
-              const imp = -vn * 0.55;
-              a.vx -= imp * nx; a.vy -= imp * ny;
-              b.vx += imp * nx; b.vy += imp * ny;
             }
           }
         }
@@ -237,51 +317,17 @@ export class PhysicsContainer {
     this.sparks = this.sparks.filter(sp => sp.life > 0);
   }
 
-  _traceShape(ctx, b) {
-    const hw = b.hw, hh = b.hh;
-    ctx.beginPath();
-    if (b.shape === 'capsule') {
-      const r = hw;
-      ctx.moveTo(-hw, -hh + r);
-      ctx.arc(0, -hh + r, r, Math.PI, 0);
-      ctx.lineTo(hw, hh - r);
-      ctx.arc(0, hh - r, r, 0, Math.PI);
-      ctx.closePath();
-    } else if (b.shape === 'rect' || b.shape === 'crate') {
-      const cr = b.shape === 'crate' ? 4 : 8;
-      ctx.roundRect ? ctx.roundRect(-hw, -hh, hw * 2, hh * 2, cr) : ctx.rect(-hw, -hh, hw * 2, hh * 2);
-    } else if (b.shape === 'diamond') {
-      ctx.moveTo(0, -hh); ctx.lineTo(hw, 0); ctx.lineTo(0, hh); ctx.lineTo(-hw, 0); ctx.closePath();
-    } else if (b.shape === 'flask') {
-      ctx.moveTo(-6, -hh); ctx.lineTo(6, -hh); ctx.lineTo(6, -hh + 10);
-      ctx.quadraticCurveTo(hw, -4, hw, hh - 8);
-      ctx.quadraticCurveTo(hw, hh, 0, hh);
-      ctx.quadraticCurveTo(-hw, hh, -hw, hh - 8);
-      ctx.quadraticCurveTo(-hw, -4, -6, -hh + 10);
-      ctx.closePath();
-    } else {
-      ctx.arc(0, 0, Math.min(hw, hh), 0, Math.PI * 2);
-    }
-  }
-
-  _img(b) {
-    const id = b.data._art !== undefined ? b.data._art : (b.data._art = resolveArtId(b.data));
-    if (!id) return null;
-    const im = loadItemImage(id, 128, () => { this._dirty = true; });
-    return im && im._ready ? im : null;
-  }
-
   draw() {
     const ctx = this.ctx, W = this.W, H = this.H;
-    // 背景：深棕磚面＋與參考圖一致的格線（42px 一格）
+    // 背景：深棕袋面＋極細微格線
     ctx.fillStyle = this.bgTheme === 'stash' ? '#3a2422' : '#33191f';
     ctx.fillRect(0, 0, W, H);
-    ctx.strokeStyle = 'rgba(247,192,64,0.07)'; ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(247,192,64,0.05)'; ctx.lineWidth = 1;
     ctx.beginPath();
     for (let x = 8 + 42; x < W - 8; x += 42) { ctx.moveTo(x + .5, 8); ctx.lineTo(x + .5, H - 8); }
     for (let y = 8 + 42; y < H - 8; y += 42) { ctx.moveTo(8, y + .5); ctx.lineTo(W - 8, y + .5); }
     ctx.stroke();
-    // 黃銅邊框＋四角鉚釘
+    // 黃銅袋框＋四角鉚釘
     ctx.strokeStyle = '#d08622'; ctx.lineWidth = 3; ctx.strokeRect(4.5, 4.5, W - 9, H - 9);
     ctx.strokeStyle = '#24141c'; ctx.lineWidth = 2; ctx.strokeRect(2, 2, W - 4, H - 4);
     ctx.fillStyle = '#fff0a0';
@@ -292,44 +338,44 @@ export class PhysicsContainer {
       const sel = b.data.uid === this.selectedUid;
       const hov = this.hover === b;
       const canFuse = dragged && dragged !== b && !!findRecipe(dragged.data, b.data);
-      const rc = canFuse || sel ? '#ffe36a' : (b.data.color || '#c99228');
+      const im = this._img(b);
+      const sil = im ? getItemSilhouette(im) : null;
+      const { dw, dh } = this._dims(b, im);
+      const rarity = b.data.item?.rarity ?? 0;
       ctx.save();
       ctx.translate(b.x, b.y);
       ctx.rotate(b.ang);
-      const hw = b.hw, hh = b.hh;
-      // 硬陰影 → 墨色外框 → 稀有度色內框 → 深棕底（依物理形狀描邊）
-      ctx.save(); ctx.translate(3, 4); this._traceShape(ctx, b); ctx.fillStyle = 'rgba(0,0,0,0.38)'; ctx.fill(); ctx.restore();
-      this._traceShape(ctx, b);
-      ctx.fillStyle = b.shape === 'crate' ? '#5a3826' : '#4a2a2c'; ctx.fill();
-      ctx.lineJoin = 'miter';
-      ctx.lineWidth = 7; ctx.strokeStyle = '#24141c'; ctx.stroke();
-      ctx.lineWidth = 3.5; ctx.strokeStyle = rc; ctx.stroke();
-      if (hov || sel || canFuse) { ctx.lineWidth = 1.5; ctx.strokeStyle = '#fff0a0'; ctx.stroke(); }
-      if (canFuse) { ctx.setLineDash([4, 3]); ctx.lineWidth = 2; ctx.strokeStyle = '#ffd85a'; ctx.beginPath(); ctx.arc(0, 0, b.r + 9, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]); }
-      // 圖示（透明 PNG；載入中顯示柔光微閃骨架佔位，無圖時才用欄位剪影）
-      const im = this._img(b);
-      const fit = { capsule: [2.5, 2.05], diamond: [1.55, 1.55], flask: [2.15, 2.0], circle: [1.95, 1.95] }[b.shape] || [2.0, 2.0];
-      const iw = hw * fit[0], ih = hh * fit[1];
+      if (hov || sel) ctx.scale(1.06, 1.06);
       if (im) {
-        const k = Math.min(iw / im.naturalWidth, ih / im.naturalHeight);
-        ctx.drawImage(im, -im.naturalWidth * k / 2, -im.naturalHeight * k / 2, im.naturalWidth * k, im.naturalHeight * k);
+        const ox = -(sil?.cx || 0) * dw, oy = -(sil?.cy || 0) * dh;
+        // 無線條邊框：直接繪製去背物品圖本體＋貼合圖片輪廓的立體陰影／稀有度柔光
+        if (canFuse) {
+          ctx.shadowColor = '#ffe36a'; ctx.shadowBlur = 14; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
+        } else if (sel || hov) {
+          ctx.shadowColor = '#fff0a0'; ctx.shadowBlur = 11; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 2;
+        } else if (rarity >= 1 && b.data.color) {
+          ctx.shadowColor = b.data.color; ctx.shadowBlur = 7; ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 3;
+        } else {
+          ctx.shadowColor = 'rgba(16,8,12,0.62)'; ctx.shadowBlur = 6; ctx.shadowOffsetX = 3; ctx.shadowOffsetY = 4;
+        }
+        ctx.drawImage(im, ox - dw / 2, oy - dh / 2, dw, dh);
       } else if (b.data._art) {
-        const pulse = 0.16 + 0.12 * Math.sin(performance.now() * 0.006 + b.x * 0.1);
+        const pulse = 0.18 + 0.12 * Math.sin(performance.now() * 0.006 + b.x * 0.1);
         ctx.fillStyle = `rgba(255,232,168,${pulse.toFixed(3)})`;
-        ctx.beginPath(); ctx.arc(0, 0, Math.min(hw, hh) * 0.52, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(0, 0, (b.dSize || 48) * 0.34, 0, Math.PI * 2); ctx.fill();
       } else {
-        ctx.font = canvasUiFont(Math.round(Math.min(hw, hh) * 1.1), 900);
+        ctx.font = canvasUiFont(24, 900);
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillStyle = 'rgba(255,240,200,0.55)';
+        ctx.fillStyle = 'rgba(255,240,200,0.7)';
         const glyph = b.data.kind === 'gear' ? (SLOTS[b.data.item?.slot]?.icon || '?') : (b.data.icon || '?');
         ctx.fillText(glyph, 0, 1);
       }
       ctx.restore();
-      // 堆疊數量（不隨物件旋轉，貼在格子右下角）
+      // 堆疊數量（不隨物件旋轉，貼在物件右下角）
       const q = b.data.qty || 1;
       if (q > 1) {
         const ex = this._extents(b);
-        const tx = b.x + ex.ex - 4, ty = b.y + ex.ey - 3;
+        const tx = b.x + ex.ex - 2, ty = b.y + ex.ey - 2;
         ctx.font = canvasUiFont(12, 900); ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic';
         ctx.lineWidth = 3; ctx.strokeStyle = '#24141c'; ctx.strokeText(String(q), tx, ty);
         ctx.fillStyle = '#fff8e4'; ctx.fillText(String(q), tx, ty);
@@ -346,8 +392,9 @@ export class PhysicsContainer {
       const txt = `[T${tierNum}] ${d.name}`;
       ctx.font = canvasUiFont(12, 700);
       const tw = Math.min(W - 12, ctx.measureText(txt).width + 14);
+      const ex = this._extents(this.hover);
       const tx = Math.max(6, Math.min(W - tw - 6, this.hover.x - tw / 2));
-      const ty = Math.max(6, this.hover.y - this.hover.hh - 28);
+      const ty = Math.max(6, this.hover.y - ex.ey - 24);
       ctx.fillStyle = '#24141c'; ctx.fillRect(tx - 2, ty - 2, tw + 4, 24);
       ctx.fillStyle = '#33191f'; ctx.fillRect(tx, ty, tw, 20);
       ctx.strokeStyle = d.color || '#f7c040'; ctx.lineWidth = 2; ctx.strokeRect(tx + 1, ty + 1, tw - 2, 18);
@@ -367,7 +414,27 @@ export class PhysicsContainer {
       const dx = x - b.x, dy = y - b.y;
       const c = Math.cos(-b.ang), s = Math.sin(-b.ang);
       const lx = dx * c - dy * s, ly = dx * s + dy * c;
-      if (Math.abs(lx) <= b.hw + 4 && Math.abs(ly) <= b.hh + 4) return b;
+      const im = this._img(b);
+      const sil = im ? getItemSilhouette(im) : null;
+      if (sil && sil.mask) {
+        const { dw, dh } = this._dims(b, im);
+        const u = (lx + sil.cx * dw) / dw + 0.5;
+        const v = (ly + sil.cy * dh) / dh + 0.5;
+        if (u < -0.04 || u > 1.04 || v < -0.04 || v > 1.04) continue;
+        const N = sil.size;
+        const gx = Math.max(0, Math.min(N - 1, Math.floor(u * N)));
+        const gy = Math.max(0, Math.min(N - 1, Math.floor(v * N)));
+        let opaque = false;
+        for (let oy = -1; oy <= 1 && !opaque; oy++) {
+          for (let ox = -1; ox <= 1; ox++) {
+            const nx = gx + ox, ny = gy + oy;
+            if (nx >= 0 && nx < N && ny >= 0 && ny < N && sil.mask[ny * N + nx]) { opaque = true; break; }
+          }
+        }
+        if (opaque) return b;
+      } else if (Math.abs(lx) <= b.hw + 4 && Math.abs(ly) <= b.hh + 4) {
+        return b;
+      }
     }
     return null;
   }
