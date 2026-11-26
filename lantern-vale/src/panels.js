@@ -22,7 +22,7 @@ const esc = t => String(t).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', 
 
 export function buildPanels(g) {
   const root = $('panelM'), body = root.querySelector('.pbody'), title = root.querySelector('h3'), foot = root.querySelector('.pshards');
-  let kind = null, sel = null;
+  let kind = null, sel = null, workshopRecipe = null;
   let M;
   const head = () => { foot.innerHTML = `✦ 星砂 <b>${M.p.shards}</b>　🪶 金羽毛 <b>${M.p.feathers}</b>　🐚 貝殼 <b>${M.p.shells}</b>`; };
   const row = (html, btn) => `<div class="prow"><div class="pl">${html}</div>${btn || ''}</div>`;
@@ -36,7 +36,7 @@ export function buildPanels(g) {
     }
     const listing = net.shardListing;
     if (!listing || listing.zone !== net.shard?.zone) {
-      body.textContent = '正在讀取目前區域的分流…';
+      body.innerHTML = '<div class="lv-loading"><i></i>讀取區域分流中…</div>';
       return;
     }
     const message = {
@@ -142,15 +142,15 @@ export function buildPanels(g) {
       <p>狂豬利牙 ×${res.materials}、荊棘硬木 ×${res.materials} 已收入素材包（剩餘鑰石 ${M.p.keys || 0} 枚）。</p>`
       + row(`<div><b>${nextTier === 'elite' && res.tier === 'normal' ? '挑戰精英難度' : `再打一場（${nextSpec.name}）`}</b></div><small>建議 Lv.${nextSpec.level} · 消耗 1 枚鑰石直接開打</small>`,
         `<button type="button" class="btn small${canContinue ? ' on' : ''}" data-cc-next ${canContinue ? '' : 'disabled'}>${canContinue ? '立即出發' : '鑰石不足'}</button>`)
-      + row('<div><b>直達燈谷鎮工坊鍛造</b></div><small>省去跑圖，直接用剛獲得的素材打造精鋼階裝備</small>',
-        '<button type="button" class="btn small" data-cc-forge>前往工坊</button>')
+      + row('<div><b>查看狂豬利牙戰杖</b></div><small>用洞窟素材鍛造，查看目前還差哪些材料。</small>',
+        '<button type="button" class="btn small" data-cc-forge>查看配方</button>')
       + row('<div><b>調整技能拼圖</b></div><small>更換寶石構築後再挑戰下一場</small>',
         '<button type="button" class="btn small" data-cc-puzzle>開啟拼圖</button>');
     body.querySelector('[data-cc-next]').onclick = () => { if (!g.startMeadowCaveDirect(nextTier)) renderCaveClear(); };
     body.querySelector('[data-cc-forge]').onclick = () => {
       g.ui.closePanel();
       g.state = 'transition'; g.audio.sfx('warp');
-      g.ui.wipe(() => { g.enterTown(); g.ui.openPanel('workshop'); });
+      g.ui.wipe(() => { g.enterTown(); g.ui.openPanel('workshop', { recipeId: 'rec_tusk_staff' }); });
     };
     body.querySelector('[data-cc-puzzle]').onclick = openRewardPuzzle;
   }
@@ -202,8 +202,13 @@ export function buildPanels(g) {
         if (!startMeadowExpedition(M.p, tier, button.dataset.expRoute)) return;
         M.save();
         syncMeadowExpedition(g);
-        g.ui.closePanel();
-        g.ui.banner(def.name, g.field === def.field ? '沿指引前往目標。' : `前往${FIELDS[def.field].name}，跟隨畫面指引。`);
+        if (g.field === def.field) {
+          g.ui.closePanel();
+          g.ui.banner(def.name, '沿指引前往目標。');
+        } else {
+          renderExpedition();
+          body.querySelector('[data-exp-warp]')?.focus();
+        }
       };
       return;
     }
@@ -430,7 +435,7 @@ export function buildPanels(g) {
     wbBtn.onclick = () => { g.ui.closePanel(); spawnWorldBoss(g); };
     addRow('<div><b>🐉 野外世界王討伐令</b></div><small>野外每 3 分鐘自動降臨世界王（或吹響號角立即召喚），依貢獻領 S/A/B 級傳奇寶箱與巨獸星心！</small>', wbBtn);
     if (!guildName) {
-      const inp = document.createElement('input'); inp.placeholder = '輸入公會名稱（如：星燈旅團）'; inp.maxLength = 12; inp.style.cssText = 'font:inherit;padding:4px 8px;background:#fff3d4;border:1px solid #927659;color:#3b2a2a';
+      const inp = document.createElement('input'); inp.placeholder = '公會名稱'; inp.maxLength = 12; inp.style.cssText = 'font:inherit;padding:4px 8px;background:#fff3d4;border:1px solid #927659;color:#3b2a2a';
       const joinBtn = document.createElement('button'); joinBtn.className = 'btn small'; joinBtn.textContent = '創立／加入公會';
       joinBtn.onclick = () => { M.p.guildName = (inp.value.trim() || '星燈旅團'); M.save(); g.audio.sfx('classup'); g.ui.toast(`已加入公會「${M.p.guildName}」！經驗 +10%`, '#ffd85a'); render(); };
       const r = addRow('<div><b>尚未加入公會</b></div><small>加入後常駐享有「公會增益：經驗 +10% · 採集產量 +1」，並可組隊挑戰共鳴樹庭副本。</small>');
@@ -634,15 +639,16 @@ export function buildPanels(g) {
     if (kind === 'guild') { renderGuildHall(); return; }
     if (kind === 'ascend') { renderAscend(); return; }
     if (kind === 'field_quest') { renderFieldQuest(); return; }
-    if (['home','market','workshop'].includes(kind)) { buildLodge(g, body, title, kind); return; }
+    if (['home','market','workshop'].includes(kind)) { buildLodge(g, body, title, kind, workshopRecipe); return; }
     ({ quest: renderQuest, forge: renderForge, map: renderMap })[kind]();
     if (kind === 'forge') {
       const b = document.createElement('button'); b.className = 'btn small'; b.textContent = '素材鍛造與武器';
       b.onclick = () => g.ui.openPanel('workshop'); body.prepend(b);
     }
   }
-  g.ui.openPanel = k => {
-    kind = k; g.ui.guildMarketOpen = k === 'exchange';
+  g.ui.openPanel = (k, { recipeId = null } = {}) => {
+    kind = k;
+    workshopRecipe = recipeId; g.ui.guildMarketOpen = k === 'exchange';
     g.ui.panelOpen = true; root.classList.remove('hide'); render();
     if (k === 'shards' && g.net.zoneShards) g.net.send({ t: 'shard_list' });
   };

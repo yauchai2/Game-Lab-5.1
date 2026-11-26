@@ -27,18 +27,28 @@ export function pickCatalogGear(r, gameSlot, tier) {
   return use[Math.floor(r() * use.length)];
 }
 
-// 解析任何背包/裝備物件的圖示 id：item.art > 名稱對照 > 舊 emoji 對照
-const ICON_TO_ART = { '🍓': 'con_berry', '🍺': 'con_cider', '🐚': 'con_conch_recall', '🍯': 'con_honey_crate', '🍹': 'con_berry_cocktail', '🥧': 'con_honey_pie', '🧿': 'con_tide_charm', '🍗': 'con_feast_box', '🧥': 'clk_t1', '🪄': 'wpn_staff_t1' };
+// 解析任何背包/裝備物件的圖示 id：item.art > 名稱對照 > 舊 emoji 對照 > 欄位最接近 Figma 圖示保底（避免出現文字方塊佔位）
+const ICON_TO_ART = { '🍓': 'con_berry', '🍺': 'con_cider', '🐚': 'con_conch_recall', '🍯': 'con_honey_crate', '🍹': 'con_berry_cocktail', '🥧': 'con_honey_pie', '🧿': 'con_tide_charm', '🍗': 'con_feast_box', '🧥': 'clk_t1', '🪄': 'wpn_staff_t1', '🍵': 'con_hp_dew' };
+const SLOT_FALLBACK_ART = { head: 'arm_leather_head_t1', body: 'arm_leather_body_t1', hands: 'arm_leather_hands_t1', feet: 'arm_leather_feet_t1', cloak: 'clk_t1', charm: 'chm_t1', relic: 'relic_brass_spyglass', staff: 'wpn_staff_t1', weapon: 'wpn_sword_t1' };
 export function resolveArtId(o) {
   if (!o) return null;
   const it = o.item || o;
   if (o.art && hasArt(o.art)) return o.art;
   if (it.art && hasArt(it.art)) return it.art;
-  const nm = it.base || it.name || o.name;
+  const nm = it.base || it.name || o.name || '';
   const hit = BY_NAME[nm] || BY_NAME[o.name];
   if (hit && hasArt(hit.id)) return hit.id;
   const e = ICON_TO_ART[o.icon];
-  return e && hasArt(e) ? e : null;
+  if (e && hasArt(e)) return e;
+  const slot = it.slot || o.slot;
+  if (slot === 'staff' || slot === 'weapon') {
+    if (/弓/.test(nm) && hasArt('wpn_bow_t1')) return 'wpn_bow_t1';
+    if (/刃|匕|雙/.test(nm) && hasArt('wpn_blades_t1')) return 'wpn_blades_t1';
+    if (/劍|盾/.test(nm) && hasArt('wpn_sword_t1')) return 'wpn_sword_t1';
+    if (/棍|棒/.test(nm) && hasArt('wpn_bo_t1')) return 'wpn_bo_t1';
+  }
+  const fb = SLOT_FALLBACK_ART[slot];
+  return fb && hasArt(fb) ? fb : null;
 }
 
 // 圖片快取（Canvas 與 DOM 共用）

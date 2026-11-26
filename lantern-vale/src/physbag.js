@@ -1,5 +1,5 @@
 // 孤山獨影（Cairn）風格 2D 重力物理掉落背包與倉庫系統（不同形狀大小＋物品物理碰撞合成）
-import { RARITY, SLOTS, serializeItem, deserializeItem, makeItem, itemScore, canEquipItem, itemReqLevel } from './loot.js';
+import { RARITY, SLOTS, serializeItem, deserializeItem, makeItem, itemScore, canEquipItem, itemReqLevel, rememberGear } from './loot.js';
 import { canvasUiFont } from './ui_typography.js';
 import { t } from './i18n.js';
 import { resolveArtId, loadItemImage } from './itemdb.js';
@@ -306,13 +306,17 @@ export class PhysicsContainer {
       ctx.lineWidth = 3.5; ctx.strokeStyle = rc; ctx.stroke();
       if (hov || sel || canFuse) { ctx.lineWidth = 1.5; ctx.strokeStyle = '#fff0a0'; ctx.stroke(); }
       if (canFuse) { ctx.setLineDash([4, 3]); ctx.lineWidth = 2; ctx.strokeStyle = '#ffd85a'; ctx.beginPath(); ctx.arc(0, 0, b.r + 9, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]); }
-      // 圖示（透明 PNG；沒有圖的物品用欄位字剪影）
+      // 圖示（透明 PNG；載入中顯示柔光微閃骨架佔位，無圖時才用欄位剪影）
       const im = this._img(b);
       const fit = { capsule: [2.5, 2.05], diamond: [1.55, 1.55], flask: [2.15, 2.0], circle: [1.95, 1.95] }[b.shape] || [2.0, 2.0];
       const iw = hw * fit[0], ih = hh * fit[1];
       if (im) {
         const k = Math.min(iw / im.naturalWidth, ih / im.naturalHeight);
         ctx.drawImage(im, -im.naturalWidth * k / 2, -im.naturalHeight * k / 2, im.naturalWidth * k, im.naturalHeight * k);
+      } else if (b.data._art) {
+        const pulse = 0.16 + 0.12 * Math.sin(performance.now() * 0.006 + b.x * 0.1);
+        ctx.fillStyle = `rgba(255,232,168,${pulse.toFixed(3)})`;
+        ctx.beginPath(); ctx.arc(0, 0, Math.min(hw, hh) * 0.52, 0, Math.PI * 2); ctx.fill();
       } else {
         ctx.font = canvasUiFont(Math.round(Math.min(hw, hh) * 1.1), 900);
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -488,9 +492,9 @@ export function useBagItem(game, itemData, fromListKey) {
     list.splice(idx, 1);
     if (old) addGearToBag(p, old);
     game.recalc();
+    rememberGear(game);
     game.audio.sfx('pickup');
     game.ui.toast(`已裝備 ${gear.name}`, itemData.color || '#ffe08a');
-    game.meta.save();
     return true;
   }
   if (itemData.kind === 'consumable') {
@@ -539,7 +543,7 @@ export function autoEquipBest(game) {
       upgrades.push({ slot, name: newGear.name, score: bestScore });
     }
   }
-  if (count > 0) { game.recalc(); game.meta.save(); }
+  if (count > 0) { game.recalc(); rememberGear(game); }
   return { count, upgrades };
 }
 

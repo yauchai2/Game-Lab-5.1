@@ -320,7 +320,7 @@ export class UI {
     const ae = $('btnAutoEquip'); if (ae) ae.onclick = () => {
       const res = autoEquipBest(game);
       if (res.count > 0) {
-        rememberGear(game); game.audio.sfx('perfect');
+        game.audio.sfx('perfect');
         this.syncPhysBags(game); this.renderBagEquipStrip(game); this.renderInv(game, true);
         this.toast(`⚡ 已自動換上 ${res.count} 件更強裝備！`, '#7fe08a');
       } else {
@@ -850,7 +850,7 @@ export class UI {
   }
   wipe(mid) {
     const w = $('wipe'); w.classList.add('in');
-    setTimeout(() => { mid(); w.classList.remove('in'); }, 450);
+    setTimeout(() => { mid(); w.classList.remove('in'); }, 240);
   }
   exitHint(g) {
     const el = $('exitHint');

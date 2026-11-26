@@ -7,7 +7,15 @@ import { isTestHub, mountTestHub } from './test_hub.js';
 import { makeItem } from './loot.js';
 import { installDevDiagnostics, recordDevSlowFrame, setDevContext } from './dev_diagnostics.js';
 
+const hideBootSplash = () => {
+  const el = document.getElementById('bootSplash');
+  if (!el) return;
+  el.classList.add('out');
+  setTimeout(() => el.remove(), 300);
+};
+
 if (isTestHub()) {
+  document.getElementById('bootSplash')?.remove();
   mountTestHub();
 } else {
   startApp();
@@ -34,6 +42,7 @@ if (game.ambushTrial) {
 if (typeof __LV_PROD__ === 'undefined' || !__LV_PROD__) { window.__game = game; window.__makeItem = makeItem; } // debug / screenshot hook (stripped in --prod)
 game.updateCamera(0);
 pipe.render(game.scene, game.camera, game.time);
+hideBootSplash();
 let last = null;
 document.addEventListener('visibilitychange', () => { last = null; });
 function frame(now) {

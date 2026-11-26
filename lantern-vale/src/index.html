@@ -10,12 +10,12 @@
 @font-face{
   font-family:"Fusion Pixel TW";
   src:url("assets/ui/fonts/fusion-pixel-12px-proportional-zh_tw.ttf.woff2") format("woff2");
-  font-display:block;
+  font-display:swap;
 }
 @font-face{
   font-family:"Fusion Pixel JP";
   src:url("assets/ui/fonts/fusion-pixel-12px-proportional-ja.ttf.woff2") format("woff2");
-  font-display:block;
+  font-display:swap;
 }
 :root{
   --ink:#2b1d33; --paper:#fff6e2; --paper2:#f3e3c3; --accent:#e2573b; --teal:#2f8a7e; --gold:#ffd85a;
@@ -330,7 +330,8 @@ html,body{image-rendering:pixelated;-webkit-font-smoothing:none;font-smooth:neve
 #dangerVig{position:fixed;inset:0;pointer-events:none;z-index:90;box-shadow:inset 0 0 85px 28px rgba(210,28,42,.62);opacity:0;transition:opacity .25s}
 #dangerVig.on{opacity:1;animation:pulseSt .65s infinite alternate}
 #questTracker{position:static;width:100%;box-sizing:border-box;padding:8px 10px;background:rgba(59,42,42,.94)!important;color:#fff8e6;border:2px solid #8a684a;pointer-events:auto;font-size:12px}
-#questTracker.done{border-color:#ffd85a;box-shadow:0 0 10px #ffd85a88;cursor:pointer;animation:pulseSt .65s infinite alternate}
+#questTracker.done{border-color:#ffd85a;box-shadow:0 0 10px #ffd85a88;cursor:pointer;animation:questRewardGlow .65s infinite alternate}
+@keyframes questRewardGlow{from{box-shadow:0 0 4px #ffd85a55}to{box-shadow:0 0 10px #ffd85aaa}}
 #questTracker .qt-head{display:flex;justify-content:space-between;align-items:center;font-weight:900;color:#ffd85a;margin-bottom:3px}
 #questTracker .qt-desc{font-size:11px;color:#f4e6cc;line-height:1.35;margin-bottom:4px}
 #questTracker .qt-bar{height:7px;background:#241818;border:2px solid #2b1812;overflow:hidden}
@@ -1979,9 +1980,28 @@ body:has(#menuPop:not(.hide),[aria-modal="true"]:not(.hide)) #toasts{opacity:0}
   }
   #skills #touchAttack.held{background:rgba(255,224,116,.96)!important}
 }
+/* ===== Loading UI/UX（星燈啟動遮罩、柔順過場、非同步微光指示器） ===== */
+#bootSplash{position:fixed;inset:0;z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#1a1426;color:#fff6e2;transition:opacity .26s ease;pointer-events:auto}
+#bootSplash.out{opacity:0;pointer-events:none}
+#bootSplash .bs-ico{width:40px;height:40px;animation:bsGlow 1.5s ease-in-out infinite alternate}
+#bootSplash .bs-title{font-size:16px;letter-spacing:.28em;color:#fff6e2;opacity:.92}
+#bootSplash .bs-bar{width:112px;height:3px;border-radius:999px;background:rgba(255,232,168,.16);overflow:hidden;position:relative}
+#bootSplash .bs-bar i{position:absolute;inset:0;width:42%;border-radius:999px;background:linear-gradient(90deg,transparent,#ffd85a,transparent);animation:bsSlide 1.15s ease-in-out infinite}
+@keyframes bsGlow{from{transform:translateY(0);filter:drop-shadow(0 0 6px rgba(255,216,90,.35))}to{transform:translateY(-3px);filter:drop-shadow(0 0 14px rgba(255,216,90,.8))}}
+@keyframes bsSlide{0%{transform:translateX(-110%)}100%{transform:translateX(270%)}}
+#wipe{clip-path:none!important;opacity:0;background:rgba(24,17,34,.96)!important;display:flex;align-items:center;justify-content:center;transition:opacity .24s ease!important;z-index:900}
+#wipe.in{opacity:1}
+#wipe::after{content:"";width:18px;height:18px;border-radius:50%;background:radial-gradient(circle,#fff6d6 0%,#ffd85a 55%,transparent 75%);opacity:.75;animation:bsGlow .7s ease-in-out infinite alternate}
+.lv-loading{display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 8px;color:#6c5746;font-size:13px}
+.lv-loading i{width:8px;height:8px;border-radius:50%;background:#d89c32;display:inline-block;animation:bsGlow .8s ease-in-out infinite alternate}
 </style>
 </head>
 <body>
+<div id="bootSplash" role="status" aria-live="polite" aria-label="載入中">
+  <svg class="bs-ico" viewBox="0 0 32 32" aria-hidden="true"><rect x="6" y="6" width="20" height="20" rx="5" fill="#2f2238" stroke="#ffd85a" stroke-width="1.8"/><circle cx="16" cy="16" r="6.5" fill="#ffd85a"/><circle cx="16" cy="16" r="3" fill="#fff9e6"/></svg>
+  <div class="bs-title">燈谷行</div>
+  <div class="bs-bar"><i></i></div>
+</div>
 <canvas id="view"></canvas>
 
 <div id="hud" class="hide"><div id="fieldTarget" hidden></div><div id="fieldCompass" hidden></div>
@@ -2132,7 +2152,7 @@ body:has(#menuPop:not(.hide),[aria-modal="true"]:not(.hide)) #toasts{opacity:0}
   <div id="enemyBars"></div>
   <div id="nums"></div>
   <div id="tags"></div><div class="ptag me" id="myTag"></div><div class="pbub" id="myBub"></div>
-  <div id="chat"><div id="chatLog"></div><input id="chatIn" class="hide" maxlength="120" placeholder="輸入訊息，Enter 送出" autocomplete="off"><div class="touch-only" id="touchChatActions"><button type="button" class="touch-key" id="btnChatClose" data-i18n="close">關閉</button><button type="button" class="touch-key" id="btnChatSend" data-i18n="touchSend">送出</button></div><div class="chatHint">Enter 聊天 · 1–4 表情</div></div>
+  <div id="chat"><div id="chatLog"></div><input id="chatIn" class="hide" maxlength="120" placeholder="說點什麼…" autocomplete="off"><div class="touch-only" id="touchChatActions"><button type="button" class="touch-key" id="btnChatClose" data-i18n="close">關閉</button><button type="button" class="touch-key" id="btnChatSend" data-i18n="touchSend">送出</button></div><div class="chatHint">Enter 聊天 · 1–4 表情</div></div>
   <div id="banner"><h2></h2><p></p></div>
 </div>
 
@@ -2222,7 +2242,7 @@ body:has(#menuPop:not(.hide),[aria-modal="true"]:not(.hide)) #toasts{opacity:0}
     <h2 id="atlasTitle" data-i18n="worldMap">世界地圖</h2>
     <span class="map-overview"></span>
     <div class="map-search-group">
-      <input type="search" class="map-search" placeholder="搜尋島嶼、首領或規則" aria-label="搜尋地圖"/>
+      <input type="search" class="map-search" placeholder="搜尋島嶼…" aria-label="搜尋地圖"/>
       <button type="button" class="btn small map-clear" hidden data-i18n="clearSearch" data-i18n-label="clearSearch" aria-label="清除地圖搜尋">清除</button>
     </div>
     <button type="button" class="map-close" autofocus aria-label="關閉地圖">✕</button>
@@ -2343,9 +2363,9 @@ body:has(#menuPop:not(.hide),[aria-modal="true"]:not(.hide)) #toasts{opacity:0}
     <button type="button" id="tabAcctReg" class="acct-tab">✨ 註冊新帳號</button>
   </div>
   <div class="acct-chips" id="acctList"></div>
-  <div class="acct-field"><label for="acctUser">帳號名稱（2–20 字元）</label><input id="acctUser" type="text" aria-describedby="acctMsg" maxlength="20" placeholder="輸入你的冒險者帳號" autocomplete="username"></div>
-  <div class="acct-field"><label for="acctPass">密碼（至少 4 字元）</label><input id="acctPass" type="password" aria-describedby="acctMsg" maxlength="32" placeholder="輸入密碼" autocomplete="current-password"></div>
-  <div class="acct-field hide" id="acctPass2Wrap"><label for="acctPass2">確認密碼</label><input id="acctPass2" type="password" maxlength="32" placeholder="再輸入一次密碼" autocomplete="new-password"></div>
+  <div class="acct-field"><label for="acctUser">帳號名稱（2–20 字元）</label><input id="acctUser" type="text" aria-describedby="acctMsg" maxlength="20" placeholder="帳號名稱" autocomplete="username"></div>
+  <div class="acct-field"><label for="acctPass">密碼（至少 4 字元）</label><input id="acctPass" type="password" aria-describedby="acctMsg" maxlength="32" placeholder="密碼" autocomplete="current-password"></div>
+  <div class="acct-field hide" id="acctPass2Wrap"><label for="acctPass2">確認密碼</label><input id="acctPass2" type="password" maxlength="32" placeholder="再次輸入密碼" autocomplete="new-password"></div>
   <div class="acct-msg" id="acctMsg" role="status"></div>
   <div class="acct-btns">
     <button type="button" id="btnAcctLogout" class="acct-btn sub hide">登出（切回訪客）</button>
@@ -2375,7 +2395,7 @@ body:has(#menuPop:not(.hide),[aria-modal="true"]:not(.hide)) #toasts{opacity:0}
 <div id="codexModal" class="modal hide" data-dialog-label="燈谷百科資料庫"><div class="cx-box">
   <div class="cx-head"><div class="cx-title">📖 燈谷百科資料庫</div><button type="button" id="btnCodexClose" aria-label="關閉百科" class="btn small">✕</button></div>
   <div class="cx-tabs"></div>
-  <input id="cxSearch" type="text" placeholder="搜尋技能、職業、異常狀態、背包合成配方…">
+  <input id="cxSearch" type="text" placeholder="搜尋百科…">
   <div class="cx-filter"></div>
   <div class="cx-body"></div>
 </div></div>
