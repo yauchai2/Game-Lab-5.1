@@ -255,9 +255,34 @@ function buildMountainShipStage(onReady) {
     buoys.push({ group: bg, x: bx, z: bz, ph: idx * 2.4, bounceT: 0 });
   });
 
+  // 3D 浮島極簡低面佔位體（下載 1.3MB 島嶼模型前先托住沙灘與五位英雄，避免空海漂浮）
+  let placeholderIsland = new THREE.Group();
+  const phSand = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 3.8, 0.55, 16), new THREE.MeshStandardMaterial({ color: 0xe6d2a4, roughness: 0.92 }));
+  phSand.position.set(0, -0.1, 0.3); phSand.receiveShadow = true;
+  const phPeak = new THREE.Mesh(new THREE.ConeGeometry(1.75, 2.7, 7), new THREE.MeshStandardMaterial({ color: 0x9aa498, roughness: 0.95 }));
+  phPeak.position.set(0.45, 1.35, -0.75);
+  const phTree1 = new THREE.Mesh(new THREE.ConeGeometry(0.45, 1.05, 6), new THREE.MeshStandardMaterial({ color: 0x6ea858, roughness: 0.9 }));
+  phTree1.position.set(-1.35, 0.72, -0.2);
+  const phTree2 = new THREE.Mesh(new THREE.ConeGeometry(0.38, 0.9, 6), new THREE.MeshStandardMaterial({ color: 0x7cb862, roughness: 0.9 }));
+  phTree2.position.set(1.65, 0.65, 0.1);
+  placeholderIsland.add(phSand, phPeak, phTree1, phTree2);
+  grp.add(placeholderIsland);
+  const loadPill = typeof document !== 'undefined' ? document.getElementById('titleLoadPill') : null;
+  const setLoadPct = pct => {
+    if (!loadPill) return;
+    const txt = loadPill.querySelector('span');
+    if (txt) txt.textContent = pct >= 100 ? '島嶼就緒' : `載入島嶼與英雄… ${pct}%`;
+  };
+
   const SCENE_SCALE = 0.22;
   const loader = new GLTFLoader();
   loader.load('assets/scenes/creator_mountain_ship.glb', gltf => {
+    if (placeholderIsland) {
+      grp.remove(placeholderIsland);
+      placeholderIsland.traverse(o => { o.geometry?.dispose?.(); o.material?.dispose?.(); });
+      placeholderIsland = null;
+    }
+    if (loadPill) { setLoadPct(100); loadPill.classList.add('done'); }
     const model = gltf.scene;
     model.scale.setScalar(SCENE_SCALE);
     model.position.set(0, -4.69 * SCENE_SCALE, 0);
@@ -327,7 +352,10 @@ function buildMountainShipStage(onReady) {
     }
 
     onReady?.(walkMeshes, { animItems, interactMeshes, towerLanternGrp });
-  }, undefined, err => {
+  }, xhr => {
+    if (xhr?.total > 0) setLoadPct(Math.min(99, Math.round((xhr.loaded / xhr.total) * 100)));
+  }, err => {
+    if (loadPill) loadPill.classList.add('done');
     console.warn('[CreatorScene] Failed to load creator_mountain_ship.glb:', err);
   });
 
@@ -388,7 +416,9 @@ export function bindCharacters(game) {
   const slotsSel = $('characterSlot');
   if (!titleEl || !canvas) return () => {};
 
-  preloadAllCharacterAnims();
+  const isMobileNet = typeof matchMedia !== 'undefined' && matchMedia('(any-pointer: coarse)').matches;
+  if (!isMobileNet) preloadAllCharacterAnims();
+  else setTimeout(() => preloadAllCharacterAnims(), 2200);
 
   let slot = clampIdx(read(slotKeys(0).activeSlotKey), 3);
   function refreshSlotsUI(keepSlot = true) {

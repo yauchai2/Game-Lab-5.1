@@ -1,5 +1,12 @@
 # 交接說明（Claude → Codex，2026-11-22）
 
+## 2026-11-26 手機 5G 載入大幅優化、3D 浮島／英雄佔位模型與載入進度膠囊
+
+- **建置雜湊**：`game/index.html` `97a2863c0129`（2038KB）。`node tests/logic_verify.cjs`（全通過）與 `node tests/playtest_review.cjs` 全通過。
+- **3D 浮島與 5 位英雄即時佔位模型（`src/characters.js`、`src/char_rig.js`）**：針對手機 5G 下載 GLB 期間出現「空白海面漂浮編號」問題，新增低面 3D 沙洲山丘與樹木佔位浮島（`placeholderIsland`）以及 5 職業分色 3D 英雄剪影佔位體（呼吸起伏），待真實 `creator_mountain_ship.glb` 與 `adventurer_base.glb` 載入完成瞬間無縫替換並釋放佔位幾何資源。
+- **非阻斷式載入進度膠囊與手機端寬頻分流（`src/characters.js`、`src/index.html`）**：標題頂部新增柔和半透明進度膠囊（`#titleLoadPill`）即時回報 3D 浮島下載百分比並在就緒後自動淡出；手機端（`any-pointer: coarse`）將原本同時搶佔 12.2MB 頻寬的 5 份 `anim_*.glb` 延後 2.2 秒再背景預載，優先讓 1.3MB 浮島與 2.2MB 基礎英雄瞬間成型；同步將手機端 `DEV MODE` 徽章移至左下角避免壓蓋角色存檔選單。
+- **伺服器 Gzip 壓縮與快取（`server/server.js`）**：對 `game/index.html`（壓縮後約降 76%）與 `.glb`/`.gltf`/`.svg`/`.json` 啟用 Gzip 壓縮，非密碼保護環境加 `Cache-Control: public, max-age=86400`（保留 `playtestGate` 的 `private, no-store` 測試契約）。重啟背景 8082 服務即可享有 Gzip 加速。
+
 ## 2026-11-26 UI 簡約大改階段二＋三（標題選角、背包與世界地圖去冗餘與去 Emoji）
 
 - **標題選角極簡化（`src/characters.js`、`src/index.html`）**：底部職業標籤去除編號、英文重複與 Emoji（僅留純職業名），強化底部「開始冒險」鮮明主按鈕，並統一清理頂部與換裝工坊按鈕上的雜亂系統 Emoji 與中英雙標題。

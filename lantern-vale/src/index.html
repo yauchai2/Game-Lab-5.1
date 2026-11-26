@@ -2003,6 +2003,10 @@ body:has(#menuPop:not(.hide),[aria-modal="true"]:not(.hide)) #toasts{opacity:0}
 #inv #bagSelInfo:empty,#inv #stashSelInfo:empty{display:none}
 #title .cr-stage-bar{gap:10px!important}
 #title #btnQuickStart{background:#3a7d5c!important;color:#fff8e6!important;border-color:#244f3a!important;padding:8px 18px!important;font-size:14px!important;font-weight:800!important}
+#titleLoadPill{position:fixed;top:64px;left:50%;transform:translateX(-50%);z-index:26;display:flex;align-items:center;gap:8px;padding:6px 14px;border-radius:999px;background:rgba(28,19,34,.74);border:1px solid rgba(255,224,150,.38);color:#fff6e2;font-size:12px;backdrop-filter:blur(4px);pointer-events:none;transition:opacity .35s ease,transform .35s ease}
+#titleLoadPill i{width:7px;height:7px;border-radius:50%;background:#ffd85a;animation:bsGlow .8s ease-in-out infinite alternate}
+#titleLoadPill.done{opacity:0;transform:translate(-50%,-8px)}
+@media (max-width:640px){#devBadge,#devModeBadge,.dev-badge{top:auto!important;bottom:8px!important;left:8px!important;transform:none!important;opacity:.7!important}}
 </style>
 </head>
 <body>
@@ -2168,6 +2172,7 @@ body:has(#menuPop:not(.hide),[aria-modal="true"]:not(.hide)) #toasts{opacity:0}
 <div id="title">
   <canvas id="creatorCanvas" aria-label="3D 英雄浮島與換裝舞台"></canvas>
   <div id="heroPins3d" class="cr-pins-3d"></div>
+  <div id="titleLoadPill" role="status" aria-live="polite"><i></i><span>載入島嶼與英雄…</span></div>
   <header class="cr-top">
     <div class="cr-brand"><h1>燈谷行</h1><div class="en">LANTERN VALE</div></div>
     <div class="cr-top-right">
