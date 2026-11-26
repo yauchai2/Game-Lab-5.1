@@ -98,17 +98,22 @@ export class AmbushTrial {
     const button = id => this.panel.querySelector(`[data-action="${id}"]`);
     this.status = this.panel.querySelector('#ambushStatus');
     this.buildButtons = [...this.panel.querySelectorAll('[data-build]')];
-    for (const el of this.buildButtons) {
-      el.onclick = () => {
-        if (this.active) return;
-        this.build = el.dataset.build;
-        for (const btn of this.buildButtons) {
-          const on = btn.dataset.build === this.build;
-          btn.classList.toggle('on', on);
-          btn.setAttribute('aria-pressed', String(on));
-        }
-      };
-    }
+    const setBuild = id => {
+      if (this.active || !AMBUSH_BUILDS[id]) return;
+      this.build = id;
+      for (const btn of this.buildButtons) {
+        const on = btn.dataset.build === this.build;
+        btn.classList.toggle('on', on);
+        btn.setAttribute('aria-pressed', String(on));
+      }
+      try {
+        const url = new URL(location.href);
+        if (id === 'none') url.searchParams.delete('build');
+        else url.searchParams.set('build', id);
+        history.replaceState(null, '', url);
+      } catch {}
+    };
+    for (const el of this.buildButtons) el.onclick = () => setBuild(el.dataset.build);
     this.buttons = Object.fromEntries(['start', 'retry', 'next', 'stop', 'export', 'exit'].map(id => [id, button(id)]));
     this.buttons.start.onclick = () => this.start();
     this.buttons.retry.onclick = () => this.start(true);
@@ -116,9 +121,15 @@ export class AmbushTrial {
     this.buttons.stop.onclick = () => this.finish('abandoned');
     this.buttons.export.onclick = () => this.download();
     addEventListener('keydown', e => {
-      if (this.game.state !== 'trial-result' || this.active || e.repeat || e.defaultPrevented || e.isComposing) return;
+      if (this.active || e.repeat || e.defaultPrevented || e.isComposing) return;
       const a = document.activeElement;
       if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA')) return;
+      if (this.game.state === 'trial-ready' || this.game.state === 'trial-result') {
+        if (e.code === 'Digit1') { e.preventDefault(); setBuild('none'); return; }
+        if (e.code === 'Digit2') { e.preventDefault(); setBuild('frost'); return; }
+        if (e.code === 'Digit3') { e.preventDefault(); setBuild('leech'); return; }
+      }
+      if (this.game.state !== 'trial-result') return;
       if (e.code === 'KeyR') {
         e.preventDefault();
         this.start(true);
@@ -213,7 +224,7 @@ export class AmbushTrial {
 
   enemyHit(enemy, damage, dot) {
     if (!this.active) return;
-    this.event('enemyHit', { enemy: enemy.type, damage });
+    this.event('enemyHit', { enemy: enemy.type, damage: Math.round(damage * 10) / 10 });
     const charge = enemy.ambushCharge;
     if (!dot && enemy.state === 'rest' && enemy.t < enemy.chargeRecoveryS &&
         charge?.endedOutsideLane !== undefined && !charge.punished) {
@@ -255,7 +266,11 @@ export class AmbushTrial {
     g.clearTouchInput();
     this.hud.classList.add('hide');
     this.panel.classList.remove('playing');
-    this.status.textContent = `第 ${this.index + 1}／2 場 · ${outcomes[outcome]}`;
+    const sec = (attempt.durationMs / 1000).toFixed(1);
+    const punished = attempt.charges.filter(c => c.punished).length;
+    const punishTxt = attempt.charges.length ? ` · 破綻反擊 ${punished}/${attempt.charges.length}` : '';
+    const healTxt = attempt.healingDone > 0 ? ` · 回復 +${attempt.healingDone}` : '';
+    this.status.textContent = `第 ${this.index + 1}／2 場 · ${outcomes[outcome]} · ${sec}s · 受傷 ${Math.round(attempt.damageTaken)}${punishTxt}${healTxt}`;
     this.buttons.stop.hidden = true;
     this.buttons.retry.hidden = false;
     this.buttons.export.hidden = false;

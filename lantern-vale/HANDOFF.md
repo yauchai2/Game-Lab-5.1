@@ -8,6 +8,15 @@
 - 外網試玩的 HTTPS 通道已另接在 `127.0.0.1:8082` 的隔離服務。入口密碼與目前網址分別從 `server/data/remote-playtest/passcode` 和 `tunnel.log` 讀取。公開入口使用試玩密碼，正式的 8080 及區網的 8081 保持各自服務。已從外網 HTTPS 驗證瀏覽器登入、岔道伏擊開場與兩個 WSS 連線加入同一分流。停止方式見 [跨網路邀請](docs/LIVE_PLAYTEST.md#跨網路邀請)。
 - 接手時 Dev Mode 的新待審紀錄只有遊玩期間的單次 184 ms 慢幀，尚未追到穩定重現條件。
 
+## 2026-11-26 第九輪優化（最新自動試玩戰報審查、結算即時量化摘要、快捷構築切換與戰報精度修正）
+
+- **建置雜湊**：`game/index.html` `b30cffba5dc0`（1913KB）。`node tests/logic_verify.cjs`（55/55 全通過）與 `node tests/playtest_review.cjs` 全通過。
+- **最新自動試玩戰報（`review/output/live/latest.json`，建置 `99c648ccbbf5`）審查**：A／B 兩場皆達成 **0 受傷通關**（A `8.33s`、B `8.36s`，P95 幀間隔皆為 `17ms`），狂豬破綻反擊與棘芽射手蓄力打斷皆穩定觸發，B 版掩體亦正常擋下棘芽彈；同時定位到 `enemyHit` 浮點數殘留（如 `31.631999999999977`）與結算畫面欠缺即時對照數據。
+- **岔道伏擊即時結算摘要與快捷構築對照（`src/ambush_trial.js`）**：
+  - 結算狀態列新增單行精簡量化摘要（耗時、受傷、破綻反擊次數與回復量），無需下載 JSON 即可即時比較 `無寶石 / ❄ 霜緩 / ♥ 汲血` 實戰差異。
+  - 在 `trial-ready` 與 `trial-result` 支援鍵盤 `1`／`2`／`3` 快速切換構築並同步更新網址 `?build=` 參數（`history.replaceState`），方便重整或直接分享指定構築測試連結。
+  - 修正 `enemyHit` 戰報傷害四捨五入至小數點後一位，清除浮點數誤差噪音。
+
 ## 2026-11-26 第八輪優化（全 7 大敵種破綻 100% 統一、碎冰／格擋／擊落零文字光環、行動端落指施法與洞窟陣亡一鍵續戰）
 
 - **建置雜湊**：`game/index.html` `18fd050d61cd`（1912KB）。`node tests/logic_verify.cjs`（55/55 全通過）與 `node tests/playtest_review.cjs` 全通過。
