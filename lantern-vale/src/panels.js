@@ -83,9 +83,19 @@ export function buildPanels(g) {
       ) : '<p>寶石已放進背包。可在拼圖選另一組構築或整理空格。</p>')
       + row('<div>挑戰下一段遠征，或用鑰石探索區域洞窟。</div>',
         '<button type="button" class="btn small" data-exp-next>查看遠征</button>')
+      + (materialText(result.materials) ? row('<div><b>直達燈谷鎮工坊鍛造</b></div><small>省去跑圖，立即查看剛獲得的素材配方</small>', '<button type="button" class="btn small" data-exp-forge>前往工坊</button>') : '')
+      + ((M.p.keys || 0) >= 1 && !g.caveRun ? row('<div><b>立即挑戰草原洞窟</b></div><small>消耗 1 枚鑰石直接測試剛入手的新寶石構築</small>', '<button type="button" class="btn small on" data-exp-cave>進入洞窟</button>') : '')
       + '<button type="button" class="btn small" data-exp-puzzle>開啟技能拼圖</button>';
     body.querySelector('[data-exp-next]').onclick = renderExpedition;
     body.querySelector('[data-exp-puzzle]').onclick = openRewardPuzzle;
+    const expForgeBtn = body.querySelector('[data-exp-forge]');
+    if (expForgeBtn) expForgeBtn.onclick = () => {
+      g.ui.closePanel();
+      g.state = 'transition'; g.audio.sfx('warp');
+      g.ui.wipe(() => { g.enterTown(); g.ui.openPanel('workshop'); });
+    };
+    const expCaveBtn = body.querySelector('[data-exp-cave]');
+    if (expCaveBtn) expCaveBtn.onclick = () => { g.startMeadowCaveDirect('normal'); };
     const fitButton = body.querySelector('[data-exp-fit]');
     if (fitButton) fitButton.onclick = () => {
       const applied = applySupportFit(M.p, result.gemUid);
@@ -203,9 +213,16 @@ export function buildPanels(g) {
       return;
     }
     const location = g.field === reward.field ? '循指引靠近目標。' : `前往${FIELDS[reward.field].name}。`;
-    body.innerHTML = stage === 'route'
+    body.innerHTML = (stage === 'route'
       ? `<p><b>${route.title} · ${active.completed.length}/${route.need}</b></p><p>${route.summary} ${location}</p>`
-      : `<p><b>討伐${reward.champion}</b></p><p>${reward.tactics} ${location}</p>`;
+      : `<p><b>討伐${reward.champion}</b></p><p>${reward.tactics} ${location}</p>`)
+      + (g.field !== reward.field ? row(`<div><b>立即傳送至 ${FIELDS[reward.field].name}</b></div><small>免跑圖，直接展開遠征目標</small>`, '<button type="button" class="btn small on" data-exp-warp>立即出發</button>') : '');
+    const warpBtn = body.querySelector('[data-exp-warp]');
+    if (warpBtn) warpBtn.onclick = () => {
+      g.ui.closePanel();
+      g.state = 'transition'; g.audio.sfx('warp');
+      g.ui.wipe(() => g.enterField(reward.field));
+    };
   }
 
   function renderQuest() {

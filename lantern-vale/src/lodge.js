@@ -1,7 +1,7 @@
 import { GOODS, craft, rememberGear, xpForNextLevel } from './frontier.js';
 import { CLASSES } from './puzzle.js';
 import { MONSTER_MATS, GEAR_RECIPES, canCraftRecipe, craftMonsterGear } from './mmo_rpg.js';
-import { RARITY, fmtOf, canEquipItem, itemReqLevel } from './loot.js';
+import { RARITY, fmtOf, canEquipItem, itemReqLevel, itemScore } from './loot.js';
 import { addGearToBag } from './physbag.js';
 const labels = { slime:'苔團', thorn:'棘木靈', boar:'岩背野豬', moth:'暮光蛾', stag:'古樹鹿王' };
 const weapons = { staff:'燈杖', blades:'雙刀', bow:'短弓', shield:'守衛盾' };
@@ -82,9 +82,11 @@ export function buildLodge(g, body, title, kind) {
           const res = craftMonsterGear(p, rec.id, fmtOf);
           if (!res.ok) return;
           const it = res.item;
-          if (!g.player.equip[it.slot] && canEquipItem(it, p.level || 1)) {
+          const prev = g.player.equip[it.slot];
+          if (canEquipItem(it, p.level || 1) && (!prev || itemScore(it) > itemScore(prev))) {
+            if (prev) addGearToBag(p, prev);
             g.player.equip[it.slot] = it; rememberGear(g);
-            g.ui.toast(`🔨 親手鍛造並裝備：【${it.name}】！`, RARITY[it.rarity]?.color || '#ffd85a');
+            g.ui.toast(`🔨 親手鍛造並自動換裝：【${it.name}】！`, RARITY[it.rarity]?.color || '#ffd85a');
           } else {
             addGearToBag(p, it);
             const lockNote = !canEquipItem(it, p.level || 1) ? `（需 Lv.${itemReqLevel(it)} 穿戴）` : '';

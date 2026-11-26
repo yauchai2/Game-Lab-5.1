@@ -4001,7 +4001,7 @@ export class Game {
         } else if (e.type === 'thorn') {
           e.m.body.rotation.x = -0.24 * ease;
           if (e.squash > 0) e.m.body.scale.set(1 + e.squash * 0.7, 1 - e.squash * 0.55, 1 + e.squash * 0.7);
-        } else if (e.type === 'golem') {
+        } else if (e.type === 'golem' || e.type === 'stag') {
           e.m.body.rotation.x = 0.22 * ease;
           if (e.squash > 0) e.m.body.scale.set(1 + e.squash * 0.7, 1 - e.squash * 0.55, 1 + e.squash * 0.7);
         }
@@ -4012,10 +4012,11 @@ export class Game {
           e.m.root.add(e.m.restRing);
         }
         e.m.restRing.visible = true;
-        e.m.restRing.scale.setScalar(0.45 + 1.25 * rem);
+        const ringMul = e.type === 'stag' ? 1.8 : 1;
+        e.m.restRing.scale.setScalar((0.45 + 1.25 * rem) * ringMul);
         e.m.restRing.material.opacity = 0.35 + 0.55 * rem;
       } else {
-        if (e.type === 'boar' || e.type === 'thorn' || e.type === 'golem') e.m.body.rotation.x = 0;
+        if (e.type === 'boar' || e.type === 'thorn' || e.type === 'golem' || e.type === 'stag') e.m.body.rotation.x = 0;
         if (e.m.restRing) e.m.restRing.visible = false;
         if (e.squash > 0) e.m.body.scale.set(1 + e.squash * 0.7, 1 - e.squash * 0.55, 1 + e.squash * 0.7);
         else if (e.type !== 'slime' && e.state !== 'aim') e.m.body.scale.set(1, 1, 1);
@@ -4056,7 +4057,7 @@ export class Game {
         this.moveEntity(e.pos, e.cdir.x * chSpd * dt, e.cdir.y * chSpd * dt, 1);
         if (Math.random() < 0.8) this.puffs.emit(e.pos.x + (Math.random() - 0.5), 0.1, e.pos.z, { c: 0xf4ecd8, s: 0.4, g: -0.3, life: 0.5, grow: 1 });
         if (dist < 1.8) this.hurtPlayer(e.dmg * 1.3, e.pos);
-        if (e.t > 0.85 || b.distanceTo(e.pos) < 0.01) { this.shake = 0.4; e.charges = (e.charges || 0) + 1; if (e.charges < (e.phase === 2 ? 3 : 2)) { e.step = 0; e.t = 0; } else { e.charges = 0; e.state = 'move'; e.cd = 1.6 * fast; } }
+        if (e.t > 0.85 || b.distanceTo(e.pos) < 0.01) { this.shake = 0.4; e.charges = (e.charges || 0) + 1; if (e.charges < (e.phase === 2 ? 3 : 2)) { e.step = 0; e.t = 0; } else { e.charges = 0; e.state = 'rest'; e.t = 0; e.chargeRecoveryS = 1.15; } }
       }
     } else if (e.state === 'burst') {
       e.flash = Math.max(e.flash, Math.sin(e.t * 30) > 0 ? 0.03 : 0);
@@ -4090,7 +4091,9 @@ export class Game {
         this.puffs.burst(e.pos.x, 0.2, e.pos.z, 20, { c: 0xf4ecd8, s: 0.5, speed: 5, up: 1, g: -0.4, life: 0.7, grow: 1.4, drag: 3 });
         if (dist < 4.2) this.hurtPlayer(e.dmg * 1.4, e.pos);
       }
-      if (e.t > 1.4) { e.state = 'move'; e.cd = 1.2 * fast; }
+      if (e.t > 1.4) { e.state = 'rest'; e.t = 0; e.chargeRecoveryS = 1.15; }
+    } else if (e.state === 'rest') {
+      if (e.t >= (e.chargeRecoveryS ?? 1.15)) { e.state = 'move'; e.cd = 1.2 * fast; }
     } else if (e.state === 'summon') {
       if (e.step === 0) { e.step = 1; for (let i = 0; i < 3; i++) { const pos = this.world.randomWalkable(Math.random, p.pos, 4); this.addDecal('circle', pos.x, pos.z, 0.9, 0xfff2c0, 0.8, null, () => this.spawnEnemy(Math.random() < 0.5 ? 'slime' : 'thorn', pos, false), 2); } }
       if (e.t > 1) { e.state = 'move'; e.cd = 1.5 * fast; }
@@ -4451,6 +4454,21 @@ export class Game {
     // 人物被遮擋時顯示暖金透視剪影（僅在鏡頭→玩家射線實際命中高於腰部的遮擋物時顯示）
     if (m.xray) {
       m.xray.visible = !!(this._playerOccluded && !this.interior && this.state === 'play');
+    }
+    // 零文字汲血光環視覺指示（3.5s 普攻汲血期間於腳下顯示微光脈衝圓環）
+    if ((p.leechBuffT || 0) > 0 && this.state === 'play') {
+      if (!m.leechRing) {
+        const lg = new THREE.RingGeometry(0.62, 0.74, 24); lg.rotateX(-Math.PI / 2);
+        m.leechRing = new THREE.Mesh(lg, new THREE.MeshBasicMaterial({ color: 0xff6a8a, transparent: true, opacity: 0.65, side: THREE.DoubleSide, depthWrite: false }));
+        m.leechRing.position.y = 0.08; m.leechRing.userData.noNormal = true; m.leechRing.renderOrder = 3;
+        m.root.add(m.leechRing);
+      }
+      const lr = Math.min(1, p.leechBuffT / 3.5);
+      m.leechRing.visible = true;
+      m.leechRing.scale.setScalar(0.88 + 0.16 * lr + Math.sin(this.time * 12) * 0.04);
+      m.leechRing.material.opacity = 0.25 + 0.45 * lr;
+    } else if (m.leechRing) {
+      m.leechRing.visible = false;
     }
     // blink when invulnerable（陣亡時若已載入骨骼角色則保留可見以播放完整倒地動畫）
     m.root.visible = (this.state !== 'dead' || !!p.heroRig?.ready) && !(p.iframes > 0 && Math.floor(this.time * 20) % 2 === 0);
