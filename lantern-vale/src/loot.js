@@ -1,3 +1,4 @@
+import RANKS from '../data/equipment_ranks.json' with { type: 'json' };
 import { pick, rand } from './util.js';
 import { MMO_SETS, MMO_SET_IDS } from './mmo_rpg.js';
 import { getRuneDef } from './mmo_world.js';
@@ -11,16 +12,21 @@ export const RARITY = [
   { key: 'unique', name: '傳奇', color: '#ff9a4a', beam: 0xff9a4a },
 ];
 
-export const TIERS = [
-  null,
-  { tier: 1, tag: 'T1', name: '旅人階', reqLevel: 1,  color: '#d8d2c5', mult: 1.0 },
-  { tier: 2, tag: 'T2', name: '精鋼階', reqLevel: 5,  color: '#8ad896', mult: 1.25 },
-  { tier: 3, tag: 'T3', name: '星銀階', reqLevel: 10, color: '#7fc4ff', mult: 1.55 },
-  { tier: 4, tag: 'T4', name: '秘光階', reqLevel: 16, color: '#c88cff', mult: 1.9 },
-  { tier: 5, tag: 'T5', name: '傳世階', reqLevel: 22, color: '#ffd85a', mult: 2.3 },
-  { tier: 6, tag: 'T6', name: '穹頂階', reqLevel: 27, color: '#ff8a50', mult: 2.75 },
-];
-export function tierInfo(tier = 1) { return TIERS[Math.max(1, Math.min(6, Math.round(tier || 1)))] || TIERS[1]; }
+// 16 階階梯（見 docs/EQUIPMENT_LADDER_PLAN.md）：1–12 為 Lv1–30 成長階，13–16 為終局「星燈」階。
+// power＝數值等效階：詞綴與基底數值沿用舊 T1–T6 公式 f(t)，舊 T1..T6 剛好是 power 1..6，新階在其間內插、終局往上外推。
+export const TIERS = [null, ...RANKS];
+export const MAX_TIER = TIERS.length - 1;
+export const FORGE_MAX_TIER = 12;
+// 舊存檔（無 tv）的階級 1..6 對應新階梯 1,3,5,7,9,11
+const LEGACY_TIER_TO_RANK = [1, 1, 3, 5, 7, 9, 11];
+export function tierInfo(tier = 1) { return TIERS[Math.max(1, Math.min(MAX_TIER, Math.round(tier || 1)))] || TIERS[1]; }
+export const tierPower = tier => tierInfo(tier).power;
+// 依等級挑掉落階（只到第 12 階；終局階由 Atlas／星穹塔等來源指定）
+export function rankForLevel(lv) {
+  let best = 1;
+  for (let k = 1; k <= FORGE_MAX_TIER; k++) if (TIERS[k].reqLevel <= lv) best = k;
+  return best;
+}
 export function itemReqLevel(it) {
   if (!it) return 1;
   if (Number.isInteger(it.reqLevel) && it.reqLevel >= 1) return it.reqLevel;
@@ -86,6 +92,9 @@ const IMPLICIT = {
   charm: t => ({ k: 'crit', v: 2 + t, fmt: v => `+${v}% 暴擊率` }),
 };
 
+// 隱含詞綴：以數值等效階計算並取整
+const implicitOf = (slot, tier) => { const o = IMPLICIT[slot](tierPower(tier)); o.v = Math.round(o.v); return o; };
+
 const PREFIX = ['晨露', '餘燼', '苔心', '松風', '琥珀', '月光', '野莓', '燈火', '霜語', '狐影', '暖陽', '山嵐'];
 const SUFFIX = ['之歌', '之息', '守望', '低語', '迴響', '旅伴', '微光', '庇護', '心願', '足跡'];
 
@@ -98,8 +107,15 @@ export const UNIQUES = [
 ];
 
 let _id = 1;
-export function makeItem(r, depth, forceRarity = null, forceSlot = null) {
-  const tier = Math.min(6, 1 + Math.floor(depth / 2) + (r() < 0.25 ? 1 : 0));
+export function makeItem(r, depth, forceRarity = null, forceSlot = null, forceTier = null) {
+  // depth ≈ 等級／3（舊公式的輸入）。以等效等級挑階；25% 高一階、約 10% 低一階（只抽一次亂數，維持種子序列）
+  let tier;
+  if (forceTier) { r(); tier = Math.max(1, Math.min(MAX_TIER, Math.round(forceTier))); }
+  else {
+    const x = r();
+    tier = rankForLevel(depth * 3 + 1) + (x < 0.25 ? 1 : x > 0.9 ? -1 : 0);
+    tier = Math.max(1, Math.min(FORGE_MAX_TIER, tier));
+  }
   let rarity = forceRarity;
   if (rarity === null) {
     const x = r() + depth * 0.025;
@@ -111,25 +127,25 @@ export function makeItem(r, depth, forceRarity = null, forceSlot = null) {
     const u = pick(r, forceSlot ? UNIQUES.filter(q => q.slot === forceSlot) : UNIQUES);
     const setId = r() < 0.8 ? pick(r, MMO_SET_IDS) : null;
     return { id: _id++, slot: u.slot, rarity: 3, tier, enhance: 0, setId, name: u.name, base: u.base, art: pickCatalogGear(r, u.slot, tier)?.id || null, special: u.special, desc: u.desc,
-      implicit: IMPLICIT[u.slot](tier), mods: u.mods.map(m => ({ ...m, fmt: AFFIXES.find(a => a.k === m.k)?.fmt || (v => `基礎傷害 +${v}`) })) };
+      implicit: implicitOf(u.slot, tier), mods: u.mods.map(m => ({ ...m, fmt: AFFIXES.find(a => a.k === m.k)?.fmt || (v => `基礎傷害 +${v}`) })) };
   }
   const slot = forceSlot || pick(r, Object.keys(SLOTS));
   const cat = pickCatalogGear(r, slot, tier);
-  const base = cat ? cat.name : SLOTS[slot].bases[Math.min(SLOTS[slot].bases.length - 1, Math.floor(tier / 2))];
+  const base = cat ? cat.name : SLOTS[slot].bases[Math.min(SLOTS[slot].bases.length - 1, Math.floor(tierPower(tier) / 2))];
   const nMods = rarity === 0 ? 0 : rarity === 1 ? 1 + (r() < 0.5 ? 1 : 0) : 3 + (r() < 0.4 ? 1 : 0);
   const pool = AFFIXES.filter(a => a.slots.includes(slot) && (!a.rare || rarity === 2));
   const mods = [];
   for (let i = 0; i < nMods && pool.length; i++) {
     const idx = Math.floor(r() * pool.length);
     const a = pool.splice(idx, 1)[0];
-    const v = Math.round(a.roll(tier) * rand(r, 0.75, 1.15));
+    const v = Math.round(a.roll(tierPower(tier)) * rand(r, 0.75, 1.15));
     mods.push({ k: a.k, v, fmt: a.fmt });
   }
   let name = base;
   if (rarity === 1) name = `${pick(r, PREFIX)}${base}`;
   if (rarity === 2) name = `${pick(r, PREFIX)}${pick(r, SUFFIX)}`;
   const setId = rarity >= 2 && r() < 0.5 ? pick(r, MMO_SET_IDS) : null;
-  return { id: _id++, slot, rarity, tier, enhance: 0, setId, name, base, art: cat?.id || null, implicit: IMPLICIT[slot](tier), mods };
+  return { id: _id++, slot, rarity, tier, enhance: 0, setId, name, base, art: cat?.id || null, implicit: implicitOf(slot, tier), mods };
 }
 
 export function itemLines(it) {
@@ -201,7 +217,7 @@ export const fmtOf = k => AFFIXES.find(a => a.k === k)?.fmt || IMP_FMT[k] || (v 
 export function serializeItem(it) {
   if (!it) return null;
   return {
-    slot: it.slot, rarity: it.rarity, tier: it.tier, enhance: it.enhance || 0, setId: it.setId || null, rune: it.rune || null,
+    tv: 2, slot: it.slot, rarity: it.rarity, tier: it.tier, enhance: it.enhance || 0, setId: it.setId || null, rune: it.rune || null,
     potential: it.potential ? { tier: it.potential.tier, lines: (it.potential.lines || []).map(l => ({ k: l.k, v: l.v, label: l.label })) } : null,
     name: it.name, base: it.base, art: it.art || null, special: it.special, desc: it.desc,
     corrupted: !!it.corrupted, bricked: !!it.bricked,
@@ -213,7 +229,7 @@ export function serializeItem(it) {
 export function deserializeItem(o) {
   if (!o) return null;
   return {
-    id: _id++, slot: o.slot, rarity: o.rarity, tier: o.tier || 1, enhance: o.enhance || 0, setId: o.setId || null, rune: o.rune || null,
+    id: _id++, slot: o.slot, rarity: o.rarity, tier: o.tv ? (o.tier || 1) : (LEGACY_TIER_TO_RANK[Math.max(1, Math.min(6, o.tier || 1))]), enhance: o.enhance || 0, setId: o.setId || null, rune: o.rune || null,
     potential: o.potential ? { tier: o.potential.tier, lines: (o.potential.lines || []).map(l => ({ k: l.k, v: l.v, label: l.label })) } : null,
     name: o.name, base: o.base, art: o.art || null, special: o.special, desc: o.desc, reforged: o.reforged || 0,
     corrupted: !!o.corrupted, bricked: !!o.bricked,
@@ -250,7 +266,7 @@ export function corruptItem(it, r = Math.random) {
     if (!n.name.startsWith('【腐化】')) n.name = `【腐化】${n.name}`;
     return { ok: true, outcome: 'godroll', label: '☠️ 神諭異變！誕生毀天滅地腐化詞綴！', item: n };
   } else if (roll < 0.50) {
-    n.tier = Math.min(6, (n.tier || 1) + 1);
+    n.tier = Math.min(MAX_TIER, (n.tier || 1) + 2);
     if (n.implicit) n.implicit.v = Math.max(1, Math.round(n.implicit.v * 1.45));
     for (const m of n.mods) m.v = Math.max(1, Math.round(m.v * 1.45));
     if (!n.name.startsWith('【超頻】')) n.name = `【超頻】${n.name}`;
@@ -274,13 +290,13 @@ function rollMod(r, it, taken) {
   const pool = AFFIXES.filter(a => a.slots.includes(it.slot) && !taken.includes(a.k) && (!a.rare || it.rarity === 2));
   if (!pool.length) return null;
   const a = pool[Math.floor(r() * pool.length)];
-  return { k: a.k, v: Math.round(a.roll(it.tier) * rand(r, 0.75, 1.15)), fmt: a.fmt };
+  return { k: a.k, v: Math.round(a.roll(tierPower(it.tier)) * rand(r, 0.75, 1.15)), fmt: a.fmt };
 }
 export const FORGE = {
-  reroll: { name: '重鑄詞綴', desc: '重新隨機所有詞綴（傳奇／已腐化裝備不可）', cost: it => 10 + (it.tier || 1) * 6, ok: it => !it.corrupted && it.rarity < 3 && it.mods.length > 0 },
-  add: { name: '增幅詞綴', desc: '新增一條詞綴（上限 4 條，已腐化不可）', cost: it => 12 + (it.tier || 1) * 8, ok: it => !it.corrupted && it.rarity < 3 && it.mods.length < 4 },
-  tier: { name: '提升階級', desc: '階級 +1，數值依新階級重新計算（已腐化不可）', cost: it => 22 + (it.tier || 1) * 14, ok: it => !it.corrupted && it.tier < 6 },
-  upgrade: { name: '晉升稀有度', desc: '普通→魔法→稀有，並補足詞綴（已腐化不可）', cost: it => 15 + (it.tier || 1) * 10, ok: it => !it.corrupted && it.rarity < 2 },
+  reroll: { name: '重鑄詞綴', desc: '重新隨機所有詞綴（傳奇／已腐化裝備不可）', cost: it => 10 + Math.round(tierPower(it.tier) * 6), ok: it => !it.corrupted && it.rarity < 3 && it.mods.length > 0 },
+  add: { name: '增幅詞綴', desc: '新增一條詞綴（上限 4 條，已腐化不可）', cost: it => 12 + Math.round(tierPower(it.tier) * 8), ok: it => !it.corrupted && it.rarity < 3 && it.mods.length < 4 },
+  tier: { name: '提升階級', desc: '階級 +1（最高到第 12 階），數值依新階級重新計算（已腐化不可）', cost: it => 22 + Math.round(tierPower(it.tier) * 14), ok: it => !it.corrupted && it.tier < FORGE_MAX_TIER },
+  upgrade: { name: '晉升稀有度', desc: '普通→魔法→稀有，並補足詞綴（已腐化不可）', cost: it => 15 + Math.round(tierPower(it.tier) * 10), ok: it => !it.corrupted && it.rarity < 2 },
 };
 export function forgeItem(kind, it, r = Math.random) {
   const n = { ...it, mods: it.mods.map(m => ({ ...m })), reforged: (it.reforged || 0) + 1 };
@@ -288,10 +304,10 @@ export function forgeItem(kind, it, r = Math.random) {
   else if (kind === 'add') { const m = rollMod(r, n, n.mods.map(x => x.k)); if (m) n.mods.push(m); }
   else if (kind === 'tier') {
     n.tier++; const cnt = n.mods.length; n.mods = []; for (let i = 0; i < cnt; i++) { const m = rollMod(r, n, n.mods.map(x => x.k)); if (m) n.mods.push(m); }
-    const imp = n.implicit && IMPLICIT[n.slot] ? IMPLICIT[n.slot](n.tier) : null; if (imp && n.rarity < 3) n.implicit = imp;
+    const imp = n.implicit && IMPLICIT[n.slot] ? implicitOf(n.slot, n.tier) : null; if (imp && n.rarity < 3) n.implicit = imp;
   } else if (kind === 'upgrade') {
     n.rarity++; const want = n.rarity === 1 ? 2 : 4; while (n.mods.length < want) { const m = rollMod(r, n, n.mods.map(x => x.k)); if (!m) break; n.mods.push(m); }
-    const base = SLOTS[n.slot].bases[Math.min(3, Math.floor(n.tier / 2))];
+    const base = SLOTS[n.slot].bases[Math.min(3, Math.floor(tierPower(n.tier) / 2))];
     n.name = n.rarity === 1 ? `${pick(r, PREFIX)}${base}` : `${pick(r, PREFIX)}${pick(r, SUFFIX)}`;
   }
   return n;

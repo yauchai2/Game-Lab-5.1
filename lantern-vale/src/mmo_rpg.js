@@ -372,7 +372,7 @@ export function craftMonsterGear(profile, recipeId, fmtResolver = (k => v => `${
     id: Math.floor(Math.random() * 1e9),
     slot: rec.slot,
     rarity: rec.rarity,
-    tier: rec.tier,
+    tier: [1, 1, 3, 5, 7, 9, 11][Math.max(1, Math.min(6, rec.tier || 1))], // 藍圖階級（舊 T1–T6）→ 16 階階梯
     reqLevel: rec.reqLevel || 1,
     enhance: 0,
     setId: rec.setId || null,

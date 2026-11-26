@@ -1,5 +1,6 @@
 // 孤山獨影（Cairn）風格 2D 重力物理掉落背包與倉庫系統（不同形狀大小＋物品物理碰撞合成）
-import { RARITY, SLOTS, serializeItem, deserializeItem, makeItem, itemScore, canEquipItem, itemReqLevel, rememberGear } from './loot.js';
+import { RARITY, SLOTS, tierInfo, serializeItem, deserializeItem, makeItem, itemScore, canEquipItem, itemReqLevel } from './loot.js';
+import { rememberGear } from './frontier.js';
 import { canvasUiFont } from './ui_typography.js';
 import { t } from './i18n.js';
 import { resolveArtId, loadItemImage, getItemSilhouette } from './itemdb.js';
@@ -389,7 +390,7 @@ export class PhysicsContainer {
     if (this.hover) {
       const d = this.hover.data;
       const tierNum = d.item?.tier || d.tier || 1;
-      const txt = `[T${tierNum}] ${d.name}`;
+      const txt = `[${tierInfo(tierNum).tag}] ${d.name}`;
       ctx.font = canvasUiFont(12, 700);
       const tw = Math.min(W - 12, ctx.measureText(txt).width + 14);
       const ex = this._extents(this.hover);

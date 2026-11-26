@@ -72,5 +72,12 @@ os.makedirs('data', exist_ok=True)
 json.dump(dict(ranks=[dict(rank=r[0],tag=r[1],reqLv=r[2],mult=r[3],material=r[4],source=r[5],legacyTier=r[6]) for r in R], items=out), open('data/equipment_ladder.json','w'), ensure_ascii=False, indent=1)
 with open('data/equipment_ladder.csv','w',newline='',encoding='utf-8-sig') as f:
     w = csv.DictWriter(f, fieldnames=list(out[0].keys())); w.writeheader(); w.writerows(out)
+# 遊戲用的精簡檔：階級表（含數值等效階 power）與裝備目錄（只含階梯款）
+POWER = [1,1.5,2,2.5,3,3.5,4,4.5,5,5.5,6,6.6,7.4,8.3,9.3,10.4]  # 舊 T1–T6 為 1..6，新階內插／外推；詞綴與基底數值沿用舊公式 f(power)
+COLORS = ['#d8d2c5','#b5d98f','#8ad896','#6fd9c0','#7fc4ff','#8fb0ff','#c88cff','#ff8fa0','#ffd85a','#ffc070','#ff8a50','#ff6a8a','#ffe27a','#ffd04a','#ffb020','#fff2b0']
+ranks = [dict(tier=r[0], tag=(('T%d' % ((r[0]+1)//2)) if r[0] % 2 else 'T%d+' % (r[0]//2)) if r[0] <= 12 else 'E%d' % (r[0]-12), name=r[1]+'階', reqLevel=r[2], color=COLORS[i], mult=r[3], power=POWER[i]) for i, r in enumerate(R)]
+json.dump(ranks, open('data/equipment_ranks.json','w'), ensure_ascii=False, separators=(',',':'))
+cat = [dict(id=o['id'], name=o['name'], slot=o['slot'], rank=o['rank'], cls=o['cls']) for o in out if o['kind']=='ladder' and o['slot']!='offhand']
+json.dump(cat, open('data/equipment_catalog.json','w'), ensure_ascii=False, separators=(',',':'))
 import collections
 print(len(out), collections.Counter(o['kind'] for o in out))
