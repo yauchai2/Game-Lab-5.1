@@ -28,20 +28,22 @@ const { chromium } = require('playwright');
       await page.locator('#btnHeroNext').click();
       await page.locator('#btnStart').click();
       await page.waitForFunction(() => __game.zone === 'town' && __game.state === 'play');
-      await openTracker();
-      assert.equal(await page.locator('[data-quest-guide-follow]').textContent(), '跟燈去草原');
-      assert.match(await page.locator('[data-opening-practice]').textContent(), /直接傳送/);
-      assert.equal(await page.evaluate(() => !!__game.questGuide.root?.visible), false);
-      await page.locator('[data-quest-guide-follow]').click();
       await visibleGuide();
       assert.match(await page.evaluate(() => __game.questGuide.target.label), /晨光草原/);
-      assert.equal(await page.evaluate(() => __game.questGuide.reducedMotion.matches), mobile);
-
       const dir = process.env.LV_SCREENSHOT_DIR;
       if (dir) {
         await page.waitForFunction(() => __game.exitCooldown <= 0.05);
         await page.screenshot({ path: path.join(dir, mobile ? 'quest-guide-mobile.png' : 'quest-guide-desktop.png') });
       }
+
+      await openTracker();
+      assert.equal(await page.locator('[data-quest-guide-follow]').textContent(), '跟燈去草原');
+      assert.match(await page.locator('[data-opening-practice]').textContent(), /直接傳送/);
+      await page.waitForFunction(() => !__game.questGuide.root.visible);
+      await page.locator('[data-quest-guide-follow]').click();
+      await visibleGuide();
+      assert.match(await page.evaluate(() => __game.questGuide.target.label), /晨光草原/);
+      assert.equal(await page.evaluate(() => __game.questGuide.reducedMotion.matches), mobile);
 
       await page.waitForFunction(() => __game.exitCooldown <= 0.05);
       await at(await page.evaluate(() => {
@@ -57,6 +59,10 @@ const { chromium } = require('playwright');
       await page.locator('#btnPanelX').click();
       assert.equal(await page.evaluate(() => __game.questGuide.enabled), false);
       assert.equal(await page.evaluate(() => __game.questGuide.root.visible), false);
+      await openTracker();
+      assert.equal(await page.locator('[data-quest-guide-toggle]').textContent(), '開啟光路');
+      await page.locator('#btnPanelX').click();
+      assert.equal(await page.evaluate(() => __game.questGuide.enabled), false);
       await openTracker();
       await page.locator('[data-quest-guide-follow]').click();
       await visibleGuide();
@@ -82,6 +88,10 @@ const { chromium } = require('playwright');
       if (dir) await page.screenshot({ path: path.join(dir, mobile ? 'opening-combat-mobile.png' : 'opening-combat-desktop.png') });
       await page.locator('#openingCombatCue[data-action=counter]').waitFor();
       assert.match(await page.locator('#openingCombatCue').textContent(), /反擊/);
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.locator('#btnQuickStart').click();
+      await visibleGuide();
+      assert.match(await page.evaluate(() => __game.questGuide.target.label), /晨光草原/);
       assert.deepEqual(errors, []);
       await page.close();
       console.log(`Quest guide OK (${mobile ? 'mobile / reduced motion' : 'desktop'})`);
