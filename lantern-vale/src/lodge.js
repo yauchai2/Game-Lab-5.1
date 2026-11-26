@@ -46,6 +46,12 @@ export function buildLodge(g, body, title, kind, recipeId = null) {
     if (hint) { const sub = document.createElement('small'); sub.textContent = hint; text.append(document.createElement('br'),sub); }
     row.append(text); body.append(row); return row;
   };
+  const buyGoods = (key, quantity, unitPrice) => {
+    const cost = quantity * unitPrice;
+    if (p.coins < cost) return;
+    p.coins -= cost;
+    p.goods[key] += quantity;
+  };
   const action = (row, label, enabled, fn) => {
     const b = document.createElement('button'); b.className = 'btn small'; b.textContent = label; b.disabled = !enabled;
     b.onclick = () => { fn(); g.meta.save(); g.recalc(); refresh(); }; row.append(b);
@@ -58,7 +64,7 @@ export function buildLodge(g, body, title, kind, recipeId = null) {
     for (const [key,name] of Object.entries(GOODS)) {
       const price = quote(key, now);
       const row = line(name + ' · ' + trendLabel(key, price), '每份 ' + price + ' 金幣 · 成交稅 8%（回收通膨）');
-      action(row,'買入',p.coins >= price,() => { p.coins -= price; p.goods[key]++; });
+      action(row,'買入',p.coins >= price,() => buyGoods(key, 1, price));
       action(row,'寄售',p.goods[key] > 0,() => { p.goods[key]--; p.sales.push({ key, price, due:Date.now()+30000 }); });
     }
     for (const lot of p.sales) line(GOODS[lot.key] + ' · 已寄售', Math.max(1,Math.ceil((lot.due-now)/1000)) + ' 秒後由商人收購');
@@ -88,7 +94,7 @@ export function buildLodge(g, body, title, kind, recipeId = null) {
       if (rec === preferred) {
         const sources = [];
         if (missing.some(({ key }) => key === 'ore')) sources.push('星紋礦可開採或向拍賣行購買');
-        if (missing.some(({ key }) => key === 'boar_tusk')) sources.push('狂豬有機會掉落利牙');
+        if (missing.some(({ key }) => key === 'boar_tusk')) sources.push('擊敗狂豬有機會掉落利牙，重打草原洞窟也可取得');
         if (sources.length) {
           const sourceInfo = document.createElement('small');
           sourceInfo.textContent = sources.join(' · ');
@@ -117,7 +123,20 @@ export function buildLodge(g, body, title, kind, recipeId = null) {
         },
       );
     };
-    if (preferred) renderRecipe(preferred);
+    if (preferred) {
+      renderRecipe(preferred);
+      const oreMissing = (preferred.cost?.goods?.ore || 0) - (p.goods.ore || 0);
+      if (oreMissing > 0 && g.zone === 'town') {
+        const price = quote('ore', now);
+        const total = price * oreMissing;
+        const offer = line(`向拍賣行補齊星紋礦 ×${oreMissing}`,
+          p.coins < total ? `需 ${total} 金幣 · 金幣不足` : `共 ${total} 金幣`);
+        offer.dataset.recipeOre = String(oreMissing);
+        action(offer, `買入 ×${oreMissing}`, p.coins >= total, () => {
+          if (preferred.cost.goods.ore - (p.goods.ore || 0) === oreMissing) buyGoods('ore', oreMissing, price);
+        });
+      }
+    }
     materialStock();
     for (const rec of GEAR_RECIPES) if (rec !== preferred) renderRecipe(rec);
     action(line('基礎鍛造（隨機詞綴）','香杉木 ×2、星紋礦 ×3'), '鍛造',p.goods.wood>=2 && p.goods.ore>=3,()=>{const name=craft(g); if(name) g.ui.toast('裝備了 '+name);});

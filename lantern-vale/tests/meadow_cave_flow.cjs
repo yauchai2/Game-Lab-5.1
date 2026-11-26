@@ -3,6 +3,7 @@ const path = require('node:path');
 const { chromium } = require('playwright');
 
 (async () => {
+  const { xpForNextLevel } = await import('../src/frontier.js');
   const url = process.env.LV_GAME_URL || 'http://localhost:8080/';
   const browser = await chromium.launch({
     channel: process.env.LV_CHROMIUM_CHANNEL || 'chrome',
@@ -150,30 +151,66 @@ const { chromium } = require('playwright');
     const eliteMats = await defeat();
     await page.waitForFunction(() => __game.meta.p.meadowCave.clears.elite === 1);
     assert.deepEqual(await page.evaluate(() => [__game.meta.p.keys, __game.meta.p.mMats.boar_tusk, __game.meta.p.mMats.thorn_bark]), [0, eliteMats[0] + 4, eliteMats[1] + 4]);
+    await page.evaluate(xp => {
+      __game.meta.p.level = 4;
+      __game.meta.p.xp = xp;
+      __game.meta.save();
+    }, xpForNextLevel(4) - 1);
     await page.locator('[data-cc-forge]').tap();
     const recipe = page.locator('#panelM [data-recipe-id]').first();
     assert.equal(await recipe.getAttribute('data-recipe-id'), 'rec_tusk_staff');
     assert.match(await recipe.textContent(), /還差 星紋礦 ×2/);
     assert.ok(await recipe.getByRole('button', { name: '鍛造' }).isDisabled());
     assert.equal(await page.locator('#panelM').evaluate(el => el.scrollWidth <= el.clientWidth + 1), true);
-    await page.waitForFunction(() => getComputedStyle(document.getElementById('wipe')).clipPath.startsWith('circle(0%'));
-    await screenshot('lantern-cave-workshop-mobile.png');
-    await page.evaluate(() => {
-      __game.meta.p.goods.ore = 2;
-      __game.meta.p.level = 4;
-      __game.meta.save();
-      __game.ui.openPanel('workshop', { recipeId: 'rec_tusk_staff' });
+    await page.waitForFunction(() => {
+      const style = getComputedStyle(document.getElementById('wipe'));
+      return style.clipPath === 'none' ? Number(style.opacity) === 0 : style.clipPath.startsWith('circle(0%');
     });
+    await screenshot('lantern-cave-workshop-mobile.png');
+    const offer = page.locator('[data-recipe-ore="2"]');
+    const purchaseCost = Number((await offer.textContent()).match(/共 (\d+) 金幣/)[1]);
+    const coinsBefore = await page.evaluate(() => __game.meta.p.coins);
+    await offer.getByRole('button', { name: '買入 ×2' }).tap();
+    assert.equal(await offer.count(), 0);
+    assert.deepEqual(await page.evaluate(() => {
+      const p = JSON.parse(localStorage.getItem(__game.meta.key));
+      return [p.goods.ore, p.coins];
+    }), [2, coinsBefore - purchaseCost]);
     assert.match(await recipe.textContent(), /材料齊備 · Lv.5 才能穿戴/);
+    console.log('Purchased the exact ore shortage inside the workshop');
     await recipe.getByRole('button', { name: '鍛造' }).tap();
     const crafted = await page.evaluate(() => {
       const p = JSON.parse(localStorage.getItem(__game.meta.key));
-      return [p.goods.ore, p.mMats.boar_tusk, p.mMats.thorn_bark,
+      return [p.goods.ore, p.mMats.boar_tusk, p.mMats.thorn_bark, p.coins,
         p.bagItems.some(item => item.name.includes('狂豬利牙戰杖'))];
     });
-    assert.deepEqual(crafted, [0, eliteMats[0], eliteMats[1] + 1, true]);
+    assert.deepEqual(crafted, [0, eliteMats[0], eliteMats[1] + 1, coinsBefore - purchaseCost - 120, true]);
+    console.log('Crafted the staff and confirmed its cost and inventory entry');
+    await page.keyboard.press('Escape');
+    const itemName = '狂豬利牙戰杖';
+    const itemUid = await page.evaluate(name => __game.meta.p.bagItems.find(item => item.name === name).uid, itemName);
+    const equipCrafted = async () => {
+      await page.locator('#btnMenu').tap();
+      await page.locator('[data-hud-action="sk-bag"]').tap();
+      await page.locator('#bagItemPicker').selectOption(itemUid);
+      await page.locator('#bagBtns').getByRole('button', { name: '裝備' }).tap();
+    };
+    await equipCrafted();
+    assert.equal(await page.evaluate(() => __game.player.equip.staff.name === '狂豬利牙戰杖'), false);
+    await page.locator('#btnInvClose').tap();
+    await field();
+    await defeat();
+    await page.waitForFunction(() => __game.meta.p.level >= 5);
+    await equipCrafted();
+    assert.deepEqual(await page.evaluate(name => {
+      const p = JSON.parse(localStorage.getItem(__game.meta.key));
+      return [p.gear.staff.name, p.bagItems.some(item => item.name === name)];
+    }, itemName), [itemName, false]);
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await start();
+    assert.equal(await page.evaluate(() => __game.player.equip.staff.name), itemName);
     assert.deepEqual(errors, []);
-    console.log('Passed expedition key, cave entrance, all waves, boss telegraph, saved checkpoint across reload, one-time payout, mobile workshop, and crafting below equip level.');
+    console.log('Passed expedition key, cave entrance, all waves, boss telegraph, saved checkpoint across reload, one-time payout, mobile market purchase, crafting, gear level gate and equip persistence.');
   } finally {
     await browser.close();
   }

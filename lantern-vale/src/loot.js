@@ -210,6 +210,13 @@ export function serializeItem(it) {
     mods: it.mods.map(m => ({ k: m.k, v: m.v })), reforged: it.reforged || 0,
   };
 }
+export function rememberGear(game) {
+  game.meta.p.gear = Object.fromEntries(
+    Object.entries(game.player.equip).map(([slot, item]) => [slot, serializeItem(item)])
+  );
+  game.meta.save();
+}
+
 export function deserializeItem(o) {
   if (!o) return null;
   return {
