@@ -1,0 +1,255 @@
+{
+  "_note": "Beaconfall Phase 3 text: six regions, region bosses, region quest lines, NPC one-liners, lore fragments. Display text only. Field ids 1-6 are the existing FIELDS indexes; save keys and item ids are untouched. Tone rules: docs/beaconfall/LORE_GUIDE.md. Numbers (xp/coins) are tunable here.",
+  "limits": { "titleWords": 5, "descSentences": 2, "goalsMax": 3, "fragmentsPerRegion": [6, 10] },
+  "morvane": [
+    { "stage": 1, "regions": [1, 2], "known": "他是毀掉燈塔的怪物。", "via": "公告、NPC 閒談" },
+    { "stage": 2, "regions": [3, 4], "known": "他曾是首席守燈人 Morvane Ashgrave。", "via": "蓮華長老的日記碎片" },
+    { "stage": 3, "regions": [5], "known": "他為了「不讓下一代再看著燈熄」而偷光。", "via": "鍛爐裡的舊信" },
+    { "stage": 4, "regions": [6], "known": "他的女兒死在上一次燈熄之夜。", "via": "Orld 臨死前的記憶" }
+  ],
+  "regions": {
+    "1": { "id": "dawnmeadow", "name": "Dawnmeadow", "legacy": "晨光草原", "levels": "Lv.1–5", "faction": "Merchant Concord", "boss": "cleaver_tusk", "reveal": 1,
+      "conflict": "兩盞路燈被熄，商隊困在草原。",
+      "desc": "風車與溪流的開闊草原，通往所有區域的起點。空洞第一次爬上路燈，商隊進不了城。",
+      "enter": "Dawnmeadow · 兩盞路燈被熄，商隊被困。點亮路燈，趕開野豬。" },
+    "2": { "id": "whisperwood", "name": "Whisperwood", "legacy": "低語森林", "levels": "Lv.5–10", "faction": "Skyfarers' League", "boss": "hookthorn_elder", "reveal": 1,
+      "conflict": "引路燈被樹根纏住，伐木工失蹤。",
+      "desc": "高低交錯的林道與古老樹洞。空洞的根網勒住了引路燈，三名伐木工已經兩天沒回來。",
+      "enter": "Whisperwood · 引路燈被根網纏住，伐木工失蹤。先找人，再修燈。" },
+    "3": { "id": "mirefog", "name": "Mirefog Marsh", "legacy": "霧潮沼澤", "levels": "Lv.10–15", "faction": "Lotus Sanctum", "boss": "sporebloat_colossus", "reveal": 2,
+      "conflict": "毒霧讓蓮華修院的淨燈熄滅。",
+      "desc": "濃霧與孢子籠罩的濕地。修院的淨燈撐不住毒霧，長老派人求援。",
+      "enter": "Mirefog Marsh · 毒霧弄熄了修院淨燈。帶淨水回去，別吸太多孢子。" },
+    "4": { "id": "rimewind", "name": "Rimewind Tundra", "legacy": "霜冬雪原", "levels": "Lv.15–20", "faction": "Order of the Wick", "boss": "frost_colossus", "reveal": 2,
+      "conflict": "第一座星燈被冰封，第一位 Hollow Lord 現身。",
+      "desc": "純白雪嶺與極寒冰湖。這裡的星燈被整座凍住，守著它的是第一位空洞領主 Hoarfrost。",
+      "enter": "Rimewind Tundra · 星燈被冰封，Hollow Lord Hoarfrost 就在附近。保暖，找營火。" },
+    "5": { "id": "cinderreach", "name": "Cinderreach", "legacy": "燼煙火岩區", "levels": "Lv.20–25", "faction": "Order of the Wick", "boss": "infernal_magma_drake", "reveal": 3,
+      "conflict": "鍛爐被奪，兵器無法供應。",
+      "desc": "赤紅岩壁與熔岩河。這座火山鍛爐是騎士團的兵工廠，現在被龍和空洞佔了。",
+      "enter": "Cinderreach · 鍛爐被奪，騎士團缺兵器。清掉熔岩怪，奪回爐火。" },
+    "6": { "id": "elderwood", "name": "Elderwood", "legacy": "古樹林", "levels": "Lv.25–30", "faction": "Emberbound Conclave", "boss": "orld", "reveal": 4,
+      "conflict": "樹心之光被 Morvane 腐化。",
+      "desc": "巨木環抱的古老森林，樹心之光撐著整個西境。守護者 Orld 被 Morvane 腐化，光正在變質。",
+      "enter": "Elderwood · 樹心之光被腐化。淨化林地，取回光，解放 Orld。" }
+  },
+  "bosses": {
+    "cleaver_tusk": { "field": 1, "name": "Cleaver Tusk", "title": "裂地獠牙", "role": "被空洞啃過的巨型野豬，區域守護獸。",
+      "intro": "Cleaver Tusk 擋在路中央，獠牙還黏著熄掉的路燈碎片。", "defeat": "獠牙折斷了。路燈重新亮起，商隊可以進城。" },
+    "hookthorn_elder": { "field": 2, "name": "Hookthorn Elder", "title": "鉤棘老根", "role": "被空洞纏住的老樹根，把引路燈勒進地下。",
+      "intro": "地面隆起，Hookthorn Elder 的根網一路拖向引路燈。", "defeat": "老根鬆開了。引路燈浮出地面，伐木道通了。" },
+    "sporebloat_colossus": { "field": 3, "name": "Sporebloat Colossus", "title": "孢囊巨像", "role": "吸飽毒霧的孢囊怪，毒霧的源頭。",
+      "intro": "沼澤中央鼓起一個巨大孢囊，Sporebloat Colossus 正在吐霧。", "defeat": "孢囊爆開，霧散了。修院的淨燈重新點燃。" },
+    "frost_colossus": { "field": 4, "name": "Frost Colossus", "title": "Hollow Lord Hoarfrost", "role": "第一位空洞領主，曾是守燈人，冰封了整座星燈。",
+      "intro": "冰面碎裂，Hoarfrost 站起來。星燈就在他背後，被凍成一塊冰。", "defeat": "Hoarfrost 倒下。冰融了，星燈第一次在雪原亮起。" },
+    "infernal_magma_drake": { "field": 5, "name": "Infernal Magma Drake", "title": "熔岩巨龍", "role": "盤踞鍛爐的熔岩巨龍，騎士團的兵器全卡在牠的巢裡。",
+      "intro": "鍛爐深處傳來吼聲，Infernal Magma Drake 睜開眼睛。", "defeat": "巨龍墜入熔岩。爐火重新歸騎士團，兵器可以出貨了。" },
+    "orld": { "field": 6, "name": "Orld, the Antlered Elder", "title": "古樹鹿王", "role": "Elderwood 的守護者，被 Morvane 腐化，不是最終首領。",
+      "intro": "樹心前，Orld 低下頭。鹿角上纏著黑色的光，不是他自己的光。", "defeat": "黑光退去。Orld 閉上眼睛，樹心之光回到林地。他最後的記憶，留給了你。" }
+  },
+  "npcs": {
+    "1": [
+      { "id": "yuzu", "name": "採風畫家 柚子", "faction": "旅人", "lines": ["路燈一滅，我連色都調不準。", "風車那邊有精英野豬，別擋到我的畫架。", "幫我畫完這張，我請你吃草莓麵包。"] },
+      { "id": "bo", "name": "商隊車伕 Bo", "faction": "Merchant Concord", "lines": ["貨車卡兩天了，馬都開始跟我吵架。", "點亮路燈，我就能走。簡單吧？", "別問貨是什麼。問了要加錢。"] }
+    ],
+    "2": [
+      { "id": "pine", "name": "林木學者 阿松", "faction": "旅人", "lines": ["這些根不是自然長的，是空洞拉的。", "高台上有寶箱，樹冠是捷徑。", "伐木工的斧頭掉在老根旁邊，不是好兆頭。"] },
+      { "id": "gruff", "name": "伐木領班 Gruff", "faction": "Skyfarers' League", "lines": ["我的人被根拖走了，我要全部帶回來。", "你找人，我修路。分工，簡單。", "別砍發光的樹，它們在看你。"] }
+    ],
+    "3": [
+      { "id": "gulu", "name": "尋寶蛙客 咕嚕", "faction": "旅人", "lines": ["遺跡入口閃紫光，帶鑰石進去穩賺。", "霧越濃，星砂越多，命越短。", "我不是怕毒，我是怕弄濕帽子。"] },
+      { "id": "sora", "name": "修院見習 Sora", "faction": "Lotus Sanctum", "lines": ["沼澤的毒不是病，是空洞的氣息。", "長老說淨水潑在孢囊上最有效。", "我的燈熄了三次，我還在點第四次。"] }
+    ],
+    "4": [
+      { "id": "lulu", "name": "觀星者 露露", "faction": "旅人", "lines": ["暴風雪裡看不到星，但星燈看得到你。", "燈被冰住前，我看過領主站在旁邊。", "想活命，每五十步就找營火。"] },
+      { "id": "kestrel", "name": "天航者 Kestrel", "faction": "Skyfarers' League", "lines": ["纜車停了，我只好用腳。", "Hoarfrost 以前是守燈人，現在連燈都不放過。", "融冰要火，火要柴，柴要你去砍。"] }
+    ],
+    "5": [
+      { "id": "yan", "name": "鑄火匠 炎叔", "faction": "旅人", "lines": ["火岩區的星紋礦品質最高，可惜有龍在看。", "爐子是我看著長大的，不能落在牠手上。", "打好的劍我會先給你，不收錢。這次。"] },
+      { "id": "dunn", "name": "軍需官 Dunn", "faction": "Order of the Wick", "lines": ["騎士團三個月沒新兵器了。", "帳我記著，爐子拿回來再算。", "別碰熔岩。我是說真的。"] }
+    ],
+    "6": [
+      { "id": "moss", "name": "古樹守望者 苔翁", "faction": "旅人", "lines": ["你已走過整個 Lumen Isles，最後一步是 Orld。", "樹心還亮著，但那不是原來的光。", "他以前會給迷路的人帶路。"] },
+      { "id": "veya", "name": "議會學者 Veya", "faction": "Emberbound Conclave", "lines": ["我量過樹心之光，頻率被人改過。", "Morvane 懂這種光，因為他以前管過它。", "別直接碰黑色的光，它會記住你。"] }
+    ]
+  },
+  "town": {
+    "hale": { "name": "燈芯騎士團長 Hale", "faction": "Order of the Wick", "lines": ["聽好，提燈者。西邊路燈全滅了，商隊被困在草原。", "你去點燈，順便把野豬趕開。回來領賞。", "墜塔之後，騎士團只剩我們這些人。夠用了。"] },
+    "bots": {
+      "鐘錶匠 米糕": ["Flame 快見底就回光圈，別硬撐。", "北門地圖桌可設計終局副本。"],
+      "草藥師 阿杏": ["毒霧天氣帶蘋果酒，淨化很快。", "甜莓配蘋果酒能合出特調。"],
+      "守夜人 老燈": ["雙燈照路，夜行小心。", "燈熄了就找下一盞，別站在黑裡。"],
+      "酒館主廚 楓": ["蘋果酒剛釀好，Hale 團長說不准賒帳。", "進屋烤火，Flame 會回得快一點。"],
+      "行腳商 豆豆": ["背包裡兩件東西撞一下，能合成。", "倉庫箱在廣場東北角，Pim 掌櫃不收保管費。"],
+      "鐵匠 石頭": ["打冰凍怪會觸發碎冰。", "鐵匠鋪可以直接腐化穿戴裝備，後果自負。"],
+      "碼頭舵手 小潮": ["走到棧橋盡頭就能登船。", "Skyfarers' League 的航線全靠星燈撐著。"]
+    },
+    "harbor": {
+      "老船長 浪花": ["南碼頭渡船隨時啟航。", "星燈點得越多，航線越安全。"],
+      "裁縫師 歐蕾": ["來試新草帽？背飾立刻生效。", "亮色衣服在黑暗裡反而好找人。"],
+      "倉管員 阿桶": ["貴重裝備放這裡最安心。", "Merchant Concord 的帳，我幫你記著。"]
+    }
+  },
+  "quests": {
+    "1": [
+      { "id": "r1q1", "title": "Report to Hale", "desc": "騎士團長 Hale 在鎮上召集提燈者。去找他報到。",
+        "goals": [{ "k": "talk", "npc": "hale", "at": "town", "n": 1, "text": "在 Emberhearth 與 Hale 交談" }], "reward": { "xp": 60, "coins": 20 } },
+      { "id": "r1q2", "title": "Relight the Road", "desc": "空洞熄滅了草原兩盞路燈，商隊進不了城。",
+        "goals": [{ "k": "lantern", "n": 2, "text": "點亮 2 盞星燈" }], "reward": { "xp": 80, "coins": 30, "shards": 5 } },
+      { "id": "r1q3", "title": "Clear the Pasture", "desc": "野豬和史萊姆圍住了商隊。把牠們趕開。",
+        "goals": [{ "k": "kill", "n": 12, "text": "擊敗 12 隻魔物" }], "reward": { "xp": 90, "coins": 35 } },
+      { "id": "r1q4", "title": "Caravan Rations", "desc": "車伕 Bo 的補給見底了。採集一些素材給他。",
+        "goals": [{ "k": "gather", "n": 3, "text": "採集 3 次素材" }, { "k": "talk", "npc": "bo", "n": 1, "text": "把素材交給 Bo" }], "reward": { "xp": 110, "coins": 45 } },
+      { "id": "r1q5", "title": "The Painter's Request", "desc": "柚子想畫風車，但精英野豬擋在路上。",
+        "goals": [{ "k": "elite", "n": 1, "text": "擊敗 1 隻精英" }, { "k": "talk", "npc": "yuzu", "n": 1, "text": "回報柚子" }], "reward": { "xp": 130, "coins": 55, "shards": 5 } },
+      { "id": "r1q6", "title": "Tracks in the Grass", "desc": "草原上有巨大的獠牙痕跡。找出牠的巢。",
+        "goals": [{ "k": "chest", "n": 1, "text": "打開 1 個高台寶箱" }, { "k": "kill", "n": 10, "text": "再擊敗 10 隻魔物" }], "reward": { "xp": 160, "coins": 70, "shards": 8 } },
+      { "id": "r1q7", "title": "Break the Tusk", "desc": "Cleaver Tusk 守在路中央。擊倒牠，路就通了。",
+        "goals": [{ "k": "boss", "n": 1, "text": "擊敗 Cleaver Tusk" }], "reward": { "xp": 260, "coins": 100, "shards": 15, "keys": 1 } }
+    ],
+    "2": [
+      { "id": "r2q1", "title": "The Missing Loggers", "desc": "領班 Gruff 的三名伐木工失蹤。先找到他的人。",
+        "goals": [{ "k": "talk", "npc": "gruff", "n": 1, "text": "與 Gruff 交談" }], "reward": { "xp": 250, "coins": 60 } },
+      { "id": "r2q2", "title": "Follow the Axes", "desc": "斧頭掉了一路。順著痕跡清掉擋路的魔物。",
+        "goals": [{ "k": "kill", "n": 14, "text": "擊敗 14 隻魔物" }], "reward": { "xp": 280, "coins": 70, "shards": 8 } },
+      { "id": "r2q3", "title": "Tangled Lantern", "desc": "引路燈被樹根勒進地面。靠近並點亮它們。",
+        "goals": [{ "k": "lantern", "n": 2, "text": "點亮 2 盞星燈" }], "reward": { "xp": 300, "coins": 80, "shards": 10 } },
+      { "id": "r2q4", "title": "Timber for Repairs", "desc": "修燈需要香杉木。多採一些。",
+        "goals": [{ "k": "gather", "n": 4, "text": "採集 4 次素材" }, { "k": "talk", "npc": "pine", "n": 1, "text": "請阿松檢查木料" }], "reward": { "xp": 330, "coins": 90 } },
+      { "id": "r2q5", "title": "Canopy Cache", "desc": "伐木工的備用糧藏在高台。拿下來。",
+        "goals": [{ "k": "chest", "n": 1, "text": "打開 1 個高台寶箱" }], "reward": { "xp": 360, "coins": 100, "shards": 10 } },
+      { "id": "r2q6", "title": "Root Hunters", "desc": "精英魔物在根網旁巡邏。清掉牠們，Gruff 的人才出得來。",
+        "goals": [{ "k": "elite", "n": 2, "text": "擊敗 2 隻精英" }, { "k": "talk", "npc": "gruff", "n": 1, "text": "回報 Gruff" }], "reward": { "xp": 400, "coins": 120, "shards": 12 } },
+      { "id": "r2q7", "title": "Cut the Root", "desc": "Hookthorn Elder 抓著引路燈不放。砍斷牠。",
+        "goals": [{ "k": "boss", "n": 1, "text": "擊敗 Hookthorn Elder" }], "reward": { "xp": 600, "coins": 180, "shards": 20, "keys": 1 } }
+    ],
+    "3": [
+      { "id": "r3q1", "title": "Sora's Plea", "desc": "蓮華修院的見習 Sora 來求援。淨燈撐不住了。",
+        "goals": [{ "k": "talk", "npc": "sora", "n": 1, "text": "與 Sora 交談" }], "reward": { "xp": 500, "coins": 90 } },
+      { "id": "r3q2", "title": "Fetch Clean Water", "desc": "修院要淨水。沼澤中央的水還能用，採一些回來。",
+        "goals": [{ "k": "gather", "n": 4, "text": "採集 4 次素材" }], "reward": { "xp": 550, "coins": 100, "shards": 12 } },
+      { "id": "r3q3", "title": "Spore Cleanup", "desc": "孢子怪不斷把毒霧往修院吹。清掉牠們。",
+        "goals": [{ "k": "kill", "n": 16, "text": "擊敗 16 隻魔物" }], "reward": { "xp": 600, "coins": 110, "shards": 12 } },
+      { "id": "r3q4", "title": "Light the Ferry", "desc": "渡口的燈一滅，船就不敢開。點亮路上的星燈。",
+        "goals": [{ "k": "lantern", "n": 3, "text": "點亮 3 盞星燈" }], "reward": { "xp": 650, "coins": 130, "shards": 15 } },
+      { "id": "r3q5", "title": "Frog's Treasure Map", "desc": "咕嚕說遺跡裡有修院的舊物。幫他找，順便看看有沒有線索。",
+        "goals": [{ "k": "chest", "n": 1, "text": "打開 1 個高台寶箱" }, { "k": "talk", "npc": "gulu", "n": 1, "text": "回報咕嚕" }], "reward": { "xp": 700, "coins": 140, "shards": 15 } },
+      { "id": "r3q6", "title": "Elder's Diary", "desc": "長老的日記散落在沼澤各處。收集 3 張碎片。",
+        "goals": [{ "k": "fragment", "n": 3, "text": "收集 3 張傳說碎片" }], "reward": { "xp": 800, "coins": 160, "shards": 18 } },
+      { "id": "r3q7", "title": "Pop the Colossus", "desc": "Sporebloat Colossus 是毒霧的源頭。用淨水引爆孢池，再打破囊。",
+        "goals": [{ "k": "boss", "n": 1, "text": "擊敗 Sporebloat Colossus" }], "reward": { "xp": 1200, "coins": 250, "shards": 25, "keys": 1 } }
+    ],
+    "4": [
+      { "id": "r4q1", "title": "Frozen Lantern", "desc": "天航者 Kestrel 說雪原的星燈被冰封了。去找她問清楚。",
+        "goals": [{ "k": "talk", "npc": "kestrel", "n": 1, "text": "與 Kestrel 交談" }], "reward": { "xp": 900, "coins": 140 } },
+      { "id": "r4q2", "title": "Warm the Camps", "desc": "沒有營火就撐不住暴風雪。點亮沿路的星燈。",
+        "goals": [{ "k": "lantern", "n": 3, "text": "點亮 3 盞星燈" }], "reward": { "xp": 1000, "coins": 160, "shards": 18 } },
+      { "id": "r4q3", "title": "Thaw Fuel", "desc": "融冰要燃料。採集足夠的木料和礦。",
+        "goals": [{ "k": "gather", "n": 5, "text": "採集 5 次素材" }], "reward": { "xp": 1100, "coins": 180, "shards": 18 } },
+      { "id": "r4q4", "title": "Frostbitten Patrol", "desc": "被凍僵的魔物擋住了去星燈的路。清掉牠們。",
+        "goals": [{ "k": "kill", "n": 18, "text": "擊敗 18 隻魔物" }, { "k": "elite", "n": 1, "text": "擊敗 1 隻精英" }], "reward": { "xp": 1200, "coins": 200, "shards": 20 } },
+      { "id": "r4q5", "title": "Escort the Stargazer", "desc": "露露想近距離觀測星燈，但沒人帶路。陪她走一趟，順手打開沿路的寶箱。",
+        "goals": [{ "k": "talk", "npc": "lulu", "n": 1, "text": "與露露會合" }, { "k": "chest", "n": 1, "text": "打開 1 個高台寶箱" }], "reward": { "xp": 1300, "coins": 220, "shards": 22 } },
+      { "id": "r4q6", "title": "Who Was Hoarfrost", "desc": "Hoarfrost 曾是守燈人。找出他的過去。",
+        "goals": [{ "k": "fragment", "n": 4, "text": "收集 4 張傳說碎片" }], "reward": { "xp": 1500, "coins": 260, "shards": 25 } },
+      { "id": "r4q7", "title": "Fell the Lord", "desc": "Hoarfrost 守在冰封的星燈前。擊倒他，融冰。",
+        "goals": [{ "k": "boss", "n": 1, "text": "擊敗 Frost Colossus" }], "reward": { "xp": 2200, "coins": 380, "shards": 35, "keys": 1 } }
+    ],
+    "5": [
+      { "id": "r5q1", "title": "Quartermaster's Ledger", "desc": "軍需官 Dunn 要你看看鍛爐的狀況。先跟他談。",
+        "goals": [{ "k": "talk", "npc": "dunn", "n": 1, "text": "與 Dunn 交談" }], "reward": { "xp": 1600, "coins": 200 } },
+      { "id": "r5q2", "title": "Clear the Slag", "desc": "熔岩怪佔了通往鍛爐的路。清掉牠們。",
+        "goals": [{ "k": "kill", "n": 20, "text": "擊敗 20 隻魔物" }], "reward": { "xp": 1700, "coins": 220, "shards": 22 } },
+      { "id": "r5q3", "title": "Light the Bridges", "desc": "棧橋和礦道上的燈全滅了。點亮它們。",
+        "goals": [{ "k": "lantern", "n": 3, "text": "點亮 3 盞星燈" }], "reward": { "xp": 1800, "coins": 240, "shards": 24 } },
+      { "id": "r5q4", "title": "Ore for the Forge", "desc": "炎叔要重鑄兵器，缺星紋礦。",
+        "goals": [{ "k": "gather", "n": 5, "text": "採集 5 次素材" }, { "k": "talk", "npc": "yan", "n": 1, "text": "把礦交給炎叔" }], "reward": { "xp": 1900, "coins": 260, "shards": 25 } },
+      { "id": "r5q5", "title": "Smuggler's Stash", "desc": "有人偷偷把兵器藏在高台。找回來。",
+        "goals": [{ "k": "chest", "n": 1, "text": "打開 1 個高台寶箱" }, { "k": "elite", "n": 2, "text": "擊敗 2 隻精英" }], "reward": { "xp": 2000, "coins": 280, "shards": 28 } },
+      { "id": "r5q6", "title": "The Old Letters", "desc": "鍛爐裡有舊信，和 Morvane 有關。收集它們。",
+        "goals": [{ "k": "fragment", "n": 5, "text": "收集 5 張傳說碎片" }], "reward": { "xp": 2300, "coins": 320, "shards": 32 } },
+      { "id": "r5q7", "title": "Slay the Drake", "desc": "Infernal Magma Drake 住在鍛爐裡。打倒牠，爐子歸騎士團。",
+        "goals": [{ "k": "boss", "n": 1, "text": "擊敗 Infernal Magma Drake" }], "reward": { "xp": 3200, "coins": 480, "shards": 45, "keys": 1 } }
+    ],
+    "6": [
+      { "id": "r6q1", "title": "The Watcher's Warning", "desc": "苔翁說樹心之光變了。去聽他怎麼說。",
+        "goals": [{ "k": "talk", "npc": "moss", "n": 1, "text": "與苔翁交談" }], "reward": { "xp": 2400, "coins": 260 } },
+      { "id": "r6q2", "title": "Cleanse the Glade", "desc": "被腐化的魔物守著林地入口。清掉牠們。",
+        "goals": [{ "k": "kill", "n": 22, "text": "擊敗 22 隻魔物" }], "reward": { "xp": 2500, "coins": 280, "shards": 28 } },
+      { "id": "r6q3", "title": "Light the Path", "desc": "通往樹心的路上有三盞星燈。點亮它們。",
+        "goals": [{ "k": "lantern", "n": 3, "text": "點亮 3 盞星燈" }], "reward": { "xp": 2600, "coins": 300, "shards": 30 } },
+      { "id": "r6q4", "title": "Veya's Measurements", "desc": "學者 Veya 要樣本。帶採集的素材給她。",
+        "goals": [{ "k": "gather", "n": 5, "text": "採集 5 次素材" }, { "k": "talk", "npc": "veya", "n": 1, "text": "把樣本交給 Veya" }], "reward": { "xp": 2700, "coins": 320, "shards": 30 } },
+      { "id": "r6q5", "title": "Corrupted Elites", "desc": "被腐化的精英巡視著樹心。擊倒牠們，削弱黑光。",
+        "goals": [{ "k": "elite", "n": 3, "text": "擊敗 3 隻精英" }], "reward": { "xp": 2800, "coins": 340, "shards": 32 } },
+      { "id": "r6q6", "title": "Memory of the Tree", "desc": "古樹記得 Orld 的事。收集林地裡的碎片。",
+        "goals": [{ "k": "fragment", "n": 6, "text": "收集 6 張傳說碎片" }], "reward": { "xp": 2900, "coins": 360, "shards": 35 } },
+      { "id": "r6q7", "title": "Heart of the Wood", "desc": "世界樹的核心有一座高台。上去拿回屬於林地的東西。",
+        "goals": [{ "k": "chest", "n": 1, "text": "打開 1 個高台寶箱" }, { "k": "kill", "n": 12, "text": "再擊敗 12 隻魔物" }], "reward": { "xp": 3200, "coins": 380, "shards": 38 } },
+      { "id": "r6q8", "title": "Free Orld", "desc": "Orld 被 Morvane 腐化了。擊敗他，取回樹心之光。",
+        "goals": [{ "k": "boss", "n": 1, "text": "擊敗 Orld" }], "reward": { "xp": 5000, "coins": 700, "shards": 60, "keys": 1 } }
+    ]
+  },
+  "fragments": {
+    "1": [
+      { "id": "lf_1_01", "title": "Guard Notice", "text": "公告：三年前燈塔倒了，天空黑了一整夜。官方說法是某個怪物幹的。", "src": { "k": "talk", "npc": "hale" } },
+      { "id": "lf_1_02", "title": "Caravan Log", "text": "車隊日誌第三天：路燈沒亮，馬不肯走。車伕說這條路以前沒有黑過。", "src": { "k": "quest", "id": "r1q4" } },
+      { "id": "lf_1_03", "title": "Windmill Sketch", "text": "柚子的素描。風車旁邊畫了一個高大的影子，旁邊寫著：「這不是我畫的。」", "src": { "k": "quest", "id": "r1q5" } },
+      { "id": "lf_1_04", "title": "Broken Lamp Glass", "text": "路燈玻璃的碎片，邊緣發黑。不是被砸的，是被什麼東西吸乾的。", "src": { "k": "lantern", "idx": 1 } },
+      { "id": "lf_1_05", "title": "Stream Stones", "text": "溪心石陣刻著舊字：「燈會滅，所以要有人守。」", "src": { "k": "lantern", "idx": 2 } },
+      { "id": "lf_1_06", "title": "Boar Tusk Shard", "text": "獠牙碎片，裡面有一粒星砂。Cleaver Tusk 以前只是一頭野豬。", "src": { "k": "boss" } },
+      { "id": "lf_1_07", "title": "High Chest Note", "text": "寶箱裡的紙條：「若你看到這張，表示燈還沒全滅。留一盞給下一個人。」", "src": { "k": "chest", "n": 1 } },
+      { "id": "lf_1_08", "title": "Hunter's Rumor", "text": "獵人說他在夜裡看到一個戴兜帽的人在熄路燈，動作很熟練，像在做老工作。", "src": { "k": "elite", "n": 2 } }
+    ],
+    "2": [
+      { "id": "lf_2_01", "title": "Gruff's Roster", "text": "伐木名冊，三個名字被劃掉，旁邊用紅筆寫：「回來」。", "src": { "k": "talk", "npc": "gruff" } },
+      { "id": "lf_2_02", "title": "Axe in the Root", "text": "一把斧頭插在根裡，木柄上還有手溫。伐木工沒走遠。", "src": { "k": "quest", "id": "r2q2" } },
+      { "id": "lf_2_03", "title": "Guide Lantern Plaque", "text": "引路燈的銘牌：「Skyfarers' League 敬立。迷路的人，看光走。」", "src": { "k": "lantern", "idx": 1 } },
+      { "id": "lf_2_04", "title": "Root Map", "text": "根網的走向不是亂長，是朝著同一個方向，西北的 Elderwood。", "src": { "k": "lantern", "idx": 2 } },
+      { "id": "lf_2_05", "title": "Canopy Ration Box", "text": "高台糧箱，裡面有餅乾和一張地圖，上面標著「別走夜路」。", "src": { "k": "quest", "id": "r2q5" } },
+      { "id": "lf_2_06", "title": "Hollow Sap", "text": "樹汁變成黑色，會把光吸走。Hookthorn Elder 是被灌進去的，不是自己選的。", "src": { "k": "boss" } },
+      { "id": "lf_2_07", "title": "Pine's Field Notes", "text": "阿松的筆記：空洞不是怪物，是『缺光』。哪裡缺，哪裡就長出東西。", "src": { "k": "talk", "npc": "pine" } },
+      { "id": "lf_2_08", "title": "Dropped Hood", "text": "兜帽的布片，掛在樹枝上。布料是騎士團制式的，染了灰。", "src": { "k": "elite", "n": 3 } }
+    ],
+    "3": [
+      { "id": "lf_3_01", "title": "Sora's Prayer Strip", "text": "見習寫的祈禱條：「請再亮一次。」寫了三十幾遍。", "src": { "k": "talk", "npc": "sora" } },
+      { "id": "lf_3_02", "title": "Elder Diary I", "text": "蓮華長老日記：今天又有人問，墜塔那晚誰在塔頂。我只能說，是首席守燈人 Morvane Ashgrave。", "src": { "k": "quest", "id": "r3q2" } },
+      { "id": "lf_3_03", "title": "Elder Diary II", "text": "日記：Morvane 不是壞人，他是最認真的人。認真到不肯讓任何一盞燈熄。", "src": { "k": "lantern", "idx": 1 } },
+      { "id": "lf_3_04", "title": "Elder Diary III", "text": "日記：他開始偷其他燈的光，說這樣塔就不會滅。我勸過他，他沒聽。", "src": { "k": "lantern", "idx": 2 } },
+      { "id": "lf_3_05", "title": "Ferry Ledger", "text": "渡口帳本：燈滅那一週，沒有一艘船靠岸。船夫自己也不敢說為什麼。", "src": { "k": "lantern", "idx": 3 } },
+      { "id": "lf_3_06", "title": "Treasure Frog's Haul", "text": "咕嚕找到的舊物：一盞修院的小燈，燈芯是 Morvane 的徽記。", "src": { "k": "quest", "id": "r3q5" } },
+      { "id": "lf_3_07", "title": "Spore Residue", "text": "孢囊裡的殘渣，含大量星砂。Sporebloat Colossus 把整片沼澤的光都吃了。", "src": { "k": "boss" } },
+      { "id": "lf_3_08", "title": "Marsh Elite Tag", "text": "精英身上的銘牌，是修院的守衛。他們被空洞帶走後，還記得自己要守什麼。", "src": { "k": "elite", "n": 3 } }
+    ],
+    "4": [
+      { "id": "lf_4_01", "title": "Kestrel's Chart", "text": "天航者航線圖：雪原的星燈是第一座熄的，不是最後一座。", "src": { "k": "talk", "npc": "kestrel" } },
+      { "id": "lf_4_02", "title": "Frozen Logbook", "text": "凍住的值班本。最後一行：「Hoarfrost 站長，今晚我替你守夜。」", "src": { "k": "quest", "id": "r4q3" } },
+      { "id": "lf_4_03", "title": "Camp Fire Ash", "text": "營火灰堆裡有一枚徽章：Order of the Wick。他們曾在這裡守過。", "src": { "k": "lantern", "idx": 1 } },
+      { "id": "lf_4_04", "title": "Gondola Station Note", "text": "纜車站公告：因星燈異常，今日暫停。這是三年來的第一天停運。", "src": { "k": "lantern", "idx": 2 } },
+      { "id": "lf_4_05", "title": "Skating Lake Message", "text": "冰湖底下有一行字：「別怪他，他只是不想再看見燈熄。」", "src": { "k": "lantern", "idx": 3 } },
+      { "id": "lf_4_06", "title": "Stargazer Report", "text": "露露的觀測紀錄：星燈被冰住前，有人在旁邊站了一整晚，沒有動。", "src": { "k": "talk", "npc": "lulu" } },
+      { "id": "lf_4_07", "title": "Hoarfrost's Badge", "text": "領主身上的徽章，刻著 Hoarfrost 的名字和守燈人的燈芯。他曾是 Morvane 的學生。", "src": { "k": "boss" } },
+      { "id": "lf_4_08", "title": "Elder Diary IV", "text": "日記：我把 Hoarfrost 的事告訴了 Morvane。他說：「那不是他的錯，是塔的錯。」", "src": { "k": "elite", "n": 3 } }
+    ],
+    "5": [
+      { "id": "lf_5_01", "title": "Dunn's Stock Sheet", "text": "庫存表：長劍 0、盾牌 0、備用燈芯 3。最底下寫著「向 Morvane 請求補給」，被劃掉了。", "src": { "k": "talk", "npc": "dunn" } },
+      { "id": "lf_5_02", "title": "Forge Letter I", "text": "鍛爐信件：Morvane 寫給火匠的。「燈火不可以斷，你幫我多打一批提燈。」", "src": { "k": "quest", "id": "r5q2" } },
+      { "id": "lf_5_03", "title": "Forge Letter II", "text": "信件：「我女兒問我，為什麼晚上要把燈留給別人。我答不出來。」", "src": { "k": "lantern", "idx": 1 } },
+      { "id": "lf_5_04", "title": "Forge Letter III", "text": "信件：「燈熄的那晚，我什麼都沒做到。我不要下一代再看一次。」", "src": { "k": "lantern", "idx": 2 } },
+      { "id": "lf_5_05", "title": "Forge Letter IV", "text": "信件：「所以我偷光。每一盞都要，一盞都不能少。」", "src": { "k": "lantern", "idx": 3 } },
+      { "id": "lf_5_06", "title": "Smuggler's Receipt", "text": "走私單：二十把騎士團長劍，賣給了空洞。收款人簽名被燒掉了。", "src": { "k": "quest", "id": "r5q5" } },
+      { "id": "lf_5_07", "title": "Drake Scale", "text": "巨龍鱗片，內側有字：「請牠守好鍛爐。」是 Morvane 的字跡。", "src": { "k": "boss" } },
+      { "id": "lf_5_08", "title": "Yan's Apprentice Mark", "text": "炎叔的學徒印，刻在最舊的鐵砧下。他學徒時，老師就是 Morvane。", "src": { "k": "talk", "npc": "yan" } }
+    ],
+    "6": [
+      { "id": "lf_6_01", "title": "Moss's Gate Warning", "text": "苔翁的警告：「別直視樹心的光，現在它也在看你。」", "src": { "k": "talk", "npc": "moss" } },
+      { "id": "lf_6_02", "title": "Veya's Measurements", "text": "Veya 的測量：樹心之光的頻率，和燈塔頂冠相同。Morvane 把兩者連在一起。", "src": { "k": "talk", "npc": "veya" } },
+      { "id": "lf_6_03", "title": "Glade Mark", "text": "林地入口的石碑：「進來的人，帶一盞燈。出去的人，留一盞燈。」", "src": { "k": "lantern", "idx": 1 } },
+      { "id": "lf_6_04", "title": "Antler Moss", "text": "一撮鹿角苔蘚，還留著 Orld 的體溫。他在這裡守了三百年。", "src": { "k": "lantern", "idx": 2 } },
+      { "id": "lf_6_05", "title": "Spring of Three Tiers", "text": "三疊靈泉的水還是乾淨的。Orld 把最後一點光存在這裡。", "src": { "k": "lantern", "idx": 3 } },
+      { "id": "lf_6_06", "title": "Corrupted Sprig", "text": "被腐化的樹枝，斷口是黑的，卻在發光。是 Morvane 的光，不是樹的。", "src": { "k": "elite", "n": 3 } },
+      { "id": "lf_6_07", "title": "World Tree Offering", "text": "世界樹核旁的供品：一頂小小的兜帽，大小適合孩子。", "src": { "k": "quest", "id": "r6q7" } },
+      { "id": "lf_6_08", "title": "Orld's Last Memory", "text": "Orld 臨終的記憶：上一次燈熄之夜，他看見一個人抱著女兒坐在樹下，什麼也沒說。那個人是 Morvane。", "src": { "k": "boss" } }
+    ]
+  }
+}

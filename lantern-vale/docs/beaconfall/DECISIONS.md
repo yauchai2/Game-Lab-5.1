@@ -19,4 +19,5 @@ Alan approved "go with recommendations". These are final unless Alan changes the
 - Phase 0: done (glossary, string audit script and report, decisions, save schema).
 - Phase 1: done for branding/title/about/boot splash/server and test strings; Flame HUD placeholder deferred to Phase 2 (a bar with no data would mislead).
 - Phase 2: done (Flame, light radius, lantern respawn, Dimming). API and tuning guide: `docs/beaconfall/FLAME.md`, numbers in `data/flame.json`. Phase 4 hooks in through `player.flameWick` and `onFlame()`.
-- Not changed yet: zone/island/boss names, NPC text, quests, class/skill names, items (Phases 3–5).
+- Phase 3 (partial, six regions): region lore, region bosses, quest lines, NPC one-liners and Lore Fragments are in `data/lore.json` (see `docs/beaconfall/LORE.md`). Still open: 14 outer islands, main-story chapter rewrite, Ember Tide beats, in-game zone renames.
+- Not changed yet: class/skill names, items (Phases 4–5).

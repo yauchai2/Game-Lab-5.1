@@ -1,5 +1,6 @@
 import { Weather } from './weather.js';
 import { bindGuild, updateRaid } from './guild.js';
+import { loreHook, bossDisplayName, townLines, LORE_DATA } from './lore.js';
 import { FIELDS, FIELD_BOSS_SPEC, fieldBiome, awardKill, grantExperience, setupField, tickField, useFieldSpot, leaveGrave, refreshGraveSpot, rememberGear, restoreGear } from './frontier.js';
 import { FIELD_BLUEPRINTS } from './field_blueprints.js';
 import { getTerrainEffect, updateFieldTerrainFx, updateRealmRule } from './terrain_fx.js';
@@ -1029,8 +1030,8 @@ export class Game {
       e.phase = 1; e.cd = 2; this.boss = e;
       if (bossSpec) {
         e.r *= 1.35;
-        e.bossName = bossSpec.name;
-        this.ui.bossBar(true, bossSpec.name);
+        e.bossName = bossDisplayName(this.field) || bossSpec.name;
+        this.ui.bossBar(true, e.bossName);
         const auraRing = new THREE.Mesh(
           new THREE.RingGeometry(1.55, 2.05, 24),
           new THREE.MeshBasicMaterial({ color: bossSpec.aura, transparent: true, opacity: 0.72, side: THREE.DoubleSide, depthWrite: false }),
@@ -1038,7 +1039,7 @@ export class Game {
         auraRing.rotation.x = -Math.PI / 2; auraRing.position.y = 0.08; auraRing.userData.noNormal = true;
         m.root.add(auraRing);
       } else {
-        this.ui.bossBar(true, '古樹鹿王 · 歐爾德');
+        this.ui.bossBar(true, bossDisplayName(6) || '古樹鹿王 · 歐爾德');
       }
     }
     if (elite) {
@@ -2827,7 +2828,7 @@ export class Game {
     if (s.kind === 'rekindle_lantern') return rekindleTide(this);
     if (this.field) return useFieldSpot(this, s);
     if (s.kind === 'talk') { const r = s.bot; this.say(r.id, r.lines[(Math.random() * r.lines.length) | 0]); r.tf = Math.atan2(this.player.pos.x - r.x, this.player.pos.z - r.z); r.wait = Math.max(r.wait, 4);
-      if (!this.talked.has(r.id)) { this.talked.add(r.id); this.meta.event('talk'); } this.audio.sfx('ui'); return true; }
+      if (!this.talked.has(r.id)) { this.talked.add(r.id); this.meta.event('talk'); } if (r.loreNpc) loreHook(this, { kind: 'talk', npc: r.loreNpc }); this.audio.sfx('ui'); return true; }
     this.audio.sfx('ui'); this.ui.openPanel(s.kind); return true;
   }
   enterInterior(kind) {
@@ -2975,8 +2976,9 @@ export class Game {
         ['裁縫師 歐蕾', 4, ['來試試新草帽嗎？', '背飾造型立刻生效！'], [-7.2, 5.2, 1.5], 'cat'],
         ['倉管員 阿桶', 6, ['貴重裝備放這裡最安心。', '試著在背包裡撞擊合成！'], [7.2, -1.8, 1.4], 'smith'],
       ];
-      harborBots.forEach(([name, col, lines, home, arch], i) => {
+      harborBots.forEach(([name, col, lines0, home, arch], i) => {
         const id = 'hbot' + i;
+        const lines = townLines(name) || lines0;
         const r = this.addRemote(id, name, col, arch);
         r.bot = true; r.lines = lines; r.home = home; r.x = r.tx = home[0]; r.z = r.tz = home[1]; r.wait = 1 + i;
         this.bots.push(id);
@@ -3006,9 +3008,13 @@ export class Game {
       ['鐵匠 石頭', 6, ['打冰凍怪會觸發碎冰！', '鐵匠鋪可直接腐化穿戴裝備！'], [11.2, -8.4, 1.2], 'smith'],
       ['碼頭舵手 小潮', 7, ['走到棧橋盡頭即可登船！', '海風很舒服吧？'], [1.5, 20.8, 1.2], 'captain'],
     ];
-    defs.forEach(([name, col, lines, home, arch], i) => {
+    // Beaconfall Phase 3: Captain Hale is the Order of the Wick contact for the first region quest.
+    const hale = LORE_DATA.town.hale;
+    defs.push([hale.name, 6, hale.lines, [3.8, -3.4, 1.2], 'captain', 'hale']);
+    defs.forEach(([name, col, lines0, home, arch, loreNpc], i) => {
       const id = 'bot' + i;
-      const r = this.addRemote(id, name, col, arch); r.bot = true; r.lines = lines; r.home = home; r.x = r.tx = home[0]; r.z = r.tz = home[1]; r.wait = 4 + i * 2.5;
+      const lines = townLines(name) || lines0;
+      const r = this.addRemote(id, name, col, arch); r.bot = true; r.lines = lines; if (loreNpc) r.loreNpc = loreNpc; r.home = home; r.x = r.tx = home[0]; r.z = r.tz = home[1]; r.wait = 4 + i * 2.5;
       this.bots.push(id);
     });
   }
@@ -3170,7 +3176,7 @@ export class Game {
       const a = p.roll > 0 ? 5 : p.climbing ? 3 : p.gliding ? 4 : p.air ? 2 : p.walkT > 0 ? 1 : 0;
       n.send({ t: 'pos', zone: this.zone, party: this.caveRun ? '' : this.party, x: p.pos.x, y: p.y, z: p.pos.z, f: p.facing, a });
     }
-    if (this.zone !== this._lastZone) { this._lastZone = this.zone; for (const id of [...this.remotes.keys()]) if (!String(id).startsWith('bot')) this.removeRemote(id); }
+    if (this.zone !== this._lastZone) { this._lastZone = this.zone; for (const [id, rm] of [...this.remotes]) if (!rm.bot && !String(id).startsWith('bot')) this.removeRemote(id); }   // keep NPC bots (field NPCs used to vanish here)
     for (const r of this.remotes.values()) {
       if (r.bot) {
         r.wait -= dt;
