@@ -14,8 +14,9 @@ const r = await esbuild.build({
 });
 const js = r.outputFiles[0].text.replace(/<\/script/g, '<\\/script');
 const template = fs.readFileSync('src/index.html', 'utf8');
-const buildId = createHash('sha256').update(template).update(js).digest('hex').slice(0, 12);
-const html = template.replace('__LV_BUILD_ID__', buildId).replace('/*__GAME__*/', () => js);
+const buildId = createHash('sha256').update(template).update(js).update(fs.readFileSync('src/pxlogo.inline.js')).digest('hex').slice(0, 12);
+const pxlogo = fs.readFileSync('src/pxlogo.inline.js', 'utf8').replace(/<\/script/g, '<\\/script');
+const html = template.replace('__LV_BUILD_ID__', buildId).replace('/*__PXLOGO__*/', () => pxlogo).replace('/*__GAME__*/', () => js);
 fs.mkdirSync('dist', { recursive: true });
 fs.writeFileSync('dist/index.html', html);
 const fontPath = 'assets/ui/fonts';
