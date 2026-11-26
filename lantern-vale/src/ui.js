@@ -202,6 +202,10 @@ export class UI {
           game.castHotbar(i);
         }
       };
+      slot.addEventListener('touchstart', event => {
+        if (game.canUseTouchControls()) event.preventDefault();
+      }, { passive: false });
+      slot.addEventListener('contextmenu', event => event.preventDefault());
       slot.addEventListener('pointerdown', event => {
         if (event.pointerType !== 'touch' && event.pointerType !== 'pen') return;
         event.preventDefault();

@@ -27,11 +27,14 @@
 html:lang(ja){--font-ui:"Fusion Pixel JP","Fusion Pixel TW","Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif}
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --paper:#fff6e2; } }
 :root[data-theme="dark"]{ --paper:#fff6e2; }
-*{box-sizing:border-box}
-html,body{margin:0;height:100%;overflow:hidden;background:#1a1426;color:var(--ink);font-family:var(--font-ui);user-select:none}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;background:#1a1426;color:var(--ink);font-family:var(--font-ui);user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+button,a,.btn,#hud,#hud *{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-user-drag:none}
+button,.btn{touch-action:manipulation}
+input,textarea{user-select:text;-webkit-user-select:text;-webkit-touch-callout:default}
 button,input,select,option,textarea,dialog,pre,code,kbd,samp,input::file-selector-button{font-family:inherit}
 dialog{font-family:var(--font-ui)}
-#view{position:fixed;inset:0;image-rendering:pixelated;image-rendering:crisp-edges;cursor:crosshair}
+#view{position:fixed;inset:0;image-rendering:pixelated;image-rendering:crisp-edges;cursor:crosshair;touch-action:none}
 .hide,[hidden]{display:none!important}
 .panel{background:var(--paper);border:3px solid var(--ink);border-radius:10px;box-shadow:0 4px 0 var(--ink)}
 /* ---------- title ---------- */

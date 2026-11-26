@@ -15,6 +15,10 @@ export function bindTouch(g) {
       stop();
       if (button.hasPointerCapture(id)) button.releasePointerCapture(id);
     }
+    button.addEventListener('touchstart', e => {
+      if (g.canUseTouchControls()) e.preventDefault();
+    }, { passive: false });
+    button.addEventListener('contextmenu', e => e.preventDefault());
     button.addEventListener('pointerdown', e => {
       if (pointer !== null || e.button !== 0 || !g.canUseTouchControls()) return;
       e.preventDefault();
@@ -27,6 +31,13 @@ export function bindTouch(g) {
     for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) button.addEventListener(type, release);
     return release;
   }
+  const blockSelect = e => {
+    const tag = e.target?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    e.preventDefault();
+  };
+  hud.addEventListener('selectstart', blockSelect);
+  hud.addEventListener('contextmenu', blockSelect);
 
   function move(e) {
     const r = pad.getBoundingClientRect();
