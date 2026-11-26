@@ -5,6 +5,7 @@ import { FIELDS } from './frontier.js';
 import { BOONS, TIERS } from './loot.js';
 import { BAG_RECIPES } from './physbag.js';
 import { MOUNTS } from './mounts.js';
+import { loreCards } from './lore.js';
 
 export const GAME_VERSION = 'v0.12.1-alpha';
 export const DONATE_URL = 'https://ko-fi.com/'; // 可隨時改為個人贊助頁面或 ECPay 連結
@@ -163,6 +164,7 @@ export function bindCodexUI(game) {
         ['mounts', '🦌 坐騎與分級'],
         ['recipes', '⚗️ 背包碰撞合成'],
         ['mech', '⚙️ 異常與機制'],
+        ['lore', '🔖 傳說與任務'],
         ['zones', '🗺️ 區域與生態'],
         ['boons', '✨ 副本祝福'],
       ];
@@ -208,6 +210,8 @@ export function bindCodexUI(game) {
           icon: '🗺️', name: `${idx + 1}. ${f.name}`, sub: `Lv.${f.level}+ · 尺寸 ${f.size}×${f.size} · 副本：${f.dungeon}`,
           desc: `主要魔物：${f.beast} · 生態異常屬性：${f.status || '一般'}（含高密度魔物聚落與傳奇守護獸）`, color: '#62b85a',
         }));
+      } else if (wikiTab === 'lore') {
+        loreCards(game.meta.p).forEach(c => cards.push(c));
       } else if (wikiTab === 'boons') {
         BOONS.forEach(b => cards.push({ icon: b.icon, name: b.name, sub: '副本天賦祝福', desc: b.desc, color: '#c08cff' }));
       }
