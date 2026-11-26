@@ -7,7 +7,7 @@ const { chromium } = require('playwright');
   const screenshotDir = process.env.LV_SCREENSHOT_DIR;
   const browser = await chromium.launch({
     channel: process.env.LV_CHROMIUM_CHANNEL || 'chrome',
-    args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
+    args: process.env.LV_SOFTWARE_GL === '0' ? [] : ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
   });
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, hasTouch: true });
@@ -61,7 +61,8 @@ const { chromium } = require('playwright');
     console.log('Started character');
     await openTracker();
     await page.locator('[data-exp-tier="1"][data-exp-route="survey"]').click();
-    await enter('run', 'field:1');
+    await page.locator('[data-exp-warp]').click();
+    await page.waitForFunction(() => __game.zone === 'field:1' && __game.state === 'play');
     await lamp('lamp-0');
     await lamp('lamp-1');
     await defeat();
@@ -79,7 +80,8 @@ const { chromium } = require('playwright');
     if (screenshotDir) await page.screenshot({ path: path.join(screenshotDir, 'lantern-expedition-mobile.png') });
     await forestRoute.tap();
     await page.waitForFunction(() => document.getElementById('qtDesc').textContent === '前往低語森林');
-    await enter('nextField', 'field:2');
+    await page.locator('[data-exp-warp]').tap();
+    await page.waitForFunction(() => __game.zone === 'field:2' && __game.state === 'play');
     await lamp('lamp-0');
     console.log('Reached forest and repaired one lamp');
 

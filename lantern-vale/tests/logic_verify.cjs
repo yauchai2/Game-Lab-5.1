@@ -1267,6 +1267,14 @@ const createGuild = require('../server/guild.cjs');
   assert.ok(t1Rec && t1Rec.cost.goods?.wood > 0 && t1Rec.cost.mMats?.slime_gel > 0, 'T1 recipe requires wood + slime_gel');
   assert.equal(mmoRpg.canCraftRecipe({ coins: 500, goods: { wood: 0 }, mMats: { slime_gel: 5 } }, t1Rec), false, 'Cannot craft T1 without required tier goods (wood)');
   assert.equal(mmoRpg.canCraftRecipe({ coins: 500, goods: { wood: 2 }, mMats: { slime_gel: 3 } }, t1Rec), true, 'Can craft T1 with exact tier materials');
+  const tuskRecipe = mmoRpg.GEAR_RECIPES.find(r => r.id === 'rec_tusk_staff');
+  const firstClear = { level: 3, coins: 215, goods: { ore: 0 }, mMats: { boar_tusk: 3, thorn_bark: 3 } };
+  assert.deepEqual(mmoRpg.missingRecipeCosts(firstClear, tuskRecipe), [
+    { key: 'ore', count: 2 }, { key: 'boar_tusk', count: 1 },
+  ], 'First cave clear exposes the exact recipe shortfall');
+  firstClear.goods.ore = 2;
+  firstClear.mMats.boar_tusk = 4;
+  assert.ok(mmoRpg.canCraftRecipe(firstClear, tuskRecipe), 'Materials unlock crafting before Lv.5');
   const pbSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'physbag.js'), 'utf8');
   assert.ok(pbSrc.includes('canEquipItem(gear, p.level') && pbSrc.includes('canEquipItem(g, p.level'), 'physbag useBagItem & autoEquipBest enforce gear level gates');
 

@@ -22,7 +22,7 @@ const esc = t => String(t).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', 
 
 export function buildPanels(g) {
   const root = $('panelM'), body = root.querySelector('.pbody'), title = root.querySelector('h3'), foot = root.querySelector('.pshards');
-  let kind = null, sel = null;
+  let kind = null, sel = null, workshopRecipe = null;
   let M;
   const head = () => { foot.innerHTML = `✦ 星砂 <b>${M.p.shards}</b>　🪶 金羽毛 <b>${M.p.feathers}</b>　🐚 貝殼 <b>${M.p.shells}</b>`; };
   const row = (html, btn) => `<div class="prow"><div class="pl">${html}</div>${btn || ''}</div>`;
@@ -142,15 +142,15 @@ export function buildPanels(g) {
       <p>狂豬利牙 ×${res.materials}、荊棘硬木 ×${res.materials} 已收入素材包（剩餘鑰石 ${M.p.keys || 0} 枚）。</p>`
       + row(`<div><b>${nextTier === 'elite' && res.tier === 'normal' ? '挑戰精英難度' : `再打一場（${nextSpec.name}）`}</b></div><small>建議 Lv.${nextSpec.level} · 消耗 1 枚鑰石直接開打</small>`,
         `<button type="button" class="btn small${canContinue ? ' on' : ''}" data-cc-next ${canContinue ? '' : 'disabled'}>${canContinue ? '立即出發' : '鑰石不足'}</button>`)
-      + row('<div><b>直達燈谷鎮工坊鍛造</b></div><small>省去跑圖，直接用剛獲得的素材打造精鋼階裝備</small>',
-        '<button type="button" class="btn small" data-cc-forge>前往工坊</button>')
+      + row('<div><b>查看狂豬利牙戰杖</b></div><small>用洞窟素材鍛造，查看目前還差哪些材料。</small>',
+        '<button type="button" class="btn small" data-cc-forge>查看配方</button>')
       + row('<div><b>調整技能拼圖</b></div><small>更換寶石構築後再挑戰下一場</small>',
         '<button type="button" class="btn small" data-cc-puzzle>開啟拼圖</button>');
     body.querySelector('[data-cc-next]').onclick = () => { if (!g.startMeadowCaveDirect(nextTier)) renderCaveClear(); };
     body.querySelector('[data-cc-forge]').onclick = () => {
       g.ui.closePanel();
       g.state = 'transition'; g.audio.sfx('warp');
-      g.ui.wipe(() => { g.enterTown(); g.ui.openPanel('workshop'); });
+      g.ui.wipe(() => { g.enterTown(); g.ui.openPanel('workshop', { recipeId: 'rec_tusk_staff' }); });
     };
     body.querySelector('[data-cc-puzzle]').onclick = openRewardPuzzle;
   }
@@ -202,8 +202,13 @@ export function buildPanels(g) {
         if (!startMeadowExpedition(M.p, tier, button.dataset.expRoute)) return;
         M.save();
         syncMeadowExpedition(g);
-        g.ui.closePanel();
-        g.ui.banner(def.name, g.field === def.field ? '沿指引前往目標。' : `前往${FIELDS[def.field].name}，跟隨畫面指引。`);
+        if (g.field === def.field) {
+          g.ui.closePanel();
+          g.ui.banner(def.name, '沿指引前往目標。');
+        } else {
+          renderExpedition();
+          body.querySelector('[data-exp-warp]')?.focus();
+        }
       };
       return;
     }
@@ -634,15 +639,16 @@ export function buildPanels(g) {
     if (kind === 'guild') { renderGuildHall(); return; }
     if (kind === 'ascend') { renderAscend(); return; }
     if (kind === 'field_quest') { renderFieldQuest(); return; }
-    if (['home','market','workshop'].includes(kind)) { buildLodge(g, body, title, kind); return; }
+    if (['home','market','workshop'].includes(kind)) { buildLodge(g, body, title, kind, workshopRecipe); return; }
     ({ quest: renderQuest, forge: renderForge, map: renderMap })[kind]();
     if (kind === 'forge') {
       const b = document.createElement('button'); b.className = 'btn small'; b.textContent = '素材鍛造與武器';
       b.onclick = () => g.ui.openPanel('workshop'); body.prepend(b);
     }
   }
-  g.ui.openPanel = k => {
-    kind = k; g.ui.guildMarketOpen = k === 'exchange';
+  g.ui.openPanel = (k, { recipeId = null } = {}) => {
+    kind = k;
+    workshopRecipe = recipeId; g.ui.guildMarketOpen = k === 'exchange';
     g.ui.panelOpen = true; root.classList.remove('hide'); render();
     if (k === 'shards' && g.net.zoneShards) g.net.send({ t: 'shard_list' });
   };
