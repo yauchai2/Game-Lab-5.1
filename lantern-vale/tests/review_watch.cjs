@@ -486,7 +486,7 @@ async function runCapture(req) {
     const req = fs.existsSync(reqFile) ? JSON.parse(fs.readFileSync(reqFile, 'utf8')) : { id: 'latest' };
     await runCapture(req);
   } else {
-    console.log('Lantern Vale Review Watcher started!');
+    console.log('Beaconfall Review Watcher started!');
     console.log(`Watching: ${reqFile}`);
     console.log('Keep this window open; press Ctrl+C to stop.');
     let lastKey = null;

@@ -1,4 +1,4 @@
-// Lantern Vale multiplayer server. PORT and HOST are optional.
+// Beaconfall multiplayer server. PORT and HOST are optional.
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -315,4 +315,4 @@ const heartbeat = setInterval(() => {
 }, 30_000);
 wss.on('connection', ws => { ws.isAlive = true; ws.on('pong', () => { ws.isAlive = true; }); });
 wss.on('close', () => clearInterval(heartbeat));
-server.listen(PORT, process.env.HOST, () => console.log(`Lantern Vale server on http://localhost:${server.address().port}`));
+server.listen(PORT, process.env.HOST, () => console.log(`Beaconfall server on http://localhost:${server.address().port}`));

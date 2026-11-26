@@ -19,7 +19,7 @@ export function mountTestHub() {
     return makeUrl(p);
   };
 
-  document.title = '燈谷行 · 試玩';
+  document.title = 'Beaconfall · 試玩';
   document.body.innerHTML = '';
   document.body.style.cssText = 'margin:0;min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;background:#f4ead5;color:#2f241c;font-family:-apple-system,BlinkMacSystemFont,"PingFang TC","Microsoft JhengHei",sans-serif;-webkit-user-select:none;user-select:none;';
 
@@ -27,7 +27,7 @@ export function mountTestHub() {
   card.style.cssText = 'width:100%;max-width:380px;background:#fffaf0;border:2px solid #5a4332;border-radius:18px;padding:28px 22px 22px;box-shadow:0 8px 0 rgba(59,42,42,.12);display:flex;flex-direction:column;gap:14px;';
   card.innerHTML = `
     <header style="text-align:center;display:flex;flex-direction:column;gap:6px;margin-bottom:4px">
-      <h1 style="margin:0;font-size:26px;letter-spacing:1px">燈谷行</h1>
+      <h1 style="margin:0;font-size:26px;letter-spacing:1px">Beaconfall</h1>
       <p style="margin:0;font-size:14px;color:#6c5746;line-height:1.5">兩場約 30 秒的短戰鬥，直接開打試試手感。</p>
     </header>
 

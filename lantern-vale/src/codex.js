@@ -1,4 +1,4 @@
-// 燈谷行百科資料庫（PoE2 / 自走勇者風格）、更新日誌與贊助支持視窗
+// Beaconfall 百科資料庫（PoE2 / 自走勇者風格）、更新日誌與贊助支持視窗
 import { CLASSES, ACTIVE_GEMS, SUPPORT_GEMS } from './puzzle.js';
 import { SECOND_CLASSES } from './world_alive.js';
 import { FIELDS } from './frontier.js';
@@ -239,12 +239,12 @@ export function bindCodexUI(game) {
       }).join('');
       bodyEl.innerHTML = html || '<div class="cx-empty">此分類暫無更新紀錄</div>';
     } else if (mode === 'donate') {
-      titleEl.textContent = '❤️ 贊助與支持燈谷行';
+      titleEl.textContent = '❤️ 贊助與支持 Beaconfall';
       const sup = !!game.meta.p.supporterHeart;
       bodyEl.innerHTML = `
         <div class="cx-donate">
           <div style="font-size:48px;margin-bottom:6px">❤️🏮✨</div>
-          <h3>感謝你喜歡《燈谷行 Lantern Vale》！</h3>
+          <h3>感謝你喜歡《Beaconfall》！</h3>
           <p>這是一款 100% 原創、無廣告、可在瀏覽器直接遊玩的獨立 3D 像素奇幻 MMORPG。你的每一份鼓勵都會用來開發更多新地圖、二轉技能與線上多人內容。</p>
           <div class="cx-donate-btns">
             <a class="btn" href="${DONATE_URL}" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-block">☕ 前往贊助頁面</a>

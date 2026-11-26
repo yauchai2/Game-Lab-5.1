@@ -3,8 +3,8 @@ const { readFileSync } = require('node:fs');
 
 const cookieName = '__Host-lv-playtest';
 const form = `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1"><title>燈谷行試玩</title></head>
-<body><main><h1>燈谷行試玩</h1><p>輸入邀請人給你的試玩密碼。</p>
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>Beaconfall 試玩</title></head>
+<body><main><h1>Beaconfall 試玩</h1><p>輸入邀請人給你的試玩密碼。</p>
 <form method="post"><label>試玩密碼 <input type="password" name="pass" required autocomplete="off" autofocus></label>
 <button type="submit">進入遊戲</button></form></main></body></html>`;
 

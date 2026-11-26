@@ -1,4 +1,6 @@
-# AGENTS.md — 燈谷行 Lantern Vale（給 Codex 與其他 AI agent）
+# AGENTS.md — Beaconfall（舊名 燈谷行 Lantern Vale）
+
+> **改名中**：遊戲新名 **Beaconfall**（純英文）。名詞表在 `data/glossary.json`，已定案決策在 `docs/beaconfall/DECISIONS.md`，字串盤點用 `node scripts/audit_strings.mjs`。存檔 key（`lv_*`）不改，profile 有 `schemaVersion`。資料夾仍叫 `lantern-vale/`。（給 Codex 與其他 AI agent）
 
 **先讀這份，再讀 `docs/07_計畫與待辦.md` 與 `HANDOFF.md`。**
 與使用者（Alan）溝通一律使用**繁體中文**。

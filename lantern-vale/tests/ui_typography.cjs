@@ -74,8 +74,8 @@ const { chromium } = require('playwright');
 
     await page.goto(url, { waitUntil: 'domcontentloaded' });
     await checkStack('#title');
-    await assertGlyphs('zh-TW', '燈谷行 碎石獠牙 鰩魚衝鋒 擲骰霜凍 聖護攻擊 ×1.25');
-    await assertGlyphs('en', 'Lantern Vale – Weapon Atlas +275 XP');
+    await assertGlyphs('zh-TW', 'Beaconfall 碎石獠牙 鰩魚衝鋒 擲骰霜凍 聖護攻擊 ×1.25');
+    await assertGlyphs('en', 'Beaconfall – Weapon Atlas +275 XP');
     await assertGlyphs('ja', '灯火の谷・装備と鍛冶、破壊した部位と収穫');
     await page.evaluate(() => { document.documentElement.lang = 'zh-TW'; });
     await page.locator('#btnHeroNext').click();
