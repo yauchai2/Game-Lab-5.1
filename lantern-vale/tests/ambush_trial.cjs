@@ -51,6 +51,24 @@ const trialURL = order => new URL(`?playtest=ambush&order=${order}`, base).href;
     assert.equal(b.hpAfter, b.hpBefore);
     assert.equal(b.shots, 0);
     for (const event of ['move', 'roll', 'coverBlocked']) assert.ok(b.events.includes(event), event);
+    const buffer = await page.evaluate(() => {
+      const g = __game, p = g.player;
+      p.roll = 0;
+      p.cds.roll = 0.06;
+      p.cds.atk = p.skillCds[0] = 0.6;
+      g.tryRoll();
+      g.mouse.l = g.mouse.r = true;
+      g.update(1 / 60);
+      const queued = p.inputBuf?.kind;
+      for (let step = 0; step < 6; step++) g.update(1 / 60);
+      g.mouse.l = g.mouse.r = false;
+      return { queued, rolled: p.roll > 0 };
+    });
+    assert.deepEqual(buffer, { queued: 'roll', rolled: true });
+    await page.evaluate(() => {
+      __game.ambushTrial.toggleBot();
+      __game.ambushTrial.toggleBot();
+    });
     await page.getByRole('button', { name: '結束此場' }).click();
     await page.getByRole('button', { name: '重試這一場' }).click();
     await page.waitForFunction(() => __game.enemies.length === 2);
@@ -92,6 +110,11 @@ const trialURL = order => new URL(`?playtest=ambush&order=${order}`, base).href;
       g.updateEnemies(1 / 60);
       g.ui.update(g);
       const badgeVisible = !!document.querySelector('.ebar-recovery:not([hidden])');
+      const star = boar.m.restStars.children[0];
+      let geometryDisposals = 0, materialDisposals = 0;
+      star.geometry.addEventListener('dispose', () => geometryDisposals++);
+      star.material.addEventListener('dispose', () => materialDisposals++);
+      g.pipe.render(g.scene, g.camera, g.time);
       p.cds.atk = 0;
       g.aim.copy(boar.pos);
       g.tryAttack();
@@ -111,7 +134,7 @@ const trialURL = order => new URL(`?playtest=ambush&order=${order}`, base).href;
           g.tryAttack();
         }
       }
-      const data = { stats, hpBefore, hpAfter, recovery, punish, tinyStepState, badgeVisible, badgeAfter,
+      const data = { stats, hpBefore, hpAfter, geometryDisposals, materialDisposals, recovery, punish, tinyStepState, badgeVisible, badgeAfter,
         variant: g.ambushTrial.active.variant,
         cover: g.ambushTrial.cover, boarDead: boar.dead, kills: p.kills };
       for (let i = 0; i < 100 && g.state === 'play'; i++) g.update(1 / 30);
@@ -121,6 +144,8 @@ const trialURL = order => new URL(`?playtest=ambush&order=${order}`, base).href;
     assert.equal(a.cover, null);
     assert.deepEqual(a.stats, b.stats);
     assert.ok(a.hpAfter < a.hpBefore && a.boarDead && a.kills === 2);
+    assert.equal(a.geometryDisposals, 1);
+    assert.equal(a.materialDisposals, 1);
     assert.equal(a.tinyStepState, 'charge');
     assert.equal(a.recovery.windowMs, 1250);
     assert.equal(a.recovery.chargeEnd, 'completed');
@@ -132,7 +157,12 @@ const trialURL = order => new URL(`?playtest=ambush&order=${order}`, base).href;
     await page.getByRole('button', { name: '下載戰報' }).click();
     const download = await downloadReady;
     const report = JSON.parse(await readFile(await download.path(), 'utf8'));
-    assert.equal(report.version, 2);
+    assert.equal(report.version, 3);
+    assert.deepEqual(report.attempts.map(attempt => attempt.controller), ['mixed', 'human', 'human']);
+    const segments = report.attempts[0].controlSegments;
+    assert.deepEqual(segments.map(segment => segment.controller), ['human', 'bot', 'human']);
+    assert.equal(segments[0].ms, 0);
+    assert.ok(segments[1].ms > 0 && segments[2].ms >= segments[1].ms);
     assert.equal(report.order, 'BA');
     assert.ok(report.build);
     assert.deepEqual(report.attempts.map(row => [row.variant, row.outcome]), [

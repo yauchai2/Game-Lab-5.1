@@ -210,6 +210,13 @@ export function serializeItem(it) {
     mods: it.mods.map(m => ({ k: m.k, v: m.v })), reforged: it.reforged || 0,
   };
 }
+export function rememberGear(game) {
+  game.meta.p.gear = Object.fromEntries(
+    Object.entries(game.player.equip).map(([slot, item]) => [slot, serializeItem(item)])
+  );
+  game.meta.save();
+}
+
 export function deserializeItem(o) {
   if (!o) return null;
   return {
@@ -291,8 +298,8 @@ export function forgeItem(kind, it, r = Math.random) {
     const imp = n.implicit && IMPLICIT[n.slot] ? IMPLICIT[n.slot](n.tier) : null; if (imp && n.rarity < 3) n.implicit = imp;
   } else if (kind === 'upgrade') {
     n.rarity++; const want = n.rarity === 1 ? 2 : 4; while (n.mods.length < want) { const m = rollMod(r, n, n.mods.map(x => x.k)); if (!m) break; n.mods.push(m); }
-    const base = SLOTS[n.slot].bases[Math.min(3, Math.floor(n.tier / 2))];
-    n.name = n.rarity === 1 ? `${pick(r, PREFIX)}${base}` : `${pick(r, PREFIX)}${pick(r, SUFFIX)}`;
+    n.base = n.base || SLOTS[n.slot]?.bases[0] || n.name || '裝備';
+    n.name = n.rarity === 1 ? `${pick(r, PREFIX)}${n.base}` : `${pick(r, PREFIX)}${pick(r, SUFFIX)}`;
   }
   return n;
 }

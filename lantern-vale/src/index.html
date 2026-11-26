@@ -2007,6 +2007,12 @@ body:has(#menuPop:not(.hide),[aria-modal="true"]:not(.hide)) #toasts{opacity:0}
 #titleLoadPill i{width:7px;height:7px;border-radius:50%;background:#ffd85a;animation:bsGlow .8s ease-in-out infinite alternate}
 #titleLoadPill.done{opacity:0;transform:translate(-50%,-8px)}
 @media (max-width:640px){#devBadge,#devModeBadge,.dev-badge{top:auto!important;bottom:8px!important;left:8px!important;transform:none!important;opacity:.7!important}}
+/* ===== 階段四：城鎮面板分頁化（鐵匠鋪／素材工坊／公會大廳） ===== */
+.panel-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 10px}
+.panel-tabs button{border-image:none!important;border:0!important;border-radius:0!important;background:var(--cp-wood)!important;color:var(--cp-parchment-hi)!important;text-shadow:0 1px 0 var(--cp-ink)!important;font-weight:800!important;padding:5px 11px!important;box-shadow:inset 0 2px 0 var(--cp-wood-hi),inset 0 -3px 0 var(--cp-wood-shadow),var(--cp-box)!important;cursor:pointer;font-family:inherit;font-size:13px}
+.panel-tabs button:hover{background:var(--cp-wood-hi)!important;color:var(--cp-ink)!important;text-shadow:none!important}
+.panel-tabs button.on{background:var(--cp-gold)!important;color:var(--cp-ink)!important;text-shadow:0 1px 0 var(--cp-gold-hi)!important;box-shadow:inset 0 3px 0 var(--cp-gold-hi),inset 0 -3px 0 var(--cp-gold-sh),var(--cp-box)!important;transform:translateY(-2px)}
+@media(pointer:coarse){.panel-tabs button{min-height:40px}}
 </style>
 </head>
 <body>
