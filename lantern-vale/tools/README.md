@@ -8,3 +8,5 @@
   用法：`python3 tools/item_sheet_slice.py sheet.png id1,id2,id3 [--out game/assets/items] [--gap 22]`，id 依「由上到下、由左到右」對應。
   建議合圖排成**單排 5 件、每件獨立一欄**（實測 `--gap` 12–30 都穩定）；成對武器（雙刃）要畫成交叉連成一件。偵測件數與 id 數不符會中止並列出偵測框。
   每張合圖用 1536×1024；提示詞前綴沿用物品企劃 §1.8，加「ONE horizontal row, wide empty gaps」。
+  切圖會用合圖四邊的中位數當背景色、容差 9（比單件工具的 26 嚴，深棕皮革不會被吃掉）。兜帽內部、背心袖孔這類封閉的暗色區域加 `--fill-holes id,...` 保留成暗色；環、鑰匙串等要挖空的不要列。
+  第 2 階整批的指令見 `docs/EQUIPMENT_LADDER_PLAN.md` 第六節。
