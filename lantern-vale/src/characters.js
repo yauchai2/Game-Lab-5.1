@@ -671,7 +671,7 @@ export function bindCharacters(game) {
     const pill = $('heroPillName');
     const cls = CLASSES[selectedJob] || CLASSES[0];
     const sp = ISLAND_SPOTS[selectedJob] || ISLAND_SPOTS[0];
-    if (pill) pill.textContent = `${selectedJob + 1}. ${cls.icon} ${cls.name} · ${sp.en}`;
+    if (pill) pill.textContent = cls.name;
     document.querySelectorAll('.hero-pin-btn,.hero-pin-3d').forEach((b, i) => b.classList.toggle('on', i === selectedJob));
     selRing.visible = stageMode === 'focus';
     selBeam.visible = stageMode === 'focus';
