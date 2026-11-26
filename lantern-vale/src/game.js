@@ -1438,18 +1438,48 @@ export class Game {
     if (this.dev?.on && this.dev?.god) return;
     if (p.roll > 0 && this.state === 'play' && this.depth >= 0) {
       if ((p.perfectDodgeCd || 0) <= 0) {
-        // 極限閃避：零文字藍光衝擊環＋1.5 秒必暴光環
+        // 極限閃避：簡約小字＋銀白殘影與雙層流風閃避動畫（取代青藍光環）
         p.perfectDodgeCd = 3.2;
         p.perfectCritT = 1.5;
         this.hitstop = Math.max(this.hitstop || 0, 0.08);
-        this.shake = Math.max(this.shake || 0, 0.22);
+        this.shake = Math.max(this.shake || 0, 0.2);
         if (this.tide) this.tide.ultCharge = Math.min(100, (this.tide.ultCharge || 0) + 12);
         this.audio.sfx('perfect');
-        this.fx.burst(p.pos.x, p.y + 0.9, p.pos.z, 16, { c: [0x62e8ff, 0xffe87a, 0xffffff], s: 0.15, speed: 6, up: 3.2, life: 0.45 });
-        const dg = new THREE.RingGeometry(0.42, 0.72, 24); dg.rotateX(-Math.PI / 2);
-        const dm = new THREE.Mesh(dg, new THREE.MeshBasicMaterial({ color: 0x62e8ff, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide }));
-        dm.position.set(p.pos.x, p.y + 0.16, p.pos.z); dm.userData.noNormal = true; this.scene.add(dm);
-        this.rings.push({ mesh: dm, t: 0, max: 0.24, radius: 2.2 });
+        this.ui.dmgNum(p.pos.x, p.y + 1.85, p.pos.z, '完美閃避', 'dodge');
+        this.fx.burst(p.pos.x, p.y + 0.85, p.pos.z, 14, { c: [0xffffff, 0xfff3cf, 0xe4ddd0], s: 0.13, speed: 5.5, up: 2.6, life: 0.38 });
+        // 3D 銀白殘影剪影（朝閃避方向拉長淡出）
+        const ghost = new THREE.Group();
+        const gMat = new THREE.MeshBasicMaterial({ color: 0xfff8e6, transparent: true, opacity: 0.62, depthWrite: false });
+        const gBody = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.32, 0.86, 10), gMat);
+        gBody.position.y = 0.56; ghost.add(gBody);
+        const gHead = new THREE.Mesh(new THREE.SphereGeometry(0.24, 10, 8), gMat);
+        gHead.position.y = 1.18; ghost.add(gHead);
+        ghost.position.set(p.pos.x, p.y, p.pos.z); ghost.rotation.y = p.facing; ghost.userData.noNormal = true;
+        this.scene.add(ghost);
+        this.rings.push({
+          mesh: ghost, t: 0, max: 0.36, radius: 1,
+          onTick(k) {
+            ghost.scale.set(1 - 0.18 * k, 1 + 0.14 * k, 1 + 0.55 * k);
+            gMat.opacity = 0.62 * (1 - k) * (1 - k);
+          },
+        });
+        // 雙層流風弧動畫
+        const arcG = new THREE.RingGeometry(0.75, 0.94, 22, 1, 0, Math.PI * 1.15); arcG.rotateX(-Math.PI / 2);
+        const arcMat = new THREE.MeshBasicMaterial({ color: 0xfffaf0, transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide });
+        const arcGrp = new THREE.Group();
+        const a1 = new THREE.Mesh(arcG, arcMat); a1.position.y = 0.48;
+        const a2 = new THREE.Mesh(arcG, arcMat); a2.position.y = 0.92; a2.rotation.y = Math.PI;
+        arcGrp.add(a1, a2); arcGrp.position.set(p.pos.x, p.y, p.pos.z); arcGrp.userData.noNormal = true;
+        this.scene.add(arcGrp);
+        this.rings.push({
+          mesh: arcGrp, t: 0, max: 0.28, radius: 1,
+          onTick(k) {
+            arcGrp.rotation.y = k * Math.PI * 1.6;
+            const sc = 0.75 + k * 1.15;
+            arcGrp.scale.set(sc, 1, sc);
+            arcMat.opacity = 0.85 * (1 - k);
+          },
+        });
       }
       return;
     }
@@ -4258,7 +4288,7 @@ export class Game {
     this.decals = this.decals.filter(d => !d.dead);
     for (const s of this.slashes) { s.t -= dt; s.mesh.material.opacity = Math.max(0, s.t / s.max) * 0.85; s.mesh.scale.setScalar(1 + (1 - s.t / s.max) * 0.15); if (s.t <= 0) { this.scene.remove(s.mesh); s.mesh.geometry?.dispose?.(); s.mesh.material?.dispose?.(); } }
     this.slashes = this.slashes.filter(s => s.t > 0);
-    for (const r of this.rings) { r.t += dt; const k = r.t / r.max; r.mesh.scale.setScalar(Math.max(0.01, k * r.radius)); r.mesh.material.opacity = 0.9 * (1 - k); if (k >= 1) { this.scene.remove(r.mesh); r.mesh.geometry?.dispose?.(); r.mesh.material?.dispose?.(); } }
+    for (const r of this.rings) { r.t += dt; const k = Math.min(1, r.t / r.max); if (r.onTick) r.onTick(k, dt); else { r.mesh.scale.setScalar(Math.max(0.01, k * r.radius)); r.mesh.material.opacity = 0.9 * (1 - k); } if (k >= 1) { this.scene.remove(r.mesh); if (r.mesh.isGroup) r.mesh.traverse(o => { o.geometry?.dispose?.(); o.material?.dispose?.(); }); else { r.mesh.geometry?.dispose?.(); r.mesh.material?.dispose?.(); } } }
     this.rings = this.rings.filter(r => r.t < r.max);
     for (const bm of this.beams || []) { bm.t -= dt; bm.mesh.material.opacity = Math.max(0, bm.t / bm.max); if (bm.t <= 0) { this.scene.remove(bm.mesh); bm.mesh.geometry?.dispose?.(); bm.mesh.material?.dispose?.(); } }
     this.beams = (this.beams || []).filter(bm => bm.t > 0);
@@ -4522,18 +4552,22 @@ export class Game {
       m.leechRing.visible = false;
     }
     if ((p.perfectCritT || 0) > 0 && this.state === 'play') {
-      if (!m.critRing) {
-        const cg = new THREE.RingGeometry(0.76, 0.88, 24); cg.rotateX(-Math.PI / 2);
-        m.critRing = new THREE.Mesh(cg, new THREE.MeshBasicMaterial({ color: 0x62e8ff, transparent: true, opacity: 0.75, side: THREE.DoubleSide, depthWrite: false }));
-        m.critRing.position.y = 0.09; m.critRing.userData.noNormal = true; m.critRing.renderOrder = 3;
-        m.root.add(m.critRing);
+      if (!m.critVfx) {
+        const wg = new THREE.RingGeometry(0.58, 0.69, 18, 1, 0, Math.PI * 0.65); wg.rotateX(-Math.PI / 2);
+        const wMat = new THREE.MeshBasicMaterial({ color: 0xfff6dc, transparent: true, opacity: 0.72, side: THREE.DoubleSide, depthWrite: false });
+        const grp = new THREE.Group();
+        const w1 = new THREE.Mesh(wg, wMat); w1.position.y = 0.72;
+        const w2 = new THREE.Mesh(wg, wMat); w2.position.y = 1.02; w2.rotation.y = Math.PI;
+        grp.add(w1, w2); grp.userData.noNormal = true; grp.userData.mat = wMat;
+        m.root.add(grp); m.critVfx = grp;
       }
       const cr = Math.min(1, p.perfectCritT / 1.5);
-      m.critRing.visible = true;
-      m.critRing.scale.setScalar(0.8 + 0.25 * cr);
-      m.critRing.material.opacity = 0.3 + 0.5 * cr;
-    } else if (m.critRing) {
-      m.critRing.visible = false;
+      m.critVfx.visible = true;
+      m.critVfx.rotation.y += dt * 7.5;
+      m.critVfx.scale.setScalar(0.88 + 0.18 * cr);
+      m.critVfx.userData.mat.opacity = 0.2 + 0.55 * cr;
+    } else if (m.critVfx) {
+      m.critVfx.visible = false;
     }
     // blink when invulnerable（陣亡時若已載入骨骼角色則保留可見以播放完整倒地動畫）
     m.root.visible = (this.state !== 'dead' || !!p.heroRig?.ready) && !(p.iframes > 0 && Math.floor(this.time * 20) % 2 === 0);

@@ -10,7 +10,8 @@
 
 ## 2026-11-26 合併背包與物品系統大改版（`origin/claude/project-thread-cw3h64`）＋極簡試玩入口與三色戰鬥語彙
 
-- **建置雜湊**：`game/index.html` `01cf6066110f`（2012KB）。`node tests/logic_verify.cjs`（全通過）與 `node tests/playtest_review.cjs` 全通過。
+- **建置雜湊**：`game/index.html` `21469ee4e7b7`（2013KB）。`node tests/logic_verify.cjs`（全通過）與 `node tests/playtest_review.cjs` 全通過。
+- **完美閃避殘影特效動畫與簡約小字（`src/game.js`、`src/index.html`）**：移除完美閃避的青藍衝擊環與青藍地環；改為觸發時浮現極簡小字 `完美閃避`（`13px` 暖白微光），並原地留下朝閃避方向拉長淡出的 **3D 銀白殘影剪影（`0.36s`）** 搭配**雙層旋轉流風弧（`0.28s`）**，隨後 `1.5s` 必暴窗口改以環繞角色腰肩旋轉的**暖白流風短弧動畫（`critVfx`）**呈現，不與地面紅／金提示圈搶視覺。
 - **合併裝備／物品系統與 UI 更新（`e22c2b7`）**：拉取並合併遠端分支 `origin/claude/project-thread-cw3h64`（PR #10），整合 8 個裝備欄（頭／武器／身／斗篷／手／腳／護符／聖物）、339 項物品企劃資料庫（`src/itemdb.js`、`data/items.json`）、84 張去背 Figma 透明物品圖示（`game/assets/items/128` 與 `256`）、英雄裝備面板、POE2 式提示框與世界掉落看板，並解決 `src/main.js` 與 `game/index.html` 合併衝突後重建發佈。
 - **極簡試玩入口頁（`src/test_hub.js`）**：針對陌生測試者重設計 `/?test` 畫面，主視覺僅保留標題、一句說明、「▶ 開始戰鬥試玩」與「進入完整遊戲」兩顆清晰按鈕；將 `AB／BA` 順序、技能風格、AI 自動打、複製連結、組隊代碼與 build 雜湊全部收合至底部「進階測試選項 ▾」。
 - **三色極簡戰鬥語彙統一（`src/game.js`）**：依手機真人實測回饋，將棘芽射手蓄力環由黃綠（`0x9bd85a`）改為鮮紅（`0xff4d5a`），徹底與金色破綻環（`0xffcf4a`）區分，全遊戲統一為「紅＝即將出招／危險（閃避或打斷）、金＝收招破綻（1.5 倍反打）、青藍＝玩家完美閃避必暴」。
