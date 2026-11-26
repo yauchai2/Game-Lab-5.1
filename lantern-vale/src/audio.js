@@ -1,21 +1,12 @@
 // Procedural audio (WebAudio): zero downloads, zero licensing. Cozy chiptune-ish music + synthesized SFX.
-const SCALES = {
-  meadow:   { root: 57, steps: [0, 2, 4, 7, 9], bpm: 92, wave: 'triangle' },   // A major pentatonic
-  autumn:   { root: 55, steps: [0, 3, 5, 7, 10], bpm: 84, wave: 'triangle' },  // G minor pentatonic
-  snow:     { root: 62, steps: [0, 2, 4, 7, 9], bpm: 70, wave: 'sine' },
-  ember:    { root: 52, steps: [0, 3, 5, 7, 10], bpm: 100, wave: 'sawtooth' },
-  town:     { root: 60, steps: [0, 2, 4, 7, 9], bpm: 98, wave: 'triangle' },
-  night:    { root: 57, steps: [0, 2, 4, 7, 9], bpm: 64, wave: 'sine' },
-  interior: { root: 62, steps: [0, 2, 4, 7, 9], bpm: 80, wave: 'triangle' },
-  boss:     { root: 50, steps: [0, 3, 5, 6, 7, 10], bpm: 128, wave: 'sawtooth' },
-  title:    { root: 57, steps: [0, 2, 4, 7, 9], bpm: 78, wave: 'sine' },
-};
+// Music recipes live in music_themes.js (per-region themes, Ember Tide layers, Dimming filter); direction doc: docs/beaconfall/AUDIO.md.
+import { THEMES, effectiveTheme, DIM_FILTER_HZ, DIM_DRONE_VOL } from './music_themes.js';
 const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
 
 export class Audio {
   constructor() {
     this.ctx = null; this.muted = false; this.musicVol = 0.5; this.sfxVol = 0.8; this.masterVol = 0.9;
-    this.mode = null; this.intensity = 0; this.step = 0; this.nextT = 0; this.timer = null; this.last = {};
+    this.mode = null; this.nextMode = null; this.tide = 0; this.dim = 0; this.intensity = 0; this.step = 0; this.nextT = 0; this.timer = null; this.last = {};
     try { this.muted = localStorage.getItem('lv_mute') === '1'; } catch (e) { /* ignore */ }
   }
   init() {
@@ -25,7 +16,11 @@ export class Audio {
     this.master = this.ctx.createGain(); this.master.gain.value = this.muted ? 0 : this.masterVol;
     const comp = this.ctx.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 4;
     this.master.connect(comp); comp.connect(this.ctx.destination);
-    this.musicBus = this.ctx.createGain(); this.musicBus.gain.value = this.musicVol * 0.5; this.musicBus.connect(this.master);
+    this.musicBus = this.ctx.createGain(); this.musicBus.gain.value = this.musicVol * 0.5;
+    // musicBus -> musicFade (mode crossfades) -> dimFilter (Dimming darkens the same music) -> master
+    this.musicFade = this.ctx.createGain(); this.musicFade.gain.value = 1;
+    this.dimFilter = this.ctx.createBiquadFilter(); this.dimFilter.type = 'lowpass'; this.dimFilter.frequency.value = DIM_FILTER_HZ[0]; this.dimFilter.Q.value = 0.4;
+    this.musicBus.connect(this.musicFade); this.musicFade.connect(this.dimFilter); this.dimFilter.connect(this.master);
     this.sfxBus = this.ctx.createGain(); this.sfxBus.gain.value = this.sfxVol * 0.6; this.sfxBus.connect(this.master);
     // simple reverb-ish delay for music
     this.delay = this.ctx.createDelay(); this.delay.delayTime.value = 0.28;
@@ -35,9 +30,16 @@ export class Audio {
     const len = this.ctx.sampleRate; const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate); const d = buf.getChannelData(0);
     for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
     this.noiseBuf = buf;
+    // continuous beds: wind (Whisperwood, Rimewind) and the cold pedal that fades in with Dimming stacks
+    this.windGain = this.ctx.createGain(); this.windGain.gain.value = 0;
+    const wsrc = this.ctx.createBufferSource(); wsrc.buffer = buf; wsrc.loop = true;
+    const wbp = this.ctx.createBiquadFilter(); wbp.type = 'bandpass'; wbp.frequency.value = 700; wbp.Q.value = 0.6;
+    wsrc.connect(wbp); wbp.connect(this.windGain); this.windGain.connect(this.musicBus); wsrc.start();
+    this.dimDrone = this.ctx.createGain(); this.dimDrone.gain.value = 0; this.dimDrone.connect(this.musicBus);
+    this.dimOscs = [0, 1.4].map(off => { const o = this.ctx.createOscillator(); o.type = 'sine'; o.frequency.value = mtof(33) + off; o.connect(this.dimDrone); o.start(); return o; });
     this.nextT = this.ctx.currentTime + 0.1;
     this.timer = setInterval(() => this.schedule(), 60);
-    if (this.pending) this.setMusic(...this.pending);
+    if (this.pending) { const pm = this.pending; this.pending = null; this.setMusic(...pm); }
   }
   setVolumes(master, music, sfx) {
     this.masterVol = master; this.musicVol = music; this.sfxVol = sfx;
@@ -50,17 +52,46 @@ export class Audio {
     if (this.master) this.master.gain.value = this.muted ? 0 : this.masterVol;
     return this.muted;
   }
-  setMusic(mode, intensity = 0) {
-    if (!this.ctx) { this.pending = [mode, intensity]; return; }
-    if (mode !== this.mode) { this.mode = mode; this.step = 0; this.chordIdx = 0; }
-    this.intensity = intensity;
+  /** mode = theme key (see music_themes.js). opts.tide = Ember Tide phase (-1 Calm Ebb, 0..3). Safe to call every frame. */
+  setMusic(mode, intensity = 0, opts = {}) {
+    if (!this.ctx) { this.pending = [mode, intensity, opts]; return; }
+    this.intensity = intensity; this.tide = opts.tide || 0;
+    if (mode === this.mode) { if (this.nextMode) this.cancelFade(); return; }
+    if (mode === this.nextMode) return;
+    if (!this.mode) { this.applyMode(mode, 0.6); return; }
+    // different theme: fade the old one out, then start the new one from its first bar
+    this.nextMode = mode;
+    const g = this.musicFade.gain, now = this.ctx.currentTime;
+    g.cancelScheduledValues(now); g.setTargetAtTime(0.0001, now, 0.09);
+    clearTimeout(this._fadeT);
+    this._fadeT = setTimeout(() => { const m = this.nextMode; this.nextMode = null; if (m) this.applyMode(m, 1.1); }, 380);
+  }
+  cancelFade() {
+    clearTimeout(this._fadeT); this.nextMode = null;
+    const g = this.musicFade.gain, now = this.ctx.currentTime;
+    g.cancelScheduledValues(now); g.setTargetAtTime(1, now, 0.25);
+  }
+  applyMode(mode, fadeIn) {
+    this.mode = mode; this.step = 0; this.chordIdx = 0;
+    const T = THEMES[mode] || THEMES.meadow, now = this.ctx.currentTime;
+    this.windGain.gain.setTargetAtTime(T.wind ? 0.05 : 0, now, 0.6);
+    for (const o of this.dimOscs) o.frequency.setTargetAtTime(mtof(T.root - 24) + (o === this.dimOscs[1] ? 1.4 : 0), now, 0.3);
+    const g = this.musicFade.gain; g.cancelScheduledValues(now); g.setValueAtTime(0.0001, now); g.linearRampToValueAtTime(1, now + fadeIn);
+  }
+  /** Dimming stacks 0..3: the same music loses its highs and a cold pedal beats underneath. */
+  setDim(stacks = 0) {
+    const d = Math.max(0, Math.min(3, stacks | 0));
+    if (d === this.dim || !this.ctx) { this.dim = d; return; }
+    this.dim = d; const now = this.ctx.currentTime;
+    this.dimFilter.frequency.setTargetAtTime(DIM_FILTER_HZ[d], now, 0.7);
+    this.dimDrone.gain.setTargetAtTime(DIM_DRONE_VOL[d], now, 1.2);
   }
   // ---------- music scheduler ----------
   schedule() {
     if (!this.ctx || !this.mode || this.muted) { if (this.ctx) this.nextT = Math.max(this.nextT, this.ctx.currentTime); return; }
-    const S = SCALES[this.mode] || SCALES.meadow;
-    const spb = 60 / S.bpm / 2; // eighth note
     while (this.nextT < this.ctx.currentTime + 0.25) {
+      const S = effectiveTheme(this.mode, this.tide);
+      const spb = 60 / S.bpm / 2; // eighth note
       this.playStep(S, this.nextT, spb);
       this.nextT += spb; this.step++;
     }
@@ -78,32 +109,101 @@ export class Audio {
     const g = this.ctx.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     n.connect(f); f.connect(g); g.connect(bus); n.start(t, Math.random() * 0.5); n.stop(t + dur + 0.05);
   }
+  sweep(type, f0, f1, t, dur, vol, bus = this.musicBus) {
+    const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+    o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(bus); o.start(t); o.stop(t + dur + 0.05);
+  }
+  /** Slow detuned swell (the Elderwood "choir" and the title pad). */
+  swell(freq, t, dur, vol) {
+    for (const cents of [-7, 0, 7]) {
+      const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+      o.type = 'sine'; o.frequency.value = freq; o.detune.value = cents;
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol / 3, t + dur * 0.45); g.gain.linearRampToValueAtTime(0.0001, t + dur);
+      o.connect(g); g.connect(this.musicBus); const s = this.ctx.createGain(); s.gain.value = 0.4; g.connect(s); s.connect(this.delay);
+      o.start(t); o.stop(t + dur + 0.05);
+    }
+  }
+  bellNote(freq, t, dur, vol) {
+    this.note('sine', freq, t, dur, vol, this.musicBus, 0.55);
+    this.note('sine', freq * 2.76, t, dur * 0.35, vol * 0.22, this.musicBus, 0.3);
+  }
+  percStep(S, inBar, t, fight) {
+    let mode = S.perc || 'none';
+    if (mode === 'none' && fight) mode = 'light';
+    const bus = this.musicBus;
+    switch (mode) {
+      case 'light':
+        if (fight) { if (inBar % 4 === 0) this.noise(t, 0.12, 0.35, 0, bus, 160); if (inBar % 4 === 2) this.noise(t, 0.05, 0.12, 6000, bus); }
+        else if (inBar % 4 === 2) this.noise(t, 0.04, 0.05, 7000, bus);
+        break;
+      case 'wood': // Whisperwood: soft knocks
+        if (inBar % 4 === 0) this.sweep('sine', 360, 240, t, 0.07, 0.09);
+        else if (inBar % 8 === 6) this.sweep('sine', 480, 320, t, 0.06, 0.06);
+        if (fight && inBar % 4 === 2) this.noise(t, 0.05, 0.12, 6000, bus);
+        break;
+      case 'hand': // Sandveil, Lost Vines: dum and tek
+        if (inBar === 0 || inBar === 6 || inBar === 10) { this.sweep('sine', 150, 80, t, 0.14, 0.2); this.noise(t, 0.05, 0.1, 0, bus, 400); }
+        if (inBar === 3 || inBar === 11 || inBar === 14) this.noise(t, 0.04, 0.14, 4500, bus);
+        break;
+      case 'taiko': // Cinderreach, bosses, Surge/Apex: deep drum
+        if (inBar === 0 || inBar === 8) { this.sweep('sine', 120, 42, t, 0.32, 0.38); this.noise(t, 0.12, 0.3, 0, bus, 200); }
+        if (inBar === 12 || (fight && inBar === 4)) { this.sweep('sine', 150, 60, t, 0.2, 0.22); }
+        if (inBar % 2 === 1 && (fight || S.war)) this.noise(t, 0.03, 0.06, 8000, bus);
+        break;
+      case 'pulse': // Blackout, Hive Dark: machine tick
+        if (inBar % 2 === 0) this.noise(t, 0.025, 0.07, 7000, bus);
+        if (inBar === 0 || inBar === 8) this.sweep('square', 110, 80, t, 0.1, 0.07);
+        break;
+      default: break;
+    }
+  }
   playStep(S, t, spb) {
     const bar = Math.floor(this.step / 16), inBar = this.step % 16;
-    const prog = [0, 3, 4, 2, 0, 4, 3, 1]; // scale-degree roots per bar
+    const prog = S.prog || [0, 3, 4, 2, 0, 4, 3, 1]; // scale-degree roots per bar
     const deg = prog[bar % prog.length];
     const sc = S.steps, n = sc.length;
     const degNote = (d, oct = 0) => S.root + sc[((d % n) + n) % n] + 12 * (Math.floor(d / n) + oct);
-    const calm = 1 - Math.min(1, this.intensity);
-    // pad chord at bar start
+    const fight = this.intensity > 0.3, boss = this.mode === 'boss';
+    const leadType = S.lead || (S.wave === 'sawtooth' ? 'square' : 'triangle');
+    // ---- pad / bass at bar start ----
     if (inBar === 0) {
-      for (const off of [0, 2, 4]) this.note(S.wave === 'sawtooth' ? 'triangle' : 'sine', mtof(degNote(deg + off, -1)), t, spb * 15, 0.10, this.musicBus, 0.25);
+      if (S.choir) {
+        for (const off of [0, 2, 4]) this.swell(mtof(degNote(deg + off, -1)), t, spb * 16, 0.13);
+      } else {
+        for (const off of [0, 2, 4]) this.note(S.wave === 'sawtooth' ? 'triangle' : 'sine', mtof(degNote(deg + off, -1)), t, spb * 15, 0.10, this.musicBus, 0.25);
+      }
       this.note('triangle', mtof(degNote(deg, -2)), t, spb * 7, 0.17);
+      if (S.drone) this.note('sine', mtof(S.root + 12 * S.drone.oct), t, spb * 16.5, S.drone.vol);
+      if (S.war >= 2) this.note('sawtooth', mtof(degNote(deg, -2)), t, spb * 3, 0.07); // Apex: brass stab on the bar
     }
-    if (inBar === 8) this.note('triangle', mtof(degNote(deg + 2, -2)), t, spb * 6, 0.13);
-    // arpeggio / melody
-    const pat = [0, 2, 1, 3, 2, 4, 3, 2];
-    if (inBar % 2 === 0 || this.intensity > 0.4) {
-      const idx = pat[(inBar >> 1) % pat.length] + (inBar % 4 === 3 ? 1 : 0);
-      const gate = this.mode === 'boss' || this.intensity > 0.4 ? 1 : (Math.sin(this.step * 0.37 + bar) > -0.2 ? 1 : 0);
-      if (gate) this.note(S.wave === 'sawtooth' ? 'square' : 'triangle', mtof(degNote(deg + idx, 1)), t, spb * 1.8, 0.075 + this.intensity * 0.03, this.musicBus, 0.35);
+    if (inBar === 8 && !S.choir) this.note('triangle', mtof(degNote(deg + 2, -2)), t, spb * 6, 0.13);
+    if (S.heartbeat && (inBar === 0 || inBar === 2)) this.sweep('sine', 90, 45, t, 0.18, inBar === 0 ? 0.3 : 0.2);
+    // ---- fixed motif (title) ----
+    if (S.motif) {
+      const mb = bar % S.motifBars;
+      for (const m of S.motif) if (m.bar === mb && m.at === inBar) this.bellNote(mtof(degNote(m.deg, m.oct ?? 0)), t, spb * m.len, 0.11);
+    } else {
+      // ---- lead ----
+      const pat = S.pat;
+      if (inBar % 2 === 0 || fight) {
+        const idx = pat[(inBar >> 1) % pat.length] + (inBar % 4 === 3 ? 1 : 0);
+        const open = (Math.sin(this.step * 0.37 + bar) * 0.5 + 0.5) < S.density;
+        if (boss || fight || open) {
+          const f = mtof(degNote(deg + idx, S.leadOct ?? 1));
+          const v = (S.warm ? 0.06 : 0.075) + this.intensity * 0.03;
+          if (S.bell) this.bellNote(f, t, spb * 5, v * 0.9);
+          else if (S.pluck) this.note(leadType, f, t, spb * 0.9, v * 1.1, this.musicBus, 0.3);
+          else this.note(S.warm ? 'sine' : leadType, f, t, spb * 1.8, v, this.musicBus, 0.35);
+        }
+      }
     }
-    // percussion (combat / boss / town light)
-    if (this.intensity > 0.3 || this.mode === 'boss') {
-      if (inBar % 4 === 0) this.noise(t, 0.12, 0.35, 0, this.musicBus, 160);
-      if (inBar % 4 === 2) this.noise(t, 0.05, 0.12, 6000, this.musicBus);
-      if (this.mode === 'boss' && inBar % 2 === 1) this.noise(t, 0.03, 0.06, 8000, this.musicBus);
-    } else if (this.mode === 'town' && inBar % 4 === 2) this.noise(t, 0.04, 0.05, 7000, this.musicBus);
+    // ---- colour ----
+    if (S.bubbles && Math.random() < 0.1) this.note('sine', mtof(S.root + 24 + sc[(Math.random() * n) | 0]), t, 0.12, 0.05, this.musicBus, 0.4);
+    // ---- percussion ----
+    this.percStep(S, inBar, t, fight || boss);
+    if (S.war >= 1 && (inBar === 6 || inBar === 10 || (S.war >= 2 && inBar === 14))) this.sweep('sine', 100, 50, t, 0.16, 0.2); // war toms
   }
   // ---------- SFX ----------
   tone(type, f0, f1, dur, vol, delay = 0) {
@@ -115,7 +215,7 @@ export class Audio {
   sfx(name, v = 1) {
     if (!this.ctx || this.muted) return;
     const now = this.ctx.currentTime;
-    const lim = { hit: 0.04, step: 0.18, enemyDie: 0.05, crit: 0.05, hover: 0.075 }[name]; // rate limit
+    const lim = { hit: 0.04, step: 0.18, enemyDie: 0.05, crit: 0.05, hover: 0.075, flameGain: 0.4, flameSpend: 0.25, enterLight: 1.2, leaveLight: 1.2, dimIn: 0.6, dimOut: 0.6 }[name]; // rate limit
     if (lim && this.last[name] && now - this.last[name] < lim) return; this.last[name] = now;
     const t = now;
     switch (name) {
@@ -252,6 +352,24 @@ export class Audio {
       case 'lullCalm':
         [523, 659, 784, 659].forEach((f, i) => this.tone('sine', f, f, 0.48, 0.1, i * 0.11));
         break;
+      // ---- Beaconfall lamp cues (Flame / light / Dimming); see docs/beaconfall/AUDIO.md ----
+      case 'flameGain': this.tone('sine', 880 * (0.9 + v * 0.1), 1175, 0.16, 0.05); this.tone('sine', 1320, 1568, 0.12, 0.03, 0.05); break;
+      case 'flameSpend': this.tone('sine', 560, 240, 0.32, 0.09); this.noise(t, 0.18, 0.12, 0, this.sfxBus, 1100); break;
+      case 'flameOut': this.tone('triangle', 330, 96, 0.7, 0.13); this.noise(t + 0.05, 0.4, 0.12, 0, this.sfxBus, 500); this.tone('sine', 196, 130, 0.9, 0.06, 0.12); break;
+      case 'dimIn': { // darkness deepens: lower and more dissonant each stack (v = new stack 1..3)
+        const base = 150 / (1 + 0.18 * v);
+        this.tone('sine', base, base * 0.72, 0.8, 0.15); this.tone('triangle', base * 1.414, base * 1.3, 0.7, 0.05, 0.05);
+        this.noise(t, 0.4, 0.1, 0, this.sfxBus, 420 / v); break;
+      }
+      case 'dimOut': [392, 523, 659].forEach((f, i) => this.tone('sine', f, f * 1.01, 0.4, 0.07, i * 0.07)); break;
+      case 'enterLight': [392, 494, 587, 784].forEach((f, i) => this.tone('sine', f, f, 0.7, 0.06, i * 0.09)); this.noise(t, 0.3, 0.05, 0, this.sfxBus, 1600); break;
+      case 'leaveLight': [494, 392].forEach((f, i) => this.tone('triangle', f, f * 0.98, 0.3, 0.045, i * 0.1)); break;
+      case 'lanternLit': [659, 880, 1175, 1568].forEach((f, i) => { this.tone('sine', f, f, 0.95, 0.09, i * 0.09); this.tone('sine', f * 2.76, f * 2.76, 0.25, 0.02, i * 0.09); }); this.noise(t, 0.25, 0.1, 5000); break;
+      case 'lanternRespawn': [262, 330, 392, 523, 659].forEach((f, i) => this.tone('sine', f, f * 1.02, 0.9, 0.1, i * 0.08)); this.noise(t, 0.5, 0.08, 0, this.sfxBus, 1200); break;
+      case 'apexStart': // Ember Tide Apex: low brass hit + noise swell
+        this.tone('sawtooth', 98, 49, 1.1, 0.2); this.tone('sawtooth', 147, 73, 0.9, 0.12, 0.04);
+        [196, 247, 294].forEach(f => this.tone('sawtooth', f, f * 0.98, 0.7, 0.07, 0.1));
+        this.noise(t, 0.9, 0.3, 0, this.sfxBus, 900); break;
       default: break;
     }
   }

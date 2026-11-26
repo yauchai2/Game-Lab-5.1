@@ -424,7 +424,7 @@ function spawnTideBoss(g) {
     lastTitle = isSlimeKing ? '👑 史萊姆王 · 餘燼潮主' : (bIdx === 1 ? '👑 幻影毒蛾王 · 雙生潮主' : '👑 雷鳴野豬王 · 餘燼潮主');
     g.ui.dmgNum(bx, g.world.gh(bx, bz) + 3.0, bz, isSlimeKing ? 'THE SLIME KING!' : 'TIDE LORD!', 'comic');
   }
-  g.audio.sfx('tideHorn');
+  g.audio.sfx('tideHorn'); g.audio.sfx('apexStart');
   g.ui.banner(
     twinCount > 1 ? '👑👑 雙王夾擊！雙生餘燼潮主入侵！' : `🔥 ${lastTitle} 入侵！`,
     `熾炎巔峰 35 秒 · 掉寶 ×${lootMultForTide(td, g.meta?.p)} · 擊破必掉黃金輪盤寶箱`,

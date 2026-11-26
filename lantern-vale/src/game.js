@@ -6,6 +6,8 @@ import { getTerrainEffect, updateFieldTerrainFx, updateRealmRule } from './terra
 import { refreshWick, bindWick, updateWick, wickMechFull, offsetSpeedMul } from './wick.js';
 import { updateFlame, onBasicHit, onKill as onFlameKill, onPlayerHurt as onFlameHurt, findRespawn, applyRespawnState, FLAME_CFG } from './flame.js';
 import { syncLightRings } from './flame_fx.js';
+import { themeKeyFor } from './music_themes.js';
+import { wireFlameAudio } from './flame_audio.js';
 import { buildDungeonScenery } from './dungeon_scene.js';
 import { CLASSES, ensurePuzzle, computeBoard, ALL_GEMS, addGemToBag } from './puzzle.js';
 import { dayInfo, findSecondClass, buildDungeonLandmark, tickSkyFeatures, buildInterior } from './world_alive.js';
@@ -146,7 +148,7 @@ function dropIconMaterial(artId) {
 
 export class Game {
   constructor(pipe, ui, audio, trialOrder = null) {
-    this.pipe = pipe; this.ui = ui; this.audio = audio;
+    this.pipe = pipe; this.ui = ui; this.audio = audio; wireFlameAudio(audio);
     this.scene = new THREE.Scene();
     this.questGuide = new QuestGuide();
     this.camera = new THREE.PerspectiveCamera(34, 16 / 9, 2, 190);
@@ -877,7 +879,7 @@ export class Game {
     }
     p.y = 0; p.vy = 0; p.air = false; p.climbing = false; p.stamina = 100; p.lastLow.set(p.pos.x, 0, p.pos.z);
     this.world.computeFlow(p.pos.x, p.pos.z);
-    this.musicKey = title ? 'title' : anyTown ? 'town' : boss ? 'boss' : B.key; this.audio.setMusic(this.musicKey, 0);
+    this.musicKey = themeKeyFor({ title, town: anyTown, boss, field: this.field, biomeKey: B.key }); this.audio.setMusic(this.musicKey, 0);
   }
 
   makeExit(e, type) {
@@ -3562,7 +3564,11 @@ export class Game {
     }
 
     const mKey = this.interior ? 'interior' : (this.isNight && (this.depth === -1 || this.field) && !this.enemies.length ? 'night' : this.musicKey);
-    if (this.state === 'play' && mKey) this.audio.setMusic(mKey, this.enemies.length ? 1 : 0);
+    if (this.state === 'play' && mKey) {
+      // Ember Tide phase and Dimming stacks reshape the region's theme (music_themes.js); only fields have either.
+      this.audio.setMusic(mKey, this.enemies.length ? 1 : 0, { tide: this.field ? (this.tide?.phase || 0) : 0 });
+      this.audio.setDim(this.field ? (this.flameRt?.dim || 0) : 0);
+    }
     this.updatePickups(dt);
     if (this.state === 'play') this.ui.spotHint(this);
     if (!this.interior) this.updateEnemies(dt);
