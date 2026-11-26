@@ -155,6 +155,25 @@ export function buildPanels(g) {
     body.querySelector('[data-cc-puzzle]').onclick = openRewardPuzzle;
   }
 
+  function renderCaveRetry() {
+    const { active } = meadowCaveProgress(M.p);
+    if (!active) { g.ui.closePanel(); return; }
+    const spec = MEADOW_CAVE[active.tier];
+    const stage = spec.stages[active.stage];
+    title.textContent = `草原洞窟 · 第 ${active.stage + 1} 段`;
+    body.innerHTML = `<p><b>${spec.name} · ${stage.name}</b></p>
+      <p>已使用的鑰石仍然有效，無需跑回洞口即可直接續戰。</p>`
+      + row(`<div><b>立即返回第 ${active.stage + 1} 段</b></div><small>${stage.hint}</small>`,
+        '<button type="button" class="btn small on" data-cr-resume>立即續戰</button>')
+      + row('<div><b>調整技能拼圖</b></div><small>換上霜緩或汲血寶石後再戰</small>',
+        '<button type="button" class="btn small" data-cr-puzzle>開啟拼圖</button>')
+      + row('<div><b>前往燈谷鎮工坊</b></div><small>強化或鍛造裝備後再挑戰</small>',
+        '<button type="button" class="btn small" data-cr-forge>前往工坊</button>');
+    body.querySelector('[data-cr-resume]').onclick = () => { if (!g.startMeadowCaveDirect(active.tier)) g.ui.closePanel(); };
+    body.querySelector('[data-cr-puzzle]').onclick = openRewardPuzzle;
+    body.querySelector('[data-cr-forge]').onclick = () => { g.ui.openPanel('workshop'); };
+  }
+
   function renderExpedition() {
     const { active } = meadowExpedition(M.p);
     const stage = meadowStage(active);
@@ -604,12 +623,13 @@ export function buildPanels(g) {
 
   function render() {
     M = g.meta;
-    foot.hidden = ['map', 'shards', 'expedition', 'meadowCave', 'caveClear', 'field_quest'].includes(kind);
+    foot.hidden = ['map', 'shards', 'expedition', 'meadowCave', 'caveClear', 'caveRetry', 'field_quest'].includes(kind);
     head();
     if (kind === 'shards') { renderShards(); return; }
     if (kind === 'expedition') { renderExpedition(); return; }
     if (kind === 'meadowCave') { renderMeadowCave(); return; }
     if (kind === 'caveClear') { renderCaveClear(); return; }
+    if (kind === 'caveRetry') { renderCaveRetry(); return; }
     if (kind === 'exchange') { drawExchange(g,body,title); return; }
     if (kind === 'guild') { renderGuildHall(); return; }
     if (kind === 'ascend') { renderAscend(); return; }

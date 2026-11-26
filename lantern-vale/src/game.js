@@ -1105,27 +1105,38 @@ export class Game {
       this.hitstop = Math.max(this.hitstop, 0.045);
       this.shake = Math.max(this.shake, 0.25);
       this.fx.burst(e.pos.x, e.pos.y + 0.7, e.pos.z, 16, { c: [0x9cf0ff, 0xffffff, 0x58b8e8], s: 0.14, speed: 6.8, up: 4.2, life: 0.48 });
-      this.ui.dmgNum(e.pos.x, e.pos.y + 1.85, e.pos.z, '❄️ 碎冰爆發!', 'crit');
+      const sg = new THREE.RingGeometry(0.45, 0.78, 24); sg.rotateX(-Math.PI / 2);
+      const sm = new THREE.Mesh(sg, new THREE.MeshBasicMaterial({ color: 0x8be9ff, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide }));
+      sm.position.set(e.pos.x, e.pos.y + 0.2, e.pos.z); sm.userData.noNormal = true; this.scene.add(sm);
+      this.rings.push({ mesh: sm, t: 0, max: 0.26, radius: 2.3 });
       this.audio.sfx('shatter');
     }
     if ((this.shrineBuffs?.frost || 0) > 0 && !opts.isDoT && e.type !== 'stag') {
       e.slow = Math.max(e.slow || 0, 2.2);
       if (Math.random() < 0.28) e.statuses.freeze = Math.max(e.statuses.freeze || 0, 1.8);
     }
-    // 空中截擊與擊落機制：滯空攻擊對空中怪物造成 1.5 倍暴擊、擊落眩暈並踏跳反彈回復體力
+    // 空中截擊與擊落機制：滯空攻擊對空中怪物造成 1.5 倍暴擊、擊落並開啟統一破綻窗口
     if (opts.aerial && e.flying && e.groundedT <= 0) {
       dmg = Math.round(dmg * 1.5);
       e.groundedT = 4.2;
       e.stun = Math.max(e.stun, 1.5);
+      e.state = 'rest'; e.t = 0; e.chargeRecoveryS = 2.2;
       p.vy = Math.max(p.vy, 7.8);
       p.stamina = Math.min(100, p.stamina + 40);
       this.audio.sfx('perfect');
-      this.ui.toast('🦅 空中破翼擊落！體力 +40 · 踏跳反彈', '#7ae8ff');
       this.fx.burst(e.pos.x, e.pos.y + 0.6, e.pos.z, 14, { c: [0x7ae8ff, 0xffe480, 0xffffff], s: 0.14, speed: 6, up: 4, life: 0.5 });
+      const ag = new THREE.RingGeometry(0.42, 0.72, 24); ag.rotateX(-Math.PI / 2);
+      const am = new THREE.Mesh(ag, new THREE.MeshBasicMaterial({ color: 0x7ae8ff, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide }));
+      am.position.set(e.pos.x, this.world.groundY(e.pos.x, e.pos.z) + 0.16, e.pos.z); am.userData.noNormal = true; this.scene.add(am);
+      this.rings.push({ mesh: am, t: 0, max: 0.26, radius: 2.4 });
     }
     if (e.shieldT > 0 && !opts.isDoT) {
       dmg = Math.max(1, Math.round(dmg * 0.2));
-      this.ui.dmgNum(e.pos.x, e.pos.y + 1.5, e.pos.z, '🛡 格擋', 'norm');
+      this.fx.burst(e.pos.x, e.pos.y + 0.9, e.pos.z, 8, { c: [0xdbeeff, 0xffffff, 0x8fb8d8], s: 0.11, speed: 4.5, up: 2.2, life: 0.28 });
+      const bg = new THREE.RingGeometry(0.32, 0.5, 20); bg.rotateX(-Math.PI / 2);
+      const bm = new THREE.Mesh(bg, new THREE.MeshBasicMaterial({ color: 0xdbeeff, transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide }));
+      bm.position.set(e.pos.x, e.pos.y + 0.2, e.pos.z); bm.userData.noNormal = true; this.scene.add(bm);
+      this.rings.push({ mesh: bm, t: 0, max: 0.18, radius: 1.35 });
     } else if (e.isPhalanxShield && !opts.aerial && !opts.isDoT) {
       const toPlayerX = p.pos.x - e.pos.x, toPlayerZ = p.pos.z - e.pos.z;
       const frontDot = Math.sin(e.facing || 0) * toPlayerX + Math.cos(e.facing || 0) * toPlayerZ;
@@ -1506,7 +1517,8 @@ export class Game {
         ? ` · 未結算戰利品袋遺失 50%（-${lostSpoils.lostCoins}金 / -${lostSpoils.lostShards}星砂）`
         : '';
       if (cave) {
-        this.ui.banner('在燈谷鎮甦醒', `返回草原洞窟，繼續第 ${cave.stage + 1} 段。已用的鑰石仍有效。`);
+        this.ui.banner('在燈谷鎮甦醒', `已保留草原洞窟第 ${cave.stage + 1} 段進度，可一鍵續戰。`);
+        this.ui.openPanel('caveRetry');
         return;
       }
       this.ui.banner('在燈谷鎮甦醒', (lost ? '墓碑保管了 ' + lost + ' 份素材 · ' + FIELDS[this.originField || 1].name : '裝備與星砂已保留') + spoilMsg);
@@ -3901,7 +3913,10 @@ export class Game {
       } else if (e.type === 'skyray') {
         e.groundedT = Math.max(0, (e.groundedT || 0) - dt);
         e.cd -= dt;
-        if (e.groundedT <= 0) {
+        if (e.state === 'rest') {
+          const restDur = e.chargeRecoveryS || 0.70;
+          if (e.t > restDur) { e.state = 'move'; e.t = 0; e.chargeRecoveryS = 0; }
+        } else if (e.groundedT <= 0) {
           // 空中盤旋與俯衝襲擊
           if (dist > 8) { mvx = dirP.x * spd; mvz = dirP.y * spd; }
           else if (dist < 3.6) { mvx = -dirP.x * spd * 0.7; mvz = -dirP.y * spd * 0.7; }
@@ -3913,9 +3928,11 @@ export class Game {
               const d = dirP.clone().rotateAround(new V2(), (i - (n - 1) / 2) * 0.25);
               this.fireEnemyProj({ x: e.pos.x, y: e.pos.y, z: e.pos.z }, d, 9.5, e.dmg, 0x7ae8ff, 0.22);
             }
+            e.state = 'rest'; e.t = 0; e.chargeRecoveryS = 0.70;
           }
         }
-        const fl = Math.sin(e.t * (e.groundedT > 0 ? 4 : 11)) * (e.groundedT > 0 ? 0.15 : 0.45);
+        const slowWing = e.groundedT > 0 || e.state === 'rest';
+        const fl = Math.sin(e.t * (slowWing ? 4.5 : 11)) * (slowWing ? 0.16 : 0.45);
         if (e.m.wings) { e.m.wings[0].rotation.z = fl; e.m.wings[1].rotation.z = -fl; }
       } else if (e.type === 'golem') {
         e.cd -= dt;
@@ -4319,7 +4336,7 @@ export class Game {
             if (gz.slipStun && e.type !== 'stag' && !e.flying && (e._slipCd || 0) <= 0) {
               e._slipCd = 2.8; e.stun = Math.max(e.stun, gz.slipStun);
               e.knock.x += (Math.random() - 0.5) * 4; e.knock.z += (Math.random() - 0.5) * 4;
-              this.ui.dmgNum(e.pos.x, e.pos.y + 1.5, e.pos.z, '❄️ 滑倒!', 'crit');
+              this.fx.burst(e.pos.x, e.pos.y + 0.5, e.pos.z, 8, { c: [0x9cf0ff, 0xffffff], s: 0.11, speed: 3.6, up: 2.2, life: 0.3 });
             }
             if ((gz.kind === 'electrified_water' || gz.kind === 'electrified_steam') && prevShockE) {
               this.spawnBeam(prevShockE.pos.x, prevShockE.pos.y + 0.7, prevShockE.pos.z, e.pos.x, e.pos.y + 0.7, e.pos.z, gz.color || 0xc88cff);

@@ -192,8 +192,7 @@ export class UI {
     };
     for (let i = 0; i < 4; i++) {
       const slot = $('sk-s' + i);
-      slot.onclick = event => {
-        const touch = event.pointerType === 'touch' || matchMedia('(pointer: coarse)').matches;
+      const triggerSlot = touch => {
         if (touch && (game.raid || !game.canUseTouchControls())) return;
         if (!game.player.hotbar?.[i] && !(i === 0 && (touch || game.ambushTrial))) {
           game.audio.sfx('ui');
@@ -202,6 +201,16 @@ export class UI {
           if (touch) game.aimForTouch();
           game.castHotbar(i);
         }
+      };
+      slot.addEventListener('pointerdown', event => {
+        if (event.pointerType !== 'touch' && event.pointerType !== 'pen') return;
+        event.preventDefault();
+        triggerSlot(true);
+      });
+      slot.onclick = event => {
+        if (event.pointerType === 'touch' || event.pointerType === 'pen') return;
+        const touch = matchMedia('(pointer: coarse)').matches && event.detail > 0;
+        triggerSlot(touch);
       };
     }
     // 點擊彈窗外部深色遮罩即可快速關閉
