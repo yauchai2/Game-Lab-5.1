@@ -27,6 +27,19 @@ const MIME = {
   '.glb': 'model/gltf-binary', '.gltf': 'model/gltf+json', '.bin': 'application/octet-stream',
 };
 const _htmlCache = new Map();
+const _assetCache = new Map();
+let _assetCacheBytes = 0;
+const MAX_ASSET_CACHE_BYTES = 32 * 1024 * 1024;
+function putAssetCache(key, buf) {
+  if (buf.length > 6 * 1024 * 1024) return;
+  while (_assetCacheBytes + buf.length > MAX_ASSET_CACHE_BYTES && _assetCache.size) {
+    const firstKey = _assetCache.keys().next().value;
+    _assetCacheBytes -= _assetCache.get(firstKey).length;
+    _assetCache.delete(firstKey);
+  }
+  _assetCache.set(key, buf);
+  _assetCacheBytes += buf.length;
+}
 function pickEncoding(req) {
   const ae = req.headers['accept-encoding'] || '';
   if (/\bbr\b/i.test(ae)) return 'br';
@@ -78,21 +91,32 @@ const server = http.createServer(async (req, res) => {
       if (!file.startsWith(ASSET_DIR + path.sep)) { res.writeHead(404).end(); return; }
       const stat = await fs.promises.stat(file);
       if (!stat.isFile()) { res.writeHead(404).end(); return; }
+      const etag = `W/"${stat.size}-${Math.trunc(stat.mtimeMs)}"`;
       const ext = path.extname(file);
-      const enc = (COMPRESS_EXTS.has(ext) && req.method !== 'HEAD') ? pickEncoding(req) : null;
       const headers = {
         'Content-Type': MIME[ext] || 'application/octet-stream',
-        'Cache-Control': playtestGate ? 'private, no-store' : 'public, max-age=86400',
+        'Cache-Control': playtestGate ? 'private, no-cache' : 'public, max-age=86400',
+        ETag: etag,
         Vary: 'Accept-Encoding',
       };
-      if (enc === 'br') {
-        headers['Content-Encoding'] = 'br';
-        res.writeHead(200, headers);
-        await pipeline(fs.createReadStream(file), zlib.createBrotliCompress({ params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 4 } }), res);
-      } else if (enc === 'gzip') {
-        headers['Content-Encoding'] = 'gzip';
-        res.writeHead(200, headers);
-        await pipeline(fs.createReadStream(file), zlib.createGzip({ level: 5 }), res);
+      if (req.headers['if-none-match'] === etag) {
+        res.writeHead(304, headers).end();
+        return;
+      }
+      const enc = (COMPRESS_EXTS.has(ext) && req.method !== 'HEAD') ? pickEncoding(req) : null;
+      if (enc === 'br' || enc === 'gzip') {
+        const cacheKey = `${file}:${stat.mtimeMs}:${enc}`;
+        let buf = _assetCache.get(cacheKey);
+        if (!buf) {
+          const raw = await fs.promises.readFile(file);
+          buf = enc === 'br'
+            ? zlib.brotliCompressSync(raw, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 4 } })
+            : zlib.gzipSync(raw, { level: 5 });
+          putAssetCache(cacheKey, buf);
+        }
+        headers['Content-Encoding'] = enc;
+        headers['Content-Length'] = buf.length;
+        res.writeHead(200, headers).end(buf);
       } else {
         headers['Content-Length'] = stat.size;
         res.writeHead(200, headers);
@@ -119,6 +143,16 @@ const num = value => typeof value === 'number' && Number.isFinite(value) ? Math.
 const send = (me, data) => {
   if (me.ws.readyState === 1 && me.ws.bufferedAmount < 256 * 1024) me.ws.send(JSON.stringify(data));
 };
+const dungeonLobbies = require('./dungeon_lobby.cjs')(send, (members, id, bots) => {
+  guild.startDungeonRaid(members, id, bots);
+  for (const member of members) enterRaidChannel(member);
+});
+function enterRaidChannel(member) {
+  if (!member.raid || !member.shard) return;
+  closeShardMembership(member);
+  member.zone = null;
+  send(member, { t: 'shard', zone: null, id: null, history: [] });
+}
 function broadcast(data, filter = () => true) {
   for (const me of players.values()) if (filter(me)) send(me, data);
 }
@@ -165,6 +199,7 @@ function currentZone(value, me, party) {
   if (/^field:(?:[1-9]|1[0-9]|20)$/.test(value)) return value;
   const run = /^run:.+:([0-9]{1,2})$/.exec(value);
   const depth = Number(run?.[1]);
+  if (run && me.dungeonRun && value === `run:d${me.dungeonRun.id}:${depth}`) return value;
   if (run) return `run:${party || 'solo' + me.id}:${depth}`;
   return null;
 }
@@ -189,20 +224,20 @@ function getLineState(me) {
 wss.on('connection', ws => {
   const me = { id: nextId++, ws, name: '旅人', col: 0, zone: null, shard: null, party: '', x: 0, y: 0, z: 0, f: 0, a: 0, chatT: [] };
   players.set(me.id, me);
-  send(me, { t: 'welcome', id: me.id, history: [], hotspots: pickHotspots(), features: FEATURE_FLAGS, zoneShards: true });
+  send(me, { t: 'welcome', id: me.id, history: [], hotspots: pickHotspots(), features: FEATURE_FLAGS, zoneShards: true, dungeonLobbies: true });
   joinZone(me, 'town');
   broadcastOnline();
   ws.on('message', raw => {
     let m;
     try { m = JSON.parse(raw); } catch { return; }
     if (!m || typeof m !== 'object') return;
+    if (['dungeon_join', 'dungeon_leave', 'dungeon_start', 'dungeon_wave', 'dungeon_hit'].includes(m.t)) {
+      dungeonLobbies.message(me, m);
+      return;
+    }
     if (['guildHello', 'trade', 'raidJoin', 'raidLeave', 'raidInput'].includes(m.t)) {
       guild.message(me, m);
-      if (me.raid && me.shard) {
-        closeShardMembership(me);
-        me.zone = null;
-        send(me, { t: 'shard', zone: null, id: null, history: [] });
-      }
+      enterRaidChannel(me);
       return;
     }
     switch (m.t) {
@@ -218,6 +253,7 @@ wss.on('connection', ws => {
         const zone = currentZone(m.zone, me, party);
         if (!zone) break;
         joinZone(me, zone, party);
+        dungeonLobbies.position(me, zone);
         me.x = num(m.x); me.y = num(m.y); me.z = num(m.z); me.f = num(m.f);
         me.a = Number.isInteger(m.a) && m.a >= 0 && m.a <= 5 ? m.a : 0;
         break;
@@ -279,6 +315,7 @@ wss.on('connection', ws => {
     }
   });
   ws.on('close', () => {
+    dungeonLobbies.leave(me);
     guild.disconnect(me);
     closeShardMembership(me);
     players.delete(me.id);

@@ -25,7 +25,7 @@ module.exports = function createGuild(filename) {
   function leave(me) {
     const room = me.raid; if (!room) return;
     room.members.delete(me.id); me.raid=null;
-    if (!room.members.size) rooms.delete(room.code);
+    if (![...room.members.values()].some(fighter => !fighter.bot)) rooms.delete(room.code);
     send(me,{t:'raidExit'});
   }
   function disconnect(me) { leave(me); if (online.get(me.member)===me) online.delete(me.member); }
@@ -66,6 +66,29 @@ module.exports = function createGuild(filename) {
       }
     }
   }
+  function joinRaid(me, code, power = 8) {
+    let room = rooms.get(code);
+    if (!room) {
+      room = { code, members: new Map(), hp: 144, x: 0, z: 0, clock: 0, portalsLeft: 6 };
+      rooms.set(code, room);
+    }
+    if (room.members.size >= 4) { send(me, { t: 'guildNotice', text: '此組隊副本已滿。' }); return null; }
+    room.members.set(me.id, { me, x: 0, z: 4, dx: 0, dz: 0, hp: 100, attack: false, cooldown: 0, damage: 0, power, mitigated: 0 });
+    me.raid = room;
+    send(me, { t: 'raidStart', code, portalsLeft: room.portalsLeft });
+    return room;
+  }
+
+  function startDungeonRaid(members, id, bots) {
+    let room;
+    for (const member of members) room = joinRaid(member, `lobby-${id}`) || room;
+    if (!room) return;
+    for (let i = 0; i < bots; i++) {
+      const actor = { id: `ai-${i}`, name: i === 0 ? '巡燈衛士（AI）' : '林風遊俠（AI）' };
+      room.members.set(actor.id, { me: actor, bot: true, x: i ? -2 : 2, z: 4, dx: 0, dz: 0, hp: 100,
+        attack: false, cooldown: 0, damage: 0, power: 4, mitigated: 0 });
+    }
+  }
   function message(me,m) {
     if (m.t==='guildHello') {
       if (me.member || typeof m.secret!=='string' || !/^[a-f0-9]{64}$/.test(m.secret)) return;
@@ -89,15 +112,13 @@ module.exports = function createGuild(filename) {
     if (m.t==='trade') { trade(me,m); return; }
     if (m.t!=='raidJoin'||me.raid) return;
     const code=String(m.code||'').trim().slice(0,12) || ('個人-'+me.id);
-    let room=rooms.get(code);
-    if (!room) {
-      room={code,members:new Map(),hp:144,x:0,z:0,clock:0,pulse:0,portalsLeft:6}; rooms.set(code,room);
-    }
-    if (room.members.size>=4) {send(me,{t:'guildNotice',text:'此組隊副本已滿。'});return;}
     const power = Number.isFinite(+m.power) ? Math.max(6, Math.min(32, Math.round(+m.power))) : 8;
-    room.members.set(me.id,{me,x:0,z:4,dx:0,dz:0,hp:100,attack:false,cooldown:0,damage:0,power,mitigated:0});
-    me.raid=room;send(me,{t:'raidStart',code,portalsLeft:room.portalsLeft});
+    joinRaid(me, code, power);
   }
+  function membersHaveFought(room) {
+    return [...room.members.values()].some(fighter => !fighter.bot && fighter.hp > 0 && fighter.damage > 0);
+  }
+
   function tick() {
     const now=Date.now();
     for (const room of rooms.values()) {
@@ -105,7 +126,13 @@ module.exports = function createGuild(filename) {
       const impact=room.clock%40===0;
       for (const f of room.members.values()) {
         if (f.hp<=0) continue;
-        if (now-(f.inputAt||0)>550) {f.dx=f.dz=0;f.attack=false;}
+        if (f.bot) {
+          const dx = room.x - f.x, dz = room.z - f.z, dist = Math.hypot(dx, dz) || 1;
+          const dodge = room.clock % 40 >= 30;
+          const move = dodge ? (dist < 3.8 ? -1 : 0) : (dist > 2.6 ? 1 : 0);
+          f.dx = dx / dist * move; f.dz = dz / dist * move;
+          f.attack = !dodge && membersHaveFought(room);
+        } else if (now-(f.inputAt||0)>550) {f.dx=f.dz=0;f.attack=false;}
         const length=Math.hypot(f.dx,f.dz)||1;
         f.x=Math.max(-4.6,Math.min(4.6,f.x+f.dx/length*.45));
         f.z=Math.max(-4.6,Math.min(4.6,f.z+f.dz/length*.45));
@@ -121,23 +148,24 @@ module.exports = function createGuild(filename) {
       const members=[...room.members.values()];
       const snapshot={t:'raidFrame',hp:Math.max(0,room.hp),portalsLeft:room.portalsLeft,warn:room.clock%40>=30,
         members:members.map(f=>({id:f.me.id,name:f.me.name,hp:f.hp,x:f.x,z:f.z}))};
-      for(const f of members) send(f.me,snapshot);
-      if(room.hp>0 && members.some(f=>f.hp>0)) continue;
+      const humans = members.filter(f => !f.bot);
+      for(const f of humans) send(f.me,snapshot);
+      if(room.hp>0 && humans.some(f=>f.hp>0)) continue;
       const won=room.hp<=0;
-      const topBreaker = [...members].sort((a,b)=>b.damage-a.damage)[0];
-      const topTank = [...members].sort((a,b)=>b.mitigated-a.mitigated)[0];
+      const topBreaker = [...humans].sort((a,b)=>b.damage-a.damage)[0];
+      const topTank = [...humans].sort((a,b)=>b.mitigated-a.mitigated)[0];
       const mvps = won ? [
         topBreaker && topBreaker.damage > 0 ? { badge: '🦌 精準破位王', name: topBreaker.me.name } : null,
         topTank && topTank.mitigated > 0 ? { badge: '🏮 救命提燈人', name: topTank.me.name } : null,
       ].filter(Boolean) : [];
       db.exec('BEGIN IMMEDIATE');
       try {
-        if(won) for(const f of members) if(f.damage>0) db.prepare('UPDATE members SET coins=coins+12,amber=amber+1 WHERE id=?').run(f.me.member);
+        if(won) for(const f of humans) if(f.damage>0) db.prepare('UPDATE members SET coins=coins+12,amber=amber+1 WHERE id=?').run(f.me.member);
         db.exec('COMMIT');
       } catch(e) {db.exec('ROLLBACK');throw e;}
       const mvpTxt = mvps.length ? ' ｜ 高光：' + mvps.map(x=>`${x.badge} ${x.name}`).join(' · ') : '';
-      for(const f of members) {leave(f.me);wallet(f.me);send(f.me,{t:'guildNotice',mvps,text:(won && f.damage>0?'守護獸已平息 · 公會幣 +12、琥珀 +1':won?'隊友已平息守護獸':'隊伍已返回燈谷鎮')+mvpTxt});}
+      for(const f of humans) {leave(f.me);wallet(f.me);send(f.me,{t:'guildNotice',mvps,text:(won && f.damage>0?'守護獸已平息 · 公會幣 +12、琥珀 +1':won?'隊友已平息守護獸':'隊伍已返回燈谷鎮')+mvpTxt});}
     }
   }
-  return {message,disconnect,tick};
+  return {message,disconnect,tick,startDungeonRaid};
 };
