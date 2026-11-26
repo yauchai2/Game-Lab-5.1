@@ -262,6 +262,7 @@ export class UI {
       enterCharacter();
       beginOpening(game.meta.p);
       game.questGuide.enabled = true;
+      game.questDestination = null;
       game.meta.save();
       game.net.connect(game.playerName, game.hoodIdx, game.party);
       $('title').classList.add('hide'); $('hud').classList.remove('hide'); game.enterTown();
@@ -1190,7 +1191,7 @@ export class UI {
             support: '準備寶石，進入草原洞窟',
             resume: '繼續草原洞窟',
             badge: '打造首通獎勵 · 巡燈徽章',
-            next: '選擇下一站 · 遠征或洞窟',
+            next: g.questDestination === 'cave' ? '前往草原洞窟入口' : '選擇下一站 · 遠征或洞窟',
           }[step];
           qFl.style.width = '0%';
         } else if (showExpedition) {

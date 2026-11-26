@@ -15,6 +15,19 @@ export const PROGRESSION_MILESTONES = [
   { lv: 25, title: 'T4 櫻風神狐 · 終局遠征', desc: '探索 12 區＋300 殺可鍛造頂級坐騎，進軍紅楓工坊與深淵古堡' },
 ];
 
+// Enemy scaling uses the encounter level; attack pacing follows the character.
+const LEGACY_PACE = { attacksPerSecond: 1.45, cooldown: 1, recovery: 0, damage: 1, manaRegen: 1, animation: 1, enemyHp: 1, enemyDamage: 1 };
+const EARLY_PACE = { attacksPerSecond: 0.94, cooldown: 1.55, recovery: 0.9, damage: 0.82, manaRegen: 0.66, animation: 0.75, enemyHp: 1.22, enemyDamage: 1.30 };
+const MID_PACE = { attacksPerSecond: 1.10, cooldown: 1.35, recovery: 0.72, damage: 0.90, manaRegen: 0.79, animation: 0.84, enemyHp: 1.16, enemyDamage: 1.22 };
+const LATE_PACE = { attacksPerSecond: 1.25, cooldown: 1.18, recovery: 0.55, damage: 0.97, manaRegen: 0.90, animation: 0.92, enemyHp: 1.12, enemyDamage: 1.16 };
+
+export function combatPace(level = 1, fixedBenchmark = false) {
+  if (fixedBenchmark) return LEGACY_PACE;
+  if (level <= 5) return EARLY_PACE;
+  if (level <= 10) return MID_PACE;
+  return LATE_PACE;
+}
+
 export function getFieldDanger(fieldLevel, playerLevel = 1) {
   const diff = (fieldLevel || 1) - (playerLevel || 1);
   if (diff >= 6) {

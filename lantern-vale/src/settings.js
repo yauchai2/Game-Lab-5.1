@@ -10,7 +10,7 @@ export const KEY_PRESETS = {
 
 export const DIFFICULTY_MODES = {
   cozy:     { id: 'cozy',     name: '🌿 旅人休閒', enemyDmg: 0.70, enemyHp: 0.85, lootBonus: 0,    noGrave: true,  desc: '敵傷 70% · 死亡不掉墓碑，輕鬆逛 20 座島嶼' },
-  standard: { id: 'standard', name: '⚔️ 標準冒險', enemyDmg: 1.00, enemyHp: 1.00, lootBonus: 0,    noGrave: false, desc: '循序漸進平衡基準（推薦）' },
+  standard: { id: 'standard', name: '⚔️ 標準冒險', enemyDmg: 1.00, enemyHp: 1.00, lootBonus: 0,    noGrave: false, desc: '戰鬥講求讀招、閃避及出招時機（推薦）' },
   veteran:  { id: 'veteran',  name: '🔥 餘燼專家', enemyDmg: 1.35, enemyHp: 1.25, lootBonus: 0.25, noGrave: false, desc: '敵傷 135% · 敵血 125% · 掉寶 +25%' },
 };
 

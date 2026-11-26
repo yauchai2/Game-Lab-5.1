@@ -15,7 +15,7 @@ import { preloadNatureAssets, attachMonsterGlb, attachLandmarkGlb } from './asse
 import { BIOMES, mulberry32, clamp, lerp, angleLerp, rand, pick } from './util.js';
 import { buildTownScenery, buildGuildKiosk, buildAwakenAltar, buildWardrobe, buildSheep, TOWN_LAYOUT, buildCottage } from './town.js';
 import { loadSettings, applySettings, buildSettingsUI, DIFFICULTY_MODES } from './settings.js';
-import { getFieldDanger } from './progression.js';
+import { combatPace, getFieldDanger } from './progression.js';
 import { pickHotspots, getFieldHotspot, checkTriggerIcd, foldExcessProjectiles, getFerrySchedule, FERRY_BUFF_MS, getWeeklySpireInfo, mentorDamageScale, getClassTeamRole, parseChatCommand, muteUser, unmuteUser, isMutedUser, DEFAULT_FEATURE_FLAGS } from './mmo_protocol.js';
 import { showWeapon, applyCosmetics, buildPlayer, buildNPC, buildSlime, buildThorn, buildBoar, buildMoth, buildSkyRay, buildGolem, buildStag, buildArch, buildHouse, buildFountain, buildBoard, buildStall } from './models.js';
 import { Net } from './net.js';
@@ -337,7 +337,7 @@ export class Game {
     m.root.add(heroRig.root);
     const p = {
       m, heroRig, combatT: 0, pos: new V3(), vel: new V3(), facing: 0, hp: 100, mana: 50, equip: { head: null, staff: null, body: null, cloak: null, hands: null, feet: null, charm: null, relic: null },
-      boons: [], skills: { slam: false, wisp: false }, cds: { atk: 0, bolt: 0, roll: 0, slam: 0, wisp: 0 }, skillCds: [0, 0, 0, 0], hotbar: [],
+      boons: [], skills: { slam: false, wisp: false }, cds: { atk: 0, action: 0, bolt: 0, roll: 0, slam: 0, wisp: 0 }, skillCds: [0, 0, 0, 0], hotbar: [],
       roll: 0, rollDir: new V3(), iframes: 0, flask: { charges: 1, max: 1, prog: 0 }, healOver: 0,
       statuses: { poison: 0, freeze: 0, chill: 0, burn: 0, shock: 0, overload: 0 }, statusTick: 0, castCombo: 0, castComboT: 0, prevVx: 0, prevVz: 0,
       y: 0, vy: 0, air: false, climbing: false, gliding: false, wall: false, stamina: 100, lastLow: new V3(), stepT: 0, swing: 0, swingT: 0, swingCount: 0, inputBuf: null, galeBuff: false, wisps: [], wispT: 0, walkT: 0, kills: 0, dmgDealt: 0, stats: {},
@@ -620,11 +620,14 @@ export class Game {
   }
   startMeadowCave(tier) {
     if (this.state !== 'play' || this.field !== 1 || this.nearSpot()?.kind !== 'meadowCave') return false;
-    return this.startMeadowCaveDirect(tier);
-  }
-  startMeadowCaveDirect(tier) {
+    const finishOpening = tier === 'elite' && openingStep(this.meta.p) === 'next';
     const cave = enterMeadowCave(this.meta.p, tier);
     if (!cave) return false;
+    this.questDestination = null;
+    if (finishOpening) {
+      this.meta.p.opening.finished = true;
+      recordOpeningEvent(this, 'next_destination', '草原洞窟精英');
+    }
     this.meta.save();
     this.ui.closePanel();
     this.state = 'transition';
@@ -964,9 +967,9 @@ export class Game {
     const lv = this.caveRun ? MEADOW_CAVE[this.caveRun.tier].level : this.towerFloor > 0 ? Math.min(30, 3 + Math.floor(this.towerFloor * 0.6)) : this.field ? FIELDS[this.field].level : (1 + this.depth * 3);
     const difficulty = this.ambushTrial ? 'standard' : this.settings?.difficulty;
     const diff = DIFFICULTY_MODES[difficulty] || DIFFICULTY_MODES.standard;
-    // 硬核高壓難度曲線（敵人血量 ×1.60、傷害 ×1.45、移速 ×1.12 — 必須閃避、走位與紮實養成！）
-    const scale = (lv <= 5 ? (1 + (lv - 1) * 0.22) : (1.88 * Math.pow(1.095, lv - 5))) * diff.enemyHp * 1.60;
-    const dmgScale = (lv <= 5 ? (1 + (lv - 1) * 0.18) : (1.72 * Math.pow(1.07, lv - 5))) * diff.enemyDmg * 1.45;
+    const pace = combatPace(lv, !!this.ambushTrial);
+    const scale = (lv <= 5 ? (1 + (lv - 1) * 0.22) : (1.88 * Math.pow(1.095, lv - 5))) * diff.enemyHp * 1.60 * pace.enemyHp;
+    const dmgScale = (lv <= 5 ? (1 + (lv - 1) * 0.18) : (1.72 * Math.pow(1.07, lv - 5))) * diff.enemyDmg * 1.45 * pace.enemyDamage;
     const atlas = (!this.caveRun && !this.field && this.depth >= 0) ? computeAtlasSummary(ensureAtlas(this.meta.p)) : null;
     const DEF = {
       slime: { hp: 30, spd: 2.7, dmg: 9, r: 0.45, build: () => buildSlime(pick(this.rng, [0x7fc35a, 0x9bd06a, 0x6fb86a])) },
@@ -1076,11 +1079,15 @@ export class Game {
   }
 
   // ---------------- combat ----------------
+  combatPace() {
+    return combatPace(this.meta.p.level, !!this.ambushTrial);
+  }
+
   rollDamage(mult, fire = false) {
     const s = this.player.stats;
     const comboCrit = Math.min(22.5, (this.combo?.count || 0) * 1.5);
     const furyMul = (this.shrineBuffs?.fury || 0) > 0 ? 1.45 : 1;
-    let dmg = (s.baseDmg + s.addFire) * (1 + s.dmgPct / 100) * mult * furyMul;
+    let dmg = (s.baseDmg + s.addFire) * (1 + s.dmgPct / 100) * mult * furyMul * this.combatPace().damage;
     const random = this.ambushTrial ? this.rng : Math.random;
     const crit = (this.player.perfectCritT || 0) > 0 || random() * 100 < (s.crit + comboCrit);
     if (crit) dmg *= s.critMult / 100;
@@ -1778,15 +1785,16 @@ export class Game {
   }
   tryAttack() {
     const p = this.player;
-    if (p.cds.atk > 0 || p.roll > 0) {
+    if (p.cds.atk > 0 || p.cds.action > 0 || p.roll > 0) {
       if (p.inputBuf?.kind !== 'roll') p.inputBuf = { kind: 'attack', t: 0.12 };
       return;
     }
     const comboSpd = Math.min(18, (this.combo?.count || 0) * 1.2);
     const furySpd = (this.shrineBuffs?.fury || 0) > 0 ? 15 : 0;
-    // 1.45 次/秒（41 幀間隔）搭配 0.78 單刀係數：維持總 DPS 平衡，讓 1.25 秒破綻內能流暢打出兩刀反擊
-    const aps = 1.45 * (1 + (p.stats.atkSpd + comboSpd + furySpd) / 100);
+    const pace = this.combatPace();
+    const aps = pace.attacksPerSecond * (1 + (p.stats.atkSpd + comboSpd + furySpd) / 100);
     p.cds.atk = 1 / aps;
+    p.cds.action = pace.recovery * 0.55;
     this.ambushTrial?.event('attack');
     const dir = this.aimDir(); p.facing = Math.atan2(dir.x, dir.y);
     p.swing = 1; p.swingT = 0.18; p.swingCount++; this.audio.sfx('swing');
@@ -1943,14 +1951,14 @@ export class Game {
   }
   castHotbar(slotIdx) {
     const p = this.player, sk = p.hotbar?.[slotIdx];
+    if (p.cds.action > 0 || p.roll > 0 || (p.skillCds[slotIdx] || 0) > 0) {
+      if (p.inputBuf?.kind !== 'roll') p.inputBuf = { kind: 'skill', slot: slotIdx, t: 0.12 };
+      return;
+    }
     if (!sk) {
       if (slotIdx === 0) this.tryBolt();
       else if (slotIdx === 1) this.trySlam();
       else if (slotIdx === 2) this.tryWisp();
-      return;
-    }
-    if ((p.skillCds[slotIdx] || 0) > 0 || p.roll > 0) {
-      if (p.inputBuf?.kind !== 'roll') p.inputBuf = { kind: 'skill', slot: slotIdx, t: 0.12 };
       return;
     }
     const { def, mod } = sk;
@@ -1968,7 +1976,9 @@ export class Game {
       this.ui.hpVial?.impulse(0, 1.8); this.ui.mpVial?.impulse(0, 2.2);
     }
     this.ambushTrial?.event('skill', { skill: def.id });
-    p.skillCds[slotIdx] = Math.max(0.12, def.cd * (1 - p.stats.cdr / 100) * (1 - mod.cdr) * (p.statuses?.overload > 0 ? 0.8 : 1));
+    const pace = this.combatPace();
+    p.cds.action = pace.recovery;
+    p.skillCds[slotIdx] = Math.max(0.12, def.cd * pace.cooldown * (1 - p.stats.cdr / 100) * (1 - mod.cdr) * (p.statuses?.overload > 0 ? 0.8 : 1));
     const run = (echoScale = 1) => this.execPuzzleSkill(def.id, mod, echoScale);
     run(1);
     for (let i = 1; i <= mod.echo; i++) setTimeout(() => { if (this.state === 'play') run(0.65); }, i * 240);
@@ -1978,7 +1988,7 @@ export class Game {
     p.facing = Math.atan2(dir.x, dir.y);
     if (!isTrigger) {
       p.combatT = 5.0;
-      p.heroRig?.play('skill', { once: true, force: true, speed: 1.15 });
+      p.heroRig?.play('skill', { once: true, force: true, speed: 1.15 * this.combatPace().animation });
       this.gainClassRes(this.character?.job === 0 ? 22 : this.character?.job === 2 ? 34 : 1);
     }
     const vfxTh = mod.vfxTheme || null;
@@ -2273,10 +2283,13 @@ export class Game {
     }
   }
   tryBolt() {
-    const p = this.player; if (p.cds.bolt > 0 || p.roll > 0) return;
+    const p = this.player; if (p.cds.bolt > 0 || p.cds.action > 0 || p.roll > 0) return;
     if (p.mana < 8) { if (!this._noManaT || this.time - this._noManaT > 1) { this.ui.toast('法力不足', '#7fb2ff'); this.ui.status?.noMana(); this._noManaT = this.time; } return; }
     this.ambushTrial?.event('skill', { skill: 'bolt' });
-    this.audio.sfx('bolt'); p.mana -= 8; p.cds.bolt = 0.78 / (1 + p.stats.atkSpd / 200);
+    const pace = this.combatPace();
+    this.audio.sfx('bolt'); p.mana -= 8;
+    p.cds.action = pace.recovery;
+    p.cds.bolt = 0.78 * pace.cooldown / (1 + p.stats.atkSpd / 200);
     const dir = this.aimDir(); p.facing = Math.atan2(dir.x, dir.y);
     const n = p.stats.proj, spread = 0.2;
     for (let i = 0; i < n; i++) {
@@ -2350,9 +2363,11 @@ export class Game {
     }
   }
   trySlam() {
-    const p = this.player; if (!p.skills.slam || p.cds.slam > 0 || p.roll > 0) return;
+    const p = this.player; if (!p.skills.slam || p.cds.slam > 0 || p.cds.action > 0 || p.roll > 0) return;
     this.audio.sfx('slam');
-    p.cds.slam = 5 * (this.has('quake') ? 0.8 : 1) * (1 - p.stats.cdr / 100);
+    const pace = this.combatPace();
+    p.cds.action = pace.recovery;
+    p.cds.slam = 5 * pace.cooldown * (this.has('quake') ? 0.8 : 1) * (1 - p.stats.cdr / 100);
     const R = 3.2 * (1 + p.stats.area / 100) * (this.has('quake') ? 1.35 : 1);
     const a = this.aimDir();
     const cx = p.pos.x + a.x * 1.2, cz = p.pos.z + a.y * 1.2;
@@ -2363,9 +2378,11 @@ export class Game {
     p.swing = 1; p.swingT = 0.3;
   }
   tryWisp() {
-    const p = this.player; if (!p.skills.wisp || p.cds.wisp > 0) return;
+    const p = this.player; if (!p.skills.wisp || p.cds.wisp > 0 || p.cds.action > 0) return;
     this.audio.sfx('wisp');
-    p.cds.wisp = 12 * (1 - p.stats.cdr / 100);
+    const pace = this.combatPace();
+    p.cds.action = pace.recovery;
+    p.cds.wisp = 12 * pace.cooldown * (1 - p.stats.cdr / 100);
     for (const w of p.wisps) { this.scene.remove(w.mesh); disposeObj3D(w.mesh); }
     p.wisps = [];
     const n = 3 + (this.has('swarm') ? 3 : 0) + (p.specials.has('moreWisps') ? 3 : 0);
@@ -2832,6 +2849,20 @@ export class Game {
     if (this.field) return useFieldSpot(this, s);
     if (s.kind === 'talk') { const r = s.bot; this.say(r.id, r.lines[(Math.random() * r.lines.length) | 0]); r.tf = Math.atan2(this.player.pos.x - r.x, this.player.pos.z - r.z); r.wait = Math.max(r.wait, 4);
       if (!this.talked.has(r.id)) { this.talked.add(r.id); this.meta.event('talk'); } this.audio.sfx('ui'); return true; }
+    if (s.kind === 'forge') {
+      const destination = this.questDestination;
+      if (destination === 'badge' || (openingStep(this.meta.p) === 'badge' && !destination)) {
+        this.questDestination = null;
+        this.ui.openPanel('openingBadge');
+        return true;
+      }
+      if (destination === 'workshop' || destination === 'staff') {
+        this.questDestination = null;
+        this.ui.openPanel('workshop', { recipeId: destination === 'staff' ? 'rec_tusk_staff' : null });
+        return true;
+      }
+    }
+    if (s.kind === 'guild' && this.questDestination === 'guild') this.questDestination = null;
     this.audio.sfx('ui'); this.ui.openPanel(s.kind); return true;
   }
   enterInterior(kind) {
@@ -3269,7 +3300,7 @@ export class Game {
       p.perfectDodgeCd = Math.max(0, (p.perfectDodgeCd || 0) - dt);
       p.perfectCritT = Math.max(0, (p.perfectCritT || 0) - dt);
       p.leechBuffT = Math.max(0, (p.leechBuffT || 0) - dt);
-      p.mana = Math.min(S.mana, p.mana + dt * 7 * (1 + (S.manaRegen || 0) / 100));
+      p.mana = Math.min(S.mana, p.mana + dt * 7 * this.combatPace().manaRegen * (1 + (S.manaRegen || 0) / 100));
       if (S.regen) this.heal(S.regen * dt, false);
       if (p.specials.has('mossRegen')) this.heal(S.maxHp * 0.02 * dt, false);
       if (p.healOver > 0) { p.healOver -= dt; this.heal(p.healRate * dt, false); }
@@ -3280,9 +3311,9 @@ export class Game {
             p.inputBuf = null;
           } else if (p.inputBuf.kind === 'roll' && p.cds.roll <= 0 && p.roll <= 0 && !p.air && !p.climbing) {
             p.inputBuf = null; this.tryRoll();
-          } else if (p.inputBuf.kind === 'attack' && p.cds.atk <= 0 && p.roll <= 0) {
+          } else if (p.inputBuf.kind === 'attack' && p.cds.atk <= 0 && p.cds.action <= 0 && p.roll <= 0) {
             p.inputBuf = null; this.tryAttack();
-          } else if (p.inputBuf.kind === 'skill' && (p.skillCds[p.inputBuf.slot] || 0) <= 0 && p.roll <= 0) {
+          } else if (p.inputBuf.kind === 'skill' && (p.skillCds[p.inputBuf.slot] || 0) <= 0 && p.cds.action <= 0 && p.roll <= 0) {
             const slot = p.inputBuf.slot; p.inputBuf = null; this.castHotbar(slot);
           }
         }
@@ -3770,7 +3801,12 @@ export class Game {
   }
   goExit(x) {
     if (this.state !== 'play' || this.exitCooldown > 0) return;
-    if (x.type === 'caveReturn') { this.state = 'transition'; this.ui.wipe(() => this.enterField(1, 'north')); return; }
+    if (x.type === 'caveReturn') {
+      if (this.ui.panelOpen) this.ui.closePanel();
+      this.state = 'transition';
+      this.ui.wipe(() => this.enterField(1, 'north'));
+      return;
+    }
     if (x.type === 'dungeon' && this.field === 1) { this.ui.openPanel('meadowCave'); return; }
     if (x.type === 'nextTower') {
       const nf = Math.min(MAX_TOWER_FLOOR, (this.towerFloor || 1) + 1);
@@ -4609,7 +4645,7 @@ export class Game {
       } else if (this.gatherActive) {
         p.heroRig.play('gather');
       } else if (p.swingT > 0.14) {
-        p.heroRig.play(moving ? 'runAttack' : 'attack', { once: true, speed: 1.25 });
+        p.heroRig.play(moving ? 'runAttack' : 'attack', { once: true, speed: 1.25 * this.combatPace().animation });
       } else if (p.air) {
         p.heroRig.play(p.vy > 1.5 ? 'jump' : 'fall');
       } else if (moving) {
