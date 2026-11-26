@@ -143,6 +143,16 @@ const num = value => typeof value === 'number' && Number.isFinite(value) ? Math.
 const send = (me, data) => {
   if (me.ws.readyState === 1 && me.ws.bufferedAmount < 256 * 1024) me.ws.send(JSON.stringify(data));
 };
+const dungeonLobbies = require('./dungeon_lobby.cjs')(send, (members, id, bots) => {
+  guild.startDungeonRaid(members, id, bots);
+  for (const member of members) enterRaidChannel(member);
+});
+function enterRaidChannel(member) {
+  if (!member.raid || !member.shard) return;
+  closeShardMembership(member);
+  member.zone = null;
+  send(member, { t: 'shard', zone: null, id: null, history: [] });
+}
 function broadcast(data, filter = () => true) {
   for (const me of players.values()) if (filter(me)) send(me, data);
 }
@@ -189,6 +199,7 @@ function currentZone(value, me, party) {
   if (/^field:(?:[1-9]|1[0-9]|20)$/.test(value)) return value;
   const run = /^run:.+:([0-9]{1,2})$/.exec(value);
   const depth = Number(run?.[1]);
+  if (run && me.dungeonRun && value === `run:d${me.dungeonRun.id}:${depth}`) return value;
   if (run) return `run:${party || 'solo' + me.id}:${depth}`;
   return null;
 }
@@ -213,20 +224,20 @@ function getLineState(me) {
 wss.on('connection', ws => {
   const me = { id: nextId++, ws, name: '旅人', col: 0, zone: null, shard: null, party: '', x: 0, y: 0, z: 0, f: 0, a: 0, chatT: [] };
   players.set(me.id, me);
-  send(me, { t: 'welcome', id: me.id, history: [], hotspots: pickHotspots(), features: FEATURE_FLAGS, zoneShards: true });
+  send(me, { t: 'welcome', id: me.id, history: [], hotspots: pickHotspots(), features: FEATURE_FLAGS, zoneShards: true, dungeonLobbies: true });
   joinZone(me, 'town');
   broadcastOnline();
   ws.on('message', raw => {
     let m;
     try { m = JSON.parse(raw); } catch { return; }
     if (!m || typeof m !== 'object') return;
+    if (['dungeon_join', 'dungeon_leave', 'dungeon_start', 'dungeon_wave', 'dungeon_hit'].includes(m.t)) {
+      dungeonLobbies.message(me, m);
+      return;
+    }
     if (['guildHello', 'trade', 'raidJoin', 'raidLeave', 'raidInput'].includes(m.t)) {
       guild.message(me, m);
-      if (me.raid && me.shard) {
-        closeShardMembership(me);
-        me.zone = null;
-        send(me, { t: 'shard', zone: null, id: null, history: [] });
-      }
+      enterRaidChannel(me);
       return;
     }
     switch (m.t) {
@@ -242,6 +253,7 @@ wss.on('connection', ws => {
         const zone = currentZone(m.zone, me, party);
         if (!zone) break;
         joinZone(me, zone, party);
+        dungeonLobbies.position(me, zone);
         me.x = num(m.x); me.y = num(m.y); me.z = num(m.z); me.f = num(m.f);
         me.a = Number.isInteger(m.a) && m.a >= 0 && m.a <= 5 ? m.a : 0;
         break;
@@ -303,6 +315,7 @@ wss.on('connection', ws => {
     }
   });
   ws.on('close', () => {
+    dungeonLobbies.leave(me);
     guild.disconnect(me);
     closeShardMembership(me);
     players.delete(me.id);

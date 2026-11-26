@@ -724,6 +724,36 @@ const createGuild = require('../server/guild.cjs');
   cpMock.field = 0;
   assert.equal(frontier.teleportToCheckpoint(cpMock, 1), false, 'Checkpoints cannot move players from a different scene');
 
+  const { combatPace } = await import(src('progression.js'));
+  const earlyCombat = combatPace(1);
+  assert.ok(earlyCombat.attacksPerSecond / combatPace(1, true).attacksPerSecond < 0.7);
+  assert.ok(earlyCombat.cooldown >= 1.5 && earlyCombat.recovery >= 0.9);
+  assert.ok(earlyCombat.damage < 1 && earlyCombat.manaRegen < 1);
+  assert.ok(earlyCombat.enemyHp >= 1.2 && earlyCombat.enemyDamage >= 1.3);
+  assert.ok(combatPace(8).cooldown > combatPace(12).cooldown);
+
+  const { findQuestRoute } = await import(src('quest_guide.js'));
+  const wayFrom = { x: -4, z: 0 }, wayTo = { x: 4, z: 0 };
+  const floor = { res: 0.5, half: 8, gh: () => 0, obstacles: [],
+    isWalk: (x, z) => Math.abs(x) <= 8 && Math.abs(z) <= 8 };
+  assert.deepEqual(findQuestRoute(floor, [], wayFrom, wayTo), [wayFrom, wayTo]);
+  const wall = { x: 0, z: 0, hw: 0.8, hd: 2 };
+  const aroundWall = findQuestRoute(floor, [wall], wayFrom, wayTo);
+  assert.ok(aroundWall.some(point => Math.abs(point.z) > wall.hd));
+  assert.deepEqual(aroundWall.at(-1), wayTo);
+  assert.deepEqual(findQuestRoute(floor, [{ ...wall, hd: 8 }], wayFrom, wayTo), []);
+  const shore = { ...floor, isWalk: (x, z) => floor.isWalk(x, z) && (Math.abs(x) > 1 || z > 2) };
+  assert.ok(findQuestRoute(shore, [], wayFrom, wayTo).some(point => point.z > 2));
+  const lampPost = { ...floor, obstacles: [{ ...wayTo, r: 0.7 }] };
+  const approach = findQuestRoute(lampPost, [], wayFrom, wayTo).at(-1);
+  assert.ok(Math.hypot(approach.x - wayTo.x, approach.z - wayTo.z) <= 1.65);
+  assert.notDeepEqual(approach, wayTo);
+  const longField = { res: 1, half: 120, gh: () => 0, obstacles: [], isWalk: (x, z) => Math.abs(x) <= 120 && Math.abs(z) <= 120 };
+  const farGate = { x: 106, z: 0 };
+  const pathToGate = findQuestRoute(longField, [{ x: 0, z: 0, hw: 2, hd: 35 }], { x: -106, z: 0 }, farGate);
+  assert.deepEqual(pathToGate.at(-1), farGate);
+  assert.ok(pathToGate.some(point => Math.abs(point.z) > 35));
+
   const maps = await import(src('map_navigation.js'));
   const waypoint = { depth: -1, field: 0, lastTown: -1, exits: [{ type: 'run', x: 0, z: -12, on: true }],
     spots: [{ kind: 'ferry_harbor', x: 0, z: 26 }], state: 'play' };
@@ -1129,7 +1159,8 @@ const createGuild = require('../server/guild.cjs');
   // 42. Phase v6b: 19 Grounded HD-Verified Palmov POIs (zero boats on land, zero Japanese temples), 20 Giant Field Bosses, Zero-WALL POIs & HD Settings Toggle
   const bpV6 = await import('../src/field_blueprints.js');
   const settingsSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'settings.js'), 'utf8');
-  assert.ok(settingsSrc.includes('關閉（高清）') && settingsSrc.includes("key === 'pixel' ? 1 : 0"), 'Settings supports disabling low-res pixelation (pixel = 1 HD mode)');
+  const { DEFAULTS: renderDefaults } = await import(src('settings.js'));
+  assert.equal(renderDefaults.pixel, 2, 'Fine is the default pixel size');
   assert.equal(Object.keys(p2bAssets.PALMOV_POIS).length, 16, 'All 16 grounded HD-verified Palmov POI GLBs registered');
   for (const [k, rel] of Object.entries(p2bAssets.PALMOV_POIS)) {
     const fp = path.join(__dirname, '..', 'game', rel);

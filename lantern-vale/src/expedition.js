@@ -3,7 +3,7 @@ import { ALL_GEMS, addGemToBag } from './puzzle.js';
 import { mulberry32 } from './util.js';
 import { FIELDS } from './frontier.js';
 import { initParts } from './parts.js';
-import { openingStep } from './opening.js';
+import { openingStep, recordOpeningEvent } from './opening.js';
 
 const grassland = {
   field: 1, champion: '裂地獠牙', championType: 'boar',
@@ -176,12 +176,13 @@ export function syncOpeningEncounter(g) {
   if (g.enemies.some(enemy => enemy.openingPractice && !enemy.dead)) return;
   const boar = g.spawnEnemy('boar', g.meadowLocations['opening-boar'], false);
   boar.openingPractice = true;
+  boar.level = FIELDS[1].level;
   initParts(boar, []);
-  boar.hp = boar.maxHp = Math.round(boar.maxHp * 0.61);
-  boar.dmg *= 0.48;
+  boar.hp = boar.maxHp = Math.round(boar.maxHp * 0.82);
+  boar.dmg *= 0.72;
   boar.cd = 0;
   boar.chargeWindS = 1.1;
-  boar.chargeRecoveryS = 1.2;
+  boar.chargeRecoveryS = 1.05;
 }
 
 export function lightOpeningLamp(g) {
@@ -189,7 +190,9 @@ export function lightOpeningLamp(g) {
   g.meta.p.opening.practice = 'spar';
   g.meta.save();
   syncOpeningEncounter(g);
-  g.ui.banner('南門路燈已亮', '看見直線預警就向側面閃，等狂豬收招再反打。');
+  g.audio.sfx('pickup');
+  g.ui.banner('南門路燈已亮', '跟著燈火找幼狂豬');
+  recordOpeningEvent(g, 'lamp_lit');
   return true;
 }
 
@@ -197,6 +200,7 @@ export function finishOpeningPractice(g) {
   g.meta.p.opening.practice = 'done';
   g.meta.save();
   g.ui.banner('南門小徑安全了', '打開任務，選擇清剿前哨或重燃路燈。');
+  recordOpeningEvent(g, 'practice_complete');
 }
 
 export function syncMeadowExpedition(g) {

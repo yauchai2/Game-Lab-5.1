@@ -10,12 +10,12 @@ export const KEY_PRESETS = {
 
 export const DIFFICULTY_MODES = {
   cozy:     { id: 'cozy',     name: '🌿 旅人休閒', enemyDmg: 0.70, enemyHp: 0.85, lootBonus: 0,    noGrave: true,  desc: '敵傷 70% · 死亡不掉墓碑，輕鬆逛 20 座島嶼' },
-  standard: { id: 'standard', name: '⚔️ 標準冒險', enemyDmg: 1.00, enemyHp: 1.00, lootBonus: 0,    noGrave: false, desc: '循序漸進平衡基準（推薦）' },
+  standard: { id: 'standard', name: '⚔️ 標準冒險', enemyDmg: 1.00, enemyHp: 1.00, lootBonus: 0,    noGrave: false, desc: '戰鬥講求讀招、閃避及出招時機（推薦）' },
   veteran:  { id: 'veteran',  name: '🔥 餘燼專家', enemyDmg: 1.35, enemyHp: 1.25, lootBonus: 0.25, noGrave: false, desc: '敵傷 135% · 敵血 125% · 掉寶 +25%' },
 };
 
 export const DEFAULTS = {
-  master: 9, music: 6, sfx: 8, pixel: 3, camAngle: 0, wind: 1, water: 1, shafts: 1, shake: 0, dmg: 1, chat: 1, coopVfx: 1,
+  master: 9, music: 6, sfx: 8, pixel: 2, camAngle: 0, wind: 1, water: 1, shafts: 1, shake: 0, dmg: 1, chat: 1, coopVfx: 1,
   difficulty: 'standard',
   lang: 'zh-TW',
   keybinds: { ...KEY_PRESETS.arpg },
@@ -30,7 +30,8 @@ export function formatKey(k, lang = 'zh-TW') {
 
 export function loadSettings() {
   let s = {}; try { s = JSON.parse(localStorage.getItem('lv_settings') || '{}'); } catch (e) { /* ignore */ }
-  const merged = { ...DEFAULTS, ...s, keybinds: { ...DEFAULTS.keybinds, ...(s.keybinds || {}) } };
+  const merged = { ...DEFAULTS, ...s, keybinds: { ...DEFAULTS.keybinds, ...(s?.keybinds || {}) } };
+  merged.pixel = Number(s?.pixel) === 1 ? 1 : DEFAULTS.pixel;
   merged.camAngle = merged.camAngle ? 1 : 0;
   return merged;
 }
@@ -71,7 +72,7 @@ function getRows(lang) {
     ],
     video: [
       ['difficulty', '遊戲難度模式', ['cozy', 'standard', 'veteran']],
-      ['pixel', t(lang, 'rowPixel'), ['', lang === 'en' ? 'Off (HD)' : lang === 'ja' ? 'オフ（高画質）' : '關閉（高清）', t(lang, 'optFine'), t(lang, 'optStd'), t(lang, 'optCoarse')]],
+      ['pixel', t(lang, 'rowPixel'), ['', lang === 'zh-TW' ? '關閉' : off, t(lang, 'optFine')]],
       ['camAngle', t(lang, 'rowCamAngle'), [off, on]],
       ['wind', t(lang, 'rowWind'), [off, t(lang, 'optBreeze'), t(lang, 'optGale')]],
       ['water', t(lang, 'rowWater'), [off, on]],
@@ -205,10 +206,15 @@ export function buildSettingsUI(g) {
         body.appendChild(r);
         return;
       }
-      const lo = opts === 'num' ? 0 : (key === 'pixel' ? 1 : 0), hi = opts === 'num' ? 10 : (key === 'pixel' ? 4 : opts.length - 1);
+      const lo = opts === 'num' ? 0 : (key === 'pixel' ? 1 : 0), hi = opts === 'num' ? 10 : opts.length - 1;
       const txt = opts === 'num' ? String(v) : opts[v];
       r.innerHTML = `<span class="sl">${label}</span><span class="sv"><button class="arr" data-d="-1">◀</button><b class="sval">${txt}</b><button class="arr" data-d="1">▶</button></span>`;
-      r.querySelectorAll('.arr').forEach(b => b.onclick = () => { const nv = Math.max(lo, Math.min(hi, v + +b.dataset.d)); if (nv !== v) set(key, nv); });
+      r.querySelectorAll('.arr').forEach(b => {
+        const change = +b.dataset.d;
+        const next = Math.max(lo, Math.min(hi, v + change));
+        if (key === 'pixel') b.disabled = next === v;
+        b.onclick = () => { if (next !== v) set(key, next); };
+      });
       body.appendChild(r);
     });
     if (tab === 'audio') {

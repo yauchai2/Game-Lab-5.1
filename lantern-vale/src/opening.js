@@ -1,4 +1,5 @@
 import { ALL_GEMS } from './puzzle.js';
+import { recordDevEvent } from './dev_diagnostics.js';
 
 export const OPENING_BADGE = {
   id: 'opening_lantern_badge', name: '巡燈徽章', base: '巡燈徽章',
@@ -25,6 +26,18 @@ export function openingStep(profile) {
   if (firstExpedition && !profile.meadowCave?.clears?.normal
     && Object.keys(profile.meadowExpedition.cleared).length === 1) return 'support';
   return null;
+}
+
+export function openingPracticeOpponent(g) {
+  if (g.field !== 1 || g.state !== 'play' || g.interior) return null;
+  return g.enemies.find(enemy => enemy.openingPractice && !enemy.dead
+    && enemy.practiceChargeStarted && Math.hypot(enemy.pos.x - g.player.pos.x, enemy.pos.z - g.player.pos.z) < 11) || null;
+}
+
+export function recordOpeningEvent(g, event, detail) {
+  if (!g.meta.p.opening || (g.meta.p.opening.finished && event !== 'next_destination')) return;
+  const coarse = typeof matchMedia === 'function' && matchMedia('(any-pointer: coarse)').matches;
+  recordDevEvent('log', 'game', ['[OPENING]', event, coarse ? 'touch-capable' : 'keyboard-mouse', detail || '']);
 }
 
 export function openingSupport(profile) {
@@ -60,7 +73,8 @@ export function recordOpeningSupportUse(game, id, effective) {
   if (!opening || opening.supportUsed || openingSupport(profile)?.gem.id !== id || profile.meadowCave?.clears?.normal) return;
   opening.supportUsed = id;
   game.meta.save();
-  game.ui.toast(id === 'leech' ? '汲血生效 · 命中恢復生命' : '霜緩生效 · 命中減慢敵人', '#ffe08a');
+  game.ui.showOpeningSupport(id);
+  recordOpeningEvent(game, 'support_effect', id);
 }
 
 // Lock the saved-receipt check and commit together when tabs share a character.
