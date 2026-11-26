@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const zlib = require('node:zlib');
 const { pipeline } = require('node:stream/promises');
-const GZIP_EXTS = new Set(['.glb', '.gltf', '.svg', '.json']);
+const COMPRESS_EXTS = new Set(['.glb', '.gltf', '.bin', '.svg', '.json', '.js', '.css']);
 const { WebSocketServer } = require('ws');
 const { isLocalDevRequest, receiveDevEvents } = require('./dev_diagnostics.cjs');
 const { createPlaytestGate } = require('./playtest_gate.cjs');
@@ -26,6 +26,13 @@ const MIME = {
   '.woff2': 'font/woff2',
   '.glb': 'model/gltf-binary', '.gltf': 'model/gltf+json', '.bin': 'application/octet-stream',
 };
+const _htmlCache = new Map();
+function pickEncoding(req) {
+  const ae = req.headers['accept-encoding'] || '';
+  if (/\bbr\b/i.test(ae)) return 'br';
+  if (/\bgzip\b/i.test(ae)) return 'gzip';
+  return null;
+}
 
 const server = http.createServer(async (req, res) => {
   try {
@@ -40,17 +47,31 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(302, { Location: '/?test' }).end();
     } else if (url.pathname === '/' || url.pathname === '/index.html') {
       const dev = !playtestGate && isLocalDevRequest(req) ? 'window.LV_DEV_DIAGNOSTICS=true;' : '';
-      const html = (await fs.promises.readFile(path.join(GAME_DIR, 'index.html'), 'utf8'))
-        .replace('<script>', '<script>window.LV_SERVER=true;' + dev);
-      const wantsGzip = /gzip/i.test(req.headers['accept-encoding'] || '');
+      const htmlPath = path.join(GAME_DIR, 'index.html');
+      const stat = await fs.promises.stat(htmlPath);
+      const enc = req.method === 'HEAD' ? null : pickEncoding(req);
+      const cacheKey = `${stat.mtimeMs}:${dev}:${enc || 'raw'}`;
+      let body = _htmlCache.get(cacheKey);
+      if (!body) {
+        if (_htmlCache.size > 8) _htmlCache.clear();
+        const html = (await fs.promises.readFile(htmlPath, 'utf8'))
+          .replace('<script>', '<script>window.LV_SERVER=true;' + dev);
+        if (enc === 'br') {
+          body = zlib.brotliCompressSync(Buffer.from(html), { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 5 } });
+        } else if (enc === 'gzip') {
+          body = zlib.gzipSync(html, { level: 6 });
+        } else {
+          body = Buffer.from(html);
+        }
+        _htmlCache.set(cacheKey, body);
+      }
       const headers = { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': playtestGate ? 'private, no-store' : 'no-cache', Vary: 'Accept-Encoding' };
-      if (wantsGzip && req.method !== 'HEAD') {
-        const body = zlib.gzipSync(html, { level: 6 });
-        headers['Content-Encoding'] = 'gzip';
+      if (enc) {
+        headers['Content-Encoding'] = enc;
         headers['Content-Length'] = body.length;
         res.writeHead(200, headers).end(body);
       } else {
-        res.writeHead(200, headers).end(req.method === 'HEAD' ? undefined : html);
+        res.writeHead(200, headers).end(req.method === 'HEAD' ? undefined : body);
       }
     } else if (url.pathname.startsWith('/assets/')) {
       const file = await fs.promises.realpath(path.resolve(GAME_DIR, '.' + decodeURIComponent(url.pathname)));
@@ -58,13 +79,17 @@ const server = http.createServer(async (req, res) => {
       const stat = await fs.promises.stat(file);
       if (!stat.isFile()) { res.writeHead(404).end(); return; }
       const ext = path.extname(file);
-      const wantsGzip = GZIP_EXTS.has(ext) && /gzip/i.test(req.headers['accept-encoding'] || '');
+      const enc = (COMPRESS_EXTS.has(ext) && req.method !== 'HEAD') ? pickEncoding(req) : null;
       const headers = {
         'Content-Type': MIME[ext] || 'application/octet-stream',
         'Cache-Control': playtestGate ? 'private, no-store' : 'public, max-age=86400',
         Vary: 'Accept-Encoding',
       };
-      if (wantsGzip && req.method !== 'HEAD') {
+      if (enc === 'br') {
+        headers['Content-Encoding'] = 'br';
+        res.writeHead(200, headers);
+        await pipeline(fs.createReadStream(file), zlib.createBrotliCompress({ params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 4 } }), res);
+      } else if (enc === 'gzip') {
         headers['Content-Encoding'] = 'gzip';
         res.writeHead(200, headers);
         await pipeline(fs.createReadStream(file), zlib.createGzip({ level: 5 }), res);

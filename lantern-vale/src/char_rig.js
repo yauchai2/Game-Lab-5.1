@@ -336,18 +336,37 @@ export function createModularHero(lookInput, opts = {}) {
     placeholder = null;
   };
 
+  let lazyAnim = !!opts.lazyAnim;
+  let animRequested = false;
+  const loadHeroAnims = () => {
+    if (disposed || !animator) return;
+    animRequested = true;
+    const arch = JOB_ARCHETYPES[look.job] || 'fighter';
+    loadArchetypeAnims(arch).then(clips => {
+      if (!disposed && animator) {
+        animator.setClips(clips, arch);
+        if (pendingPose) animator.setShowcasePose(pendingPose.state, pendingPose.t, pendingPose.amp);
+        else animator.play(pendingState, { force: true, fade: 0.05 });
+      }
+    });
+  };
+
   const ctrl = {
     root,
     rigHolder,
     ready: false,
     get animator() { return animator; },
     get look() { return look; },
+    ensureAnims() {
+      lazyAnim = false;
+      if (animator && !animRequested) loadHeroAnims();
+    },
     setLook(nextLook, nextWeapon) {
       look = normalizeCharacterLook(nextLook);
       if (nextWeapon !== undefined) equipWeapon = nextWeapon;
       if (rig) applyModularLook(rig, look, equipWeapon);
       const arch = JOB_ARCHETYPES[look.job] || 'fighter';
-      if (animator && animator.archetype !== arch) {
+      if (!lazyAnim && animator && animator.archetype !== arch) {
         loadArchetypeAnims(arch).then(clips => {
           if (!disposed && animator) {
             animator.setClips(clips, arch);
@@ -432,14 +451,7 @@ export function createModularHero(lookInput, opts = {}) {
     applyModularLook(rig, look, equipWeapon);
     animator = new CharAnimator(rig);
     ctrl.ready = true;
-    const arch = JOB_ARCHETYPES[look.job] || 'fighter';
-    loadArchetypeAnims(arch).then(clips => {
-      if (!disposed && animator) {
-        animator.setClips(clips, arch);
-        if (pendingPose) animator.setShowcasePose(pendingPose.state, pendingPose.t, pendingPose.amp);
-        else animator.play(pendingState, { force: true, fade: 0.05 });
-      }
-    });
+    if (!lazyAnim) loadHeroAnims();
     opts.onReady?.(ctrl);
   });
 

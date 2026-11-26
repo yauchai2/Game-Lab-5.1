@@ -1,5 +1,14 @@
 # 交接說明（Claude → Codex，2026-11-22）
 
+## 2026-11-26 手機端首屏流量瘦身（21.9MB → 2.6–3.0MB，降幅約 87%）與 Brotli 壓縮
+
+- **建置雜湊**：`game/index.html` `07a55910c6cf`（2039KB）。`node tests/logic_verify.cjs`（全通過）、`node tests/playtest_review.cjs` 與 `node --check server/server.js` 全通過。
+- **清除標題畫面冗餘下載（`src/vfx_engine.js`、`src/char_rig.js`、`src/characters.js`、`src/game.js`）**：
+  - `VfxEngine` 新增 `{ lazy: true }` 選項與 `preload()`，徹底避免標題畫面開局就下載 `vfx_meshes.glb`（3.78MB）與 25 張特效貼圖；改於進入城鎮、野外或副本時（`ensurePlayAssets()`）才預載。
+  - `createModularHero()` 新增 `lazyAnim` 與 `ensureAnims()`；行動裝置（`any-pointer: coarse`）移除 `preloadAllCharacterAnims()` 背景全載，5 位島嶼英雄僅在實際選中時才下載對應的單一 `anim_*.glb`（節省其餘 4 職業約 10MB 動畫）。
+  - 行動裝置於標題畫面延後 `preloadNatureAssets()`（13 組自然樹石＋7 座城鎮地標＋4 隻怪物模型），直到點擊開始冒險進入遊戲後才於背景載入。
+- **修正伺服器壓縮正規表達式並升級 Brotli（`server/server.js`）**：修正前次 Gzip `Accept-Encoding` 正規表達式誤植導致壓縮未觸發的問題，新增 **Brotli (`br`)** 優先於 Gzip 壓縮（涵蓋 `game/index.html` 與 `.glb`/`.gltf`/`.bin`/`.svg`/`.json`/`.js`/`.css`，並對壓縮後 HTML 加入記憶體快取，同時嚴格保留 `playtestGate` 的 `private, no-store` 標頭）。重啟背景 8082 服務後，手機 5G 首屏總傳輸量由原本約 19–22MB 驟降至約 **2.6–3.0MB**（核心 HTML 533KB + 浮島 402KB + 基礎英雄 1,195KB + 單職業動畫 454–946KB）。
+
 ## 2026-11-26 手機 5G 載入大幅優化、3D 浮島／英雄佔位模型與載入進度膠囊
 
 - **建置雜湊**：`game/index.html` `97a2863c0129`（2038KB）。`node tests/logic_verify.cjs`（全通過）與 `node tests/playtest_review.cjs` 全通過。
