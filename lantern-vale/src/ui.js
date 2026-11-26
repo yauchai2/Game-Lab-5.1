@@ -16,7 +16,7 @@ import { bindCodexUI } from './codex.js';
 import { StatusCard } from './statuscard.js';
 import { t } from './i18n.js';
 import * as THREE from 'three';
-import { resolveArtId, itemIconUrl } from './itemdb.js';
+import { legacyGearRank, resolveArtId, itemIconUrl } from './itemdb.js';
 import { RARITY, SLOTS, itemLines, itemScore, BOONS, deserializeItem, tierInfo, CORRUPT_COST, corruptItem } from './loot.js';
 import { activeMountDef, mountStatuses, unlockMountSaddle } from './mounts.js';
 import { MONSTER_SOULS, SOUL_SLOTS, ensureSouls, equipSoul, unequipSoul, soulTier } from './souls.js';
@@ -291,7 +291,7 @@ export class UI {
         const gear = deserializeItem(targetItem.item);
         info.innerHTML = (isPreview && item ? `<div style="font-size:10px;opacity:.65;margin-bottom:2px">🔍 懸停預覽對比</div>` : '') + this.itemHTML(gear, game.player.equip[gear.slot]);
       } else {
-        const ti = tierInfo(targetItem.tier || 1);
+        const ti = tierInfo(legacyGearRank(targetItem.tier));
         const art = this.artImg(targetItem, 256, 'tip-art');
         info.innerHTML = `<div class="tip-head rar-0">${art}<div class="tip-title"><div class="iname"><span class="tier-tag" style="color:${ti.color}">${ti.tag}</span>${art ? '' : (targetItem.icon || '') + ' '}${targetItem.name}${(targetItem.qty || 1) > 1 ? ` <small>×${targetItem.qty}</small>` : ''}</div><div class="ibase">${ti.name} · 消耗品</div></div></div><div class="sep"></div><div class="mod-desc">${targetItem.desc || '物理背包物品'}</div>`;
       }

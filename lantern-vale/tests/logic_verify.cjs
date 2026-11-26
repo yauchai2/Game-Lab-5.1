@@ -383,7 +383,21 @@ const createGuild = require('../server/guild.cjs');
   // 12. Tier System (T1-T6) & 3D Mount Milestone System (4 mounts including Sakura Spirit Fox)
   const loot = await import(src('loot.js'));
   assert.equal(loot.tierInfo(1).tag, 'T1');
-  assert.equal(loot.tierInfo(5).name, '傳世階');
+  assert.equal(loot.tierInfo(9).name, '傳世階');
+  // 16 階階梯：舊 T1–T6 對應 1,3,5,7,9,11；Lv1–30 每 2–3 級一階，另有 4 階終局星燈階
+  assert.equal(loot.TIERS.length - 1, 16, 'Sixteen-rank equipment ladder');
+  assert.deepEqual([1, 3, 5, 7, 9, 11].map(k => loot.tierInfo(k).power), [1, 2, 3, 4, 5, 6], 'Legacy tiers keep their stat power');
+  assert.equal(loot.rankForLevel(1), 1); assert.equal(loot.rankForLevel(13), 6); assert.equal(loot.rankForLevel(30), 12);
+  { // 掉落階依等級；舊存檔階級換算；詞綴為整數
+    let seed = 3; const r = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    for (let i = 0; i < 300; i++) {
+      const it = loot.makeItem(r, 9, null); assert.ok(it.tier >= 1 && it.tier <= 12, 'drop tier within growth ranks');
+      for (const m of [it.implicit, ...it.mods]) assert.ok(Number.isInteger(m.v), 'integer affix values');
+    }
+    const old = loot.deserializeItem({ slot: 'staff', rarity: 1, tier: 6, name: 'x', mods: [] });
+    assert.equal(old.tier, 11, 'Legacy T6 save maps to rank 11');
+    assert.equal(loot.deserializeItem(loot.serializeItem(loot.makeItem(r, 20, 1, 'head', 14))).tier, 14, 'Endgame rank survives save');
+  }
   const mounts = await import(src('mounts.js'));
   assert.equal(mounts.MOUNTS.length, 4, 'Four original mounts defined');
   assert.equal(mounts.activeMountDef({ level: 1, kills: 0 }), null, 'New player starts with mounts locked');
@@ -1292,14 +1306,23 @@ const createGuild = require('../server/guild.cjs');
   assert.ok(impRes.ok && impRes.restored >= 1 && acctMod.slotHasData(1, 'AlanHero', mockStore), 'Account backup export/import restores character slots');
 
   // 48. Equipment Level Restrictions (T1 Lv.1 -> T6 Lv.27) & Tier-Specific Crafting Materials
+  // 16 階階梯：舊 T1–T6 為階梯 1,3,5,7,9,11（標示仍是 T1–T6），中間階標示為 T1+…T6+
   assert.equal(loot.itemReqLevel({ tier: 1 }), 1, 'T1 requires Lv.1');
-  assert.equal(loot.itemReqLevel({ tier: 2 }), 5, 'T2 requires Lv.5');
-  assert.equal(loot.itemReqLevel({ tier: 3 }), 10, 'T3 requires Lv.10');
-  assert.equal(loot.itemReqLevel({ tier: 4 }), 16, 'T4 requires Lv.16');
-  assert.equal(loot.itemReqLevel({ tier: 5 }), 22, 'T5 requires Lv.22');
-  assert.equal(loot.itemReqLevel({ tier: 6 }), 27, 'T6 requires Lv.27');
-  assert.equal(loot.canEquipItem({ tier: 3 }, 9), false, 'Lv.9 player cannot equip T3 (Lv.10) gear');
-  assert.equal(loot.canEquipItem({ tier: 3 }, 10), true, 'Lv.10 player can equip T3 gear');
+  assert.equal(loot.itemReqLevel({ tier: 3 }), 5, 'T2 requires Lv.5');
+  assert.equal(loot.itemReqLevel({ tier: 5 }), 10, 'T3 requires Lv.10');
+  assert.equal(loot.itemReqLevel({ tier: 7 }), 16, 'T4 requires Lv.16');
+  assert.equal(loot.itemReqLevel({ tier: 9 }), 22, 'T5 requires Lv.22');
+  assert.equal(loot.itemReqLevel({ tier: 11 }), 27, 'T6 requires Lv.27');
+  assert.equal(loot.itemReqLevel({ tier: 2 }), 3, 'Rank 2 (T1+) requires Lv.3');
+  const restoredBadge = loot.deserializeItem(JSON.parse(JSON.stringify(loot.serializeItem(openingBadge))));
+  assert.equal(loot.canEquipItem(restoredBadge, 1), false, 'Saved opening badge still requires Lv.2');
+  assert.equal(loot.canEquipItem(restoredBadge, 2), true);
+  assert.equal(loot.itemReqLevel(loot.deserializeItem({ ...loot.serializeItem(openingBadge), tv: undefined, reqLevel: undefined })), 2, 'Older opening badge saves recover the Lv.2 requirement');
+  assert.equal(loot.itemReqLevel({ tier: 3, reqLevel: 2 }), 5, 'Upgrading rank cannot bypass the higher requirement');
+
+  assert.deepEqual([1, 2, 3, 12, 13, 16].map(k => loot.tierInfo(k).tag), ['T1', 'T1+', 'T2', 'T6+', 'E1', 'E4']);
+  assert.equal(loot.canEquipItem({ tier: 5 }, 9), false, 'Lv.9 player cannot equip T3 (Lv.10) gear');
+  assert.equal(loot.canEquipItem({ tier: 5 }, 10), true, 'Lv.10 player can equip T3 gear');
   assert.equal(Object.keys(mmoRpg.TIER_CRAFT_MATS).length, 6, 'All 6 equipment tiers have dedicated crafting material definitions');
   const t1Rec = mmoRpg.GEAR_RECIPES.find(r => r.tier === 1);
   assert.ok(t1Rec && t1Rec.cost.goods?.wood > 0 && t1Rec.cost.mMats?.slime_gel > 0, 'T1 recipe requires wood + slime_gel');

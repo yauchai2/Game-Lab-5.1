@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { FIELDS } from './frontier.js';
+import { tierPower } from './loot.js';
 
 // ============================================================================
 // 1. 高威脅精英詞綴系統（8 種立體壓迫詞綴：Lv.1+ 精英即帶 1 種，Lv.10+ 或 Wave 2+ 帶 2 種）
@@ -491,7 +492,7 @@ export function computeCombatPower(profile, stats, equip = {}) {
   let gearBonus = 0;
   for (const it of Object.values(equip || {})) {
     if (!it) continue;
-    gearBonus += (it.rarity + 1) * 28 + (it.tier || 1) * 18 + (it.corrupted ? 45 : 0);
+    gearBonus += (it.rarity + 1) * 28 + Math.round(tierPower(it.tier) * 18) + (it.corrupted ? 45 : 0);
   }
   const talSum = Object.values(profile?.talents || {}).reduce((s, v) => s + (v || 0), 0);
   return Math.max(10, Math.round(offense + defense + gearBonus + lv * 15 + talSum * 22));

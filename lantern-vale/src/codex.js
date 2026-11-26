@@ -191,7 +191,7 @@ export function bindCodexUI(game) {
         });
       } else if (wikiTab === 'mounts') {
         MOUNTS.forEach(m => cards.push({ icon: m.icon, name: `[T${m.tier}] ${m.name}`, sub: `解鎖里程碑：${m.milestone}`, desc: m.perk + '（遊戲中按 G 鍵召喚／收起）', color: '#ffd85a' }));
-        TIERS.slice(1).forEach(ti => cards.push({ icon: '🏷️', name: `${ti.tag} · ${ti.name}`, sub: `裝備與補給分級倍率 ×${ti.mult}`, desc: '裝備掉落、鍛造升階與物理背包合成皆具備 T1–T6 階級標示。', color: ti.color }));
+        TIERS.slice(1).forEach(ti => cards.push({ icon: '🏷️', name: `${ti.tag} · ${ti.name}`, sub: `裝備與補給分級倍率 ×${ti.mult}`, desc: '裝備掉落、鍛造升階與物理背包合成皆具備階級標示（T1–T12 成長階，E1–E4 終局星燈階）。', color: ti.color }));
       } else if (wikiTab === 'recipes') {
         BAG_RECIPES.forEach(r => cards.push({
           icon: r.out.icon, name: r.out.name, sub: `碰撞合成：${r.label}`,

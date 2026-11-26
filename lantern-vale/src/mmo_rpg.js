@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { buildPlayer } from './models.js';
 import { grantLifeXp, addDailyActivity } from './mmo_world.js';
 import { getPartyIds } from './mmo_endgame.js';
+import { legacyGearRank } from './itemdb.js';
 
 // ============================================================================
 // 1. 經典 MMORPG 角色四維屬性配點（每升 1 級獲得 3 點屬性點，可免費重置）
@@ -372,7 +373,7 @@ export function craftMonsterGear(profile, recipeId, fmtResolver = (k => v => `${
     id: Math.floor(Math.random() * 1e9),
     slot: rec.slot,
     rarity: rec.rarity,
-    tier: rec.tier,
+    tier: legacyGearRank(rec.tier),
     reqLevel: rec.reqLevel || 1,
     enhance: 0,
     setId: rec.setId || null,
