@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { questNavigationTarget } from './map_navigation.js';
+import { openingPracticeOpponent } from './opening.js';
 
 const LIGHT_COUNT = 13;
 const SPACING = 1.35;
@@ -160,7 +161,7 @@ export class QuestGuide {
   }
 
   update(g) {
-    const target = this.enabled && g.canUseTouchControls() && !g.ui.regionMapOpen
+    const target = this.enabled && !openingPracticeOpponent(g) && g.canUseTouchControls() && !g.ui.regionMapOpen
       ? questNavigationTarget(g) : null;
     const player = g.player.pos;
     if (!target || distance(player, target) < 1.2) {

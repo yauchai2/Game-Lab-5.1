@@ -705,6 +705,8 @@ export function bindCharacters(game) {
     const cls = CLASSES[selectedJob] || CLASSES[0];
     const sp = ISLAND_SPOTS[selectedJob] || ISLAND_SPOTS[0];
     if (pill) pill.textContent = cls.name;
+    const role = $('heroPillRole');
+    if (role) role.textContent = ['近身穩守 · 聖劍震暈', '遠程牽制 · 箭雨封路', '遠程術法 · 火焰爆發', '貼身快攻 · 雙刃連擊', '近身連擊 · 回復生命'][cls.id] || '';
     document.querySelectorAll('.hero-pin-btn,.hero-pin-3d').forEach((b, i) => b.classList.toggle('on', i === selectedJob));
     selRing.visible = stageMode === 'focus';
     selBeam.visible = stageMode === 'focus';

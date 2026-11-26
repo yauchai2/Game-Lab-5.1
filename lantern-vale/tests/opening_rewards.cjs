@@ -50,8 +50,8 @@ const { chromium } = require('playwright');
     const third = await launch();
     await third.evaluate(() => __game.ui.openPanel('workshop'));
     await Promise.all([
-      first.locator('[data-opening-badge] button').click(),
-      third.locator('[data-opening-badge] button').click(),
+      first.locator('[data-opening-badge]').getByRole('button', { name: '打造並穿戴' }).click(),
+      third.locator('[data-opening-badge]').getByRole('button', { name: '打造並穿戴' }).click(),
     ]);
     await first.waitForFunction(() => JSON.parse(localStorage.getItem(__game.meta.key)).opening.badge === 'crafted');
     const badge = await first.evaluate(() => {
@@ -59,6 +59,27 @@ const { chromium } = require('playwright');
       return [p.gear.charm.name, p.bagItems?.filter(item => item.name === '巡燈徽章').length || 0];
     });
     assert.deepEqual(badge, ['巡燈徽章', 0]);
+    await third.close();
+    await first.evaluate(() => {
+      const g = __game;
+      g.meta.p.opening.badge = 'ready';
+      const existing = __makeItem(() => 0.51, 1, 1, 'charm');
+      existing.name = '原有測試飾品';
+      g.player.equip.charm = existing;
+      g.recalc();
+      g.meta.save();
+      g.ui.openPanel('openingBadge');
+    });
+    const occupied = first.locator('[data-opening-badge]');
+    assert.match(await occupied.textContent(), /原有測試飾品/);
+    await occupied.getByRole('button', { name: '打造並換上徽章' }).click();
+    await first.locator('[data-opening-next]').click();
+    const swapped = await first.evaluate(() => {
+      const p = JSON.parse(localStorage.getItem(__game.meta.key));
+      return [p.gear.charm.name, p.bagItems.some(entry => entry.name === '原有測試飾品')];
+    });
+    assert.deepEqual(swapped, ['巡燈徽章', true]);
+    assert.match(await first.locator('[data-opening-meadow]').textContent(), /推薦/);
     console.log('Passed direct embark and one-time expedition and badge rewards across two tabs.');
   } finally {
     await browser.close();

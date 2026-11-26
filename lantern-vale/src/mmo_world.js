@@ -816,7 +816,7 @@ export function tickSimAdventurers(g, dt) {
       } else if (a.following || a.task?.id === 'hunt' || a.task?.id === 'elite_squad' || cfg.mode === 'boss') {
         let bestD = a.following ? 14 : 20;
         for (const e of g.enemies) {
-          if (e.dead || e.expeditionId) continue;
+          if (e.dead || e.expeditionId || e.openingPractice || e.openingHidden) continue;
           const d = Math.hypot(e.pos.x - a.x, e.pos.z - a.z);
           const pref = (a.task?.id === 'elite_squad' && e.elite) ? d * 0.55 : d;
           if (pref < bestD) { bestD = pref; target = e; }
