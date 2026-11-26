@@ -46,6 +46,7 @@ export function mountTestHub() {
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
         <a id="hubGoAmbush" style="flex:1;text-align:center;text-decoration:none;padding:10px 14px;border-radius:8px;background:#3a7d5c;color:#fff;font-weight:700;font-size:14px">開始岔道伏擊試玩</a>
+        <a id="hubGoBot" style="text-align:center;text-decoration:none;padding:10px 14px;border-radius:8px;background:#2f639a;color:#fff;font-weight:700;font-size:14px">🤖 AI 自動打</a>
         <button type="button" id="hubCopyAmbush" style="padding:10px 12px;border-radius:8px;border:1.5px solid #5a4332;background:#f4ead5;color:#2f241c;font-weight:600;cursor:pointer">複製連結</button>
       </div>
     </section>
@@ -73,6 +74,7 @@ export function mountTestHub() {
     for (const b of card.querySelectorAll('[data-order]')) stylePill(b, b.dataset.order === state.order);
     for (const b of card.querySelectorAll('[data-build]')) stylePill(b, b.dataset.build === state.build);
     card.querySelector('#hubGoAmbush').href = ambushHref();
+    card.querySelector('#hubGoBot').href = ambushHref() + '&bot=1';
     const party = card.querySelector('#hubParty').value.trim() || 'LANQA';
     card.querySelector('#hubGoParty').href = makeUrl({ join: party });
   };

@@ -11,7 +11,7 @@ const form = `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8">
 function createPlaytestGate(file) {
   if (!file) return null;
   const password = readFileSync(file, 'utf8').trim();
-  if (!/^[A-Za-z0-9_-]{22,64}$/.test(password)) throw new Error('Invalid playtest passcode file');
+  if (!/^[A-Za-z0-9_-]{4,64}$/.test(password)) throw new Error('Invalid playtest passcode file');
   const session = randomBytes(24).toString('base64url');
   function same(value, expected) {
     const given = Buffer.from(value || '');

@@ -60,6 +60,8 @@ export class AmbushTrial {
     this.game = game;
     this.order = order;
     this.build = ambushTrialBuild();
+    this.botOn = new URLSearchParams(location.search).get('bot') === '1';
+    this.botRaf = 0;
     this.attempts = [];
     this.index = 0;
     this.cover = null;
@@ -88,6 +90,7 @@ export class AmbushTrial {
       </div>
       <div class="ambush-actions">
         <button type="button" class="btn" data-action="start">開始第一場</button>
+        <button type="button" class="btn" data-action="bot">🤖 AI 自動打</button>
         <button type="button" class="btn" data-action="retry" hidden>重試這一場</button>
         <button type="button" class="btn" data-action="next" hidden>開始第二場</button>
         <button type="button" class="btn" data-action="stop" hidden>結束此場</button>
@@ -114,12 +117,16 @@ export class AmbushTrial {
       } catch {}
     };
     for (const el of this.buildButtons) el.onclick = () => setBuild(el.dataset.build);
-    this.buttons = Object.fromEntries(['start', 'retry', 'next', 'stop', 'export', 'exit'].map(id => [id, button(id)]));
+    this.buttons = Object.fromEntries(['start', 'bot', 'retry', 'next', 'stop', 'export', 'exit'].map(id => [id, button(id)]));
     this.buttons.start.onclick = () => this.start();
+    this.buttons.bot.onclick = () => this.toggleBot();
     this.buttons.retry.onclick = () => this.start(true);
     this.buttons.next.onclick = () => { this.index++; this.start(); };
     this.buttons.stop.onclick = () => this.finish('abandoned');
     this.buttons.export.onclick = () => this.download();
+    this.syncBotButton();
+    this.startBotLoop();
+    if (this.botOn) setTimeout(() => { if (!this.active) this.start(); }, 120);
     addEventListener('keydown', e => {
       if (this.active || e.repeat || e.defaultPrevented || e.isComposing) return;
       const a = document.activeElement;
@@ -177,9 +184,106 @@ export class AmbushTrial {
     this.hud.classList.remove('hide');
     this.panel.classList.add('playing');
     const buildTag = buildSpec.gemId ? ` · ${buildSpec.label}` : '';
-    this.status.textContent = `第 ${this.index + 1}／2 場${buildTag}`;
-    for (const [id, el] of Object.entries(this.buttons)) el.hidden = id !== 'stop';
+    this.status.textContent = `第 ${this.index + 1}／2 場${buildTag}${this.botOn ? ' · 🤖 AI 自動打' : ''}`;
+    for (const [id, el] of Object.entries(this.buttons)) el.hidden = id !== 'stop' && id !== 'bot';
+    this.syncBotButton();
     this.buttons.stop.blur();
+  }
+
+  syncBotButton() {
+    const btn = this.buttons?.bot;
+    if (!btn) return;
+    btn.classList.toggle('on', this.botOn);
+    btn.setAttribute('aria-pressed', String(this.botOn));
+    btn.textContent = this.botOn ? (this.active ? '🤖 AI 自動打中（停用）' : '🤖 AI 自動打：開') : '🤖 AI 自動打';
+  }
+
+  toggleBot() {
+    this.botOn = !this.botOn;
+    const g = this.game;
+    if (!this.botOn) {
+      g.touchInput.x = g.touchInput.z = 0;
+      g.mouse.l = false;
+    }
+    this.syncBotButton();
+    if (this.botOn && !this.active) {
+      if (g.state === 'trial-result' && this.index === 0) { this.index++; this.start(); }
+      else this.start(g.state === 'trial-result');
+    }
+  }
+
+  startBotLoop() {
+    if (this.botRaf) return;
+    const g = this.game;
+    const projected = g.player.pos.clone();
+    const move = (x, z) => {
+      const yaw = g.camYaw;
+      g.touchInput.x = x * Math.cos(yaw) - z * Math.sin(yaw);
+      g.touchInput.z = x * Math.sin(yaw) + z * Math.cos(yaw);
+    };
+    const awayFromThreat = (x, z) => {
+      const p = g.player.pos;
+      for (const sign of [1, -1]) {
+        const dx = x * sign, dz = z * sign;
+        if ([0.8, 1.8, 3.6].every(n => g.world.isWalk(p.x + dx * n, p.z + dz * n))) { move(dx, dz); return true; }
+      }
+      return false;
+    };
+    const step = () => {
+      this.botRaf = requestAnimationFrame(step);
+      if (!this.botOn || !this.active || g.draftPause || document.hidden || window.__qaPlaytest) return;
+      const p = g.player;
+      const enemies = g.enemies.filter(e => !e.dead);
+      g.touchInput.x = g.touchInput.z = 0;
+      g.mouse.l = false;
+      if (!enemies.length || p.roll > 0) return;
+      if (p.hp < p.stats.maxHp * 0.58 && p.flask.charges && !p.healOver) g.tryFlask();
+      const boar = enemies.find(e => e.type === 'boar');
+      if (boar && (boar.state === 'wind' || boar.state === 'charge')) {
+        const ch = boar.cdir;
+        const x = p.pos.x - boar.pos.x, z = p.pos.z - boar.pos.z;
+        const forward = x * ch.x + z * ch.y;
+        const side = x * ch.y - z * ch.x;
+        const sign = side >= 0 ? 1 : -1;
+        if (forward > -0.55 && forward < 6.6 && Math.abs(side) < 1.32 && awayFromThreat(ch.y * sign, -ch.x * sign)) {
+          if (boar.state === 'charge' || boar.t >= 0.45) g.tryRoll();
+          return;
+        }
+      }
+      const shot = g.eprojs.find(pr => {
+        const x = p.pos.x - pr.mesh.position.x, z = p.pos.z - pr.mesh.position.z;
+        const speed = Math.hypot(pr.vx, pr.vz) || 1;
+        const along = (x * pr.vx + z * pr.vz) / speed;
+        const side = (x * pr.vz - z * pr.vx) / speed;
+        return along > 0 && along < 3.4 && Math.abs(side) < 0.72;
+      });
+      if (shot && p.cds.roll <= 0) {
+        const speed = Math.hypot(shot.vx, shot.vz) || 1;
+        if (awayFromThreat(shot.vz / speed, -shot.vx / speed)) { g.tryRoll(); return; }
+      }
+      const opening = enemies.find(e => (e.state === 'rest' && e.t < (e.chargeRecoveryS || 0)) || (e.type === 'thorn' && e.state === 'aim'));
+      const target = opening || boar || enemies[0];
+      const x = target.pos.x - p.pos.x, z = target.pos.z - p.pos.z;
+      const dist = Math.hypot(x, z);
+      projected.copy(target.pos).setY(p.y).project(g.camera);
+      g.mouse.x = (projected.x + 1) * innerWidth / 2;
+      g.mouse.y = (1 - projected.y) * innerHeight / 2;
+      const cover = this.cover;
+      const blocked = cover && [0.2, 0.4, 0.6, 0.8].some(t =>
+        Math.abs(p.pos.x + x * t - cover.x) < cover.hw + 0.28 &&
+        Math.abs(p.pos.z + z * t - cover.z) < cover.hd + 0.28);
+      if (!blocked && dist <= 4.4 && p.hotbar?.[0] && (p.skillCds?.[0] || 0) <= 0) {
+        g.castHotbar(0);
+      }
+      if (dist <= 2.52 && !blocked) { g.mouse.l = true; return; }
+      if (blocked) {
+        g.world.computeFlow(target.pos.x, target.pos.z);
+        const dir = { x: 0, y: 0, set(ax, ay) { this.x = ax; this.y = ay; return this; }, normalize() { const l = Math.hypot(this.x, this.y) || 1; return this.set(this.x / l, this.y / l); } };
+        if (g.world.flowDir(p.pos.x, p.pos.z, dir)) { move(dir.x, dir.y); return; }
+      }
+      if (dist > 0.001) move(x / dist, z / dist);
+    };
+    this.botRaf = requestAnimationFrame(step);
   }
 
   event(kind, data = {}) {
@@ -276,6 +380,8 @@ export class AmbushTrial {
     this.buttons.export.hidden = false;
     this.buttons.exit.hidden = false;
     this.buttons.next.hidden = this.index !== 0;
+    this.buttons.bot.hidden = false;
+    this.syncBotButton();
     (this.index === 0 ? this.buttons.next : this.buttons.export).focus();
   }
 
