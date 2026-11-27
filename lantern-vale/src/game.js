@@ -2713,6 +2713,7 @@ export class Game {
     const ui = this.ui;
     return (this.state === 'play' || this.state === 'raid') && !this.sailing && !this.gatherActive && !this.photoMode
       && !ui.invOpen && !ui.panelOpen && !ui.setOpen && !ui.puzzleOpen && !ui.mapDialog?.open
+      && !ui.hudMenuOpen && !ui.hudStatusOpen
       && !ui.codexOpen && !ui.simRosterOpen && !ui.simInspectOpen
       && document.activeElement?.id !== 'chatIn';
   }
@@ -3120,7 +3121,7 @@ export class Game {
       this.player.flask.charges = this.player.flask.max;
       this.heal(this.player.stats.maxHp * 0.35, true);
       this.audio.sfx('splash');
-      this.ui.toast('💧 汲取甘泉！蜜藥瓶已補滿並回復生命', '#7ae8ff');
+      this.ui.toast('💧 汲取甘泉！藥水已補滿並回復生命', '#7ae8ff');
       return true;
     }
     if (s.kind === 'fountain_wish') {
@@ -4192,7 +4193,7 @@ export class Game {
       this.dungeonDoor = x;
       const field = this.field;
       if (this.meta.p.keys < 1) {
-        if (!this.keyHint || this.time > this.keyHint) { this.ui.toast('需要鑰石 · 擊敗精英可取得'); this.keyHint = this.time + 3; }
+        if (!this.keyHint || this.time > this.keyHint) { this.ui.toast('需要副本鑰匙 · 擊敗精英可取得'); this.keyHint = this.time + 3; }
         return;
       }
       this.queueRun({ kind: 'field', field }, FIELDS[field].dungeon, {}, () => {

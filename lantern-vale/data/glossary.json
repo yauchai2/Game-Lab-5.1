@@ -9,6 +9,22 @@
   "classes": { "warden": "Lightwarden", "ranger": "Galewatch Ranger", "mystic": "Emberseer", "strider": "Duskblade", "monk": "Lotus Monk" },
   "subclasses": { "bastion": "Radiant Bastion", "earthwalker": "Vale Sentinel", "skywarden": "Sky Pathfinder", "starhunter": "Starbrand Hunter", "starcaller": "Starburn Sage", "frostweaver": "Frostlight Dreamweaver", "crimsonblade": "Crimson Moon Dancer", "mistphantom": "Mist Phantom", "lotussage": "Lotus Sage", "thunderfist": "Thunderfist" },
   "factions": ["Order of the Wick", "Skyfarers' League", "Emberbound Conclave", "The Duskblades", "Lotus Sanctum", "Merchant Concord", "The Hollow Court"],
+  "interfaceZhTw": {
+    "quest": "任務",
+    "map": "地圖",
+    "menu": "選單",
+    "status": "狀態",
+    "inventory": "背包",
+    "equipment": "裝備",
+    "stash": "倉庫",
+    "skills": "技能",
+    "codex": "圖鑑",
+    "settings": "設定",
+    "healingPotion": "藥水",
+    "dungeonKey": "副本鑰匙",
+    "channels": "分流",
+    "dungeonLobby": "等候室"
+  },
   "terms": { "Flame": "燈焰值", "Hollow": "空洞", "Ember Tide": "餘燼潮汐", "Starshards": "星砂", "Star Lanterns": "星燈", "Keystone Rifts": "鑰石裂隙", "Lamplighter": "提燈者", "Dimming": "黯淡" },
   "tiers": ["Wayfarer", "Greenvine", "Tempered Steel", "Lampbrass", "Starsilver", "Glasslight", "Arcglow", "Redflame", "Heirloom", "Moonbloom", "Zenith", "Aurora", "Starlantern I", "Starlantern II", "Starlantern III", "Starlantern IV"]
 }

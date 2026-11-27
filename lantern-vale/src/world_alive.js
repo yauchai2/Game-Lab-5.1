@@ -134,7 +134,7 @@ export function performAscend(profile, scId, devOn = false) {
 export const FIELD_NPCS = {
   1: { name: '採風畫家 柚子', col: 3, lines: ['晨光草原的雲影最美了！', '試著乘著上升氣流滑翔穿過空中星環吧！'], quest: { id: 'q_f1', title: '草原寫生委託', desc: '在晨光草原擊敗 3 隻敵人或採集 1 次素材', need: 3, rewardCoins: 20, rewardXp: 45 } },
   2: { name: '林木學者 阿松', col: 5, lines: ['古木林冠之間藏著不少高台寶箱。', '砍伐香杉木時抓準金色區間能收穫雙倍！'], quest: { id: 'q_f2', title: '林間生態調查', desc: '擊敗 4 隻森林怪物協助觀察生態', need: 4, rewardCoins: 28, rewardXp: 65 } },
-  3: { name: '尋寶蛙客 咕嚕', col: 6, lines: ['霧潮沼澤的遺跡入口閃著紫光，帶著鑰石就能進副本！', '夜晚的沼澤螢火超漂亮，星砂也掉更多喔。'], quest: { id: 'q_f3', title: '沼澤秘聞收集', desc: '擊敗 4 隻沼澤怪物尋找古老碎片', need: 4, rewardCoins: 35, rewardXp: 85 } },
+  3: { name: '尋寶蛙客 咕嚕', col: 6, lines: ['霧潮沼澤的遺跡入口閃著紫光，帶著副本鑰匙就能進副本！', '夜晚的沼澤螢火超漂亮，星砂也掉更多喔。'], quest: { id: 'q_f3', title: '沼澤秘聞收集', desc: '擊敗 4 隻沼澤怪物尋找古老碎片', need: 4, rewardCoins: 35, rewardXp: 85 } },
   4: { name: '觀星者 露露', col: 2, lines: ['雪原的暴風雪會讓採集收穫更豐富。', '在星夜抬頭看，連極光都好像近在咫尺。'], quest: { id: 'q_f4', title: '雪原星象觀測', desc: '擊敗 5 隻雪原怪物保護觀測站', need: 5, rewardCoins: 42, rewardXp: 110 } },
   5: { name: '鑄火匠 炎叔', col: 1, lines: ['火岩區的星紋礦品質最高！', '想切磋武藝的話，打開地圖可以開啟演武挑戰。'], quest: { id: 'q_f5', title: '熔岩礦脈清理', desc: '擊敗 5 隻火岩怪物確保採礦安全', need: 5, rewardCoins: 50, rewardXp: 140 } },
   6: { name: '古樹守望者 苔翁', col: 0, lines: ['你已走過整個燈谷……鹿王樹心就在前方。', '善用技能拼圖的相鄰連動，能發揮驚人力量。'], quest: { id: 'q_f6', title: '古樹淨化試煉', desc: '擊敗 6 隻古樹林怪物守護樹心', need: 6, rewardCoins: 65, rewardXp: 180 } },

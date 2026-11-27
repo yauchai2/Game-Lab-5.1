@@ -39,7 +39,7 @@ const { chromium } = require('playwright');
       }
 
       await openTracker();
-      assert.equal(await page.locator('[data-quest-guide-follow]').textContent(), '跟燈去草原');
+      assert.equal(await page.locator('[data-quest-guide-follow]').textContent(), '引路到草原');
       const townQuest = await page.locator('#panelM').textContent();
       assert.match(townQuest, /步行穿過燈谷鎮北門/);
       assert.doesNotMatch(townQuest, /傳送|南門/);
@@ -67,7 +67,7 @@ const { chromium } = require('playwright');
       assert.equal(await page.evaluate(() => __game.questGuide.enabled), false);
       assert.equal(await page.evaluate(() => __game.questGuide.root.visible), false);
       await openTracker();
-      assert.equal(await page.locator('[data-quest-guide-toggle]').textContent(), '開啟光路');
+      assert.equal(await page.locator('[data-quest-guide-toggle]').textContent(), '顯示路線');
       await page.locator('#btnPanelX').click();
       assert.equal(await page.evaluate(() => __game.questGuide.enabled), false);
       await openTracker();

@@ -166,12 +166,12 @@ export function describeWorldTarget(hit, g) {
     const labels = {
       item: ['🎁 稀有裝備房', '下一個地城區域獎勵為稀有以上裝備。'],
       boon: ['✨ 天賦祝福房', '下一個地城區域通關後可三選一強力祝福。'],
-      heal: ['♨️ 溫泉休憩房', '下一個地城區域可回復 50% 生命並補滿蜜藥瓶。'],
+      heal: ['♨️ 溫泉休憩房', '下一個地城區域可回復 50% 生命並補滿藥水。'],
       run: ['🌿 晨光草原入口', '踏出燈谷鎮北門，進入常駐野外草原自由探索與刷怪。'],
       town: ['🏠 返回燈谷鎮', '免清怪直接返回溫暖的燈谷鎮整裝、鍛造與存取倉庫。'],
       prevField: [prevF ? `⬅️ 返回 ${prevF.name}` : '🏠 返回燈谷鎮', prevF ? `建議 Lv.${prevF.level}` : '返回安全城鎮'],
       nextField: [nextF ? `➡️ 前往 ${nextF.name}` : '⛵ 返回海風港鎮', nextF ? `建議 Lv.${nextF.level} · 探索更高危地貌` : '前往海風港鎮'],
-      dungeon: [`⛩ 副本：${FIELDS[g.field]?.dungeon || '秘境地城'}`, `消耗 1 枚鑰石（現有 ${g.meta?.p?.keys || 0} 枚）進入逐層刷寶副本。`],
+      dungeon: [`⛩ 副本：${FIELDS[g.field]?.dungeon || '秘境地城'}`, `消耗 1 枚副本鑰匙（現有 ${g.meta?.p?.keys || 0} 枚）進入逐層刷寶副本。`],
     };
     const [title, desc] = labels[x.type] || ['🌀 傳送門', '走入傳送門前往下一個區域。'];
     return { title, key: distM(x.x, x.z), chips: [x.on ? '已開啟' : '需淨化區域'], body: desc, accent: '#62e8ff' };
@@ -358,7 +358,7 @@ export function installHoverSystem(game) {
       const fl = p?.flask || { charges: 0, max: 1, prog: 0 };
       const healPct = Math.round(42 * (1 + 0.25 * (p?.boons || []).filter(b => b === 'flask').length));
       return {
-        title: '🧪 蜜藥瓶（點擊喝藥）',
+        title: '🧪 藥水（點擊喝藥）',
         key: (g.settings?.keybinds?.flask || 'R').toUpperCase(),
         chips: [`剩餘 ${fl.charges}/${fl.max} 瓶`, `回復 ${healPct}% 生命`, `充能 ${Math.round((fl.prog || 0) * 100)}%`],
         body: '1 秒內快速回復大量生命值；擊殺怪物累積充能，或於城鎮水井汲取甘泉直接補滿。',

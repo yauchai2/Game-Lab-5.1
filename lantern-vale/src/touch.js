@@ -226,13 +226,6 @@ export function bindTouch(g) {
     if (g.canUseTouchControls() && !g.tryInteract()) g.tryPickup();
   };
 
-  const details = el('touchDetails');
-  details.onclick = () => {
-    reset();
-    if (g.ui.openTouchJourney?.()) return;
-    const open = hud.classList.toggle('touch-details-open');
-    details.setAttribute('aria-expanded', String(open));
-  };
   el('btnRegionMap').onclick = () => g.ui.toggleRegionMap(g);
   el('btnRegionMapClose').onclick = () => g.ui.toggleRegionMap(g);
   el('btnChatTouch').onclick = () => g.ui.focusChat();

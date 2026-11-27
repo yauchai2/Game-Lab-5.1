@@ -336,7 +336,7 @@ export function buildTownScenery({ gh, rng }) {
   const spots = [];
   [[-5.6, 3.4], [5.6, 3.4], [-3.4, 5.6], [3.4, 5.6]].forEach(([x, z]) => { const ry = faceCenter(x, z); place(bench(), x, z, ry, 0.65); spots.push({ x, z, kind: 'sit', label: '坐下休憩（回復生命與法力）', top: 1.5, facing: ry }); });
   [[-6.6, -2.4], [6.6, -2.4]].forEach(([x, z], i) => place(planter(0, 0, i ? [0xffd45a, 0xff8fb0] : [0xff8fb0, 0xffffff]), x, z, 0, 0.5));
-  spots.push({ x: L.well[0], z: L.well[1], kind: 'well_drink', label: '汲取甘泉（補滿蜜藥瓶）', top: 2.3 });
+  spots.push({ x: L.well[0], z: L.well[1], kind: 'well_drink', label: '汲取甘泉（補滿藥水）', top: 2.3 });
   spots.push({ x: 0, z: -1, kind: 'fountain_wish', label: '許願噴泉（投 1 金幣獲得祝福）', top: 2.3 });
   // ---- 植被：只在外圍與岩壁上（圓潤闊葉樹為主，柏樹當背景，2 棵櫻花點綴） ----
   [[-20.5, -6], [-21, 6], [20.5, -7], [21, 6.5], [-17.5, 10.5], [17.5, 12.5], [-8, -17.5], [8.5, -18], [-12.5, -16.5], [13, -16.5], [-19, 13]].forEach(([x, z], i) => place(roundTree(1.0 + (i % 3) * 0.15), x, z, i, 0.6));

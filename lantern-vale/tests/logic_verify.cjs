@@ -301,7 +301,7 @@ const createGuild = require('../server/guild.cjs');
   // 9. Full i18n, Multi-Shape Physics Backpack, Town-Only Stash, 2D Fluid Vials & Custom Keybinds
   const i18n = await import(src('i18n.js'));
   assert.equal(i18n.LANGS.length, 3, 'Three languages supported (zh-TW, en, ja)');
-  assert.equal(i18n.t('en', 'bag'), 'Physics Bag');
+  assert.equal(i18n.t('en', 'bag'), 'Bag');
   assert.equal(i18n.t('en', 'tabVideo'), 'Video');
   assert.equal(i18n.t('ja', 'stash'), '街の倉庫');
   assert.ok(i18n.t('en', 'stashLocked').includes('not carried'), 'Town-only stash warning localized');

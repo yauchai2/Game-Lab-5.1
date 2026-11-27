@@ -123,7 +123,7 @@ export function awardKill(g, enemy) {
   if (g.field) {
     const material = ['wood','ore','fish'][(enemy.spawnIndex ?? 0) % 3];
     if (!autoOn) {
-      // 素材與鑰石掉率大幅下修（普通怪 18% 掉 1 素材、精英 45% 掉 1–2 素材與 15% 鑰石），鼓勵採集、懸賞與交易！
+      // 素材與副本鑰匙掉率大幅下修（普通怪 18% 掉 1 素材、精英 45% 掉 1–2 素材與 15% 副本鑰匙），鼓勵採集、懸賞與交易！
       const dropMat = enemy.elite ? (Math.random() < 0.45) : (Math.random() < 0.18);
       if (dropMat) {
         matGain = enemy.elite ? (Math.random() < 0.5 ? 2 : 1) : 1;
@@ -135,7 +135,7 @@ export function awardKill(g, enemy) {
         gotKey = true;
       }
       if (matGain > 0 || gotKey) {
-        g.ui.toast((matGain > 0 ? `${GOODS[material]} +${matGain}` : '') + (gotKey ? (matGain > 0 ? ' · 鑰石 +1' : '鑰石 +1') : ''), '#ffe5a5');
+        g.ui.toast((matGain > 0 ? `${GOODS[material]} +${matGain}` : '') + (gotKey ? (matGain > 0 ? ' · 副本鑰匙 +1' : '副本鑰匙 +1') : ''), '#ffe5a5');
       }
     } else if (Math.random() < 0.08) {
       matGain = 1;
