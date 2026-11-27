@@ -1,5 +1,11 @@
 # 交接說明（Claude → Codex，2026-11-22）
 
+## 2026-11-27 授權音檔換入
+
+- 將 Web Audio 合成器改成現成音檔播放。71 段音檔、95 個音效事件、9 首配樂，包含真實放箭聲、材質腳步、怪物吼叫、鍛造及 UI。配樂隨區域及 Apex 切換，Dimming 保留音樂低通。
+- `game/assets/audio/CREDITS.md` 有作者與授權。滑翔風聲是 InspectorJ／AntumDeluge 的 CC BY 3.0 音檔，其餘為 CC0。原檔雜湊和剪輯索引分別在 `SOURCES.json` 與 `src/audio_clips.json`。
+- 測試入口 `npm run test:audio` 與 `npm run test:audio:browser`。更新音檔或片段位置時重新 build。HTTP 與直接開檔都可播放音檔。配樂的跨區淡入淡出及 Dimming 濾波需要 HTTP。
+
 ## 2026-11-27 遊戲動作及音效
 
 - 開局角色原本可能延後載入骨骼動畫到一直沒有播放。現在只有標題畫面背景角色延後載入，進場角色即載入職業動畫。普攻每次只觸發一次，跳躍與倒地播放時保留同一段進度，受擊正確使用 GetHit。

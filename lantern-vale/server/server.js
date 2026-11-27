@@ -24,6 +24,7 @@ const ASSET_DIR = fs.realpathSync(path.join(GAME_DIR, 'assets'));
 const MIME = {
   '.png': 'image/png', '.webp': 'image/webp', '.svg': 'image/svg+xml',
   '.woff2': 'font/woff2',
+  '.mp3': 'audio/mpeg',
   '.glb': 'model/gltf-binary', '.gltf': 'model/gltf+json', '.bin': 'application/octet-stream',
 };
 const _htmlCache = new Map();
