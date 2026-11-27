@@ -267,7 +267,9 @@ export class UI {
       game.questDestination = null;
       game.meta.save();
       game.net.connect(game.playerName, game.hoodIdx, game.party);
-      $('title').classList.add('hide'); $('hud').classList.remove('hide'); game.enterTown();
+      const title = $('title');
+      if (title.contains(document.activeElement)) document.activeElement.blur();
+      title.classList.add('hide'); $('hud').classList.remove('hide'); game.enterTown();
       const step = openingStep(game.meta.p);
       if (step) recordOpeningEvent(game, 'player_ready', step);
       syncHotbarKeyLabels(game);
@@ -372,8 +374,8 @@ export class UI {
         }
       },
     });
-    const sb = $('btnShakeBag'); if (sb) sb.onclick = () => { this.bagPhys?.shake(); game.audio.sfx('roll'); };
-    const ss = $('btnShakeStash'); if (ss) ss.onclick = () => { this.stashPhys?.shake(); game.audio.sfx('roll'); };
+    const sb = $('btnShakeBag'); if (sb) sb.onclick = () => { this.bagPhys?.shake(); game.audio.sfx('bagRustle'); };
+    const ss = $('btnShakeStash'); if (ss) ss.onclick = () => { this.stashPhys?.shake(); game.audio.sfx('bagRustle'); };
     const bc = $('btnInvClose'); if (bc) bc.onclick = () => this.toggleInv(game);
     document.querySelectorAll('[data-invtab]').forEach(btn => {
       btn.onclick = () => {

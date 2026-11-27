@@ -67,8 +67,11 @@ export class CharAnimator {
     if (!this.clips.size) return false;
     this._pose = null;
     const isOneShot = opts.once ?? ONE_SHOT_STATES.has(state);
-    if (!opts.force && this.lockTimer > 0 && !isOneShot && state !== 'death') return false;
-    if (!opts.force && this.curState === state && !isOneShot) return true;
+    if (!opts.force && this.lockTimer > 0 && !opts.interrupt && !isOneShot) return false;
+    if (!opts.force && this.curState === state && (!isOneShot || opts.restart === false)) {
+      if (opts.speed !== undefined) this.curAction?.setEffectiveTimeScale(opts.speed);
+      return true;
+    }
 
     const clip = this._resolveClip(state);
     if (!clip) return false;
@@ -90,6 +93,7 @@ export class CharAnimator {
       next.reset();
       this.lockTimer = Math.max(0.18, (clip.duration / Math.max(0.4, speed)) * (opts.lockFrac ?? 0.72));
     } else {
+      this.lockTimer = 0;
       next.setLoop(THREE.LoopRepeat, Infinity);
       next.clampWhenFinished = false;
     }

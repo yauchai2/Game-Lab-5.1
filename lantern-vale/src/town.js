@@ -252,6 +252,18 @@ export const TOWN_LAYOUT = {
   tavern: [-14, -5.5], home: [-14, 6.5], wardrobe: [-11.3, 9.2], well: [-9.2, 5.2],
   forge: [14, -5.5], market: [13.2, 3.4], pasture: [-12, 14.5], lighthouse: [15, 18],
 };
+const TOWN_PLAZA_RADIUS = 8;
+const TOWN_STREETS = [
+  [0, -7.4, 0, -18.5, 4], [0, 7.4, 0, 19.2, 4],
+  [-7.4, 0, -17, 0, 3], [7.4, 0, 17, 0, 3],
+];
+export function townStoneAt(x, z) {
+  if (x * x + z * z <= TOWN_PLAZA_RADIUS ** 2) return true;
+  return TOWN_STREETS.some(([x0, z0, x1, z1, width]) =>
+    x0 === x1
+      ? Math.abs(x - x0) <= width / 2 && z >= Math.min(z0, z1) && z <= Math.max(z0, z1)
+      : Math.abs(z - z0) <= width / 2 && x >= Math.min(x0, x1) && x <= Math.max(x0, x1));
+}
 export function buildTownScenery({ gh, rng }) {
   const g = new THREE.Group(), obstacles = [], chimneys = [], r = rng || Math.random, L = TOWN_LAYOUT;
   const PX = Math.PI / 2;
@@ -261,13 +273,13 @@ export function buildTownScenery({ gh, rng }) {
   const stones = [], tone = [0xd9cdb4, 0xcabda3, 0xe4d8c0, 0xbfb299, 0xd2c6ac];
   const g0 = gh(0, 0);
   const stone = (x, z, s = 0.62) => { const y = gh(x, z) + 0.05; stones.push(part(new THREE.BoxGeometry(s * (0.8 + r() * 0.3), 0.08, s * (0.8 + r() * 0.3)), tone[(r() * tone.length) | 0], x, y, z, 0, r() * 3.14, 0)); };
-  stones.push(part(new THREE.CylinderGeometry(8.0, 8.0, 0.05, 40), 0x8c8170, 0, g0 + 0.02, 0));
+  stones.push(part(new THREE.CylinderGeometry(TOWN_PLAZA_RADIUS, TOWN_PLAZA_RADIUS, 0.05, 40), 0x8c8170, 0, g0 + 0.02, 0));
   for (let rad = 3.5; rad < 7.6; rad += 0.56) { const n = Math.round(rad * 6.283 / 0.66); for (let i = 0; i < n; i++) { const aa = (i + (rad * 3 % 1)) / n * 6.283; stone(Math.cos(aa) * rad, Math.sin(aa) * rad, 0.6); } }
   stones.push(part(new THREE.CylinderGeometry(3.45, 3.45, 0.09, 8), 0xe8dec6, 0, g0 + 0.06, 0));
   for (let i = 0; i < 8; i++) { const aa = i / 8 * 6.283 + 0.3927, rr = 3.3; stones.push(B(2.5, 0.42, 0.55, 0xf0e6cf, Math.cos(aa) * rr, g0 + 0.2, Math.sin(aa) * rr, 0, -aa - 1.5708, 0)); }
   // 主街（整齊石板，4 公尺寬）＋橫街（3 公尺）
   const street = (x0, z0, x1, z1, wd) => { const len = Math.hypot(x1 - x0, z1 - z0), n = Math.ceil(len / 0.62), m = Math.round(wd / 0.62); const ux = (x1 - x0) / len, uz = (z1 - z0) / len; for (let i = 0; i <= n; i++) for (let k = 0; k < m; k++) { const off = (k - (m - 1) / 2) * 0.62 + (i % 2) * 0.12; const x = x0 + ux * i * 0.62 - uz * off, z = z0 + uz * i * 0.62 + ux * off; const y = gh(x, z) + 0.05; stones.push(B(0.56, 0.08, 0.56, tone[(r() * tone.length) | 0], x, y, z, 0, Math.atan2(ux, uz), 0)); } };
-  street(0, -7.4, 0, -18.5, 4.0); street(0, 7.4, 0, 19.2, 4.0); street(-7.4, 0, -17, 0, 3.0); street(7.4, 0, 17, 0, 3.0);
+  for (const bounds of TOWN_STREETS) street(...bounds);
   // 小巷（圓卵石）：酒館露天座、家門口、魚攤
   const lane = (x0, z0, x1, z1) => { const len = Math.hypot(x1 - x0, z1 - z0), n = Math.ceil(len / 0.7); for (let i = 0; i <= n; i++) { const t = i / n; for (const o of [-0.45, 0.45]) stone(x0 + (x1 - x0) * t + (r() - 0.5) * 0.2 + o * (z1 !== z0 ? 1 : 0), z0 + (z1 - z0) * t + o * (z1 === z0 ? 1 : 0), 0.5); } };
   lane(-10.5, 0, -10.5, 6.5); lane(10.5, 0, 10.5, -5.5); lane(0, 14, 5, 14);

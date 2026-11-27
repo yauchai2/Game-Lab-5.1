@@ -1122,7 +1122,7 @@ const createGuild = require('../server/guild.cjs');
   const modelsSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'models.js'), 'utf8');
   const rigSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'char_rig.js'), 'utf8');
   assert.ok(rigSrc.includes('toToonMaterial') && gameSrc.includes('toon: true'), 'In-game modular heroes use MeshToonMaterial wrapper');
-  assert.ok(gameSrc.includes("play('skill'") && gameSrc.includes("play('getHit'") && gameSrc.includes("play('buff'"), 'Combat skill/getHit/buff skeletal animations wired');
+  assert.ok(gameSrc.includes("play('skill'") && gameSrc.includes("play('hit'") && gameSrc.includes("play('buff'"), 'Combat skill/hit/buff skeletal animations wired');
   assert.ok(gameSrc.includes("'runBack'") && gameSrc.includes("'runL'") && gameSrc.includes("'runR'"), 'Directional combat strafe animations wired');
   assert.ok(modelsSrc.includes('root.add(xray)'), 'X-Ray occlusion silhouette attached to root so it works with modular heroRig');
 
