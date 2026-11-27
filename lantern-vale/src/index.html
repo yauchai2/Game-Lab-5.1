@@ -588,6 +588,7 @@ body.holding-gem,body.holding-gem *{cursor:grabbing!important}
 /* 影片同款：底部 ◀ 職業名 ▶ 切換條＋編號點 */
 .cr-stage-bar{position:absolute;bottom:20px;left:32%;transform:translateX(-50%);z-index:5;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none}
 #title.mode-dressup .cr-stage-bar{display:none}
+#growthPreviewNote{margin:4px 0;color:#fff8e6;font-size:12px;text-align:center;text-shadow:0 1px 3px #25182c}
 #btnQuickStart{pointer-events:auto;min-height:44px;padding:5px 16px}
 #title.mode-focus #btnQuickStart{display:none}
 #questTracker[data-stage=opening] .qt-bar{display:none}
@@ -2381,6 +2382,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
       <button type="button" id="btnHeroNext" aria-label="下一位英雄">▶</button>
     </div>
     <div id="heroPillRole">近身穩守 · 聖劍震暈</div>
+    <p id="growthPreviewNote" hidden>成長試玩 · 單人 · 專用角色存檔<br>選林風遊俠或守燈衛士，到晨光草原學招。</p>
     <button type="button" class="btn small on" id="btnQuickStart" data-i18n="start">開始冒險</button>
   </div>
 

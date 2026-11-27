@@ -33,6 +33,8 @@ export function mountTestHub() {
 
     <a id="hubGoAmbush" style="display:block;text-align:center;text-decoration:none;padding:15px 18px;border-radius:12px;background:#3a7d5c;color:#fff;font-weight:700;font-size:17px;letter-spacing:.5px;box-shadow:0 3px 0 #26573f">▶ 開始戰鬥試玩</a>
 
+    <a href="${makeUrl({ growth: "progression" })}" style="display:block;text-align:center;text-decoration:none;padding:12px 16px;border-radius:12px;border:1.5px solid #5a4332;background:#fff;color:#2f241c;font-weight:600;font-size:15px">試玩第一章成長</a>
+
     <a href="${makeUrl({})}" style="display:block;text-align:center;text-decoration:none;padding:12px 16px;border-radius:12px;border:1.5px solid #5a4332;background:#fff;color:#2f241c;font-weight:600;font-size:15px">進入完整遊戲</a>
 
     <details style="margin-top:6px;border-top:1px dashed #d8c6a6;padding-top:12px">

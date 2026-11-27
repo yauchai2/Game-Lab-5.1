@@ -2,6 +2,8 @@ import { progressDefaults } from './frontier.js';
 // 跨局進度（MMO 風格）：貨幣、金羽毛、每日委託、出發詞綴、傳家寶
 import { serializeItem, deserializeItem } from './loot.js';
 import { slotKeys } from './account.js';
+import { mergeGrowthLessons } from './growth_lessons.js';
+import { mergeGrowthJourney } from './growth_journey.js';
 import { SAVE_SCHEMA_VERSION, BEACONFALL_DEFAULTS, migrateProfile } from './save_schema.js';
 
 export const MODS = [
@@ -43,7 +45,19 @@ export class Meta {
       return { ...structuredClone(DEFAULT_PROFILE), ...profile };
     } catch (e) { return { ...structuredClone(DEFAULT_PROFILE) }; }
   }
-  save() { if (!this.key) return; try { localStorage.setItem(this.key, JSON.stringify(this.p)); } catch (e) { /* ignore */ } }
+  save() {
+    if (!this.key) return;
+    try {
+      // An already open tab may save after another tab has learned a lesson.
+      const previous = localStorage.getItem(this.key);
+      if (previous && (previous.includes('"growthLessons"') || previous.includes('"growthJourney"'))) {
+        const saved = JSON.parse(previous);
+        mergeGrowthLessons(this.p, saved);
+        mergeGrowthJourney(this.p, saved);
+      }
+      localStorage.setItem(this.key, JSON.stringify(this.p));
+    } catch (e) { /* ignore */ }
+  }
   rollQuests() {
     const d = today(); if (this.p.quests && this.p.quests.day === d) return;
     const r = seeded('lv' + d), pool = [...QUEST_POOL], list = [];

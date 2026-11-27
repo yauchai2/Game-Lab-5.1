@@ -8,6 +8,7 @@ export class Net {
   }
   on(t, fn) { this.handlers[t] = fn; }
   get url() {
+    if (this.offlineOnly) return null;
     const q = new URLSearchParams(location.search).get('server');
     if (q) return q;
     if (window.LV_SERVER && /^https?:$/.test(location.protocol)) return `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`;
