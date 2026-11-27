@@ -161,12 +161,17 @@ export class DungeonLobby {
     return this.sharesEnemyAttack(enemy) && this.run.leader !== this.g.net.id;
   }
 
-  sendAttack(enemy, phase, hint, decal) {
+  sendAttack(enemy, phase, hint, warning) {
     if (!this.sharesEnemyAttack(enemy) || this.run.leader !== this.g.net.id) return;
     const run = this.run;
-    if (phase === 'warn') enemy.sharedAttack = { state: enemy.state, charge: hint[0] === 1, decal };
-    else if (!enemy.sharedAttack) return;
-    else if (phase === 'release' && enemy.sharedAttack.charge) {
+    if (phase === 'warn') {
+      enemy.sharedAttack = hint[0] === 4
+        ? { state: enemy.state, roots: warning }
+        : { state: enemy.state, charge: hint[0] === 1, decal: warning };
+    } else if (!enemy.sharedAttack) return;
+    else if (phase === 'pulse') {
+      if (hint === enemy.sharedAttack.roots?.length) enemy.sharedAttack = null;
+    } else if (phase === 'release' && enemy.sharedAttack.charge) {
       enemy.sharedAttack.state = 'charge';
       enemy.sharedAttack.released = true;
     }
@@ -177,10 +182,8 @@ export class DungeonLobby {
 
   clearAttack(enemy) {
     const attack = enemy.incomingAttack || enemy.sharedAttack;
-    if (attack?.decal && !attack.decal.dead) {
-      attack.decal.onDone = null;
-      attack.decal.t = attack.decal.dur;
-    }
+    if (attack?.decal) this.g.expireWarning(attack.decal);
+    for (const row of attack?.roots || []) for (const { decal } of row) this.g.expireWarning(decal);
     if (attack && !enemy.dead && (enemy.incomingAttack || !attack.released && enemy.state === attack.state)) {
       enemy.state = 'move';
       enemy.t = 0;
@@ -200,6 +203,14 @@ export class DungeonLobby {
     if (info.phase === 'warn') {
       this.clearAttack(enemy);
       const [shape, x, z, size, extra, duration] = info.hint;
+      if (shape === 4) {
+        if (!this.run.rootSync || enemy.type !== 'stag') return;
+        enemy.incomingAttack = { shape, roots: g.warnStagRoots(x, z, size, extra, duration), until: g.time + duration + 1.72 };
+        enemy.state = 'roots';
+        enemy.t = 0;
+        enemy.facing = extra;
+        return;
+      }
       const charge = shape === 1;
       const stag = enemy.type === 'stag';
       const decal = charge
@@ -219,7 +230,12 @@ export class DungeonLobby {
       if (!attack) return;
       if (info.phase === 'end') {
         this.clearAttack(enemy);
-      } else if (info.phase === 'release') {
+      } else if (info.phase === 'pulse') {
+        const row = attack.roots?.[info.hint - 1];
+        if (!row) return;
+        g.resolveStagRootRow(enemy, row, info.hint);
+        if (info.hint === attack.roots.length) this.clearAttack(enemy);
+      } else if (info.phase === 'release' && attack.decal) {
         attack.decal.t = attack.decal.dur;
         if (attack.charge) {
           enemy.state = 'charge';

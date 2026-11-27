@@ -126,6 +126,8 @@ class Particles {
 }
 
 // ---------------- telegraph decals ----------------
+const STAG_ROOT_INTERVAL = 0.12;
+const STAG_ROOT_RADIUS = 1;
 const decalVS = `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`;
 const decalFS = `uniform vec3 uColor; uniform float uProg, uShape, uAlpha, uInner; varying vec2 vUv;
   void main(){
@@ -135,12 +137,17 @@ const decalFS = `uniform vec3 uColor; uniform float uProg, uShape, uAlpha, uInne
     else if (uShape < 1.5) { float edge = step(0.92, max(abs(vUv.x-0.5)*2.0, 0.0)) ;
       a = edge*0.8 + step(vUv.y, uProg)*0.3 + step(abs(vUv.y-uProg),0.02)*0.5; }
     else if (uShape < 2.5) { float d = length(vUv-0.5)*2.0; if (d>1.0) discard; a = smoothstep(0.6,1.0,d)*(1.0-smoothstep(0.95,1.0,d))*1.2; }
-    else {
+    else if (uShape < 3.5) {
       float d = length(vUv-0.5)*2.0;
       if (d < uInner || d > 1.0) discard;
       float front = mix(uInner, 1.0, uProg);
       a = 0.19 + 0.43*step(d,front) + 0.48*step(abs(d-front),0.025)
         + 0.68*step(0.965,d) + 0.68*step(d,uInner+0.035);
+    } else {
+      float d = length(vUv-0.5)*2.0;
+      if (d > 1.0) discard;
+      float stripe = step(0.75, fract((vUv.x + vUv.y)*7.0));
+      a = min(1.0, 0.32 + 0.16*stripe + 0.44*uProg + 0.45*step(0.84,d));
     }
     gl_FragColor = vec4(uColor, a*uAlpha);
   }`;
@@ -1848,6 +1855,13 @@ export class Game {
     const d = { mesh, mat, t: 0, dur, onDone };
     this.decals.push(d);
     return d;
+  }
+
+  expireWarning(decal) {
+    if (decal.dead) return;
+    decal.onDone = null;
+    decal.hold = false;
+    decal.t = decal.dur;
   }
 
   cueAt(name, pos, range, strength) {
@@ -4607,6 +4621,41 @@ export class Game {
     }
   }
 
+  warnStagRoots(x, z, lanes, angle, windup) {
+    this.enemyCue('enemyCast', { x, z });
+    const spacing = lanes === 3 ? 0.7 : 0.5;
+    return Array.from({ length: 7 }, (_, row) => {
+      const distance = (row + 1) * 1.6;
+      const points = [];
+      for (let lane = 0; lane < lanes; lane++) {
+        const direction = angle + (lane - (lanes - 1) / 2) * spacing;
+        const cx = x + Math.sin(direction) * distance, cz = z + Math.cos(direction) * distance;
+        if (!this.world.isLand(cx, cz)) continue;
+        const y = this.world.gh(cx, cz);
+        const decal = this.addDecal('circle', cx, cz, STAG_ROOT_RADIUS, 0xff9a54, windup + row * STAG_ROOT_INTERVAL, null, null, 4);
+        decal.mesh.position.y = y + 0.13;
+        decal.hold = true;
+        points.push({ x: cx, y, z: cz, decal });
+      }
+      return points;
+    });
+  }
+
+  resolveStagRootRow(enemy, row, step) {
+    const p = this.player;
+    let hit = null, nearest = Infinity, sound = null;
+    for (const point of row) {
+      const { x, y, z, decal } = point;
+      this.expireWarning(decal);
+      this.puffs.burst(x, y + 0.15, z, 10, { c: [0x795532, 0x9ccc62, 0xd9bd7f], s: 0.25, speed: 2, up: 6, life: 0.6 });
+      const distance = Math.hypot(p.pos.x - x, p.pos.z - z);
+      if (distance < nearest) { nearest = distance; sound = point; }
+      if (distance < STAG_ROOT_RADIUS && (!hit || Math.abs(y - p.y) < Math.abs(hit.y - p.y))) hit = point;
+    }
+    if (sound && (step === 1 || step === 4 || step === 7)) this.enemyCue('enemyRelease', sound);
+    if (hit) this.hurtPlayer(enemy.dmg, hit);
+  }
+
   updateBoss(e, dt, dist, dirP, follow, setMv) {
     const p = this.player;
     e.cd -= dt;
@@ -4618,6 +4667,7 @@ export class Game {
       if (e.cd <= 0) {
         const shared = this.dungeon.sharesEnemyAttack(e);
         const moves = shared ? ['charge', 'stomp', 'donut'] : ['charge', 'burst', 'roots', dist < 4 ? 'stomp' : 'donut'];
+        if (shared && this.dungeon.run.rootSync) moves.push('roots');
         if (dist > 7.5) moves.push('donut', 'charge');
         if (!shared && this.enemies.length < 4) moves.push('summon');
         e.state = pick(Math.random, moves); e.t = 0; e.step = 0;
@@ -4668,6 +4718,24 @@ export class Game {
         this.shake = 0.2;
       }
       if (e.step >= (e.phase === 2 ? 3 : 2) && e.t > 0.8) { e.state = 'move'; e.cd = 1.4 * fast; }
+    } else if (e.state === 'roots' && this.dungeon.sharesEnemyAttack(e)) {
+      if (e.statuses?.freeze > 0) return;
+      if (e.step === 0) {
+        const angle = Math.atan2(dirP.x, dirP.y);
+        const lanes = e.phase === 2 ? 3 : 2;
+        const windup = e.phase === 2 ? 0.6 : 0.72;
+        const { x, z } = e.pos;
+        e.facing = angle;
+        e.step = 1;
+        this.dungeon.sendAttack(e, 'warn', [4, x, z, lanes, angle, windup], this.warnStagRoots(x, z, lanes, angle, windup));
+        e.rootWindup = windup;
+      }
+      const rows = e.sharedAttack?.roots;
+      if (rows && e.t >= e.rootWindup + (e.step - 1) * STAG_ROOT_INTERVAL) {
+        this.resolveStagRootRow(e, rows[e.step - 1], e.step);
+        this.dungeon.sendAttack(e, 'pulse', e.step++);
+      }
+      if (e.t > 1.65 && !e.sharedAttack) { e.state = 'rest'; e.t = 0; e.chargeRecoveryS = 1.1; }
     } else if (e.state === 'roots') {
       if (e.step === 0) {
         this.enemyCue('enemyCast', e.pos);
@@ -4828,7 +4896,7 @@ export class Game {
     for (const d of this.decals) {
       d.t += dt; d.mat.uniforms.uProg.value = Math.min(1, d.t / d.dur);
       if (d.frost) { d.mat.uniforms.uAlpha.value = 1 - d.t / d.dur; for (const e of this.enemies) if (e.pos.distanceTo(d.mesh.position) < 2.4) e.slow = 0.5; }
-      if (d.t >= d.dur) { this.scene.remove(d.mesh); d.mesh.geometry?.dispose?.(); d.mat.dispose(); if (d.onDone) d.onDone(); d.dead = true; }
+      if (d.t >= d.dur && !d.hold) { this.scene.remove(d.mesh); d.mesh.geometry?.dispose?.(); d.mat.dispose(); if (d.onDone) d.onDone(); d.dead = true; }
     }
     this.decals = this.decals.filter(d => !d.dead);
     for (const s of this.slashes) { s.t -= dt; s.mesh.material.opacity = Math.max(0, s.t / s.max) * 0.85; s.mesh.scale.setScalar(1 + (1 - s.t / s.max) * 0.15); if (s.t <= 0) { this.scene.remove(s.mesh); s.mesh.geometry?.dispose?.(); s.mesh.material?.dispose?.(); } }
