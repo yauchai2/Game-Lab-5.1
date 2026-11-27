@@ -33,7 +33,9 @@ function settle(p, now) {
     if (lot.due <= now) p.coins += calcAuctionNet(lot.price);
     else pending.push(lot);
   }
+  if (pending.length === p.sales.length) return false;
   p.sales = pending;
+  return true;
 }
 export function renderOpeningBadge(g, body, refresh) {
   const meta = g.meta, profile = meta.p;
@@ -98,7 +100,7 @@ export function renderOpeningBadge(g, body, refresh) {
 
 export function buildLodge(g, body, title, kind, recipeId = null) {
   const p = g.meta.p, now = Date.now();
-  settle(p, now); g.meta.save();
+  if (kind === 'market' && settle(p, now)) g.meta.save();
   const refresh = () => buildLodge(g, body, title, kind, recipeId);
   title.textContent = { market:'溪畔拍賣行', home:'旅人小屋', workshop:'素材工坊' }[kind];
   body.replaceChildren();

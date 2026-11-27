@@ -31,19 +31,47 @@ export const DEFAULT_PROFILE = { ...progressDefaults, ...structuredClone(BEACONF
 export class Meta {
   constructor(slot = 0, temporary = false) {
     this.key = temporary ? null : slotKeys(slot).profileKey;
-    this.p = temporary ? structuredClone(DEFAULT_PROFILE) : this.load();
+    this.reload();
     this.runShards = 0;
     this.rollQuests();
   }
-  load() {
-    try {
-      const rawStr = localStorage.getItem(this.key) || '{}';
-      const { profile, migrated, from } = migrateProfile(JSON.parse(rawStr));
-      if (migrated && rawStr !== '{}') { try { localStorage.setItem(this.key + '.bak_v' + from, rawStr); } catch (e) { /* ignore */ } }
-      return { ...structuredClone(DEFAULT_PROFILE), ...profile };
-    } catch (e) { return { ...structuredClone(DEFAULT_PROFILE) }; }
+  reload() {
+    this.savedRaw = null;
+    if (this.key) {
+      try { this.savedRaw = localStorage.getItem(this.key); } catch { /* blocked storage */ }
+    }
+    this.p = this.load(this.savedRaw);
   }
-  save() { if (!this.key) return; try { localStorage.setItem(this.key, JSON.stringify(this.p)); } catch (e) { /* ignore */ } }
+  load(raw) {
+    try {
+      if (raw === undefined) raw = this.key ? localStorage.getItem(this.key) : null;
+      const { profile, migrated, from } = migrateProfile(JSON.parse(raw || '{}'));
+      if (migrated && raw && this.key) {
+        try { localStorage.setItem(this.key + '.bak_v' + from, raw); } catch { /* blocked storage */ }
+      }
+      return { ...structuredClone(DEFAULT_PROFILE), ...profile };
+    } catch { return structuredClone(DEFAULT_PROFILE); }
+  }
+  canSave() {
+    if (!this.key) return true;
+    try {
+      if (localStorage.getItem(this.key) === this.savedRaw) return true;
+    } catch { return false; }
+    window.dispatchEvent(new CustomEvent('lv:profile-changed', { detail: this.key }));
+    return false;
+  }
+  save() {
+    if (!this.key) return true;
+    try {
+      if (!this.canSave()) return false;
+      const next = JSON.stringify(this.p);
+      if (next !== this.savedRaw) {
+        localStorage.setItem(this.key, next);
+        this.savedRaw = next;
+      }
+      return true;
+    } catch { return false; }
+  }
   rollQuests() {
     const d = today(); if (this.p.quests && this.p.quests.day === d) return;
     const r = seeded('lv' + d), pool = [...QUEST_POOL], list = [];

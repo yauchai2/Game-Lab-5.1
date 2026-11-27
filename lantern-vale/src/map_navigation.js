@@ -1,6 +1,6 @@
 import { FIELDS } from './frontier.js';
 import { MEADOW_TIERS, meadowExpedition, meadowObjective, meadowStage } from './expedition.js';
-import { openingStep } from './opening.js';
+import { openingDestination, openingStep } from './opening.js';
 
 export const HARBOR_PORTALS = [7, 8, 9, 10, 11, 12];
 export const mapRegionName = id => id === 0 ? '燈谷鎮' : id === 100 ? '海風港鎮' : FIELDS[id]?.name;
@@ -96,7 +96,7 @@ export function questNavigationTarget(g) {
   const inRegion = region => !g.interior && (region === 0 ? g.depth === -1 && !g.field : g.field === region);
   const caveExit = g.exits?.find(exit => exit.type === 'caveReturn' && exit.on);
 
-  const destination = g.questDestination;
+  const destination = g.questDestination || openingDestination(profile);
   if (g.caveRun) return caveExit && (destination || step === 'badge')
     ? { x: caveExit.x, z: caveExit.z, label: '返回晨光草原' } : null;
   if (destination === 'cave' || (!destination && (step === 'resume' || (step === 'support' && profile.keys > 0)))) {

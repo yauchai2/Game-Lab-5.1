@@ -58,6 +58,9 @@ export function buildPanels(g) {
     const lobby = g.dungeon.pending;
     if (!lobby) return;
     const { info, online } = lobby;
+    const previousFocus = body.contains(document.activeElement)
+      ? ['data-dungeon-start', 'data-dungeon-fill', 'data-dungeon-cancel'].find(attr => document.activeElement.hasAttribute(attr))
+      : null;
     const members = info?.members || [];
     const leader = !online || info?.leader === g.net.id;
     const raidOffline = !online && lobby.spec.kind === 'raid';
@@ -74,10 +77,12 @@ export function buildPanels(g) {
         <button type="button" class="btn small" data-dungeon-cancel>離開等候室</button>
       </div>`;
     const fill = body.querySelector('[data-dungeon-fill]');
-    if (fill) fill.onchange = () => { lobby.fill = fill.checked; };
+    if (fill) fill.onchange = () => g.dungeon.setFill(fill.checked);
     const start = body.querySelector('[data-dungeon-start]');
     if (start) start.onclick = () => g.dungeon.launch();
-    body.querySelector('[data-dungeon-cancel]').onclick = () => g.ui.closePanel();
+    const cancel = body.querySelector('[data-dungeon-cancel]');
+    cancel.onclick = () => g.ui.closePanel();
+    if (previousFocus) (body.querySelector(`[${previousFocus}]:not(:disabled)`) || cancel).focus();
   }
 
   function renderShards() {
@@ -180,8 +185,10 @@ export function buildPanels(g) {
     title.textContent = '巡燈旅程';
     if (step === 'lamp' || step === 'spar') {
       const lamp = step === 'lamp';
-      const task = lamp ? '點亮南門路燈' : '擊退幼狂豬';
-      const hint = lamp ? '沿指引走到燈旁並互動。' : '看到直線預警時側閃，等牠收招再反擊。';
+      const task = lamp ? (g.field === 1 ? '點亮南門路燈' : '前往晨光草原') : '擊退幼狂豬';
+      const hint = !lamp ? '看到直線預警時側閃，等牠收招再反擊。'
+        : g.field === 1 ? '沿指引走到燈旁並互動。'
+        : g.zone === 'town' ? '沿光路步行穿過燈谷鎮北門。' : '沿光路前往晨光草原。';
       body.innerHTML = row(`<b>${task}</b><br><small>${hint}</small>`)
         + '<button type="button" class="btn small" data-opening-skip>略過練習</button>';
       body.querySelector('[data-opening-skip]').onclick = () => {
@@ -197,7 +204,7 @@ export function buildPanels(g) {
     if (support) { renderExpeditionReward(support); return; }
     if (step === 'resume') { renderCaveRetry(); return; }
     if (step === 'badge') {
-      body.innerHTML = row('<b>打造巡燈徽章</b><br><small>消耗首通材料 · 基礎傷害 +2</small>',
+      body.innerHTML = row('<b>打造巡燈徽章</b><br><small>首通徽章 · 基礎傷害 +2 · Lv.2 可穿戴</small>',
         '<button type="button" class="btn small on" data-opening-workshop>引路到鐵匠鋪</button>');
       body.querySelector('[data-opening-workshop]').onclick = () => followQuest('badge');
       return;
@@ -214,8 +221,10 @@ export function buildPanels(g) {
         + row('<b>前往低語森林</b><br><small>建議 Lv.5 · 閃避落根圈與棘刺</small>',
           `<button type="button" class="btn small${recommendMeadow ? '' : ' on'}" data-opening-forest>探索森林</button>`);
       const depart = (tier, route) => {
+        if (!M.canSave()) return;
         if (!startMeadowExpedition(M.p, tier, route)) { g.ui.openPanel('expedition'); return; }
         M.p.opening.finished = true;
+        delete M.p.opening.nextDestination;
         M.save();
         recordOpeningEvent(g, 'next_destination', MEADOW_TIERS[tier].name);
         syncMeadowExpedition(g);
@@ -223,7 +232,11 @@ export function buildPanels(g) {
       };
       const meadowButton = body.querySelector('[data-opening-meadow]');
       if (meadowButton) meadowButton.onclick = () => depart(2, 'hunt');
-      body.querySelector('[data-opening-elite]').onclick = () => followQuest('cave');
+      body.querySelector('[data-opening-elite]').onclick = () => {
+        if (M.p.keys < 1 || !M.canSave()) return;
+        M.p.opening.nextDestination = 'cave';
+        if (M.save()) followQuest();
+      };
       body.querySelector('[data-opening-forest]').onclick = () => depart(3, 'survey');
       return;
     }
@@ -259,15 +272,16 @@ export function buildPanels(g) {
     const nextTier = (res.tier === 'normal' && clears.normal) ? 'elite' : res.tier;
     const nextSpec = MEADOW_CAVE[nextTier];
     const canContinue = (M.p.keys || 0) >= 1;
+    const badgeReady = openingStep(M.p) === 'badge';
     title.textContent = res.firstClear ? '草原洞窟首通' : '草原洞窟通關';
     body.innerHTML = `<p><b>經驗 +${res.xp} · 金幣 +${res.coins}</b></p>
       <p>狂豬利牙 ×${res.materials}、荊棘硬木 ×${res.materials} 已收入素材包（剩餘鑰石 ${M.p.keys || 0} 枚）。</p>`
-      + (openingStep(M.p) === 'badge' ? row('<b>打造巡燈徽章</b><br><small>首通材料已取得。基礎傷害 +2，Lv.2 可穿戴。</small>',
-        '<button type="button" class="btn small on" data-opening-workshop>引路到鐵匠鋪</button>') : '')
+      + (badgeReady ? row('<b>打造巡燈徽章</b><br><small>基礎傷害 +2，Lv.2 可穿戴。可先收入背包。</small>',
+        '<button type="button" class="btn small on" data-opening-workshop>步行去領徽章</button>') : '')
       + row(`<div><b>${nextTier === 'elite' && res.tier === 'normal' ? '挑戰精英難度' : `再打一場（${nextSpec.name}）`}</b></div><small>建議 Lv.${nextSpec.level} · 出洞後到入口選擇難度 · 消耗 1 枚鑰石</small>`,
-        `<button type="button" class="btn small${canContinue ? ' on' : ''}" data-cc-next ${canContinue ? '' : 'disabled'}>${canContinue ? '引路到洞口' : '鑰石不足'}</button>`)
+        `<button type="button" class="btn small${canContinue && !badgeReady ? ' on' : ''}" data-cc-next ${canContinue ? '' : 'disabled'}>${canContinue ? '引路到洞口' : '鑰石不足'}</button>`)
       + row('<div><b>查看狂豬利牙戰杖</b></div><small>用洞窟素材鍛造，查看目前還差哪些材料。</small>',
-        '<button type="button" class="btn small" data-cc-forge>引路到鐵匠鋪</button>')
+        '<button type="button" class="btn small" data-cc-forge>前往工坊看配方</button>')
       + row('<div><b>調整技能拼圖</b></div><small>更換寶石構築後再挑戰下一場</small>',
         '<button type="button" class="btn small" data-cc-puzzle>開啟拼圖</button>');
     const openingWorkshop = body.querySelector('[data-opening-workshop]');

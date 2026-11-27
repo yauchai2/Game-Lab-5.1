@@ -29,7 +29,7 @@ module.exports = function createDungeonLobbies(send, startRaid, announce = () =>
   function publish(room) {
     const members = [...room.members];
     const info = { t: 'dungeon_lobby', id: room.id, leader: members[0]?.id,
-      capacity: CAPACITY, members: members.map(({ id, name }) => ({ id, name })) };
+      capacity: CAPACITY, fill: room.fill, members: members.map(({ id, name }) => ({ id, name })) };
     for (const member of members) send(member, info);
   }
 
@@ -42,12 +42,49 @@ module.exports = function createDungeonLobbies(send, startRaid, announce = () =>
     else publish(room);
   }
 
+  function relayAttack(me, room, { wave, enemy, phase, hint }) {
+    if (!room.attackSync || room.members.size < 2 || room.members.values().next().value !== me
+      || me.dungeonWave !== wave || room.attackWave !== wave || !Number.isInteger(enemy)
+      || !(room.waves.get(wave)?.[enemy] > 0)) return;
+    const now = Date.now();
+    const current = room.attacks.get(enemy);
+    if (phase === 'warn') {
+      if ((current && current.until > now) || !Array.isArray(hint) || hint.length !== 6
+        || !hint.every(Number.isFinite)) return;
+      const [shape, x, z, size, extra, duration] = hint;
+      if (Math.abs(x) > 1024 || Math.abs(z) > 1024 || size <= 0 || size > 10 || duration < 0.2 || duration > 2) return;
+      const pulseCount = shape === 4 ? 7 : shape === 5 ? size : 0;
+      const validShape = room.spec.kind === 'cave'
+        ? (shape === 0 && extra > 0 && extra <= 2 || shape === 1 && Math.abs(extra) <= Math.PI)
+        : (shape === 1 && Math.abs(extra) <= Math.PI || shape === 2 && extra > 0 && extra < size
+          || shape === 3 && extra === 0
+          || shape === 4 && room.rootSync && (size === 2 || size === 3) && Math.abs(extra) <= Math.PI
+          || shape === 5 && room.burstSync && (size === 2 || size === 3) && (extra === 7 || extra === 14));
+      if (!validShape) return;
+      room.attacks.set(enemy, { shape, until: now + duration * 1000 + (pulseCount ? 3500 : 1500), released: false, nextPulse: 1, pulseCount });
+    } else if (phase === 'pulse') {
+      if (!current?.pulseCount || current.until <= now || hint !== current.nextPulse) return;
+      if (hint === current.pulseCount) room.attacks.delete(enemy);
+      else current.nextPulse++;
+    } else {
+      if (!current || current.until <= now || (phase !== 'release' && phase !== 'end')) return;
+      if (phase === 'release' && (current.released || current.pulseCount)) return;
+      if (phase === 'end' || current.shape !== 1) room.attacks.delete(enemy);
+      else current.released = true;
+    }
+    const event = { t: 'dungeon_attack', id: room.id, wave, enemy, phase, hint: phase === 'warn' || phase === 'pulse' ? hint : undefined };
+    for (const member of room.members) {
+      if (member !== me && member.dungeonWave === wave) send(member, event);
+    }
+  }
+
   function leaveRun(me) {
     const room = me.dungeonRun;
     if (!room) return;
     me.dungeonRun = null;
     me.dungeonWave = null;
     me.dungeonEntered = false;
+    if (room.members.values().next().value === me) room.attacks?.clear();
     room.members.delete(me);
     const bots = room.fill ? Math.max(0, FILL_SIZE - room.members.size) : 0;
     for (const member of room.members) {
@@ -69,7 +106,7 @@ module.exports = function createDungeonLobbies(send, startRaid, announce = () =>
       leaveWaiting(me);
       let room = [...waiting.values()].find(value => value.key === key && value.members.size < CAPACITY);
       if (!room) {
-        room = { id: ++serial, key, spec, shard: me.shard, members: new Set() };
+        room = { id: ++serial, key, spec, shard: me.shard, fill: true, members: new Set() };
         waiting.set(room.id, room);
         if (Date.now() - (me.dungeonAnnouncedAt || 0) > 10000) {
           me.dungeonAnnouncedAt = Date.now();
@@ -82,6 +119,14 @@ module.exports = function createDungeonLobbies(send, startRaid, announce = () =>
       return;
     }
     if (m.t === 'dungeon_leave') { leave(me); return; }
+    if (m.t === 'dungeon_fill') {
+      const room = me.dungeonLobby;
+      if (!room || room.id !== m.id || room.members.values().next().value !== me
+        || typeof m.fill !== 'boolean' || room.fill === m.fill) return;
+      room.fill = m.fill;
+      publish(room);
+      return;
+    }
     if (m.t === 'dungeon_start') {
       const room = me.dungeonLobby;
       if (!room || room.id !== m.id || room.members.values().next().value !== me) return;
@@ -93,8 +138,15 @@ module.exports = function createDungeonLobbies(send, startRaid, announce = () =>
       if (room.spec.kind === 'raid') { startRaid(members, room.id, bots); return; }
       room.waves = new Map();
       room.exits = new Map();
+      const minAttackVersion = room.spec.kind === 'cave' ? 1 : 2;
+      room.attackSync = members.length > 1 && members.every(member => member.dungeonAttacks >= minAttackVersion);
+      room.rootSync = room.attackSync && room.spec.kind !== 'cave' && members.every(member => member.dungeonRootAttacks);
+      room.burstSync = room.attackSync && room.spec.kind !== 'cave' && members.every(member => member.dungeonBurstAttacks);
+      room.partSync = room.attackSync && room.spec.kind !== 'cave' && members.every(member => member.dungeonStagParts);
+      room.stagParts = new Map();
+      room.attacks = new Map();
       for (const member of members) member.dungeonRun = room;
-      const info = { t: 'dungeon_begin', id: room.id, leader: me.id, seed: Math.floor(Math.random() * 999999) + 1, bots, count: members.length };
+      const info = { t: 'dungeon_begin', id: room.id, leader: me.id, seed: Math.floor(Math.random() * 999999) + 1, bots, count: members.length, attackSync: room.attackSync, rootSync: room.rootSync, burstSync: room.burstSync, partSync: room.partSync };
       for (const member of members) send(member, info);
       return;
     }
@@ -105,7 +157,19 @@ module.exports = function createDungeonLobbies(send, startRaid, announce = () =>
       if (!Number.isInteger(m.count) || m.count < 1 || m.count > 48 || room.waves.size >= 192 && !room.waves.has(m.wave)) return;
       if (!room.waves.has(m.wave)) room.waves.set(m.wave, Array(m.count).fill(1));
       me.dungeonWave = m.wave;
-      send(me, { t: 'dungeon_wave_state', id: room.id, wave: m.wave, hp: room.waves.get(m.wave) });
+      const hp = room.waves.get(m.wave);
+      if (room.members.values().next().value === me) {
+        if (room.attackWave !== m.wave) {
+          room.attackWave = m.wave;
+          room.attacks.clear();
+        }
+        if (room.partSync && !room.stagParts.has(m.wave) && Array.isArray(m.stags)
+            && m.stags.length <= hp.length && m.stags.every(index => Number.isInteger(index) && index >= 0 && index < hp.length)) {
+          room.stagParts.set(m.wave, new Map(m.stags.map(index => [index, { antlers: 1, hindLegs: 1 }])));
+        }
+      }
+      const parts = room.stagParts.get(m.wave);
+      send(me, { t: 'dungeon_wave_state', id: room.id, wave: m.wave, hp, stagParts: parts && [...parts] });
     }
     if (m.t === 'dungeon_exit' && me.dungeonWave === m.wave && Number.isInteger(m.exit)
         && m.exit >= 0 && m.exit <= 3 && room.waves.get(m.wave)?.every(hp => hp === 0)) {
@@ -125,6 +189,7 @@ module.exports = function createDungeonLobbies(send, startRaid, announce = () =>
         send(member, { t: 'dungeon_positions', id: room.id, wave: m.wave, points: m.points });
       }
     }
+    if (m.t === 'dungeon_attack') relayAttack(me, room, m);
     if (m.t === 'dungeon_hit' && me.dungeonWave === m.wave && Number.isInteger(m.enemy)
         && Number.isFinite(m.fraction) && m.fraction > 0) {
       const now = Date.now();
@@ -134,10 +199,21 @@ module.exports = function createDungeonLobbies(send, startRaid, announce = () =>
       if (bot && room.members.values().next().value !== me) return;
       const hp = room.waves.get(m.wave);
       if (!hp || !(hp[m.enemy] > 0)) return;
+      let part;
+      const parts = room.stagParts.get(m.wave)?.get(m.enemy);
+      if (parts && Array.isArray(m.part) && m.part.length === 2) {
+        const [id, fraction] = m.part;
+        if ((id === 'antlers' || id === 'hindLegs') && parts[id] > 0 && Number.isFinite(fraction) && fraction > 0) {
+          const remaining = parts[id] - Math.min(fraction, m.fraction * 8, 1);
+          parts[id] = remaining > 1e-6 ? remaining : 0;
+          part = [id, parts[id]];
+        }
+      }
       hp[m.enemy] = Math.max(0, hp[m.enemy] - Math.min(1, m.fraction));
+      if (hp[m.enemy] === 0 && room.attackWave === m.wave) room.attacks.delete(m.enemy);
       for (const member of room.members) {
         if (member.dungeonWave === m.wave) {
-          send(member, { t: 'dungeon_enemy', id: room.id, wave: m.wave, enemy: m.enemy, hp: hp[m.enemy], bot });
+          send(member, { t: 'dungeon_enemy', id: room.id, wave: m.wave, enemy: m.enemy, hp: hp[m.enemy], bot, by: me.id, impact: m.impact === true, part });
         }
       }
     }

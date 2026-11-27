@@ -205,6 +205,16 @@ export class Game {
     this.net = new Net(); this.dungeon = new DungeonLobby(this); this.remotes = new Map(); this.townGroup = null; this.party = ''; this.bots = [];
     this.ambushTrial = trialOrder ? new AmbushTrial(this, trialOrder) : null;
     this.meta = new Meta(0, !!trialOrder); this.pickups = []; this.spots = []; this.talked = new Set();
+    const saveConflict = this.saveConflictDialog = document.getElementById('saveConflict');
+    saveConflict.addEventListener('cancel', event => event.preventDefault());
+    saveConflict.querySelector('button').onclick = () => location.reload();
+    window.addEventListener('lv:profile-changed', event => {
+      if (event.detail !== this.meta.key || saveConflict.open) return;
+      this.keys = {};
+      this.mouse.l = this.mouse.r = false;
+      this.clearTouchInput?.();
+      saveConflict.showModal();
+    });
     this.playerName = '旅人'; this.hoodIdx = 0; this.posT = 0;
     this.dayTime = 0.28; this.isNight = false; this.campfires = []; this.prisms = []; this.interior = null; this.photoMode = false;
     this.recallT = 0; this.sailing = null; this.lastTown = -1; this.waypoint = null; this.mapPin = null; this.worldBoxes = [];
@@ -231,6 +241,7 @@ export class Game {
       Space: ' ', ShiftLeft: 'shift', ShiftRight: 'shift', KeyQ: 'q', KeyE: 'e', KeyC: 'c', KeyK: 'k', KeyR: 'r', KeyF: 'f', KeyI: 'i', KeyM: 'm', KeyO: 'o', KeyB: 'b', KeyP: 'p', KeyH: 'h', KeyG: 'g', KeyV: 'v', KeyZ: 'z', KeyX: 'x', Slash: '/', Tab: 'tab', Escape: 'escape', Enter: 'enter', KeyT: 't', Digit1: '1', Digit2: '2', Digit3: '3', Digit4: '4', Digit5: '5', Digit6: '6', Digit7: '7', Digit8: '8', Digit9: '9', Digit0: '0' };
     const typing = () => { const a = document.activeElement; return a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA'); };
     addEventListener('keydown', e => {
+      if (saveConflict.open) return;
       if (e.defaultPrevented || e.isComposing || this.ui.blocksGameKey?.(e)) return;
       if ((e.key === 'Enter' || e.key === ' ') && e.target.closest?.('button, a[href], summary')) return;
       if (this.ui.mapDialog?.open) {
@@ -666,11 +677,13 @@ export class Game {
   }
   beginMeadowCave(tier, info) {
     const finishOpening = tier === 'elite' && openingStep(this.meta.p) === 'next';
+    if (!this.meta.canSave()) return false;
     const cave = enterMeadowCave(this.meta.p, tier);
     if (!cave) return false;
     this.questDestination = null;
     if (finishOpening) {
       this.meta.p.opening.finished = true;
+      delete this.meta.p.opening.nextDestination;
       recordOpeningEvent(this, 'next_destination', '草原洞窟精英');
     }
     this.meta.save();
@@ -1829,6 +1842,11 @@ export class Game {
     for (const d of this.drops) if (d.kind === 'item') { const dd = Math.hypot(d.g.position.x - this.player.pos.x, d.g.position.z - this.player.pos.z); if (dd < bd && Math.abs(d.g.position.y - this.player.y) < 2.2) { bd = dd; best = d; } }
     return best;
   }
+  isNearbyGearDrop(drop, player) {
+    if (drop.kind !== 'item' || drop.taken) return false;
+    const { x, y, z } = drop.g.position;
+    return Math.hypot(x - player.pos.x, z - player.pos.z) < 3.2 && Math.abs(y - player.y) < 2.4;
+  }
   disposeDrop(d) {
     if (!d?.g) return;
     this.scene.remove(d.g);
@@ -1839,7 +1857,7 @@ export class Game {
   }
   tryPickup() {
     const p = this.player;
-    const nearby = this.drops.filter(d => d.kind === 'item' && Math.hypot(d.g.position.x - p.pos.x, d.g.position.z - p.pos.z) < 3.2 && Math.abs(d.g.position.y - p.y) < 2.4);
+    const nearby = this.drops.filter(d => this.isNearbyGearDrop(d, p));
     if (!nearby.length) return;
     let equippedNames = [], bagCount = 0, bestUpgrade = 0, lastIt = null;
     for (const d of nearby) {
@@ -2204,12 +2222,13 @@ export class Game {
       }
     }
   }
-  castHotbar(slotIdx) {
+  castHotbar(slotIdx, aim = null) {
     const p = this.player, sk = p.hotbar?.[slotIdx];
     if (p.cds.action > 0 || p.roll > 0 || (p.skillCds[slotIdx] || 0) > 0) {
-      if (p.inputBuf?.kind !== 'roll') p.inputBuf = { kind: 'skill', slot: slotIdx, t: 0.12 };
+      if (p.inputBuf?.kind !== 'roll') p.inputBuf = { kind: 'skill', slot: slotIdx, aim, t: 0.12 };
       return;
     }
+    if (aim) this.aim.copy(aim);
     if (!sk) {
       if (slotIdx === 0) this.tryBolt();
       else if (slotIdx === 1) this.trySlam();
@@ -3569,7 +3588,7 @@ export class Game {
 
   // ---------------- update ----------------
   update(dt) {
-    if (this.state === 'trial-ready' || this.state === 'trial-result') return;
+    if (this.saveConflictDialog.open || this.state === 'trial-ready' || this.state === 'trial-result') return;
     const touch = this.touchInput;
     if (touch && (touch.attack || touch.glide || touch.x || touch.z) && !this.canUseTouchControls()) this.clearTouchInput();
     if (this.raid) { updateRaid(this,dt); return; }
@@ -3635,7 +3654,9 @@ export class Game {
           } else if (p.inputBuf.kind === 'attack' && p.cds.atk <= 0 && p.cds.action <= 0 && p.roll <= 0) {
             p.inputBuf = null; this.tryAttack();
           } else if (p.inputBuf.kind === 'skill' && (p.skillCds[p.inputBuf.slot] || 0) <= 0 && p.cds.action <= 0 && p.roll <= 0) {
-            const slot = p.inputBuf.slot; p.inputBuf = null; this.castHotbar(slot);
+            const { slot, aim } = p.inputBuf;
+            p.inputBuf = null;
+            this.castHotbar(slot, aim);
           }
         }
         if (this.mouse.l) this.tryAttack();
@@ -3892,7 +3913,7 @@ export class Game {
       this.ui.spotHint(this);
       if (this.touchInteract) {
         const eh = document.getElementById('exitHint'), sh = document.getElementById('spotHint');
-        const nearDrop = this.drops?.some(d => !d.gone && Math.hypot(d.pos.x - this.player.pos.x, d.pos.z - this.player.pos.z) < 3.6);
+        const nearDrop = this.drops.some(d => this.isNearbyGearDrop(d, this.player));
         const ready = !!this.raid || !!this.gatherActive || !!nearDrop || (eh && eh.style.display !== 'none') || (sh && sh.style.display !== 'none');
         this.touchInteract.classList.toggle('touch-interact-ready', ready);
       }

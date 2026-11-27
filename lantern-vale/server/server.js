@@ -25,6 +25,7 @@ const ASSET_DIR = fs.realpathSync(path.join(GAME_DIR, 'assets'));
 const MIME = {
   '.png': 'image/png', '.webp': 'image/webp', '.svg': 'image/svg+xml',
   '.woff2': 'font/woff2',
+  '.mp3': 'audio/mpeg',
   '.glb': 'model/gltf-binary', '.gltf': 'model/gltf+json', '.bin': 'application/octet-stream',
 };
 const _htmlCache = new Map();
@@ -170,6 +171,7 @@ function closeShardMembership(me) {
   if (releaseShard(shards, me.zone, previous, me.party)) lineState.delete(previous);
   else broadcast({ t: 'gone', id: me.id }, person => person !== me && person.shard === previous);
   me.shard = null;
+  me.combat = undefined;
 }
 
 function joinZone(me, zone, party = me.party, requested = null) {
@@ -238,7 +240,7 @@ wss.on('connection', ws => {
     let m;
     try { m = JSON.parse(raw); } catch { return; }
     if (!m || typeof m !== 'object') return;
-    if (['dungeon_join', 'dungeon_leave', 'dungeon_start', 'dungeon_wave', 'dungeon_hit', 'dungeon_positions', 'dungeon_exit'].includes(m.t)) {
+    if (['dungeon_join', 'dungeon_leave', 'dungeon_fill', 'dungeon_start', 'dungeon_wave', 'dungeon_hit', 'dungeon_positions', 'dungeon_exit', 'dungeon_attack'].includes(m.t)) {
       dungeonLobbies.message(me, m);
       return;
     }
@@ -249,6 +251,10 @@ wss.on('connection', ws => {
     }
     switch (m.t) {
       case 'hello': {
+        me.dungeonAttacks = m.dungeonAttacks === 2 ? 2 : Number(m.dungeonAttacks === true);
+        me.dungeonRootAttacks = m.dungeonRootAttacks === true;
+        me.dungeonBurstAttacks = m.dungeonBurstAttacks === true;
+        me.dungeonStagParts = m.dungeonStagParts === true;
         me.name = clean(m.name, 12) || '旅人';
         me.col = typeof m.color === 'number' ? Math.min(7, Math.max(0, m.color | 0)) : 0;
         if (!me.raid) joinZone(me, me.zone || 'town', clean(m.party, 12));
@@ -263,6 +269,14 @@ wss.on('connection', ws => {
         dungeonLobbies.position(me, zone);
         me.x = num(m.x); me.y = num(m.y); me.z = num(m.z); me.f = num(m.f);
         me.a = Number.isInteger(m.a) && m.a >= 0 && m.a <= 5 ? m.a : 0;
+        me.job = Number.isInteger(m.job) && m.job >= 0 && m.job <= 4 ? m.job : undefined;
+        const pose = m.combat;
+        // A repeated position packet must not renew a cosmetic action or move it across shards.
+        if (Array.isArray(pose) && pose.length === 2 && Number.isSafeInteger(pose[0])
+          && pose[0] > (me.combatSeq ?? 0) && Number.isInteger(pose[1]) && pose[1] >= 0 && pose[1] <= 4) {
+          me.combatSeq = pose[0];
+          me.combat = { pose, shard: me.shard, until: Date.now() + 400 };
+        }
         break;
       }
       case 'shard_list':
@@ -335,6 +349,7 @@ setInterval(() => {
   guild.tick();
   for (const line of lineState.values()) line.tide.tick(0.1);
   const rooms = new Map();
+  const now = Date.now();
   for (const p of players.values()) {
     if (!p.shard) continue;
     if (!rooms.has(p.shard)) rooms.set(p.shard, []);
@@ -346,7 +361,10 @@ setInterval(() => {
     if (grid) for (const p of list) grid.insert(p);
     for (const me of list) {
       const peers = (grid ? grid.queryNearby(me.x, me.z, 1) : list).filter(p => p !== me);
-      send(me, { t: 'snap', zone, shard, count: list.length, players: peers.map(({ id, name, col, x, y, z, f, a }) => ({ id, name, col, x, y, z, f, a })) });
+      send(me, { t: 'snap', zone, shard, count: list.length, players: peers.map(({ id, name, col, job, x, y, z, f, a, combat }) => ({
+        id, name, col, job, x, y, z, f, a,
+        combat: combat?.shard === shard && combat.until > now ? combat.pose : undefined,
+      })) });
     }
   }
 }, 100);
