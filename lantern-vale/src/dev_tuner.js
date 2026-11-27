@@ -7,8 +7,10 @@ import { FIELDS } from './frontier.js';
 import { makeItem, RARITY } from './loot.js';
 import { windU } from './world.js';
 import { ENEMY_NAMES } from './hover.js';
+import { createArt, ART_GROUPS, BUILTIN_PRESETS } from './dev_art.js';
 
 const STORE_KEY = 'lv_dev_tune';
+const PRESET_KEY = 'lv_dev_art_presets';
 const FORMAT = 'beaconfall-devtune';
 const SPAWN_TYPES = ['slime', 'thorn', 'boar', 'moth', 'skyray', 'golem', 'stag'];
 
@@ -38,6 +40,28 @@ export function installDevTuner(game, hooks) {
   const byId = new Map();
   let defsReady = false;
   const add = p => { params.push(p); byId.set(p.id, p); return p; };
+
+  let art = null;
+  // 需要重建場景才看得到的改動（群系頂點色、植被大小/密度）
+  let rebuildCount = 0, rebuildTimer = 0;
+  function markRebuild() {
+    rebuildCount++;
+    if (dt.autoRebuild === false) { refresh(false); return; }
+    clearTimeout(rebuildTimer); rebuildTimer = setTimeout(rebuild, 900);
+    refresh(false);
+  }
+  function rebuild() {
+    clearTimeout(rebuildTimer);
+    if (!rebuildCount) return;
+    if (game.state !== 'play' && game.state !== 'title') return;
+    const z = game.zone || '';
+    try {
+      if (/^town/.test(z)) game.enterTown(); else if (/^harbor/.test(z)) game.enterHarbor(); else if (game.field > 0) game.enterField(game.field);
+      else { toast('目前是副本／試煉場景，請手動重新進入以套用場景顏色', '#ffd85a'); return; }
+      rebuildCount = 0; toast('🔄 已重建場景，套用新顏色／植被', '#7ae8ff');
+    } catch (e) { console.warn('[DevTuner] 重建場景失敗', e); }
+    refresh(false);
+  }
 
   const lockOnline = () => !!(game.net?.ok && !isLocalHost());
 
@@ -108,6 +132,15 @@ export function installDevTuner(game, hooks) {
     add({ id: 'dev.noCd', group: 'player', label: '⚡ 零冷卻＆無限魔力', type: 'toggle', online: true, volatile: true, get: () => !!dev().noCd, set: x => { hooks.ensureDev(); dev().noCd = x; hooks.sync(); } });
     add({ id: 'dev.speedMul', group: 'player', label: '🚀 移動速度倍率', type: 'range', min: 0.3, max: 5, step: 0.05, online: true, get: () => dev().speedMul ?? 1, set: x => { hooks.ensureDev(); if (Math.abs(x - 1) < 1e-9) delete dev().speedMul; else dev().speedMul = x; hooks.sync(); } });
     add({ id: 'player.level', group: 'player', label: '旅人等級', type: 'range', min: 1, max: 30, step: 1, online: true, volatile: true, get: () => game.meta?.p?.level || 1, set: x => { game.meta.p.level = x; game.meta.save(); game.recalc?.(); } });
+
+    // 🎨 美術風格模組（dev_art.js）：同 id 的舊參數由新版取代
+    art = createArt(game, dt, { markRebuild, windU });
+    for (const p of art.params) {
+      const old = byId.get(p.id);
+      if (old) params.splice(params.indexOf(old), 1);
+      add(p);
+    }
+    const wt = byId.get('render.water'); if (wt) wt.group = 'art-water';
   }
 
   function ensureDefs() {
@@ -119,19 +152,26 @@ export function installDevTuner(game, hooks) {
 
   // desired：使用者想要的調校值（場景重建會重設 uniform，所以要記著，載入區域後重套）
   const desired = {};
+  const sameVal = (a, b) => (typeof a === 'string' || typeof b === 'string') ? String(a).toLowerCase() === String(b).toLowerCase() : Math.abs(Number(a) - Number(b)) < 1e-9;
   function setParam(p, x) {
     p.set(x);
     if (p.volatile) return;
-    if (Math.abs(Number(x) - Number(p.def)) < 1e-9) delete desired[p.id]; else desired[p.id] = x;
+    if (sameVal(x, p.def)) delete desired[p.id]; else desired[p.id] = x;
+  }
+  /** 群系色盤項：id = pal.<all|biomeKey>.<prop> */
+  function setPalId(id, val) {
+    const [, scope, key] = id.split('.');
+    if (val === null || val === undefined) { art.clearPal(scope, key); delete desired[id]; } else if (art.setPal(scope, key, val)) desired[id] = val;
   }
   function snapshot() { ensureDefs(); return { ...desired }; }
   function applyValues(values) {
     ensureDefs();
     let n = 0;
     for (const [id, val] of Object.entries(values || {})) {
+      if (id.startsWith('pal.')) { try { setPalId(id, val); n++; } catch (_) {} continue; }
       const p = byId.get(id);
       if (!p || p.volatile) continue;
-      const x = p.type === 'toggle' ? !!val : Number(val);
+      const x = p.type === 'toggle' ? !!val : p.type === 'color' ? String(val) : Number(val);
       if (p.type === 'range' && !Number.isFinite(x)) continue;
       try { setParam(p, x); n++; } catch (_) { /* 場景尚未就緒，略過 */ }
     }
@@ -141,6 +181,7 @@ export function installDevTuner(game, hooks) {
     ensureDefs();
     for (const p of params) if (!p.volatile) { try { setParam(p, p.def); } catch (_) {} }
     dt.cam = {}; dt.vol = undefined;
+    art?.clearAllPal();
     for (const k of Object.keys(desired)) delete desired[k];
   }
   const flameChanged = () => Object.keys(desired).some(id => id.startsWith('flame.'));
@@ -254,7 +295,12 @@ export function installDevTuner(game, hooks) {
 #devTune summary::before{content:'▸ ';color:#7ef0ff}
 #devTune details[open] summary::before{content:'▾ '}
 .dt-sec{padding:2px 9px 9px;display:flex;flex-direction:column;gap:6px}
-.dt-row{display:grid;grid-template-columns:1fr auto;gap:2px 6px;align-items:center}
+.dt-row{display:grid;grid-template-columns:1fr auto auto;gap:2px 6px;align-items:center}
+.dt-row input[type=color]{width:100%;height:26px;padding:0;border:1px solid #4c5264;border-radius:4px;background:none;cursor:pointer}
+.dt-row .dt-hex{width:76px;background:#0f1218;color:#dfe4ee;border:1px solid #4c5264;border-radius:4px;padding:3px 4px;font:11px monospace}
+.dt-row .dt-reset{min-height:24px;padding:2px 7px}
+#dtArt summary{font-size:13.5px;color:#ffd85a}
+#devTune details details{background:#151922;margin-top:4px}
 .dt-row label{grid-column:1/-1;color:#b9c1d4;font-size:11px;overflow-wrap:anywhere}
 .dt-row.mod label::after{content:' ●';color:#ffd25a}
 .dt-row input[type=range]{width:100%;min-width:0;height:22px;accent-color:#58d4ff}
@@ -288,8 +334,7 @@ export function installDevTuner(game, hooks) {
   const GROUPS = [
     ['flame', '🔥 Flame / 光圈（data/flame.json）', false],
     ['cam', '🎥 鏡頭', true],
-    ['light', '💡 光照與時辰', true],
-    ['render', '🖥 渲染 / 像素', false],
+    ['light', '⏱ 時辰', false],
     ['audio', '🔊 音量', false],
     ['player', '🧙 玩家（無敵、速度、等級）', false],
   ];
@@ -304,6 +349,14 @@ export function installDevTuner(game, hooks) {
       const b = row.querySelector('button');
       b.onclick = () => { if (p.online && lockOnline()) return; setParam(p, !p.get()); refresh(true); };
       rows.set(p.id, { row, input: b, p });
+    } else if (p.type === 'color') {
+      row.innerHTML = `<label></label><input type="color" class="dt-col"><input type="text" class="dt-hex" maxlength="7" spellcheck="false">`;
+      row.querySelector('label').textContent = p.label;
+      const c = row.querySelector('.dt-col'), t = row.querySelector('.dt-hex');
+      const apply = v => { if (!/^#[0-9a-f]{6}$/i.test(v)) return; setParam(p, v); c.value = v; t.value = v; row.classList.toggle('mod', p.id in desired); };
+      c.oninput = () => apply(c.value);
+      t.onchange = () => apply(t.value.startsWith('#') ? t.value : '#' + t.value);
+      rows.set(p.id, { row, input: c, num: t, p });
     } else {
       row.innerHTML = `<label></label><input type="range" min="${p.min}" max="${p.max}" step="${p.step}"><input type="number" step="${p.step}"><button type="button" class="dt-reset" hidden>↺</button>`;
       row.querySelector('label').textContent = p.label;
@@ -324,9 +377,131 @@ export function installDevTuner(game, hooks) {
     return b;
   }
 
+
+  // ───────────── 🎨 美術風格區 + 風格預設 ─────────────
+  const presetStore = () => { try { return JSON.parse(localStorage.getItem(PRESET_KEY) || '{}'); } catch (_) { return {}; } };
+  const allPresets = () => ({ ...BUILTIN_PRESETS, ...presetStore() });
+  function loadPreset(name) {
+    const pr = allPresets()[name]; if (!pr) return;
+    resetAll(); applyValues(pr.values || {}); curAB = '';
+    toast(`🎨 已載入風格預設「${name}」`, '#7ae8ff'); refresh(true);
+  }
+  function savePreset(name) {
+    name = String(name || '').trim().slice(0, 40);
+    if (!name) { toast('請先輸入預設名稱', '#ff8a8a'); return false; }
+    if (BUILTIN_PRESETS[name]) { toast('不能覆蓋內建預設，請換個名稱', '#ff8a8a'); return false; }
+    const st = presetStore(); st[name] = { values: snapshot(), note: '自訂預設', savedAt: new Date().toISOString() };
+    try { localStorage.setItem(PRESET_KEY, JSON.stringify(st)); } catch (_) { toast('⚠️ 無法寫入 localStorage', '#ff8a8a'); return false; }
+    toast(`💾 已儲存風格預設「${name}」（${Object.keys(st[name].values).length} 項）`, '#7fe08a'); return true;
+  }
+  function deletePreset(name) {
+    const st = presetStore(); if (!(name in st)) { toast('內建預設不能刪除', '#ff8a8a'); return; }
+    delete st[name]; try { localStorage.setItem(PRESET_KEY, JSON.stringify(st)); } catch (_) {}
+    toast(`🗑 已刪除預設「${name}」`, '#e8dcc8');
+  }
+  function compareWithPreset(name) {
+    const pr = allPresets()[name]; if (!pr) return;
+    slotA = snapshot(); slotB = { ...(pr.values || {}) }; curAB = 'A';
+    toast(`🔀 A＝目前設定，B＝「${name}」；按「切換 A⇄B」即時對照`, '#ffd85a'); refresh(true);
+  }
+
+  let presetSel, presetName, scopeSel, palRows = [];
+  function fillPresets() {
+    if (!presetSel) return;
+    const keep = presetSel.value, st = presetStore();
+    presetSel.innerHTML = `<optgroup label="內建">${Object.keys(BUILTIN_PRESETS).map(n => `<option>${n}</option>`).join('')}</optgroup>` +
+      (Object.keys(st).length ? `<optgroup label="自訂">${Object.keys(st).map(n => `<option>${n.replace(/</g, '&lt;')}</option>`).join('')}</optgroup>` : '');
+    if (keep && [...presetSel.options].some(o => o.value === keep)) presetSel.value = keep;
+  }
+  function paletteRow(p) {
+    const type = art.palType(p), row = document.createElement('div'); row.className = 'dt-row';
+    const scope = () => scopeSel.value;
+    const id = () => `pal.${scope()}.${p.key}`;
+    if (type === 'color') {
+      row.innerHTML = '<label></label><input type="color" class="dt-col"><input type="text" class="dt-hex" maxlength="7" spellcheck="false"><button type="button" class="dt-reset" title="清除此項覆寫">↺</button>';
+      const c = row.querySelector('.dt-col'), t = row.querySelector('.dt-hex');
+      const apply = v => { if (!/^#[0-9a-f]{6}$/i.test(v)) return; setPalId(id(), v); c.value = v; t.value = v; row.classList.add('mod'); };
+      c.oninput = () => apply(c.value); t.onchange = () => apply(t.value.startsWith('#') ? t.value : '#' + t.value);
+      palRows.push({ row, p, c, t });
+    } else {
+      row.innerHTML = `<label></label><input type="range" min="${p.min}" max="${p.max}" step="${p.step}"><input type="number" step="${p.step}"><button type="button" class="dt-reset" title="清除此項覆寫">↺</button>`;
+      const r = row.querySelector('input[type=range]'), n = row.querySelector('input[type=number]');
+      const apply = v => { if (!Number.isFinite(v)) return; setPalId(id(), v); r.value = v; n.value = fmt(v); row.classList.add('mod'); };
+      r.oninput = () => apply(Number(r.value)); n.onchange = () => apply(Number(n.value));
+      palRows.push({ row, p, r, n });
+    }
+    row.querySelector('label').textContent = p.label + (p.live ? '' : ' 🔄');
+    row.querySelector('.dt-reset').onclick = () => { setPalId(id(), null); refresh(true); };
+    return row;
+  }
+  function refreshPalette(force) {
+    for (const o of palRows) {
+      const v = art.palShow(scopeSel.value, o.p);
+      const foc = document.activeElement;
+      if (o.c) { if (force || (foc !== o.c && foc !== o.t)) { o.c.value = v; o.t.value = v; } } else if (force || (foc !== o.r && foc !== o.n)) { o.r.value = v; o.n.value = fmt(v); }
+      o.row.classList.toggle('mod', art.palOverridden(scopeSel.value, o.p.key));
+    }
+    const info = q('#dtRebuildInfo');
+    if (info) { info.textContent = rebuildCount ? `⏳ ${rebuildCount} 項改動需重建場景` : '✔ 場景已是最新'; q('#dtRebuildBtn').disabled = !rebuildCount; }
+  }
+  function buildArtSection() {
+    palRows = [];
+    const d = document.createElement('details'); d.open = true; d.id = 'dtArt';
+    d.innerHTML = '<summary>🎨 美術風格控制台</summary><div class="dt-sec"></div>';
+    const sec = d.querySelector('.dt-sec');
+    // 預設列
+    const pr = document.createElement('div'); pr.className = 'dt-btns';
+    presetSel = document.createElement('select'); presetSel.style.maxWidth = '170px'; fillPresets();
+    presetName = document.createElement('input'); presetName.type = 'text'; presetName.placeholder = '另存名稱…'; presetName.style.cssText = 'width:110px;background:#0f1218;color:#dfe4ee;border:1px solid #4c5264;border-radius:4px;padding:4px';
+    pr.append(presetSel,
+      actionBtn('📂 載入', () => loadPreset(presetSel.value), { title: '先還原再套用該預設' }),
+      actionBtn('🔀 與目前對照', () => compareWithPreset(presetSel.value), { title: 'A＝目前、B＝選中預設，之後用「切換 A⇄B」' }),
+      actionBtn('🗑', () => { deletePreset(presetSel.value); fillPresets(); }, { title: '刪除自訂預設' }));
+    sec.appendChild(pr);
+    const pr2 = document.createElement('div'); pr2.className = 'dt-btns';
+    pr2.append(presetName, actionBtn('💾 另存為預設', () => { if (savePreset(presetName.value)) { fillPresets(); presetSel.value = presetName.value.trim(); } }),
+      actionBtn('🔀 切換 A⇄B', abToggle), actionBtn('📌 目前→A', () => abSet('A')), actionBtn('📌 目前→B', () => abSet('B')));
+    sec.appendChild(pr2);
+    const note = document.createElement('div'); note.style.cssText = 'color:#8a93a8;font-size:11px';
+    note.textContent = '「現行（改前）」＝目前遊戲畫面；「新參考」＝依 09 差距清單朝 batch5 參考圖調整。🔄 標記的項目為建場景時烘焙，需重建場景。';
+    sec.appendChild(note);
+    // 重建列
+    const rb = document.createElement('div'); rb.className = 'dt-btns';
+    const info = document.createElement('span'); info.id = 'dtRebuildInfo'; info.style.alignSelf = 'center';
+    const autoLb = document.createElement('label'); const autoCb = document.createElement('input'); autoCb.type = 'checkbox'; autoCb.checked = dt.autoRebuild !== false; autoCb.onchange = () => { dt.autoRebuild = autoCb.checked; }; autoLb.append(autoCb, '自動重建');
+    const rbBtn = actionBtn('🔄 重建場景', rebuild, { title: '重新進入目前的城鎮／野外，套用烘焙在場景裡的顏色與植被' }); rbBtn.id = 'dtRebuildBtn';
+    rb.append(info, rbBtn, autoLb); sec.appendChild(rb);
+    // 各參數子群
+    for (const [key, title, open] of ART_GROUPS) {
+      const ps = params.filter(p => p.group === key); if (!ps.length) continue;
+      const sd = document.createElement('details'); if (open) sd.open = true;
+      sd.innerHTML = `<summary>${title}</summary><div class="dt-sec"></div>`;
+      const ss = sd.querySelector('.dt-sec');
+      for (const p of ps) ss.appendChild(rowFor(p));
+      const b = document.createElement('div'); b.className = 'dt-btns';
+      b.append(actionBtn('↺ 還原此組', () => { for (const p of ps) if (!p.volatile) setParam(p, p.def); refresh(true); }));
+      ss.appendChild(b); sec.appendChild(sd);
+    }
+    // 群系色盤
+    const pd = document.createElement('details');
+    pd.innerHTML = '<summary>🌈 場景色盤（草 / 樹 / 水 / 天空 / 光色，可全域或指定群系）</summary><div class="dt-sec"></div>';
+    const ps = pd.querySelector('.dt-sec');
+    const sr = document.createElement('div'); sr.className = 'dt-btns';
+    scopeSel = document.createElement('select');
+    scopeSel.innerHTML = '<option value="all">🌐 全部群系（顯示目前群系的值）</option>' + art.biomes().map(b => `<option value="${b.key}">${b.name}</option>`).join('');
+    scopeSel.onchange = () => refresh(true);
+    sr.append(scopeSel, actionBtn('📍 目前群系', () => { const k = game.biome?.key; if ([...scopeSel.options].some(o => o.value === k)) { scopeSel.value = k; refresh(true); } }),
+      actionBtn('↺ 清除全部色盤覆寫', () => { art.clearAllPal(); for (const k of Object.keys(desired)) if (k.startsWith('pal.')) delete desired[k]; markRebuild(); refresh(true); }));
+    ps.appendChild(sr);
+    for (const p of art.PAL_PROPS) ps.appendChild(paletteRow(p));
+    sec.appendChild(pd);
+    return d;
+  }
+
   let zoneSel, cpSel, spawnType, spawnCount, spawnElite, rarSel, tierRange;
   function buildDom() {
     body.innerHTML = '<div id="dtBanner" class="hide"></div>';
+    body.appendChild(buildArtSection());
     // 動作區（置頂，最常用）
     const act = document.createElement('details'); act.open = true;
     act.innerHTML = '<summary>⚔️ 戰鬥測試：生怪 / 清場 / 傳送</summary><div class="dt-sec"></div>';
@@ -433,6 +608,9 @@ export function installDevTuner(game, hooks) {
         input.textContent = `${p.label}：${v ? '開' : '關'}`; input.classList.toggle('on', !!v);
         input.disabled = !!(p.online && locked);
         row.classList.toggle('mod', p.id in desired);
+      } else if (p.type === 'color') {
+        if (force || document.activeElement !== input && document.activeElement !== num) { input.value = v; num.value = v; }
+        row.classList.toggle('mod', p.id in desired);
       } else {
         const focused = document.activeElement === input || document.activeElement === num;
         if (force || !focused) { input.value = v; if (num && document.activeElement !== num) num.value = fmt(v); }
@@ -445,6 +623,7 @@ export function installDevTuner(game, hooks) {
     const st = readStore();
     q('#dtAuto').textContent = `自動套用：${st?.auto === false ? '關' : '開'}`;
     refreshCheckpoints();
+    refreshPalette(force);
   }
   function perf() {
     const s = hooks.getStats?.() || {};
@@ -487,11 +666,12 @@ export function installDevTuner(game, hooks) {
     if (!st || st.auto === false) return;
     applyValues(st.values);
   }
+  setInterval(() => { if (defsReady && art && (dt.charT?.head !== 1 || dt.charT?.body !== 1)) art.applyChar(); }, 1000);
   setTimeout(() => { try { ensureDefs(); reapply(); } catch (e) { console.warn('[DevTuner] 套用已存調校失敗', e); } }, 0);
 
   return {
     toggle, isOpen: () => open,
-    reapply: () => { if (!defsReady) return; for (const [id, v] of Object.entries(desired)) { try { byId.get(id)?.set(v); } catch (_) {} } },
+    reapply: () => { if (!defsReady) return; for (const [id, v] of Object.entries(desired)) { try { if (!id.startsWith('pal.')) byId.get(id)?.set(v); } catch (_) {} } art?.applyPalette(); art?.applyChar(); art?.applyFilter(); },
     button: btn, snapshot, applyValues, importJson, buildExport, resetAll,
   };
 }

@@ -73,7 +73,7 @@ async function start(browser, url, opts = {}) {
       await page.evaluate(() => __game.enterField(3)); await page.waitForTimeout(700);
       await page.evaluate(() => { __game.fade = 0; for (let i = 0; i < 20; i++) __game.update(1 / 30); });
       const before = await page.evaluate(() => __game.enemies.filter(e => !e.dead).length);
-      await page.evaluate(() => { const sel = document.querySelector('#devTune select'); sel.value = 'slime'; document.querySelector('#devTune input[type=number]').value = 6; });
+      await page.evaluate(() => { const d = [...document.querySelectorAll('#devTune details')].find(x => x.textContent.includes('戰鬥測試')); d.querySelector('select').value = 'slime'; d.querySelector('input[type=number]').value = 6; });
       await page.evaluate(() => [...document.querySelectorAll('#devTune button')].find(b => b.textContent.includes('生成')).click());
       const spawned = await page.evaluate(() => { const l = __game.enemies.filter(e => !e.dead); window.__mine = l.filter(e => e.type === 'slime').slice(-6); return l.length; });
       assert.equal(spawned - before, 6, '生成 6 隻');
@@ -95,6 +95,55 @@ async function start(browser, url, opts = {}) {
       assert.ok(lockedBtns, '線上時危險按鈕停用');
       assert.equal(await page.evaluate(() => !document.querySelector('#dtBanner').classList.contains('hide')), true);
       await page.evaluate(() => { __game.net.ok = false; });
+      assert.deepEqual(errors, [], '無頁面錯誤');
+      await ctx.close();
+    }
+    // 3) 美術風格：後製 uniform、水面、色盤、預設、A/B
+    {
+      const { ctx, page, errors } = await start(browser, base + '?dev');
+      await page.evaluate(() => __game.enterField(3)); await page.waitForTimeout(700);
+      await page.evaluate(() => { __game.fade = 0; for (let i = 0; i < 20; i++) __game.update(1 / 30); });
+      await page.keyboard.press('Backquote'); await page.waitForSelector('#devTune:not(.hide)');
+      const T = () => page.evaluate(() => __game.dbg.tuner);
+      const U = n => page.evaluate(k => { const v = __game.pipe.postMat.uniforms[k].value; return v.x !== undefined ? [v.x, v.y, v.z] : v; }, n);
+      // 預設值＝原畫面
+      assert.equal(await U('uSteps'), 9); assert.equal(await U('uEdgeStr'), 0.85); assert.equal(await U('uVig'), 0.22); assert.equal(await U('uContrast'), 1);
+      const ok = await page.evaluate(() => {
+        const t = __game.dbg.tuner;
+        t.applyValues({ 'art.hueDeg': 30, 'art.steps': 5, 'art.edgeColor': '#ff0000', 'art.bloomStr': 0.4, 'art.contour': 0.1, 'art.headScale': 1.4, 'art.uiRadius': 9, 'art.uiPaper': '#ffeedd' });
+        return t.snapshot();
+      });
+      assert.equal(ok['art.steps'], 5); assert.equal(await U('uSteps'), 5);
+      assert.deepEqual((await U('uOutline')).map(v => Math.round(v * 255)), [255, 0, 0]);
+      assert.ok(Math.abs((await U('uHue')) - 30 * Math.PI / 180) < 1e-6);
+      assert.equal(await page.evaluate(() => __game.world.waterMat.uniforms.uContour.value), 0.1);
+      assert.equal(await page.evaluate(() => document.documentElement.style.getPropertyValue('--paper')), '#ffeedd');
+      assert.ok((await page.evaluate(() => document.getElementById('dtUiStyle').textContent)).includes('9px'));
+      // 色盤：水色即時、草色需重建
+      await page.evaluate(() => __game.dbg.tuner.applyValues({ 'pal.all.waterDeep': '#ff0000', 'pal.all.grass': '#112233' }));
+      assert.deepEqual(await page.evaluate(() => [...__game.world.waterMat.uniforms.uDeep.value.toArray()].map(v => Math.round(v * 255))), [255, 0, 0]);
+      await page.waitForTimeout(1500); // 自動重建
+      assert.equal(await page.evaluate(() => __game.biome.grass), 0x112233, '重建後群系草色套用');
+      // 預設：載入新參考 → 還原現行
+      await page.evaluate(() => { const t = __game.dbg.tuner; t.resetAll(); });
+      assert.equal(await U('uSteps'), 9);
+      await page.waitForTimeout(1500);
+      assert.notEqual(await page.evaluate(() => __game.biome.grass), 0x112233, '還原後重建，群系色回原值');
+      await page.evaluate(() => [...document.querySelectorAll('#dtArt select')][0].value = '新參考（batch5 方向）');
+      await page.evaluate(() => [...document.querySelectorAll('#dtArt button')].find(b => b.textContent.includes('載入')).click());
+      assert.equal(await U('uSteps'), 7); assert.ok((await U('uSat')) > 1.19);
+      // 自訂預設存取
+      await page.evaluate(() => { document.querySelector('#dtArt input[type=text]').value = 'T1'; [...document.querySelectorAll('#dtArt button')].find(b => b.textContent.includes('另存為預設')).click(); });
+      assert.ok(await page.evaluate(() => 'T1' in JSON.parse(localStorage.getItem('lv_dev_art_presets'))));
+      // A/B：現行 ⇄ 新參考
+      await page.evaluate(() => { const t = __game.dbg.tuner; t.resetAll(); });
+      await page.evaluate(() => { document.querySelector('#dtArt select').value = '新參考（batch5 方向）'; [...document.querySelectorAll('#dtArt button')].find(b => b.textContent.includes('與目前對照')).click(); [...document.querySelectorAll('#dtArt button')].find(b => b.textContent.includes('切換 A⇄B')).click(); });
+      assert.equal(await U('uSteps'), 7, '切到 B（新參考）');
+      await page.evaluate(() => [...document.querySelectorAll('#dtArt button')].find(b => b.textContent.includes('切換 A⇄B')).click());
+      assert.equal(await U('uSteps'), 9, '切回 A（現行）');
+      // 匯出含色盤
+      await page.evaluate(() => __game.dbg.tuner.applyValues({ 'pal.snow.sky': '#00ff00' }));
+      assert.equal(await page.evaluate(() => __game.dbg.tuner.buildExport().values['pal.snow.sky']), '#00ff00');
       assert.deepEqual(errors, [], '無頁面錯誤');
       await ctx.close();
     }

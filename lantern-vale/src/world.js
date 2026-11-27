@@ -9,6 +9,8 @@ export const RES = 1 / 3;        // 更高密度的地形網格解析度，告�
 export const GW = Math.round(HALF * 2 / RES) + 1; // 181
 
 const WATER_Y = -0.32;
+// Dev Tuner：植被大小／密度（只影響建構場景時的 wind 植被；預設 1＝不變）
+export const artTune = { foliageSize: 1, foliageDensity: 1 };
 
 // ---------- shared toon gradient ----------
 let _grad = null;
@@ -19,6 +21,12 @@ export function toonGradient() {
   _grad.minFilter = _grad.magFilter = THREE.NearestFilter;
   _grad.needsUpdate = true;
   return _grad;
+}
+/** Dev Tuner：即時改 toon 色階（4 階，0–255） */
+export function setToonRamp(vals) {
+  const t = toonGradient();
+  vals.forEach((v, i) => { t.image.data[i] = Math.max(0, Math.min(255, Math.round(v))); });
+  t.needsUpdate = true;
 }
 export function toonMat(opts = {}) {
   return new THREE.MeshToonMaterial({ gradientMap: toonGradient(), ...opts });
@@ -870,6 +878,8 @@ export class World {
     // ---------- props ----------
     const snow = P.key === 'snow';
     const inst = (geo, list, opts2 = {}) => {
+      if (opts2.wind && artTune.foliageDensity < 0.999) list = list.filter((_, i) => ((i * 2654435761) >>> 0) / 4294967296 < artTune.foliageDensity);
+      if (opts2.wind && artTune.foliageSize !== 1) opts2 = { ...opts2, k: (opts2.k ?? 1) * artTune.foliageSize };
       if (!list.length) return null;
       const m = new THREE.InstancedMesh(geo, opts2.wind ? windMat({ vertexColors: true }, opts2.wind) : toonMat({ vertexColors: true }), list.length);
       const mtx = new THREE.Matrix4(), q4 = new THREE.Quaternion(), e = new THREE.Euler(), s = new THREE.Vector3(), p = new THREE.Vector3();
@@ -1377,10 +1387,13 @@ export class World {
         uRain: { value: 0 }, uRipple: { value: new THREE.Vector4(0, 0, -99, 0) },
         uDeep: { value: new THREE.Vector3(...P.waterDeep) }, uShallow: { value: new THREE.Vector3(...P.waterShallow) },
         uLine: { value: new THREE.Vector3(...P.waterLine) }, uHalf: { value: this.half },
+        // Dev Tuner 水面參數（預設＝原畫面）
+        uFoam: { value: 1 }, uFoamW: { value: 1 }, uWaveSpd: { value: 1 }, uContour: { value: 0.55 }, uContourScale: { value: 0.16 },
+        uCaustic: { value: 0.55 }, uSparkle: { value: 0.28 }, uBand1: { value: 1.3 }, uBand2: { value: 3.6 }, uAlpha: { value: 1 }, uDash: { value: 0 },
       },
       vertexShader: `varying vec3 vW; void main(){ vec4 w = modelMatrix*vec4(position,1.0); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }`,
       fragmentShader: `
-        uniform sampler2D uShore; uniform float uTime, uHalf, uWater, uRain; uniform vec4 uRipple; uniform vec3 uDeep, uShallow, uLine; varying vec3 vW;
+        uniform sampler2D uShore; uniform float uTime, uHalf, uWater, uRain; uniform vec4 uRipple; uniform vec3 uDeep, uShallow, uLine; uniform float uFoam, uFoamW, uWaveSpd, uContour, uContourScale, uCaustic, uSparkle, uBand1, uBand2, uAlpha, uDash; varying vec3 vW;
         float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
         float noise(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);
           return mix(mix(hash(i),hash(i+vec2(1,0)),f.x), mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x), f.y); }
@@ -1414,26 +1427,26 @@ export class World {
           float d = mix(1.0, texture2D(uShore, uv).r, inside) * 8.0; // world units from shore
           float depthT = smoothstep(0.0, 6.0, d);
           float wb0 = (noise(vW.xz*0.9+uTime*0.1)-0.5)*0.9;
-          float bandT = step(1.3+wb0, d) * 0.5 + step(3.6+wb0*1.4, d) * 0.5;
+          float bandT = step(uBand1+wb0, d) * 0.5 + step(uBand2+wb0*1.4, d) * 0.5;
           vec3 col = mix(uShallow, uDeep, bandT);
           // swirly contour lines (A Short Hike-like caustic doodles)
-          vec2 p = vW.xz*0.16 + vec2(uTime*0.03, uTime*0.02);
+          vec2 p = vW.xz*uContourScale + vec2(uTime*0.03, uTime*0.02);
           float n = fbm(p + fbm(p*1.3 - uTime*0.02)*1.2);
           float l = abs(fract(n*5.0) - 0.5);
-          col = mix(col, uLine, (1.0-smoothstep(0.035,0.06,l))*0.55*(0.4+0.6*depthT));
+          col = mix(col, uLine, (1.0-smoothstep(0.035,0.06,l))*uContour*(0.4+0.6*depthT));
           // shore foam: solid rim + travelling wave line
           float wob = (noise(vW.xz*1.7+uTime*0.4)-0.5)*0.25;
-          float rim = 1.0 - smoothstep(0.62, 0.72, d + wob);
-          float wave = fract(uTime*0.22);
+          float rim = 1.0 - smoothstep(0.62*uFoamW, 0.72*uFoamW, d + wob);
+          float wave = fract(uTime*0.22*uWaveSpd);
           float wl = abs(d + wob - (0.45 + wave*1.3));
           float waveLine = (1.0 - smoothstep(0.05, 0.13, wl)) * (1.0-wave) * (1.0 - step(2.2, d));
           float band2 = (1.0 - smoothstep(0.9, 1.05, d+wob)) * 0.35;
           col = mix(col, uShallow*1.15, band2);
-          col = mix(col, vec3(1.0,0.99,0.95), clamp(rim + waveLine*0.85, 0.0, 1.0));
+          col = mix(col, vec3(1.0,0.99,0.95), clamp((rim + waveLine*0.85)*uFoam, 0.0, 1.0));
           // shallow-water voronoi network + conditional ripples (rain or water splash ONLY)
           float shallowT = (1.0 - smoothstep(0.7, 3.2, d)) * smoothstep(0.35, 0.8, d);
           float vl = 1.0 - smoothstep(0.03, 0.11, vor(vW.xz*0.55 + vec2(uTime*0.03, 0.0), uTime*0.5));
-          col = mix(col, vec3(0.9,0.98,1.0), vl * shallowT * 0.55 * uWater);
+          col = mix(col, vec3(0.9,0.98,1.0), vl * shallowT * uCaustic * uWater);
           if (uRain > 0.01) {
             float rg = rainRings(vW.xz*0.16, uTime) * smoothstep(1.2, 4.0, d);
             col = mix(col, vec3(0.92,0.98,1.0), rg * 0.38 * uRain * uWater);
@@ -1442,8 +1455,10 @@ export class World {
           if (sr > 0.005) col = mix(col, vec3(0.95,0.99,1.0), sr * 0.65 * uWater);
           // gentle water sparkles (no straight horizontal dashes)
           float sp = step(0.988, noise(vW.xz*3.0 + vec2(uTime*0.6,-uTime*0.4))) * depthT;
-          col += sp*0.28;
-          gl_FragColor = vec4(col, 1.0);
+          col += sp*uSparkle;
+          float dash = step(0.985, noise(vec2(vW.x*1.3+uTime*0.25, floor(vW.z*5.0)*7.1))) * step(0.5, fract(vW.x*4.0)) * depthT;
+          col = mix(col, vec3(1.0), dash*uDash);
+          gl_FragColor = vec4(col, uAlpha);
         }`,
     });
     const g = new THREE.PlaneGeometry(1500, 1500); g.rotateX(-Math.PI / 2);
