@@ -42,12 +42,39 @@ module.exports = function createDungeonLobbies(send, startRaid, announce = () =>
     else publish(room);
   }
 
+  function relayAttack(me, room, { wave, enemy, phase, hint }) {
+    if (!room.attackSync || room.members.size < 2 || room.members.values().next().value !== me
+      || me.dungeonWave !== wave || room.attackWave !== wave || !Number.isInteger(enemy)
+      || !(room.waves.get(wave)?.[enemy] > 0)) return;
+    const now = Date.now();
+    const current = room.attacks.get(enemy);
+    if (phase === 'warn') {
+      if ((current && current.until > now) || !Array.isArray(hint) || hint.length !== 6
+        || !hint.every(Number.isFinite)) return;
+      const [shape, x, z, size, extra, duration] = hint;
+      if ((shape !== 0 && shape !== 1) || Math.abs(x) > 1024 || Math.abs(z) > 1024
+        || size <= 0 || size > 10 || duration < 0.2 || duration > 2
+        || (shape === 0 ? extra <= 0 || extra > 2 : Math.abs(extra) > Math.PI)) return;
+      room.attacks.set(enemy, { shape, until: now + duration * 1000 + 1500, released: false });
+    } else {
+      if (!current || current.until <= now || (phase !== 'release' && phase !== 'end')) return;
+      if (phase === 'release' && current.released) return;
+      if (phase === 'end' || current.shape === 0) room.attacks.delete(enemy);
+      else current.released = true;
+    }
+    const event = { t: 'dungeon_attack', id: room.id, wave, enemy, phase, hint: phase === 'warn' ? hint : undefined };
+    for (const member of room.members) {
+      if (member !== me && member.dungeonWave === wave) send(member, event);
+    }
+  }
+
   function leaveRun(me) {
     const room = me.dungeonRun;
     if (!room) return;
     me.dungeonRun = null;
     me.dungeonWave = null;
     me.dungeonEntered = false;
+    if (room.members.values().next().value === me) room.attacks?.clear();
     room.members.delete(me);
     const bots = room.fill ? Math.max(0, FILL_SIZE - room.members.size) : 0;
     for (const member of room.members) {
@@ -93,8 +120,10 @@ module.exports = function createDungeonLobbies(send, startRaid, announce = () =>
       if (room.spec.kind === 'raid') { startRaid(members, room.id, bots); return; }
       room.waves = new Map();
       room.exits = new Map();
+      room.attackSync = room.spec.kind === 'cave' && members.length > 1 && members.every(member => member.dungeonAttacks);
+      room.attacks = new Map();
       for (const member of members) member.dungeonRun = room;
-      const info = { t: 'dungeon_begin', id: room.id, leader: me.id, seed: Math.floor(Math.random() * 999999) + 1, bots, count: members.length };
+      const info = { t: 'dungeon_begin', id: room.id, leader: me.id, seed: Math.floor(Math.random() * 999999) + 1, bots, count: members.length, attackSync: room.attackSync };
       for (const member of members) send(member, info);
       return;
     }
@@ -105,6 +134,10 @@ module.exports = function createDungeonLobbies(send, startRaid, announce = () =>
       if (!Number.isInteger(m.count) || m.count < 1 || m.count > 48 || room.waves.size >= 192 && !room.waves.has(m.wave)) return;
       if (!room.waves.has(m.wave)) room.waves.set(m.wave, Array(m.count).fill(1));
       me.dungeonWave = m.wave;
+      if (room.members.values().next().value === me && room.attackWave !== m.wave) {
+        room.attackWave = m.wave;
+        room.attacks.clear();
+      }
       send(me, { t: 'dungeon_wave_state', id: room.id, wave: m.wave, hp: room.waves.get(m.wave) });
     }
     if (m.t === 'dungeon_exit' && me.dungeonWave === m.wave && Number.isInteger(m.exit)
@@ -125,6 +158,7 @@ module.exports = function createDungeonLobbies(send, startRaid, announce = () =>
         send(member, { t: 'dungeon_positions', id: room.id, wave: m.wave, points: m.points });
       }
     }
+    if (m.t === 'dungeon_attack') relayAttack(me, room, m);
     if (m.t === 'dungeon_hit' && me.dungeonWave === m.wave && Number.isInteger(m.enemy)
         && Number.isFinite(m.fraction) && m.fraction > 0) {
       const now = Date.now();
@@ -135,6 +169,7 @@ module.exports = function createDungeonLobbies(send, startRaid, announce = () =>
       const hp = room.waves.get(m.wave);
       if (!hp || !(hp[m.enemy] > 0)) return;
       hp[m.enemy] = Math.max(0, hp[m.enemy] - Math.min(1, m.fraction));
+      if (hp[m.enemy] === 0 && room.attackWave === m.wave) room.attacks.delete(m.enemy);
       for (const member of room.members) {
         if (member.dungeonWave === m.wave) {
           send(member, { t: 'dungeon_enemy', id: room.id, wave: m.wave, enemy: m.enemy, hp: hp[m.enemy], bot, by: me.id, impact: m.impact === true });

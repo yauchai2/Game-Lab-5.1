@@ -23,7 +23,9 @@ export class DungeonLobby {
     });
     net.on('dungeon_begin', info => this.begin(info));
     net.on('dungeon_team', info => {
-      if (this.run?.id === info.id) Object.assign(this.run, { leader: info.leader, count: info.count, bots: info.bots });
+      if (this.run?.id !== info.id) return;
+      if (this.run.leader !== info.leader || info.count < 2) this.clearAttacks();
+      Object.assign(this.run, { leader: info.leader, count: info.count, bots: info.bots });
     });
     net.on('dungeon_wave_state', info => {
       if (!this.isWave(info)) return;
@@ -40,6 +42,7 @@ export class DungeonLobby {
       g.mapPin = { x: exit.x, z: exit.z, label: '隊伍選擇的出口' };
       g.ui.toast('隊伍已選定出口，跟地圖標記繼續。', '#ffe08a');
     });
+    net.on('dungeon_attack', info => this.receiveAttack(info));
     net.on('dungeon_positions', info => {
       if (this.isWave(info)) this.run.points = info.points;
     });
@@ -75,6 +78,7 @@ export class DungeonLobby {
 
   disconnected() {
     this.pending && Object.assign(this.pending, { online: false, info: null, starting: false });
+    this.clearAttacks();
     if (this.run) this.run.id = null;
     this.g.ui.refreshDungeonLobby?.();
   }
@@ -110,6 +114,7 @@ export class DungeonLobby {
 
   leave() {
     this.cancel();
+    this.clearAttacks();
     if (this.run?.id != null) this.g.net.send({ t: 'dungeon_leave' });
     for (const bot of this.bots) this.g.removeRemote(bot.id);
     this.bots = [];
@@ -117,6 +122,7 @@ export class DungeonLobby {
   }
 
   roomChanged() {
+    this.clearAttacks();
     for (const bot of this.bots) this.g.removeRemote(bot.id);
     this.bots = [];
     if (this.run) {
@@ -130,6 +136,7 @@ export class DungeonLobby {
   registerWave(enemies) {
     const g = this.g, run = this.run;
     if (run?.id == null || enemies.length === 0) return;
+    this.clearAttacks();
     run.wave = `${run.path}:${g.towerFloor || 0}:${g.waveIdx}`;
     run.enemies = enemies;
     run.points = null;
@@ -142,6 +149,97 @@ export class DungeonLobby {
 
   isWave(info) {
     return this.run?.id != null && this.run.id === info.id && this.run.wave === info.wave;
+  }
+
+  sharesEnemyAttack(enemy) {
+    const run = this.run;
+    return run?.id != null && run.attackSync && run.count > 1 && run.wave
+      && run.enemies[enemy.dungeonIndex] === enemy;
+  }
+
+  followsEnemyAttack(enemy) {
+    return this.sharesEnemyAttack(enemy) && this.run.leader !== this.g.net.id;
+  }
+
+  sendAttack(enemy, phase, hint, decal) {
+    if (!this.sharesEnemyAttack(enemy) || this.run.leader !== this.g.net.id) return;
+    const run = this.run;
+    if (phase === 'warn') enemy.sharedAttack = { state: enemy.state, charge: hint[0] === 1, decal };
+    else if (!enemy.sharedAttack) return;
+    else if (phase === 'release' && enemy.sharedAttack.charge) enemy.sharedAttack.state = 'charge';
+    else if (phase === 'end') this.clearAttack(enemy);
+    else enemy.sharedAttack = null;
+    this.g.net.send({ t: 'dungeon_attack', id: run.id, wave: run.wave, enemy: enemy.dungeonIndex, phase, hint });
+  }
+
+  clearAttack(enemy) {
+    const attack = enemy.incomingAttack || enemy.sharedAttack;
+    if (attack?.decal && !attack.decal.dead) {
+      attack.decal.onDone = null;
+      attack.decal.t = attack.decal.dur;
+    }
+    if (attack && !enemy.dead && (enemy.incomingAttack || enemy.state === attack.state)) {
+      enemy.state = 'move';
+      enemy.t = 0;
+      enemy.cd = Math.max(0.35, enemy.cd || 0);
+    }
+    enemy.incomingAttack = enemy.sharedAttack = null;
+  }
+
+  clearAttacks() {
+    for (const enemy of this.run?.enemies || []) this.clearAttack(enemy);
+  }
+
+  receiveAttack(info) {
+    if (!this.isWave(info)) return;
+    const g = this.g, enemy = this.run.enemies[info.enemy];
+    if (!enemy || enemy.dead || !this.followsEnemyAttack(enemy)) return;
+    if (info.phase === 'warn') {
+      this.clearAttack(enemy);
+      const [shape, x, z, size, extra, duration] = info.hint;
+      const charge = shape === 1;
+      const decal = charge
+        ? g.addDecal('rect', x, z, { w: size, l: 6.4 }, 0xff5040, duration, extra)
+        : g.addDecal('circle', x, z, size, 0xff633b, duration, null);
+      decal.mesh.position.y = g.world.gh(x, z) + 0.16;
+      enemy.incomingAttack = { charge, x, z, size, extra, decal, until: g.time + duration + 1 };
+      enemy.state = charge ? 'wind' : 'meadow-strike';
+      enemy.t = 0;
+      if (charge) {
+        enemy.facing = extra;
+      } else if (enemy.type === 'thorn') enemy.rootCastLast = true;
+      g.enemyCue(enemy.type === 'boar' ? 'enemyWind' : 'enemyCast', enemy.pos);
+    } else {
+      const attack = enemy.incomingAttack;
+      if (!attack) return;
+      if (info.phase === 'end') {
+        this.clearAttack(enemy);
+      } else if (info.phase === 'release') {
+        attack.decal.t = attack.decal.dur;
+        if (attack.charge) {
+          enemy.state = 'charge';
+          enemy.t = 0;
+          attack.until = g.time + 0.9;
+          g.enemyCue('enemyRelease', enemy.pos);
+        } else {
+          g.resolveMeadowImpact(enemy, attack.x, attack.z, attack.size, attack.extra);
+          this.clearAttack(enemy);
+        }
+      }
+    }
+  }
+
+  updateAttacks() {
+    const g = this.g, run = this.run;
+    if (!run.attackSync || run.count < 2 || !run.wave) return;
+    for (const enemy of run.enemies) {
+      const incoming = enemy.incomingAttack;
+      if (incoming && (enemy.dead || g.time > incoming.until)) this.clearAttack(enemy);
+      if (enemy.sharedAttack && (enemy.dead || enemy.sharedAttack.state !== enemy.state
+        || enemy.sharedAttack.state !== 'charge' && (enemy.stun > 0 || enemy.statuses?.freeze > 0))) {
+        this.sendAttack(enemy, 'end');
+      }
+    }
   }
 
   damage(enemy, amount, bot, impact) {
@@ -163,7 +261,10 @@ export class DungeonLobby {
       if (playerHit) this.run.lastFight = this.g.time;
     }
     e.hp = hp * e.maxHp;
-    if (hp <= 0) this.g.killEnemy(e);
+    if (hp <= 0) {
+      this.clearAttack(e);
+      this.g.killEnemy(e);
+    }
   }
 
   canUseExit(index) {
@@ -183,6 +284,7 @@ export class DungeonLobby {
   update(dt) {
     const g = this.g, run = this.run;
     if (!run || g.field || g.depth < 0 || g.state !== 'play') return;
+    this.updateAttacks();
     if (run.id != null && run.wave && run.count > 1) {
       if (run.leader === g.net.id && g.time >= (run.nextPosition || 0)) {
         run.nextPosition = g.time + 0.2;

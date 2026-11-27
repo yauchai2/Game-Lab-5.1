@@ -1877,6 +1877,14 @@ export class Game {
       this.vfx?.spawnSlash(pos.x, pos.y, pos.z, facing, { theme: kind === 'shield' ? 'holy' : 'wind', scale: 1.25, clean: true });
     }
   }
+  resolveMeadowImpact(enemy, x, z, radius, damageMult) {
+    const y = this.world.gh(x, z);
+    this.enemyCue('enemyRelease', enemy.pos);
+    this.puffs.burst(x, y + 0.25, z, 8, { c: [0xffbe73, 0xffe8ac], s: 0.18, speed: 3.6, life: 0.45 });
+    if (Math.abs(this.player.y - y) < 1.5 && Math.hypot(this.player.pos.x - x, this.player.pos.z - z) < radius) {
+      this.hurtPlayer(enemy.dmg * damageMult, new V3(x, y + 0.16, z));
+    }
+  }
   queueMeadowStrike(enemy, x, z, radius, duration, damageMult) {
     this.enemyCue(enemy.type === 'boar' ? 'enemyWind' : 'enemyCast', enemy.pos);
     enemy.state = 'meadow-strike';
@@ -1893,13 +1901,11 @@ export class Game {
       } else if (enemy.expeditionName) {
         enemy.chargeRecoveryS = 0.95;
       }
-      this.enemyCue('enemyRelease', enemy.pos);
-      this.puffs.burst(x, y + 0.25, z, 8, { c: [0xffbe73, 0xffe8ac], s: 0.18, speed: 3.6, life: 0.45 });
-      if (Math.abs(this.player.y - y) < 1.5 && Math.hypot(this.player.pos.x - x, this.player.pos.z - z) < radius) {
-        this.hurtPlayer(enemy.dmg * damageMult, warning.mesh.position);
-      }
+      this.dungeon.sendAttack(enemy, 'release');
+      this.resolveMeadowImpact(enemy, x, z, radius, damageMult);
     });
     warning.mesh.position.y = y + 0.16;
+    this.dungeon.sendAttack(enemy, 'warn', [0, x, z, radius, damageMult, duration], warning);
   }
 
   queueSporeBurst(enemy) {
@@ -4157,8 +4163,12 @@ export class Game {
       const dirP = _dirP.set(rdx * invD, rdz * invD);
       let mvx = 0, mvz = 0;
       const spd = est.freeze > 0 ? 0 : e.spd * (e.slow > 0 ? 0.45 : 1);
-      // knockback
-      if (e.knock.lengthSq() > 0.01) { this.moveEntity(e.pos, e.knock.x * dt, e.knock.z * dt, e.r); e.knock.multiplyScalar(Math.exp(-dt * 9)); }
+      const replicatedBoar = e.type === 'boar' && this.dungeon.followsEnemyAttack(e);
+      // Knockback moves a replicated boar on the leader's client.
+      if (e.knock.lengthSq() > 0.01) {
+        if (!replicatedBoar) this.moveEntity(e.pos, e.knock.x * dt, e.knock.z * dt, e.r);
+        e.knock.multiplyScalar(Math.exp(-dt * 9));
+      }
       const follow = (s = 1) => {
         if (dist > 1.5 && W.flowDir(e.pos.x, e.pos.z, _flowV)) { mvx = _flowV.x * spd * s; mvz = _flowV.y * spd * s; }
         else { mvx = dirP.x * spd * s; mvz = dirP.y * spd * s; }
@@ -4212,6 +4222,10 @@ export class Game {
       }
       if (e.stun > 0 || !playing || (this.field && dist > (e.tideAggro ? 32 : e.legendary ? 14 : 18))) {
         // idle
+      } else if (replicatedBoar) {
+        if (e.state === 'charge' && dist < e.r + 0.5) {
+          this.hurtPlayer(e.dmg * (e.brokenWeakens?.has('charge') ? 0.65 : 1), e.pos, null, 'boar', 'charge');
+        }
       } else if (e.type === 'slime') {
         if (!e.meadowPounce || e.state === 'move') {
           follow(0.6 + 0.6 * Math.max(0, Math.sin(e.t * 6 + e.ph)));
@@ -4219,7 +4233,7 @@ export class Game {
             e.cd -= dt;
             const nearbyPounce = e.cd <= 0 && dist < 4.3 && this.enemies.some(other =>
               other !== e && other.meadowPounce && !other.dead && other.state === 'meadow-strike' && other.pos.distanceToSquared(e.pos) < 36);
-            if (e.cd <= 0 && dist < 4.3 && !nearbyPounce) {
+            if (e.cd <= 0 && dist < 4.3 && !nearbyPounce && !this.dungeon.followsEnemyAttack(e)) {
               const reach = Math.min(2.8, dist);
               this.queueMeadowStrike(e, e.pos.x + dirP.x * reach, e.pos.z + dirP.y * reach, 1.45, 0.85, 1);
               mvx = mvz = 0;
@@ -4237,7 +4251,7 @@ export class Game {
           if (dist > 8) follow(); else if (dist < 4.5) { mvx = -dirP.x * spd; mvz = -dirP.y * spd; }
           else { mvx = -dirP.y * spd * 0.4 * Math.sign(Math.sin(e.ph)); mvz = dirP.x * spd * 0.4 * Math.sign(Math.sin(e.ph)); }
           if (e.cd <= 0 && dist < 12) {
-            if (e.expeditionName && !e.rootCastLast) {
+            if (e.expeditionName && !e.rootCastLast && !this.dungeon.followsEnemyAttack(e)) {
               e.rootCastLast = true;
               this.queueMeadowStrike(e, p.pos.x, p.pos.z, 2.65, 1.1, 1.15);
               mvx = mvz = 0;
@@ -4274,18 +4288,23 @@ export class Game {
             e.state = 'wind'; e.t = 0; e.cdir = dirP.clone();
             this.enemyCue('enemyWind', e.pos);
             this.ambushTrial?.beginCharge(e, p);
-            e.dec = this.addDecal('rect', e.pos.x, e.pos.z, { w: 1.2 * e.m.root.scale.x, l: 6.4 }, 0xff5040, e.chargeWindS ?? 0.75, Math.atan2(e.cdir.x, e.cdir.y));
+            const direction = Math.atan2(e.cdir.x, e.cdir.y);
+            const duration = e.chargeWindS ?? 0.75;
+            const width = this.dungeon.sharesEnemyAttack(e) ? 2 * (e.r + 0.5) : 1.2 * e.m.root.scale.x;
+            e.dec = this.addDecal('rect', e.pos.x, e.pos.z, { w: width, l: 6.4 }, 0xff5040, duration, direction);
+            this.dungeon.sendAttack(e, 'warn', [1, e.pos.x, e.pos.z, width, direction, duration], e.dec);
             if (e.openingPractice) {
               if (!e.practiceChargeStarted) recordOpeningEvent(this, 'practice_warning');
               e.practiceChargeStarted = true;
               e.practiceCharge = { x: e.pos.x, z: e.pos.z, hit: false };
             }
-            if (e.expeditionName || e.openingPractice) e.dec.mesh.position.y = this.world.gh(e.pos.x, e.pos.z) + 0.16;
+            if (e.expeditionName || e.openingPractice || this.dungeon.sharesEnemyAttack(e)) e.dec.mesh.position.y = this.world.gh(e.pos.x, e.pos.z) + 0.16;
           }
         } else if (e.state === 'wind') {
           e.m.body.position.x = Math.sin(e.t * 60) * 0.05;
           if (e.t > (e.chargeWindS ?? 0.75)) {
             e.state = 'charge'; e.t = 0;
+            this.dungeon.sendAttack(e, 'release');
             this.enemyCue('enemyRelease', e.pos);
           }
         } else if (e.state === 'charge') {
@@ -4528,7 +4547,7 @@ export class Game {
         else if (e.type !== 'slime' && e.state !== 'aim') e.m.body.scale.set(1, 1, 1);
       }
       if (e.type === 'boar' && e.state === 'wind') {
-        const wind = Math.min(1, e.t / (e.chargeWindS ?? 0.75));
+        const wind = Math.min(1, e.t / (e.incomingAttack?.decal.dur ?? e.chargeWindS ?? 0.75));
         e.m.body.rotation.x = -0.32 * wind;
         e.m.body.scale.set(1 + wind * 0.09, 1 - wind * 0.17, 1 + wind * 0.1);
       } else if (e.type === 'boar' && e.state === 'charge') {

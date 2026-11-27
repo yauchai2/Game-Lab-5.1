@@ -238,7 +238,7 @@ wss.on('connection', ws => {
     let m;
     try { m = JSON.parse(raw); } catch { return; }
     if (!m || typeof m !== 'object') return;
-    if (['dungeon_join', 'dungeon_leave', 'dungeon_start', 'dungeon_wave', 'dungeon_hit', 'dungeon_positions', 'dungeon_exit'].includes(m.t)) {
+    if (['dungeon_join', 'dungeon_leave', 'dungeon_start', 'dungeon_wave', 'dungeon_hit', 'dungeon_positions', 'dungeon_exit', 'dungeon_attack'].includes(m.t)) {
       dungeonLobbies.message(me, m);
       return;
     }
@@ -249,6 +249,7 @@ wss.on('connection', ws => {
     }
     switch (m.t) {
       case 'hello': {
+        me.dungeonAttacks = m.dungeonAttacks === true;
         me.name = clean(m.name, 12) || '旅人';
         me.col = typeof m.color === 'number' ? Math.min(7, Math.max(0, m.color | 0)) : 0;
         if (!me.raid) joinZone(me, me.zone || 'town', clean(m.party, 12));

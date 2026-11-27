@@ -90,6 +90,54 @@ const { chromium } = require('playwright');
     assert.equal((await details(leader))[3], 0);
     await Promise.all([leader, guest].map(page => page.waitForFunction(() => __game.dungeon.bots.length === 1)));
     assert.match(await leader.locator('#tags').textContent(), /巡燈衛士（AI）/);
+    assert.equal(await guest.evaluate(() => __game.dungeon.run.attackSync), true);
+    await guest.evaluate(() => {
+      const g = __game;
+      const resolve = g.resolveMeadowImpact.bind(g);
+      window.sharedImpacts = [];
+      g.resolveMeadowImpact = (enemy, x, z, radius, multiplier) => {
+        sharedImpacts.push({ x, z, radius, multiplier });
+        resolve(enemy, x, z, radius, multiplier);
+      };
+    });
+    const startHp = await leader.evaluate(() => __game.player.hp);
+    const circle = await leader.evaluate(() => {
+      const g = __game, enemy = g.enemies.find(e => e.meadowPounce), p = g.player;
+      for (const actor of g.enemies) { actor.cd = 5; actor.stun = 0; }
+      const { x, z } = p.pos;
+      p.iframes = 0;
+      g.queueMeadowStrike(enemy, x, z, 1.45, 1.35, 1);
+      return { x, z, radius: 1.45, multiplier: 1 };
+    });
+    await guest.waitForFunction(circle => __game.enemies.some(e => {
+      const a = e.incomingAttack;
+      return a && !a.charge && a.x === circle.x && a.z === circle.z && a.size === circle.radius;
+    }), circle);
+    const spectatorHp = await guest.evaluate(({ x, z }) => {
+      const g = __game, p = g.player;
+      const side = [2.9, -2.9].find(offset => g.world.isLand(x + offset, z));
+      if (side !== undefined) {
+        p.pos.set(x + side, g.world.gh(x + side, z), z);
+        p.y = p.pos.y;
+        g.camPos.copy(p.pos);
+      }
+      return p.hp;
+    }, circle);
+    if (dir) await guest.screenshot({ path: path.join(dir, 'beaconfall-shared-cave-warning.png') });
+    await guest.waitForFunction(() => sharedImpacts.length > 0);
+    assert.deepEqual(await guest.evaluate(() => sharedImpacts), [circle]);
+    assert.equal(await guest.evaluate(() => __game.player.hp), spectatorHp);
+    await leader.waitForFunction(hp => __game.player.hp < hp, startHp);
+    await leader.evaluate(() => {
+      const g = __game, enemy = g.enemies.find(e => e.meadowPounce);
+      g.queueMeadowStrike(enemy, enemy.pos.x, enemy.pos.z, 1.45, 1, 1);
+    });
+    await guest.waitForFunction(() => __game.enemies.some(e => e.incomingAttack && !e.incomingAttack.charge));
+    await leader.evaluate(() => { __game.enemies.find(e => e.meadowPounce).stun = 1.5; });
+    await guest.waitForFunction(() => __game.enemies.every(e => !e.incomingAttack));
+    await guest.waitForTimeout(1100);
+    assert.equal(await guest.evaluate(() => sharedImpacts.length), 1);
+
 
     await leader.evaluate(() => {
       const g = __game;
@@ -112,9 +160,33 @@ const { chromium } = require('playwright');
       g.enemies.forEach(enemy => g.hitEnemy(enemy, { dmg: 100000 }));
     });
     await Promise.all([leader, guest].map(page => page.waitForFunction(() => __game.caveRun?.stage === 1)));
+    for (const page of [leader, guest]) await page.waitForFunction(() => __game.dungeon.run.enemies?.some(e => e.type === 'boar' && !e.dead));
+    const direction = await leader.evaluate(() => {
+      const g = __game, e = g.enemies.find(enemy => enemy.type === 'boar');
+      e.stun = 0; e.state = 'move'; e.cd = 0; e.t = 0; e.chargeWindS = 1.5;
+      const x = e.pos.x + 3, z = e.pos.z;
+      g.player.pos.set(x, g.world.gh(x, z), z); g.player.y = g.player.pos.y;
+      g.updateEnemies(1 / 60);
+      return Math.atan2(e.cdir.x, e.cdir.y);
+    });
+    await guest.waitForFunction(direction => __game.enemies.some(e => {
+      const a = e.incomingAttack;
+      return a?.charge && Math.abs(a.extra - direction) < 1e-8 && e.state === 'wind';
+    }), direction);
+    await guest.waitForFunction(() => __game.enemies.some(e => e.incomingAttack?.charge && e.state === 'charge'));
+    await guest.waitForFunction(() => __game.enemies.filter(e => e.type === 'boar').every(e => !e.incomingAttack));
 
+
+    await leader.evaluate(() => {
+      const g = __game, boar = g.enemies.find(e => e.type === 'boar');
+      boar.stun = 0;
+      g.queueMeadowStrike(boar, boar.pos.x, boar.pos.z, 1.7, 1.8, 1);
+    });
+    await guest.waitForFunction(() => __game.enemies.some(e => e.incomingAttack && !e.incomingAttack.charge));
     await leader.close();
-    await guest.waitForFunction(() => __game.dungeon.run.count === 1 && __game.dungeon.run.leader === __game.net.id);
+    await guest.waitForFunction(() => __game.dungeon.run.count === 1 && __game.dungeon.run.leader === __game.net.id
+      && __game.enemies.every(e => !e.incomingAttack));
+    assert.equal(await guest.evaluate(() => sharedImpacts.length), 1);
     assert.deepEqual(leader.errors, []);
     assert.deepEqual(guest.errors, []);
     await guest.close();
@@ -185,6 +257,6 @@ const { chromium } = require('playwright');
     await solo.waitForFunction(() => __game.dungeon.run?.id == null && __game.depth === 0 && __game.dungeon.bots.length === 2);
     assert.deepEqual(solo.errors, []);
     await solo.close();
-    console.log('Passed cross-device waiting, cancel and rejoin, shared cave and HP, AI damage, checkpoint, leader transfer, Atlas branch consensus, raid AI, one-shot player/AI feedback, zone isolation and raid telegraph timing.');
+    console.log('Passed cross-device waiting, cancel and rejoin, shared cave and HP, AI damage, checkpoint, leader transfer, Atlas branch consensus, raid AI, one-shot player/AI feedback, zone isolation, synced cave circles and charges, and raid telegraph timing.');
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

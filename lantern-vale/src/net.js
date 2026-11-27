@@ -33,7 +33,7 @@ export class Net {
     socket.onopen = () => {
       if (this.ws !== socket) return;
       this.ok = true;
-      this.send({ t: 'hello', name, color, party });
+      this.send({ t: 'hello', name, color, party, dungeonAttacks: true });
       this.emit('status', { ok: true });
     };
     socket.onclose = () => {
