@@ -89,17 +89,19 @@ export const ENHANCE_RESONANCE_TIERS = [
   { minLv: 9, name: '緋紅神話共鳴 (+9)', icon: '🔥', color: '#ff5a88', bonuses: { maxHp: 130, dmgPct: 32, crit: 12, atkSpd: 16, allRes: 8 } },
 ];
 
+export const RESONANCE_SLOTS = ['head', 'staff', 'body', 'cloak', 'hands', 'feet', 'charm', 'relic'];
+
 export function computeEnhanceResonance(equip = {}) {
-  const slots = ['staff', 'cloak', 'charm'];
-  const levels = slots.map(k => equip?.[k] ? (equip[k].enhance || 0) : 0);
-  const allEquipped = slots.every(k => !!equip?.[k]);
-  const minLv = allEquipped ? Math.min(...levels) : 0;
+  const levels = RESONANCE_SLOTS.map(k => equip?.[k] ? (equip[k].enhance || 0) : 0);
+  const equippedCount = RESONANCE_SLOTS.filter(k => !!equip?.[k]).length;
+  const avgLv = +(levels.reduce((a, b) => a + b, 0) / RESONANCE_SLOTS.length).toFixed(1);
+  const minLv = equippedCount >= 3 ? Math.floor(avgLv) : 0;
   let active = null;
   for (const tier of ENHANCE_RESONANCE_TIERS) {
     if (minLv >= tier.minLv) active = tier;
   }
   const next = ENHANCE_RESONANCE_TIERS.find(t => t.minLv > minLv) || null;
-  return { minLv, active, next, bonuses: active ? { ...active.bonuses } : {} };
+  return { minLv, avgLv, equippedCount, active, next, bonuses: active ? { ...active.bonuses } : {} };
 }
 
 export function enhanceInfo(curLv = 0, failstack = 0, smithLv = 1) {
@@ -393,34 +395,34 @@ export function craftMonsterGear(profile, recipeId, fmtResolver = (k => v => `${
 }
 
 // ============================================================================
-// 3. 四大 MMORPG 裝備套裝（2 件套 / 3 件全套特效，驅動刷裝與拍賣行交易！）
+// 3. 四大 MMORPG 裝備套裝（P1 改為 2 件套 / 4 件全套制，8 欄配裝更具取捨深度！）
 // ============================================================================
 export const MMO_SETS = {
   ember_conqueror: {
     id: 'ember_conqueror', icon: '🔥', name: '熾炎征服者', color: '#ff7a3a',
     b2Desc: '(2) 全傷害 +18% · 火焰傷害 +5',
-    b3Desc: '(3) 暴擊率 +12% · 暴傷 +35%（攻擊機率引爆烈焰）',
+    b3Desc: '(4) 暴擊率 +12% · 暴傷 +35%（攻擊機率引爆烈焰）',
     b2: { dmgPct: 18, addFire: 5 },
     b3: { crit: 12, critMult: 35 },
   },
   frost_warden: {
     id: 'frost_warden', icon: '❄️', name: '霜穹守護者', color: '#7ae8ff',
-    b2Desc: '(2) 最大生命 +45 · 減傷 +8%',
-    b3Desc: '(3) 每秒回血 +4 · 受擊時寒霜反擊凍結近身敵人',
+    b2Desc: '(2) 最大生命 +45 · 護甲 +8',
+    b3Desc: '(4) 每秒回血 +4 · 護甲 +6（受擊寒霜反擊）',
     b2: { maxHp: 45, armor: 8 },
     b3: { regen: 4, armor: 6 },
   },
   gale_hunter: {
     id: 'gale_hunter', icon: '⚡', name: '疾風獵影', color: '#7fe08a',
     b2Desc: '(2) 攻速 +18% · 移速 +10%',
-    b3Desc: '(3) 暴擊率 +10% · 翻滾冷卻 -25%',
+    b3Desc: '(4) 暴擊率 +10% · 翻滾冷卻 -25%',
     b2: { atkSpd: 18, moveSpd: 10 },
     b3: { crit: 10, rollCdr: 25 },
   },
   star_sage: {
     id: 'star_sage', icon: '🌟', name: '星燈賢者', color: '#d898ff',
     b2Desc: '(2) 冷卻縮減 +14% · 最大法力 +30',
-    b3Desc: '(3) 範圍 +22% · 回魔 +40%',
+    b3Desc: '(4) 範圍 +22% · 回魔 +40%',
     b2: { cdr: 14, mana: 30 },
     b3: { area: 22, manaRegen: 40 },
   },
@@ -439,9 +441,9 @@ export function computeSetBonuses(equip = {}) {
     const def = MMO_SETS[sid];
     if (n >= 2) {
       for (const [k, v] of Object.entries(def.b2)) stats[k] = (stats[k] || 0) + v;
-      active.push({ id: sid, def, count: n, full: n >= 3 });
+      active.push({ id: sid, def, count: n, full: n >= 4 });
     }
-    if (n >= 3) {
+    if (n >= 4) {
       for (const [k, v] of Object.entries(def.b3)) stats[k] = (stats[k] || 0) + v;
     }
   }

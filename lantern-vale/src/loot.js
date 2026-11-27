@@ -104,6 +104,11 @@ export const UNIQUES = [
   { slot: 'cloak', name: '苔心大氅', base: '活苔斗篷', special: 'mossRegen', desc: '每秒回復 2% 最大生命', mods: [{ k: 'maxHp', v: 40 }, { k: 'armor', v: 8 }] },
   { slot: 'charm', name: '月蛾護符', base: '銀粉吊墜', special: 'frostRoll', desc: '翻滾時留下凍結光環，減速敵人', mods: [{ k: 'cdr', v: 15 }, { k: 'moveSpd', v: 10 }] },
   { slot: 'charm', name: '螢火之心', base: '發光琥珀', special: 'moreWisps', desc: '螢火伴數量 +3', mods: [{ k: 'dmgPct', v: 25 }, { k: 'crit', v: 6 }] },
+  { slot: 'head',  name: '星冠兜帽', base: '織星軟帽', special: 'starCrown', desc: '法力上限與暴擊共鳴，技能冷卻更流暢', mods: [{ k: 'mana', v: 35 }, { k: 'crit', v: 6 }, { k: 'cdr', v: 10 }] },
+  { slot: 'body',  name: '古樹心鎧', base: '活木護胸', special: 'oakHeart',  desc: '厚實活木護盾，大幅提升生存與全抗', mods: [{ k: 'maxHp', v: 65 }, { k: 'armor', v: 14 }, { k: 'allRes', v: 10 }] },
+  { slot: 'hands', name: '追風指虎', base: '疾風皮套', special: 'galeGrip',  desc: '攻速與汲血兼具，連擊手感極致流暢', mods: [{ k: 'atkSpd', v: 12 }, { k: 'crit', v: 5 }, { k: 'lifeOnHit', v: 5 }] },
+  { slot: 'feet',  name: '踏雲旅靴', base: '雲紋長靴', special: 'cloudStep', desc: '輕盈步法大幅提升移動與冷卻節奏', mods: [{ k: 'moveSpd', v: 16 }, { k: 'cdr', v: 10 }, { k: 'regen', v: 3 }] },
+  { slot: 'relic', name: '燈谷聖鑰', base: '秘銅鑰匙串', special: 'valeKey', desc: '放大技能覆蓋範圍並強化全元素抗性', mods: [{ k: 'area', v: 22 }, { k: 'dmgPct', v: 16 }, { k: 'allRes', v: 8 }] },
 ];
 
 let _id = 1;
@@ -297,11 +302,15 @@ export function corruptItem(it, r = Math.random) {
   }
 }
 // ---------- 鐵匠：重鑄／增幅／升階 ----------
+const SECONDARY_SLOTS = new Set(['head', 'body', 'hands', 'feet', 'relic']);
+const OFFENSE_AFFIX_KEYS = new Set(['baseDmg', 'dmgPct', 'addFire', 'atkSpd', 'crit', 'critMult']);
+
 function rollMod(r, it, taken) {
   const pool = AFFIXES.filter(a => a.slots.includes(it.slot) && !taken.includes(a.k) && (!a.rare || it.rarity === 2));
   if (!pool.length) return null;
   const a = pool[Math.floor(r() * pool.length)];
-  return { k: a.k, v: Math.round(a.roll(tierPower(it.tier)) * rand(r, 0.75, 1.15)), fmt: a.fmt };
+  const slotScale = (SECONDARY_SLOTS.has(it.slot) && OFFENSE_AFFIX_KEYS.has(a.k)) ? 0.6 : 1;
+  return { k: a.k, v: Math.max(1, Math.round(a.roll(tierPower(it.tier)) * rand(r, 0.75, 1.15) * slotScale)), fmt: a.fmt };
 }
 export const FORGE = {
   reroll: { name: '重鑄詞綴', desc: '重新隨機所有詞綴（傳奇／已腐化裝備不可）', cost: it => 10 + Math.round(tierPower(it.tier) * 6), ok: it => !it.corrupted && it.rarity < 3 && it.mods.length > 0 },

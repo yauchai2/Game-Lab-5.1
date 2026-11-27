@@ -22,7 +22,7 @@ import { preloadNatureAssets, attachMonsterGlb, attachLandmarkGlb } from './asse
 import { BIOMES, mulberry32, clamp, lerp, angleLerp, rand, pick } from './util.js';
 import { buildTownScenery, townStoneAt, buildGuildKiosk, buildAwakenAltar, buildWardrobe, buildSheep, TOWN_LAYOUT, buildCottage } from './town.js';
 import { loadSettings, applySettings, buildSettingsUI, DIFFICULTY_MODES } from './settings.js';
-import { combatPace, getFieldDanger, effectiveArmorMitigation, effectiveAttackSpeed, effectiveCritProfile, enemyStageMultipliers } from './progression.js';
+import { combatPace, getFieldDanger, effectiveArmorMitigation, effectiveAttackSpeed, effectiveCritProfile, enemyStageMultipliers, multiProjDamageScale, triggerCircuitCostAndIcd } from './progression.js';
 import { pickHotspots, getFieldHotspot, checkTriggerIcd, foldExcessProjectiles, getFerrySchedule, FERRY_BUFF_MS, getWeeklySpireInfo, mentorDamageScale, getClassTeamRole, parseChatCommand, muteUser, unmuteUser, isMutedUser, DEFAULT_FEATURE_FLAGS } from './mmo_protocol.js';
 import { showWeapon, applyCosmetics, buildPlayer, buildNPC, buildSlime, buildThorn, buildBoar, buildMoth, buildSkyRay, buildGolem, buildStag, buildArch, buildHouse, buildFountain, buildBoard, buildStall } from './models.js';
 import { DungeonLobby } from './dungeon_lobby.js';
@@ -512,6 +512,7 @@ export class Game {
     // 自我審查修正：保留 Lv.1(1瓶) → Lv.5(2瓶) → Lv.14(3瓶) 循序藥瓶上限，不再被硬覆蓋回 3
     p.flask.max = baseFlaskMax + B('flask');
     p.flask.charges = Math.min(p.flask.charges, p.flask.max);
+    if (profile.secondClass === 'frostweaver') s.addFire += Math.floor(Math.max(0, s.mana - 35) * 0.12);
     s.cdr = Math.min(60, s.cdr);
     s.armor = Math.max(0, Math.round(s.armor));
     s.armorMit = Math.round(effectiveArmorMitigation(s.armor) * 100);
@@ -1290,20 +1291,22 @@ export class Game {
       this.heal(3, true);
     }
     if (opts.hitstop) this.hitstop = Math.max(this.hitstop, opts.hitstop);
-    // 技能邏輯電路：命中觸發器 (CoH) 與暴擊觸發器 (CoC)，接通 Phase M4A 250ms 獨立 ICD 保護
+    // P1 技能邏輯電路：命中觸發器 (CoH) 與暴擊觸發器 (CoC)，消耗原技 40% 法力與 MAX(0.45s, 原CD*35%) 獨立冷卻
     if (!opts.isDoT && !opts.isTrigger) {
       const trigIds = [...(opts.triggerOnHit || []), ...(hit.crit ? (opts.triggerOnCrit || []) : [])];
       if (trigIds.length) {
         const nowMs = this.time * 1000;
-        const readyIds = trigIds.filter(tid => checkTriggerIcd(this.puzzleIcd, `${tid}:${hit.crit ? 'c' : 'h'}`, nowMs, hit.crit ? 250 : 350));
-        if (readyIds.length) {
-          const prevAim = this.aim.clone();
-          this.aim.set(e.pos.x, e.pos.y, e.pos.z);
-          for (const tid of readyIds) {
-            this.execPuzzleSkill(tid, { multi: 0, echo: 0, area: 0, dmgMult: 0.72, fire: false, chain: 0, cdr: 0, frost: 0, leech: 0, shock: 0, split: false, orbit: false, triggerOnHit: [], triggerOnCrit: [] }, 0.72, true);
-          }
-          this.aim.copy(prevAim);
+        const prevAim = this.aim.clone();
+        let aimed = false;
+        for (const tid of trigIds) {
+          const { manaCost, icdMs } = triggerCircuitCostAndIcd(ALL_GEMS[tid]);
+          if (manaCost && p.mana < manaCost) continue;
+          if (!checkTriggerIcd(this.puzzleIcd, `${tid}:${hit.crit ? 'c' : 'h'}`, nowMs, icdMs)) continue;
+          if (manaCost) p.mana = Math.max(0, p.mana - manaCost);
+          if (!aimed) { this.aim.set(e.pos.x, e.pos.y, e.pos.z); aimed = true; }
+          this.execPuzzleSkill(tid, { multi: 0, echo: 0, area: 0, dmgMult: 0.72, fire: false, chain: 0, cdr: 0, frost: 0, leech: 0, shock: 0, split: false, orbit: false, triggerOnHit: [], triggerOnCrit: [] }, 0.72, true);
         }
+        if (aimed) this.aim.copy(prevAim);
       }
     }
     // 部位破壞與精準掉落：依據命中方位集中傷害特定部位，斬斷後弱化招式並必掉專屬神裝
@@ -2093,7 +2096,7 @@ export class Game {
     if (!isTrigger) {
       p.combatT = 5.0;
       p.heroRig?.play('skill', { once: true, force: true, speed: 1.15 * this.combatPace().animation });
-      this.gainClassRes(this.character?.job === 0 ? 22 : this.character?.job === 2 ? 34 : 1);
+      if ((this.character?.job ?? 0) !== 4) this.gainClassRes(this.character?.job === 0 ? 22 : this.character?.job === 2 ? 34 : 1);
     }
     const vfxTh = mod.vfxTheme || null;
     if (!isTrigger && scale === 1) {
@@ -2124,11 +2127,11 @@ export class Game {
     };
     if (id === 'bolt') {
       this.audio.sfx('bolt');
-      const n = p.stats.proj + mod.multi, spread = 0.18;
+      const n = p.stats.proj + mod.multi, spread = 0.18, mpScale = multiProjDamageScale(n);
       for (let i = 0; i < n; i++) {
         const a = (i - (n - 1) / 2) * spread, d = dir.clone().rotateAround(new V2(), a);
         if (i < 3) this.vfx?.spawnMagicMissile(p.pos.x, p.y, p.pos.z, d.x, d.y, vfxTh || 'fire');
-        this.fireProj(p.pos, d, { speed: 17, mult: 1.35 * dmgMul, fire: true, color: 0xffb347, size: 0.18, chain: (this.has('chain') ? 1 : 0) + mod.chain, split: !!(mod.split || p.specials.has('splitBolt')), orbit: !!mod.orbit, slow, leech, ...trigOpts });
+        this.fireProj(p.pos, d, { speed: 17, mult: 1.35 * dmgMul * mpScale, fire: true, color: 0xffb347, size: 0.18, chain: (this.has('chain') ? 1 : 0) + mod.chain, split: !!(mod.split || p.specials.has('splitBolt')), orbit: !!mod.orbit, slow, leech, ...trigOpts });
       }
       p.swing = 1; p.swingT = 0.15;
     } else if (id === 'slam') {
@@ -2362,11 +2365,11 @@ export class Game {
       p.swing = 1; p.swingT = 0.25;
     } else if (id === 'sword_beams') {
       this.audio.sfx('swing');
-      const n = 3 + mod.multi, spread = 0.22;
+      const n = 3 + mod.multi, spread = 0.22, mpScale = multiProjDamageScale(n);
       for (let i = 0; i < n; i++) {
         const a = (i - (n - 1) / 2) * spread, d = dir.clone().rotateAround(new V2(), a);
         this.vfx?.spawnSlash(p.pos.x + d.x * 1.6, p.y, p.pos.z + d.y * 1.6, Math.atan2(d.x, d.y), { clean: true, theme: vfxTh || 'arcane', scale: 2.2 });
-        this.fireProj(p.pos, d, { speed: 19, mult: 1.45 * dmgMul, fire: mod.fire, pierce: 6, wave: true, color: 0xff7aa8, size: 0.42, life: 0.75, slow, leech, ...trigOpts });
+        this.fireProj(p.pos, d, { speed: 19, mult: 1.45 * dmgMul * mpScale, fire: mod.fire, pierce: 6, wave: true, color: 0xff7aa8, size: 0.42, life: 0.75, slow, leech, ...trigOpts });
       }
       p.swing = 1; p.swingT = 0.22;
     } else if (id === 'candle_ward') {
@@ -2399,11 +2402,11 @@ export class Game {
     p.cds.action = pace.recovery;
     p.cds.bolt = 0.78 * pace.cooldown / (1 + p.stats.atkSpd / 200);
     const dir = this.aimDir(); p.facing = Math.atan2(dir.x, dir.y);
-    const n = p.stats.proj, spread = 0.2;
+    const n = p.stats.proj, spread = 0.2, mpScale = multiProjDamageScale(n);
     for (let i = 0; i < n; i++) {
       const a = (i - (n - 1) / 2) * spread;
       const d = dir.clone().rotateAround(new V2(), a);
-      this.fireProj(p.pos, d, { speed: 17, mult: 1.35, fire: true, color: 0xffb347, size: 0.18, chain: this.has('chain') ? 1 : 0, split: p.specials.has('splitBolt') });
+      this.fireProj(p.pos, d, { speed: 17, mult: 1.35 * mpScale, fire: true, color: 0xffb347, size: 0.18, chain: this.has('chain') ? 1 : 0, split: p.specials.has('splitBolt') });
     }
     p.swing = 1; p.swingT = 0.15;
   }
@@ -3447,7 +3450,7 @@ export class Game {
       p.perfectCritT = Math.max(0, (p.perfectCritT || 0) - dt);
       p.leechBuffT = Math.max(0, (p.leechBuffT || 0) - dt);
       const dimRegen = this.flameRt?.fx?.regenMul ?? 1;            // Flame: Dimming lowers natural regen
-      p.mana = Math.min(S.mana, p.mana + dt * 7 * this.combatPace().manaRegen * (1 + ((S.manaRegen || 0) + (p.wickFx?.manaRegen || 0)) / 100) * dimRegen);
+      p.mana = Math.min(S.mana, p.mana + dt * 4.5 * this.combatPace().manaRegen * (1 + ((S.manaRegen || 0) + (p.wickFx?.manaRegen || 0)) / 100) * dimRegen);
       if (S.regen) this.heal(S.regen * dt * dimRegen, false);
       if (p.specials.has('mossRegen')) this.heal(S.maxHp * 0.02 * dt * dimRegen, false);
       if (p.healOver > 0) { p.healOver -= dt; this.heal(p.healRate * dt, false); }
@@ -3709,7 +3712,7 @@ export class Game {
 
     const mKey = this.interior ? 'interior' : (this.isNight && (this.depth === -1 || this.field) && !this.enemies.length ? 'night' : this.musicKey);
     if (this.state === 'play' && mKey) {
-      // Ember Tide phase and Dimming stacks reshape the region's theme (music_themes.js); only fields have either.
+      // Apex changes the field track. Dimming filters music while leaving combat cues clear.
       this.audio.setMusic(mKey, this.enemies.length ? 1 : 0, { tide: this.field ? (this.tide?.phase || 0) : 0 });
       this.audio.setDim(this.field ? (this.flameRt?.dim || 0) : 0);
     }

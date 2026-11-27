@@ -1254,14 +1254,17 @@ const createGuild = require('../server/guild.cjs');
   const enhFail = mmoRpg.enhanceItem(mmoProf, testWeapon, () => 0.99);
   assert.ok(enhFail.ok && !enhFail.success && enhFail.downgraded && testWeapon.enhance === 6, '+7 fail downgrades to +6');
 
-  // 4 Gear Sets (2-pc & 3-pc)
-  const setEq = {
+  // 4 Gear Sets (P1: 2-pc & 4-pc)
+  const setEq3 = {
     staff: { setId: 'ember_conqueror' },
     cloak: { setId: 'ember_conqueror' },
     charm: { setId: 'ember_conqueror' },
   };
-  const setOut = mmoRpg.computeSetBonuses(setEq);
-  assert.ok(setOut.active.length === 1 && setOut.active[0].full && setOut.stats.dmgPct === 18 && setOut.stats.critMult === 35, '3-pc Ember Conqueror full set bonus activates');
+  const setOut3 = mmoRpg.computeSetBonuses(setEq3);
+  assert.ok(setOut3.active.length === 1 && !setOut3.active[0].full && setOut3.stats.dmgPct === 18 && !setOut3.stats.critMult, '3-pc activates 2-pc bonus only under P1 2/4-pc rule');
+  const setEq4 = { ...setEq3, head: { setId: 'ember_conqueror' } };
+  const setOut = mmoRpg.computeSetBonuses(setEq4);
+  assert.ok(setOut.active.length === 1 && setOut.active[0].full && setOut.stats.dmgPct === 18 && setOut.stats.critMult === 35, '4-pc Ember Conqueror full set bonus activates');
 
   // Bestiary Mastery permanent account stats
   for (let i = 0; i < 10; i++) mmoRpg.recordBestiaryKill(mmoProf, 'slime');
@@ -1387,8 +1390,10 @@ const createGuild = require('../server/guild.cjs');
   assert.ok(mmoRpg.enhanceInfo(5, 1).rate > mmoRpg.enhanceInfo(5, 0).rate, 'Failstack boosts next enhancement success rate');
   const fSucc = mmoRpg.enhanceItem(fsProf, fsItem, () => 0.01);
   assert.ok(fSucc.ok && fSucc.success && fsProf.enhanceFailstack === 0, 'Successful enhancement resets failstack to 0');
-  const res3 = mmoRpg.computeEnhanceResonance({ staff: { enhance: 5 }, cloak: { enhance: 5 }, charm: { enhance: 5 } });
-  assert.ok(res3.active && res3.active.minLv === 5 && res3.bonuses.dmgPct === 12 && res3.bonuses.crit === 4, 'Full +5 gear activates Star-Silver Enhancement Resonance');
+  const resPartial = mmoRpg.computeEnhanceResonance({ staff: { enhance: 5 }, cloak: { enhance: 5 }, charm: { enhance: 5 } });
+  assert.ok(resPartial.minLv < 5 && !resPartial.active, 'Only 3 slots at +5 cannot trigger +5 8-slot resonance');
+  const res8 = mmoRpg.computeEnhanceResonance({ head: { enhance: 5 }, staff: { enhance: 5 }, body: { enhance: 5 }, cloak: { enhance: 5 }, hands: { enhance: 5 }, feet: { enhance: 5 }, charm: { enhance: 5 }, relic: { enhance: 5 } });
+  assert.ok(res8.active && res8.active.minLv === 5 && res8.bonuses.dmgPct === 12 && res8.bonuses.crit === 4, 'Full 8-slot +5 gear activates Star-Silver Enhancement Resonance');
 
   // Guild Reputation Lv.1->10 & 5 Repeatable Bounties + Companion Bond Lv.1->10 + Rank Promo Chest
   assert.equal(mmoRpg.GUILD_BOUNTIES.length, 5, '5 repeatable Guild Bounties defined');
@@ -1650,5 +1655,16 @@ const createGuild = require('../server/guild.cjs');
   assert.equal(p0Frontier.xpForNextLevel(1), 202, 'Lv.1 XP smoothed by 0.88x to 202');
   assert.equal(p0Frontier.xpForNextLevel(6), 1194, 'Lv.6+ XP stays on full curve');
 
-  console.log('ALL 56 LOGIC, P0-BALANCE-OVERHAUL, WHOLE-MAP-VIRTUAL-MMO-M12, VIRTUAL-MMO-PLAYERS-M11, CRISP-PIXEL-UI-SYSTEM, VFX-100PCT-UTILIZATION, MMORPG-ENDGAME-POTENTIAL-TOWER-PARTY-EVENTS-OFFLINE, MMORPG-LIVING-WORLD-BOSS-LIFE-RUNES-TITLES-DAILY, MMORPG-PROGRESSION-OVERHAUL, GEAR-LEVEL-GATES-TIER-MATS, ACCOUNT-LOGIN-DELETE-CHAR, MONSTER-MATS-CRAFT-RESIST, MMORPG-6-PILLARS, HARDCORE-MMO-SCARCITY, CREATOR-OCEAN-INTERACT, V6-FIELD-POI-BOSS, DIORAMA-D1-D4, VFX-SKILL-REWORK-V1-V6, UI-UNIFIED-U4B, CHAR-C6-TOON-ANIM, CHAR-REWORK-C1-C5, FUZZ-QA-36, MMO-M10-PORTALS-CRAFT-KILLSWITCH, MMO-M9-SAFETY-KILLSWITCH, MMO-M8-ROLES-FEAST-GPU, MMO-M7-SOUL-AWAKEN-GPU-FIX, MMO-M6-SPIRE-MENTOR-LIGHTHOUSE, MMO-M5-FERRY-REVIEW, MMO-M4-OVERHAUL, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
+  // 57. P1 Balance Overhaul: 8-slot uniques/resonance/sets, multiProj 0.78x, CoH/CoC 40% mana + scaled ICD
+  assert.equal(p0Prog.multiProjDamageScale(1), 1, 'Single projectile deals 1.0x damage');
+  assert.equal(p0Prog.multiProjDamageScale(2), 0.78, 'Multi-projectile applies 0.78x per-projectile scale');
+  assert.deepEqual(p0Prog.triggerCircuitCostAndIcd({ mana: 8, cd: 0.42 }), { manaCost: 3, icdMs: 450 }, 'Low-CD CoH/CoC enforces 40% mana and 450ms minimum ICD');
+  assert.deepEqual(p0Prog.triggerCircuitCostAndIcd({ mana: 16, cd: 7.2 }), { manaCost: 6, icdMs: 2520 }, 'High-CD ultimate CoH/CoC enforces 40% mana and 35% CD ICD');
+  for (const sl of Object.keys(p0Loot.SLOTS)) {
+    assert.ok(p0Loot.UNIQUES.some(u => u.slot === sl), `Slot ${sl} has at least one Legendary unique`);
+  }
+  const legHead = p0Loot.makeItem(() => 0.5, 10, 3, 'head');
+  assert.equal(legHead.rarity, 3, 'New secondary slot (head) drops Legendary unique');
+
+  console.log('ALL 57 LOGIC, P1-BALANCE-OVERHAUL, P0-BALANCE-OVERHAUL, WHOLE-MAP-VIRTUAL-MMO-M12, VIRTUAL-MMO-PLAYERS-M11, CRISP-PIXEL-UI-SYSTEM, VFX-100PCT-UTILIZATION, MMORPG-ENDGAME-POTENTIAL-TOWER-PARTY-EVENTS-OFFLINE, MMORPG-LIVING-WORLD-BOSS-LIFE-RUNES-TITLES-DAILY, MMORPG-PROGRESSION-OVERHAUL, GEAR-LEVEL-GATES-TIER-MATS, ACCOUNT-LOGIN-DELETE-CHAR, MONSTER-MATS-CRAFT-RESIST, MMORPG-6-PILLARS, HARDCORE-MMO-SCARCITY, CREATOR-OCEAN-INTERACT, V6-FIELD-POI-BOSS, DIORAMA-D1-D4, VFX-SKILL-REWORK-V1-V6, UI-UNIFIED-U4B, CHAR-C6-TOON-ANIM, CHAR-REWORK-C1-C5, FUZZ-QA-36, MMO-M10-PORTALS-CRAFT-KILLSWITCH, MMO-M9-SAFETY-KILLSWITCH, MMO-M8-ROLES-FEAST-GPU, MMO-M7-SOUL-AWAKEN-GPU-FIX, MMO-M6-SPIRE-MENTOR-LIGHTHOUSE, MMO-M5-FERRY-REVIEW, MMO-M4-OVERHAUL, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
 })();

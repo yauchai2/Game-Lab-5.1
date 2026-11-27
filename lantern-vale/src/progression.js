@@ -127,3 +127,15 @@ export function enemyStageMultipliers(lv = 1) {
     dmgMul: +(1.10 + 0.35 * t).toFixed(3),
   };
 }
+
+/** P1 多重投射單發係數：單發 1.0×，多發時每發 0.78×（防止 proj+1 直接翻倍） */
+export function multiProjDamageScale(count = 1) {
+  return (count || 1) > 1 ? 0.78 : 1;
+}
+
+/** P1 CoH/CoC 邏輯電路防架空：消耗原技能 40% 法力，獨立冷卻 MAX(0.45s, 原 CD × 35%) */
+export function triggerCircuitCostAndIcd(gemDef = {}) {
+  const manaCost = Math.round((gemDef?.mana || 0) * 0.4);
+  const icdMs = Math.round(Math.max(0.45, (gemDef?.cd || 0) * 0.35) * 1000);
+  return { manaCost, icdMs };
+}

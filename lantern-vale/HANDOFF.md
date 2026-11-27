@@ -1,5 +1,18 @@
 # 交接說明（Claude → Codex，2026-11-22）
 
+## 2026-11-27 P1 數值平衡大改（Build `0134c34016ce`）
+
+- **8 欄裝備套裝與強化共鳴**（`src/mmo_rpg.js`、`src/loot.js`）：`computeEnhanceResonance` 改為計算全部 8 欄平均精煉階級（須至少裝備 3 件）；`MMO_SETS` 與 `computeSetBonuses` 改為 `2 / 4 件` 套裝制；`rollMod` 對副 5 欄（頭／身／手／腳／聖物）的攻擊詞綴套用 `0.6×` 係數；`UNIQUES` 補齊 5 件副欄位傳奇（星冠兜帽、古樹心鎧、追風指虎、踏雲旅靴、燈谷聖鑰）。
+- **五大職業與十大二轉平衡**（`src/progression.js`、`src/game.js`、`src/puzzle.js`、`src/world_alive.js`）：新增 `multiProjDamageScale` 使多重投射（`n > 1`）單發套用 `0.78×` 係數；基礎回魔由 `7/s` 降至 `4.5/s`；霜燈織夢師新增額外法力 `12%` 轉元素基傷；武僧「蓮華禪韻」改為僅由近戰命中累積蓮印。
+- **CoH／CoC 邏輯電路防架空**（`src/progression.js`、`src/game.js`、`src/puzzle.js`）：新增 `triggerCircuitCostAndIcd`，被觸發技能須消耗 `40%` 法力並套用 `MAX(0.45 秒, 原 CD × 35%)` 獨立冷卻。
+- 驗證：`node build.mjs`（2711KB，SHA-256 `0134c34016ce`）、`node tests/logic_verify.cjs`（57/57 全過）與 `node tests/playtest_review.cjs`。
+
+## 2026-11-27 授權音檔換入
+
+- 將 Web Audio 合成器改成現成音檔播放。71 段音檔、95 個音效事件、9 首配樂，包含真實放箭聲、材質腳步、怪物吼叫、鍛造及 UI。配樂隨區域及 Apex 切換，Dimming 保留音樂低通。
+- `game/assets/audio/CREDITS.md` 有作者與授權。滑翔風聲是 InspectorJ／AntumDeluge 的 CC BY 3.0 音檔，其餘為 CC0。原檔雜湊和剪輯索引分別在 `SOURCES.json` 與 `src/audio_clips.json`。
+- 測試入口 `npm run test:audio` 與 `npm run test:audio:browser`。更新音檔或片段位置時重新 build。HTTP 與直接開檔都可播放音檔。配樂的跨區淡入淡出及 Dimming 濾波需要 HTTP。
+
 ## 2026-11-27 P0 數值平衡大改（Build `42dd9f1f2cdb`）
 
 - **四維屬性配點解耦**（`src/mmo_rpg.js`）：`STR` 改為每點 `baseDmg +1.4`、`armor +0.4`（移除 `dmgPct` 雙重乘區）；`INT` 改為每點 `addFire +1.4`、`mana +5`、`cdr +0.6%`（上限 30%）；`DEX` 每點 `atkSpd +1.5%`、`crit +0.7%`、`moveSpd +0.5%`；`VIT` 每點 `maxHp +9`、`armor +1.2`、`regen +0.25`。
