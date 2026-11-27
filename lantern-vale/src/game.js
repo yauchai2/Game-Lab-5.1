@@ -936,7 +936,7 @@ export class Game {
     }
     p.y = 0; p.vy = 0; p.air = false; p.climbing = false; p.stamina = 100; p.lastLow.set(p.pos.x, 0, p.pos.z);
     this.world.computeFlow(p.pos.x, p.pos.z);
-    this.musicKey = themeKeyFor({ title, town: anyTown, boss, field: this.field, biomeKey: B.key }); this.audio.setMusic(this.musicKey, 0);
+    this.musicKey = themeKeyFor({ title, town, harbor, boss, cave, field: this.field, biomeKey: B.key }); this.audio.setMusic(this.musicKey, 0);
   }
 
   makeExit(e, type) {
