@@ -134,9 +134,11 @@ module.exports = function createDungeonLobbies(send, startRaid, announce = () =>
       room.attackSync = members.length > 1 && members.every(member => member.dungeonAttacks >= minAttackVersion);
       room.rootSync = room.attackSync && room.spec.kind !== 'cave' && members.every(member => member.dungeonRootAttacks);
       room.burstSync = room.attackSync && room.spec.kind !== 'cave' && members.every(member => member.dungeonBurstAttacks);
+      room.partSync = room.attackSync && room.spec.kind !== 'cave' && members.every(member => member.dungeonStagParts);
+      room.stagParts = new Map();
       room.attacks = new Map();
       for (const member of members) member.dungeonRun = room;
-      const info = { t: 'dungeon_begin', id: room.id, leader: me.id, seed: Math.floor(Math.random() * 999999) + 1, bots, count: members.length, attackSync: room.attackSync, rootSync: room.rootSync, burstSync: room.burstSync };
+      const info = { t: 'dungeon_begin', id: room.id, leader: me.id, seed: Math.floor(Math.random() * 999999) + 1, bots, count: members.length, attackSync: room.attackSync, rootSync: room.rootSync, burstSync: room.burstSync, partSync: room.partSync };
       for (const member of members) send(member, info);
       return;
     }
@@ -147,11 +149,19 @@ module.exports = function createDungeonLobbies(send, startRaid, announce = () =>
       if (!Number.isInteger(m.count) || m.count < 1 || m.count > 48 || room.waves.size >= 192 && !room.waves.has(m.wave)) return;
       if (!room.waves.has(m.wave)) room.waves.set(m.wave, Array(m.count).fill(1));
       me.dungeonWave = m.wave;
-      if (room.members.values().next().value === me && room.attackWave !== m.wave) {
-        room.attackWave = m.wave;
-        room.attacks.clear();
+      const hp = room.waves.get(m.wave);
+      if (room.members.values().next().value === me) {
+        if (room.attackWave !== m.wave) {
+          room.attackWave = m.wave;
+          room.attacks.clear();
+        }
+        if (room.partSync && !room.stagParts.has(m.wave) && Array.isArray(m.stags)
+            && m.stags.length <= hp.length && m.stags.every(index => Number.isInteger(index) && index >= 0 && index < hp.length)) {
+          room.stagParts.set(m.wave, new Map(m.stags.map(index => [index, { antlers: 1, hindLegs: 1 }])));
+        }
       }
-      send(me, { t: 'dungeon_wave_state', id: room.id, wave: m.wave, hp: room.waves.get(m.wave) });
+      const parts = room.stagParts.get(m.wave);
+      send(me, { t: 'dungeon_wave_state', id: room.id, wave: m.wave, hp, stagParts: parts && [...parts] });
     }
     if (m.t === 'dungeon_exit' && me.dungeonWave === m.wave && Number.isInteger(m.exit)
         && m.exit >= 0 && m.exit <= 3 && room.waves.get(m.wave)?.every(hp => hp === 0)) {
@@ -181,11 +191,21 @@ module.exports = function createDungeonLobbies(send, startRaid, announce = () =>
       if (bot && room.members.values().next().value !== me) return;
       const hp = room.waves.get(m.wave);
       if (!hp || !(hp[m.enemy] > 0)) return;
+      let part;
+      const parts = room.stagParts.get(m.wave)?.get(m.enemy);
+      if (parts && Array.isArray(m.part) && m.part.length === 2) {
+        const [id, fraction] = m.part;
+        if ((id === 'antlers' || id === 'hindLegs') && parts[id] > 0 && Number.isFinite(fraction) && fraction > 0) {
+          const remaining = parts[id] - Math.min(fraction, m.fraction * 8, 1);
+          parts[id] = remaining > 1e-6 ? remaining : 0;
+          part = [id, parts[id]];
+        }
+      }
       hp[m.enemy] = Math.max(0, hp[m.enemy] - Math.min(1, m.fraction));
       if (hp[m.enemy] === 0 && room.attackWave === m.wave) room.attacks.delete(m.enemy);
       for (const member of room.members) {
         if (member.dungeonWave === m.wave) {
-          send(member, { t: 'dungeon_enemy', id: room.id, wave: m.wave, enemy: m.enemy, hp: hp[m.enemy], bot, by: me.id, impact: m.impact === true });
+          send(member, { t: 'dungeon_enemy', id: room.id, wave: m.wave, enemy: m.enemy, hp: hp[m.enemy], bot, by: me.id, impact: m.impact === true, part });
         }
       }
     }

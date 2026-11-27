@@ -29,10 +29,22 @@ export class DungeonLobby {
     });
     net.on('dungeon_wave_state', info => {
       if (!this.isWave(info)) return;
+      for (const [index, parts] of info.stagParts || []) {
+        const enemy = this.run.enemies[index];
+        if (this.sharesStagParts(enemy)) {
+          for (const [id, fraction] of Object.entries(parts)) g.applySharedStagPart(enemy, id, fraction);
+        }
+      }
       info.hp.forEach((hp, index) => this.applyHealth(index, hp));
     });
     net.on('dungeon_enemy', info => {
-      if (this.isWave(info)) this.applyHealth(info.enemy, info.hp, !info.bot, info.impact === true && info.by !== net.id);
+      if (!this.isWave(info)) return;
+      const enemy = this.run.enemies[info.enemy];
+      const local = info.by === net.id;
+      if (info.part && this.sharesStagParts(enemy)) {
+        g.applySharedStagPart(enemy, info.part[0], info.part[1], local);
+      }
+      this.applyHealth(info.enemy, info.hp, !info.bot, info.impact === true && !local);
     });
     net.on('dungeon_exit', info => {
       if (!this.isWave(info) || this.run.exit === info.exit) return;
@@ -144,7 +156,10 @@ export class DungeonLobby {
     enemies.forEach((enemy, index) => { enemy.dungeonIndex = index; });
     g.posT = 0;
     g.updateNet(0);
-    g.net.send({ t: 'dungeon_wave', id: run.id, wave: run.wave, count: enemies.length });
+    const stags = run.partSync && run.leader === g.net.id
+      ? enemies.filter(enemy => enemy.type === 'stag' && enemy.parts?.length).map(enemy => enemy.dungeonIndex)
+      : undefined;
+    g.net.send({ t: 'dungeon_wave', id: run.id, wave: run.wave, count: enemies.length, stags });
   }
 
   isWave(info) {
@@ -274,10 +289,16 @@ export class DungeonLobby {
     }
   }
 
-  damage(enemy, amount, bot, impact) {
+  sharesStagParts(enemy) {
+    const run = this.run;
+    return run?.id != null && run.partSync && run.wave && enemy?.type === 'stag'
+      && run.enemies[enemy.dungeonIndex] === enemy;
+  }
+
+  damage(enemy, amount, bot, impact, part) {
     const run = this.run;
     if (run?.id == null || !run.wave || run.enemies[enemy.dungeonIndex] !== enemy) return false;
-    this.g.net.send({ t: 'dungeon_hit', id: run.id, wave: run.wave, enemy: enemy.dungeonIndex, fraction: amount / enemy.maxHp, bot: !!bot, impact });
+    this.g.net.send({ t: 'dungeon_hit', id: run.id, wave: run.wave, enemy: enemy.dungeonIndex, fraction: amount / enemy.maxHp, bot: !!bot, impact, part });
     return true;
   }
 

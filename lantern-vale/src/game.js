@@ -1285,7 +1285,10 @@ export class Game {
     }
     this.ambushTrial?.enemyHit(e, Math.min(dmg, e.hp), opts.isDoT);
     if (!opts.dungeonBot && this.dungeon.run) this.dungeon.run.lastFight = this.time;
-    if (!this.dungeon.damage(e, dmg, opts.dungeonBot, !opts.isDoT)) e.hp -= dmg;
+    const sharedParts = this.dungeon.sharesStagParts(e);
+    const sharedPartHit = sharedParts && this.getPartHit(e, dmg, opts);
+    const partFraction = sharedPartHit ? [sharedPartHit.part.id, sharedPartHit.damage / sharedPartHit.part.maxHp] : undefined;
+    if (!this.dungeon.damage(e, dmg, opts.dungeonBot, !opts.isDoT, partFraction)) e.hp -= dmg;
     e.flash = 0.14;
     if (e.isWorldBoss) onWorldBossHit(this, e, dmg, true);
     if (!opts.isDoT) {
@@ -1355,35 +1358,11 @@ export class Game {
     if (!opts.isDoT && (p.perfectCritT || 0) > 0 && hitDist <= 4.0) {
       e.stun = Math.max(e.stun || 0, 0.5);
     }
-    // 部位破壞與星燈照域聯動：星燈圈外盲射不累積部位破壞，近戰享 1.5× 破防優勢
-    if (!opts.isDoT && e.parts?.length) {
-      const lampGate = Math.max(7.5, this.lampLight?.distance || 7.5) + 1.5;
-      const pbEff = partBreakEfficiency({ isMelee: !!opts.isMelee, dist: hitDist, lampRange: lampGate });
-      const hx = opts.hitPos ? opts.hitPos.x : p.pos.x, hz = opts.hitPos ? opts.hitPos.z : p.pos.z;
-      const part = pbEff > 0 ? resolveHitPart(e, hx, hz) : null;
-      if (part) {
-        const role = getClassTeamRole(this.character?.job ?? 0);
-        const pr = damagePart(e, part, Math.round(dmg * (role.partBreakMult || 1) * pbEff));
-        if (pr.broken) {
-          if (this.runStats) this.runStats.partsBroken++;
-          if (e.m.parts?.[pr.part.id]) e.m.parts[pr.part.id].visible = false;
-          this.hitstop = Math.max(this.hitstop, 0.1);
-          this.shake = Math.max(this.shake, 0.58);
-          this.camPunch = Math.max(this.camPunch || 0, 0.14);
-          this.audio.sfx('partBreak');
-          this.puffs.burst(e.pos.x, e.pos.y + 1.2, e.pos.z, 18, { c: [0xffe480, 0x7ae8ff, 0xffffff], s: 0.22, speed: 6, up: 5, life: 0.75 });
-          this.ui.dmgNum(e.pos.x, e.pos.y + 2.2, e.pos.z, `✂️ ${pr.part.name}破壞!`, 'crit');
-          // 部位破壞以破防虛弱為主，僅 6% 機率掉專屬裝備（不再每次破部位必噴神裝！）
-          if (e.sporeGuardian || this.caveRun) {
-            this.ui.toast(`${pr.part.name}已破壞 · ${pr.part.weakenDesc}`, '#ffd85a');
-          } else if (pr.dropItem && Math.random() < 0.06) {
-            this.ui.toast(`✂️ 斬斷 ${pr.part.icon} ${pr.part.name}！（${pr.part.weakenDesc}）幸運掉落專屬裝備！`, '#ffd85a');
-            this.dropItem(e.pos.x + (Math.random() - 0.5) * 1.8, e.pos.z + (Math.random() - 0.5) * 1.8, pr.dropItem);
-          } else {
-            this.meta.p.coins = (this.meta.p.coins || 0) + 15;
-            this.ui.toast(`✂️ 斬斷 ${pr.part.icon} ${pr.part.name}！（${pr.part.weakenDesc}）+🪙15`, '#ffd85a');
-          }
-        }
+    if (!sharedParts) {
+      const partHit = this.getPartHit(e, dmg, opts);
+      if (partHit) {
+        const result = damagePart(e, partHit.part, partHit.damage);
+        if (result.broken) this.showPartBreak(e, result, true);
       }
     }
     // 環境元素連鎖反應：攻擊附帶火／冰／雷／水元素時，觸發周圍地表連鎖反應
@@ -1570,6 +1549,58 @@ export class Game {
       }
     }
   }
+  getPartHit(enemy, damage, options) {
+    if (options.isDoT || !enemy.parts?.length) return null;
+    const p = this.player;
+    const dist = Math.hypot(enemy.pos.x - p.pos.x, enemy.pos.z - p.pos.z);
+    const lampRange = Math.max(7.5, this.lampLight?.distance || 7.5) + 1.5;
+    const efficiency = partBreakEfficiency({ isMelee: !!options.isMelee, dist, lampRange });
+    if (efficiency <= 0) return null;
+    const { x, z } = options.hitPos || p.pos;
+    const part = resolveHitPart(enemy, x, z);
+    if (!part) return null;
+    const role = getClassTeamRole(this.character?.job ?? 0);
+    return { part, damage: Math.round(damage * (role.partBreakMult || 1) * efficiency) };
+  }
+
+  applySharedStagPart(enemy, id, fraction, local) {
+    const part = enemy.parts?.find(candidate => candidate.id === id);
+    if (!part || part.broken) return;
+    part.hp = Math.min(part.hp, Math.max(1, Math.round(fraction * part.maxHp)));
+    if (fraction > 0) return;
+    const result = damagePart(enemy, part, part.hp);
+    if (local === undefined) {
+      if (enemy.m.parts?.[id]) enemy.m.parts[id].visible = false;
+    } else {
+      this.showPartBreak(enemy, result, local);
+    }
+  }
+
+  showPartBreak(enemy, { part, dropItem }, local) {
+    if (enemy.m.parts?.[part.id]) enemy.m.parts[part.id].visible = false;
+    this.puffs.burst(enemy.pos.x, enemy.pos.y + 1.2, enemy.pos.z, 18, { c: [0xffe480, 0x7ae8ff, 0xffffff], s: 0.22, speed: 6, up: 5, life: 0.75 });
+    this.ui.dmgNum(enemy.pos.x, enemy.pos.y + 2.2, enemy.pos.z, `✂️ ${part.name}破壞!`, 'crit');
+    if (!local) {
+      this.cueAt('partBreak', enemy.pos, 16, 0.8);
+      this.ui.toast(`隊友破壞了${part.name} · ${part.weakenDesc}`, '#ffd85a');
+      return;
+    }
+    if (this.runStats) this.runStats.partsBroken++;
+    this.hitstop = Math.max(this.hitstop, 0.1);
+    this.shake = Math.max(this.shake, 0.58);
+    this.camPunch = Math.max(this.camPunch || 0, 0.14);
+    this.audio.sfx('partBreak');
+    if (enemy.sporeGuardian || this.caveRun) {
+      this.ui.toast(`${part.name}已破壞 · ${part.weakenDesc}`, '#ffd85a');
+    } else if (dropItem && Math.random() < 0.06) {
+      this.ui.toast(`✂️ 斬斷 ${part.icon} ${part.name}！（${part.weakenDesc}）幸運掉落專屬裝備！`, '#ffd85a');
+      this.dropItem(enemy.pos.x + (Math.random() - 0.5) * 1.8, enemy.pos.z + (Math.random() - 0.5) * 1.8, dropItem);
+    } else {
+      this.meta.p.coins = (this.meta.p.coins || 0) + 15;
+      this.ui.toast(`✂️ 斬斷 ${part.icon} ${part.name}！（${part.weakenDesc}）+🪙15`, '#ffd85a');
+    }
+  }
+
   heal(v, show = true) {
     const p = this.player; const before = p.hp;
     p.hp = Math.min(p.stats.maxHp, p.hp + v);

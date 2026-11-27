@@ -241,6 +241,7 @@ const { chromium } = require('playwright');
         g.boss.cd = 60;
         // Keep the test's level-one characters below the automatic revive threshold.
         g.boss.dmg = 12;
+        g.boss.level = g.meta.p.level;
         g.boss.spd = 0;
         g.boss.hitCd = 60;
         g.boss.pos.set(0, g.world.gh(0, 0), 0);
@@ -250,7 +251,7 @@ const { chromium } = require('playwright');
           impact(enemy, attack);
           window.lastStagImpact = { shape: attack.shape, hp, after: g.player.hp };
         };
-        return g.dungeon.run.attackSync && g.dungeon.run.rootSync && g.dungeon.run.burstSync;
+        return g.dungeon.run.attackSync && g.dungeon.run.rootSync && g.dungeon.run.burstSync && g.dungeon.run.partSync;
       }), true);
     }
     await atlasGuest.waitForTimeout(2200);
@@ -387,16 +388,57 @@ const { chromium } = require('playwright');
     assert.notDeepEqual(volleys[0].projectiles[0], volleys[1].projectiles[0]);
     await atlasGuest.waitForFunction(hp => __game.player.hp < hp, burstHp);
 
-    await atlasLeader.evaluate(() => {
-      const e = __game.boss;
-      e.phase = 2;
-      e.brokenWeakens = new Set(['burst']);
+    for (const page of [atlasLeader, atlasGuest]) {
+      await page.evaluate(() => {
+        const g = __game, show = g.showPartBreak.bind(g);
+        window.stagPartBreaks = [];
+        g.showPartBreak = (enemy, result, local) => {
+          stagPartBreaks.push([result.part.id, local]);
+          show(enemy, result, local);
+        };
+      });
+    }
+    const hitStagPart = (page, id, fraction) => page.evaluate(({ id, fraction }) => {
+      const g = __game, e = g.boss, p = g.player;
+      const part = e.parts.find(candidate => candidate.id === id);
+      const offset = id === 'antlers' ? 2.5 : -2.5;
+      const x = e.pos.x + Math.sin(e.facing) * offset, z = e.pos.z + Math.cos(e.facing) * offset;
+      p.pos.set(x, g.world.gh(x, z), z);
+      p.y = p.pos.y;
+      p.vel.set(0, 0, 0);
+      g.hitEnemy(e, { dmg: Math.ceil(part.maxHp * fraction) }, 0, 0, { isMelee: true, hitPos: { x, z } });
+    }, { id, fraction });
+    await atlasLeader.evaluate(() => { __game.boss.state = 'move'; __game.boss.cd = 60; });
+    await hitStagPart(atlasLeader, 'antlers', 0.25);
+    const partial = page => page.waitForFunction(() => {
+      const antlers = __game.boss.parts.find(part => part.id === 'antlers');
+      return antlers.hp > 0 && antlers.hp < antlers.maxHp && !antlers.broken;
     });
+    await Promise.all([partial(atlasLeader), partial(atlasGuest)]);
+    const parts = page => page.evaluate(() => __game.boss.parts.map(part => [part.id, part.hp, part.broken]));
+    assert.deepEqual(await parts(atlasLeader), await parts(atlasGuest));
+    assert.deepEqual(await atlasLeader.evaluate(() => stagPartBreaks), []);
+
+    await hitStagPart(atlasGuest, 'antlers', 0.55);
+    const broken = page => page.waitForFunction(() => {
+      const e = __game.boss, antlers = e.parts.find(part => part.id === 'antlers');
+      return antlers.broken && antlers.hp === 0 && !e.m.parts.antlers.visible && e.brokenWeakens.has('burst');
+    });
+    await Promise.all([broken(atlasLeader), broken(atlasGuest)]);
+    const brokenLabel = atlasLeader.locator('#boss .epart.brk').first();
+    await brokenLabel.waitFor({ state: 'visible' });
+    assert.match(await brokenLabel.textContent(), /已斷/);
+    assert.equal(await brokenLabel.evaluate(node => getComputedStyle(node).opacity), '1');
+    assert.deepEqual(await parts(atlasLeader), await parts(atlasGuest));
+    assert.deepEqual(await atlasLeader.evaluate(() => stagPartBreaks), [['antlers', false]]);
+    assert.deepEqual(await atlasGuest.evaluate(() => stagPartBreaks), [['antlers', true]]);
+    await atlasLeader.evaluate(() => { __game.boss.phase = 2; });
     await prepareStagAttack('burst', 5);
     await atlasGuest.waitForFunction(() => {
       const a = __game.boss.incomingAttack;
       return a?.shape === 5 && a.pulseCount === 3 && a.decal.mat.uniforms.uRays.value === 7;
     });
+    if (dir) await atlasLeader.screenshot({ path: path.join(dir, 'beaconfall-shared-stag-parts.png') });
     await atlasGuest.waitForFunction(() => stagVolleys.length === 3);
     await atlasLeader.evaluate(() => { __game.boss.stun = 1.6; });
     await atlasGuest.waitForFunction(() => !__game.boss.incomingAttack);
@@ -409,8 +451,16 @@ const { chromium } = require('playwright');
     await atlasGuest.waitForFunction(() => __game.boss.incomingAttack?.shape === 1 && __game.boss.state === 'wind');
     await atlasGuest.waitForFunction(() => __game.boss.incomingAttack?.shape === 1 && __game.boss.state === 'charge');
     assert.deepEqual(atlasLeader.errors, []);
-    assert.deepEqual(atlasGuest.errors, []);
     await atlasLeader.close();
+    await atlasGuest.waitForFunction(() => __game.dungeon.run.leader === __game.net.id && __game.dungeon.run.count === 1);
+    await broken(atlasGuest);
+    await hitStagPart(atlasGuest, 'hindLegs', 0.8);
+    await atlasGuest.waitForFunction(() => {
+      const e = __game.boss;
+      return e.brokenWeakens.has('charge') && !e.m.parts.hindLegs.visible;
+    });
+    assert.deepEqual(await atlasGuest.evaluate(() => stagPartBreaks), [['antlers', true], ['hindLegs', true]]);
+    assert.deepEqual(atlasGuest.errors, []);
     await atlasGuest.close();
 
     const solo = await open();
@@ -441,6 +491,6 @@ const { chromium } = require('playwright');
     await solo.waitForFunction(() => __game.dungeon.run?.id == null && __game.depth === 0 && __game.dungeon.bots.length === 2);
     assert.deepEqual(solo.errors, []);
     await solo.close();
-    console.log('Passed cross-device waiting, cancel and rejoin, shared cave and HP, AI damage, checkpoint, leader transfer, Atlas branch consensus, raid AI, one-shot player/AI feedback, zone isolation, synced cave circles and charges, shared stag ground attacks, root pulses, projectile volleys, interruptions, and charge chains, and raid telegraph timing.');
+    console.log('Passed cross-device waiting, cancel and rejoin, shared cave and HP, AI damage, checkpoint, leader transfer, Atlas branch consensus, raid AI, one-shot player/AI feedback, zone isolation, synced cave circles and charges, shared stag ground attacks, root pulses, shared antler damage and weakening, projectile volleys, interruptions, and charge chains, and raid telegraph timing.');
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
