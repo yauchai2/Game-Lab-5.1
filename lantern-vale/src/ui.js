@@ -273,8 +273,13 @@ export class UI {
       syncHotbarKeyLabels(game);
     };
     $('btnQuickStart').onclick = () => $('btnStart').click();
-    $('btnRetry').onclick = () => { $('dead').classList.add('hide'); game.startRun(); };
-    $('btnAgain').onclick = () => { $('win').classList.add('hide'); game.startRun(); };
+    const queueAgain = modal => {
+      $(modal).classList.add('hide');
+      game.enterTown();
+      game.queueRun({ kind: 'run' }, '冒險副本');
+    };
+    $('btnRetry').onclick = () => queueAgain('dead');
+    $('btnAgain').onclick = () => queueAgain('win');
     document.querySelectorAll('[data-scale]').forEach(b => b.onclick = () => {
       game.pipe.setPixelScale(+b.dataset.scale);
       document.querySelectorAll('[data-scale]').forEach(x => x.classList.toggle('on', x === b));
@@ -578,16 +583,22 @@ export class UI {
     });
     const runBtn = $('btnRunAtlas');
     if (runBtn) runBtn.onclick = () => {
-      if (!cost.isFree && !game.dev?.on) {
-        if ((p.coins || 0) < cost.coins || (p.shards || 0) < cost.shards) { this.toast('金幣或星砂不足以鑄造此異界秘石', '#ff9a8a'); return; }
-        p.coins -= cost.coins; p.shards -= cost.shards; game.meta.save();
-      }
-      this.toggleInv(game); game.state = 'transition'; game.audio.sfx('warp'); this.wipe(() => game.startRun());
+      const canPay = () => cost.isFree || game.dev?.on || ((p.coins || 0) >= cost.coins && (p.shards || 0) >= cost.shards);
+      if (!canPay()) { this.toast('金幣或星砂不足以鑄造此異界秘石', '#ff9a8a'); return; }
+      this.toggleInv(game);
+      game.queueRun({ kind: 'run' }, '異界副本', {}, () => {
+        if (!canPay()) return false;
+        if (!cost.isFree && !game.dev?.on) {
+          p.coins -= cost.coins; p.shards -= cost.shards; game.meta.save();
+        }
+        return true;
+      });
     };
     const spireBtn = $('btnRunSpire');
     if (spireBtn) spireBtn.onclick = () => {
       if (!isFeatureEnabled(game.features, 'weeklySpire')) { this.toast('⚠️ 伺服器維護中：每週星穹塔暫時關閉', '#ff9a8a'); return; }
-      this.toggleInv(game); game.state = 'transition'; game.audio.sfx('warp'); this.wipe(() => game.startRun({ weeklySeed: ws.seed }));
+      this.toggleInv(game);
+      game.queueRun({ kind: 'week', seed: ws.seed }, '每週星穹塔', { weeklySeed: ws.seed });
     };
     const mBtn = $('btnMentor');
     if (mBtn) mBtn.onclick = () => {

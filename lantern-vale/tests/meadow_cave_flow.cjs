@@ -58,11 +58,24 @@ const { chromium } = require('playwright');
       const g = __game;
       return g.caveRun?.stage === n && g.waveIdx === n && g.enemies.some(enemy => !enemy.dead);
     }, n);
-    const defeat = async () => page.evaluate(() => {
-      for (const enemy of __game.enemies.filter(e => !e.dead)) __game.hitEnemy(enemy, { dmg: 100000, crit: false, fire: false });
-      const mats = __game.meta.p.mMats;
-      return [mats.boar_tusk || 0, mats.thorn_bark || 0];
-    });
+    const launch = async () => {
+      const fill = page.locator('[data-dungeon-fill]');
+      await fill.waitFor();
+      await fill.uncheck();
+      await page.locator('[data-dungeon-start]').click();
+    };
+    const defeat = async () => {
+      const networked = await page.evaluate(() => {
+        const g = __game;
+        for (const enemy of g.enemies.filter(e => !e.dead)) g.hitEnemy(enemy, { dmg: 100000, crit: false, fire: false });
+        return g.dungeon.run?.id != null;
+      });
+      if (networked) await page.waitForFunction(() => __game.dungeon.run.enemies.every(enemy => enemy.dead));
+      return page.evaluate(() => {
+        const mats = __game.meta.p.mMats;
+        return [mats.boar_tusk || 0, mats.thorn_bark || 0];
+      });
+    };
 
     await start();
     await page.evaluate(() => { __game.meta.p.keys = 0; __game.meta.save(); });
@@ -110,8 +123,9 @@ const { chromium } = require('playwright');
     await screenshot('lantern-cave-entry.png');
     await page.evaluate(() => { __game.party = 'testcave'; });
     await page.locator('[data-cave-tier="normal"]').click();
+    await launch();
     await stage(0);
-    await page.waitForFunction(() => __game.net.shard?.zone === __game.zone && __game.zone.startsWith('run:solo'));
+    await page.waitForFunction(() => __game.net.shard?.zone === __game.zone && __game.zone.startsWith('dungeon:'));
     console.log('Cave entered with the expedition key');
     assert.equal(await page.evaluate(() => __game.meta.p.keys), 0);
     assert.deepEqual(await page.evaluate(() => __game.enemies.map(e => e.type)), ['slime', 'thorn']);
@@ -137,6 +151,7 @@ const { chromium } = require('playwright');
     await field();
     await openCave();
     await page.locator('[data-cave-tier="normal"]').click();
+    await launch();
     await stage(1);
     assert.equal(await page.evaluate(() => __game.meta.p.keys), 0);
     assert.deepEqual(await page.evaluate(() => __game.enemies.map(e => e.type)), ['boar', 'thorn']);
@@ -178,6 +193,7 @@ const { chromium } = require('playwright');
     assert.match(await page.locator('#panelM').textContent(), /各 ×4/);
     await screenshot('lantern-cave-mobile.png');
     await page.locator('[data-cave-tier="elite"]').tap();
+    await launch();
     await stage(0);
     assert.deepEqual(await page.evaluate(() => __game.enemies.map(e => e.type)), ['slime', 'slime', 'thorn']);
     await defeat();

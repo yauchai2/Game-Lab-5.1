@@ -19,6 +19,7 @@ export function bindGuild(g) {
   });
   g.identifyGuild=()=>{try { n.send({t:'guildHello',secret:accountKey(g)}); } catch {g.ui.toast('無法儲存公會身分，請開啟此網站的本機儲存空間。');}};
   n.on('raidStart',()=>{
+    g.dungeon.raidStarted();
     g.ui.mapDialog.close();g.ui.closePanel();g.field=0;
     g.runSeed=31415;g.loadRoom(9,null,true,{raid:true});
     if(g.touchInteract)g.touchInteract.textContent='離隊';

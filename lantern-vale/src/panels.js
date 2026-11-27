@@ -54,6 +54,32 @@ export function buildPanels(g) {
     syncGuideControls();
   };
 
+  function renderDungeonLobby() {
+    const lobby = g.dungeon.pending;
+    if (!lobby) return;
+    const { info, online } = lobby;
+    const members = info?.members || [];
+    const leader = !online || info?.leader === g.net.id;
+    const raidOffline = !online && lobby.spec.kind === 'raid';
+    title.textContent = '副本等候室';
+    body.innerHTML = `<p><b>${esc(lobby.label)}</b></p>
+      <p role="status">${lobby.error ? esc(lobby.error) : online
+        ? (info ? `真人隊員 ${members.length}／${info.capacity} · ${leader ? '同分流玩家可由同一入口加入' : '等待隊長出發'}` : '正在連線到等候室…')
+        : '目前使用本機等候室，可帶 AI 隊友出發。'}</p>
+      ${members.length ? `<ul class="dungeon-lobby-roster">${members.map(member =>
+        `<li>${esc(member.name)}${member.id === info.leader ? ' · 隊長' : ''}${member.id === g.net.id ? ' · 你' : ''}</li>`).join('')}</ul>` : ''}
+      ${leader && !raidOffline ? `<label class="dungeon-lobby-fill"><input type="checkbox" data-dungeon-fill ${lobby.fill ? 'checked' : ''}> 人數不足時補 AI 隊友（共 3 人）</label>` : ''}
+      <div class="dungeon-lobby-actions">
+        ${leader && !raidOffline ? `<button type="button" class="btn small on" data-dungeon-start ${lobby.starting ? 'disabled' : ''}>出發</button>` : ''}
+        <button type="button" class="btn small" data-dungeon-cancel>離開等候室</button>
+      </div>`;
+    const fill = body.querySelector('[data-dungeon-fill]');
+    if (fill) fill.onchange = () => { lobby.fill = fill.checked; };
+    const start = body.querySelector('[data-dungeon-start]');
+    if (start) start.onclick = () => g.dungeon.launch();
+    body.querySelector('[data-dungeon-cancel]').onclick = () => g.ui.closePanel();
+  }
+
   function renderShards() {
     title.textContent = '區域分流';
     const net = g.net;
@@ -210,7 +236,7 @@ export function buildPanels(g) {
     body.innerHTML = active
       ? `<p>已使用鑰石 · ${MEADOW_CAVE[active.tier].name}</p>`
         + row(`<b>繼續第 ${active.stage + 1} 段</b><br><small>${MEADOW_CAVE[active.tier].stages[active.stage].name}</small>`,
-          `<button type="button" class="btn small" data-cave-tier="${active.tier}">繼續</button>`)
+          `<button type="button" class="btn small" data-cave-tier="${active.tier}">續戰等候室</button>`)
       : `<p>鑰石 ${M.p.keys || 0} 枚 · 每次挑戰消耗 1 枚</p>
         <p class="psmall">完成一段就會存檔。通關可獲得經驗、金幣及精鋼階鍛造素材。</p>`
         + Object.entries(MEADOW_CAVE).map(([tier, spec]) => {
@@ -218,7 +244,7 @@ export function buildPanels(g) {
           const materials = clears[tier] ? spec.materials : spec.firstMaterials;
           return row(`<b>${spec.name} · 建議 Lv.${spec.level}</b><br><small>${locked ? '先通過普通難度'
             : `狂豬利牙與荊棘硬木各 ×${materials} · 經驗 +${spec.xp}`}</small>`,
-          `<button type="button" class="btn small" data-cave-tier="${tier}" ${locked || !(M.p.keys >= 1) ? 'disabled' : ''}>進入${spec.name}</button>`);
+          `<button type="button" class="btn small" data-cave-tier="${tier}" ${locked || !(M.p.keys >= 1) ? 'disabled' : ''}>${spec.name}等候室</button>`);
         }).join('')
         + (!(M.p.keys >= 1) ? '<p class="psmall">鑰石可由晨光遠征或野外精英取得。</p>' : '');
     for (const button of body.querySelectorAll('[data-cave-tier]')) {
@@ -569,7 +595,11 @@ export function buildPanels(g) {
       twBtn.textContent = `挑戰 ${nextF}F${fSpec.isBoss ? '(王)' : ''}`;
       twBtn.onclick = () => {
         if (g.nearSpot()?.kind !== 'guild') { followQuest('guild'); return; }
-        g.ui.closePanel(); g.state = 'transition'; g.audio.sfx('warp'); g.ui.wipe(() => g.startTowerFloor(nextF));
+        g.dungeon.open({ kind: 'tower', floor: nextF }, `試煉之塔 · 第 ${nextF} 層`, () => {
+          g.state = 'transition';
+          g.audio.sfx('warp');
+          g.ui.wipe(() => g.startTowerFloor(nextF));
+        });
       };
       addRow(`<div><b>無盡試煉秘境塔（最高 ${twBon.best}/${MAX_TOWER_FLOOR}F）</b></div><small>永久被動：全傷害 +${twBon.dmgPct}% · 最大生命 +${twBon.maxHp} ｜ 下一層 ${nextF}F（血量 ×${fSpec.hpScale}）首通贈潛能魔方與星砂</small>`, twBtn);
       const wbBtn = document.createElement('button'); wbBtn.className = 'btn small';
@@ -616,8 +646,8 @@ export function buildPanels(g) {
         leaveBtn.onclick = () => { M.p.guildName = ''; M.save(); render(); };
         addRow(`<div><b>公會：${esc(guildName)}</b></div><small>公會增益生效中：擊殺經驗 +10% · 採集額外 +1</small>`, leaveBtn);
       }
-      const raidBtn = document.createElement('button'); raidBtn.className = 'btn small'; raidBtn.textContent = g.wallet ? '進入共鳴樹庭' : '需連線伺服器'; raidBtn.disabled = !g.wallet;
-      raidBtn.onclick = () => { g.ui.closePanel(); g.net.send({ t: 'raidJoin', code: g.party || M.p.guildName || '燈谷公會' }); };
+      const raidBtn = document.createElement('button'); raidBtn.className = 'btn small'; raidBtn.textContent = g.wallet && g.net.dungeonLobbies ? '共鳴樹庭等候室' : '需連線伺服器'; raidBtn.disabled = !g.wallet || !g.net.dungeonLobbies;
+      raidBtn.onclick = () => g.dungeon.open({ kind: 'raid' }, '共鳴樹庭');
       addRow('<div><b>公會組隊副本：共鳴樹庭</b></div><small>最多 4 人連線合作討伐共鳴守護獸，獲勝取得公會幣與共鳴琥珀。</small>', raidBtn);
       const exBtn = document.createElement('button'); exBtn.className = 'btn small'; exBtn.textContent = '公會交易所'; exBtn.disabled = !g.wallet;
       exBtn.onclick = () => g.ui.openPanel('exchange');
@@ -773,9 +803,10 @@ export function buildPanels(g) {
 
   function render() {
     M = g.meta;
-    foot.hidden = ['map', 'shards', 'expedition', 'opening', 'openingBadge', 'meadowCave', 'caveClear', 'caveRetry', 'field_quest'].includes(kind);
+    foot.hidden = ['map', 'shards', 'dungeonLobby', 'expedition', 'opening', 'openingBadge', 'meadowCave', 'caveClear', 'caveRetry', 'field_quest'].includes(kind);
     head();
     if (kind === 'shards') { renderShards(); return; }
+    if (kind === 'dungeonLobby') { renderDungeonLobby(); return; }
     if (kind === 'expedition') { renderExpedition(); return; }
     if (kind === 'opening') { renderOpening(); return; }
     if (kind === 'openingBadge') { renderBadge(); return; }
@@ -790,11 +821,15 @@ export function buildPanels(g) {
     ({ quest: renderQuest, forge: renderForge, map: renderMap })[kind]();
   }
   g.ui.openPanel = (k, { recipeId = null } = {}) => {
+    if (k !== 'dungeonLobby') g.dungeon.cancel();
     kind = k; vowId = null;
     if (k === 'opening') recordOpeningEvent(g, 'quest_opened', openingStep(g.meta.p));
     workshopRecipe = recipeId; g.ui.guildMarketOpen = k === 'exchange';
     g.ui.panelOpen = true; root.classList.remove('hide'); render(); syncGuideControls();
     if (k === 'shards' && g.net.zoneShards) g.net.send({ t: 'shard_list' });
+  };
+  g.ui.refreshDungeonLobby = () => {
+    if (kind === 'dungeonLobby' && g.ui.panelOpen) renderDungeonLobby();
   };
   g.ui.refreshShardPanel = request => {
     if (kind !== 'shards' || !g.ui.panelOpen) return;
@@ -802,5 +837,5 @@ export function buildPanels(g) {
     if (request && g.net.shard) g.net.send({ t: 'shard_list' });
   };
   g.ui.drawGuildMarket=()=>drawExchange(g,body,title);
-  g.ui.closePanel = () => { g.ui.guildMarketOpen=false; g.ui.panelOpen = false; root.classList.add('hide'); };
+  g.ui.closePanel = () => { if (kind === 'dungeonLobby') g.dungeon.cancel(); g.ui.guildMarketOpen=false; g.ui.panelOpen = false; root.classList.add('hide'); };
 }
