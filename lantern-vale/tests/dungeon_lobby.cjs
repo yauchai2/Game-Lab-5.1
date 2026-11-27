@@ -224,6 +224,85 @@ const { chromium } = require('playwright');
     assert.equal(await atlasGuest.evaluate(() => __game.depth), 0);
     await selectExit(atlasGuest, 0);
     await Promise.all([atlasLeader, atlasGuest].map(page => page.waitForFunction(() => __game.depth === 1)));
+    // Exercise the normal boss-room wave and attack loop without clearing another eight rooms.
+    for (const page of [atlasLeader, atlasGuest]) {
+      await page.evaluate(() => {
+        const g = __game;
+        g.dungeon.run.path = 'entry:boss';
+        g.runSeed = 428;
+        g.loadRoom(9, 'item');
+        g.camZoom = 1.3;
+      });
+    }
+    await Promise.all([ready(atlasLeader), ready(atlasGuest)]);
+    for (const page of [atlasLeader, atlasGuest]) {
+      assert.equal(await page.evaluate(() => {
+        const g = __game;
+        g.boss.cd = 60;
+        // Keep the test's level-one characters below the automatic revive threshold.
+        g.boss.dmg = 12;
+        g.boss.pos.set(0, g.world.gh(0, 0), 0);
+        return g.dungeon.run.attackSync;
+      }), true);
+    }
+    await atlasGuest.waitForTimeout(2200);
+    const prepareStagAttack = (kind, offset) => atlasLeader.evaluate(({ kind, offset }) => {
+      const g = __game, e = g.boss, p = g.player;
+      const { x, z } = e.pos;
+      const y = g.world.gh(x, z);
+      p.pos.set(x + offset, g.world.gh(x + offset, z), z);
+      p.y = p.pos.y;
+      p.vel.set(0, 0, 0);
+      p.iframes = 0;
+      e.state = kind;
+      e.t = e.step = e.stun = 0;
+      return { x, z, y, hp: p.hp };
+    }, { kind, offset });
+    const ring = await prepareStagAttack('donut', -2.5);
+    await atlasGuest.waitForFunction(({ x, z }) => {
+      const a = __game.boss.incomingAttack;
+      const uniforms = a?.decal.mesh.material.uniforms;
+      return a?.shape === 2 && a.x === x && a.z === z && a.size === 9.5 && a.extra === 3.5
+        && uniforms.uShape.value === 3 && uniforms.uInner.value === 3.5 / 9.5;
+    }, ring);
+    await atlasGuest.evaluate(({ x, z, y }) => {
+      const g = __game, p = g.player;
+      const points = [[x + 6, z], [x - 6, z], [x, z + 6], [x, z - 6]];
+      const point = points.find(([px, pz]) => g.world.isLand(px, pz) && Math.abs(g.world.gh(px, pz) - y) < 1);
+      if (!point) throw new Error('Expected a walkable outer ring');
+      p.pos.set(point[0], g.world.gh(...point), point[1]);
+      p.y = p.pos.y;
+      p.vel.set(0, 0, 0);
+      p.iframes = 0;
+      const impact = g.resolveBossGroundImpact.bind(g);
+      g.resolveBossGroundImpact = (enemy, attack) => {
+        const hp = p.hp;
+        impact(enemy, attack);
+        window.lastStagImpact = { shape: attack.shape, hp, after: p.hp };
+      };
+      g.camPos.set(x, y, z);
+    }, ring);
+    if (dir) await atlasGuest.screenshot({ path: path.join(dir, 'beaconfall-shared-stag-ring.png') });
+    await atlasGuest.waitForFunction(() => window.lastStagImpact?.shape === 2);
+    const ringImpact = await atlasGuest.evaluate(() => lastStagImpact);
+    assert.ok(ringImpact.after < ringImpact.hp, JSON.stringify(ringImpact));
+    assert.equal(await atlasLeader.evaluate(() => __game.player.hp), ring.hp);
+
+    const stomp = await prepareStagAttack('stomp', -2.5);
+    await atlasGuest.waitForFunction(({ x, z }) => {
+      const a = __game.boss.incomingAttack;
+      return a?.shape === 3 && a.x === x && a.z === z && a.size === 4.2;
+    }, stomp);
+    await atlasGuest.waitForFunction(() => window.lastStagImpact?.shape === 3);
+    const stompImpact = await atlasGuest.evaluate(() => lastStagImpact);
+    assert.equal(stompImpact.after, stompImpact.hp);
+    await atlasLeader.waitForFunction(hp => __game.player.hp < hp, stomp.hp);
+
+    await prepareStagAttack('charge', 5);
+    await atlasGuest.waitForFunction(() => __game.boss.incomingAttack?.shape === 1 && __game.boss.state === 'wind');
+    await atlasGuest.waitForFunction(() => __game.boss.incomingAttack?.shape === 1 && __game.boss.state === 'charge');
+    await atlasGuest.waitForFunction(() => __game.boss.incomingAttack?.shape === 1 && __game.boss.state === 'wind');
+    await atlasGuest.waitForFunction(() => __game.boss.incomingAttack?.shape === 1 && __game.boss.state === 'charge');
     assert.deepEqual(atlasLeader.errors, []);
     assert.deepEqual(atlasGuest.errors, []);
     await atlasLeader.close();
@@ -257,6 +336,6 @@ const { chromium } = require('playwright');
     await solo.waitForFunction(() => __game.dungeon.run?.id == null && __game.depth === 0 && __game.dungeon.bots.length === 2);
     assert.deepEqual(solo.errors, []);
     await solo.close();
-    console.log('Passed cross-device waiting, cancel and rejoin, shared cave and HP, AI damage, checkpoint, leader transfer, Atlas branch consensus, raid AI, one-shot player/AI feedback, zone isolation, synced cave circles and charges, and raid telegraph timing.');
+    console.log('Passed cross-device waiting, cancel and rejoin, shared cave and HP, AI damage, checkpoint, leader transfer, Atlas branch consensus, raid AI, one-shot player/AI feedback, zone isolation, synced cave circles and charges, shared stag ground attacks and charge chains, and raid telegraph timing.');
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
