@@ -3,6 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="lv-build" content="__LV_BUILD_ID__">
 <title>Beaconfall</title>
 <link rel="preload" href="assets/char/adventurer_base.glb" as="fetch" crossorigin>
@@ -2057,6 +2060,34 @@ body:has(#menuPop:not(.hide),[aria-modal="true"]:not(.hide)) #toasts{opacity:0}
   #hud #toasts{top:calc(var(--edge-top) + 44px)!important;left:50%!important;right:auto!important;transform:translateX(-50%)!important;width:min(310px,50vw)!important;max-height:38px!important;overflow:hidden!important}
   #touchInteract{right:calc(var(--edge-right) + 216px)!important;bottom:calc(var(--edge-bottom) + 12px)!important}
 }
+
+/* ===== 手機版 P1 & P2：技能拖曳取消區、左手鏡像模式、透明度、背包底部抽屜與拼圖大格點放 ===== */
+html,body{overscroll-behavior:none}
+#touchCancelZone{
+  position:absolute;right:calc(var(--edge-right) + 14px);bottom:calc(var(--edge-bottom) + 218px);
+  z-index:26;padding:6px 14px;border-radius:999px;font:800 13px var(--font-ui);
+  background:rgba(46,20,28,.88);color:#ffd8d8;border:1.5px solid rgba(255,130,130,.65);
+  box-shadow:0 3px 10px rgba(0,0,0,.35);pointer-events:none;transition:transform .1s,background .1s;
+}
+#touchCancelZone.hot{transform:scale(1.12);background:rgba(216,48,68,.95);color:#fff;border-color:#fff}
+@media (pointer: coarse), (any-pointer: coarse) and (max-width: 1100px){
+  #hud #skills .sk,#hud #skills .touch-key{opacity:var(--touch-opacity,.85)}
+  body.touch-left-handed #hud #touchMovement{left:auto!important;right:var(--edge-right)!important}
+  body.touch-left-handed #hud #skills{right:auto!important;left:var(--edge-left)!important}
+  body.touch-left-handed #touchInteract{right:auto!important;left:calc(var(--edge-left) + 8px)!important}
+  body.touch-left-handed #touchCancelZone{right:auto!important;left:calc(var(--edge-left) + 14px)!important}
+}
+@media (pointer: coarse) and (max-width: 780px), (any-pointer: coarse) and (max-width: 780px){
+  #inv .panel{
+    grid-template-columns:1fr!important;width:100vw!important;max-width:100vw!important;
+    height:100dvh!important;max-height:100dvh!important;border-radius:0!important;overscroll-behavior:contain;
+  }
+  #inv .panel button{min-height:46px}
+  #inv .inv-detail,#inv .equip-detail{position:sticky;bottom:0;z-index:6;box-shadow:0 -4px 12px rgba(0,0,0,.28)}
+  .pz-grid{--cell:clamp(42px,13vw,48px)!important;grid-template-columns:repeat(6,var(--cell))!important;grid-template-rows:repeat(6,var(--cell))!important}
+  .pz-tools{position:sticky;bottom:0;z-index:6;padding:6px 0}
+  .pz-tools button{min-height:48px!important}
+}
 /* ===== Loading UI/UX（星燈啟動遮罩、柔順過場、非同步微光指示器） ===== */
 #bootSplash{position:fixed;inset:0;z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#1a1426;color:#fff6e2;transition:opacity .26s ease;pointer-events:auto}
 #bootSplash.out{opacity:0;pointer-events:none}
@@ -2297,6 +2328,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     <div id="touchMove" aria-hidden="true"><span></span></div>
   </div>
   <button type="button" id="touchInteract" class="touch-key touch-only" data-i18n="touchInteract">互動</button>
+  <div id="touchCancelZone" class="touch-only" hidden>✕ 放開取消</div>
   <div id="skills" class="panel">
     <button type="button" class="sk" id="sk-s0" title="拼圖技能 1"><span class="k key">右鍵</span><span class="ic">—</span><span class="sname">空位</span><span class="sup" hidden></span><span class="cd"></span></button>
     <button type="button" class="sk" id="sk-s1" title="拼圖技能 2"><span class="k key">Q</span><span class="ic">—</span><span class="sname">空位</span><span class="sup" hidden></span><span class="cd"></span></button>

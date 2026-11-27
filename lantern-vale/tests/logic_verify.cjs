@@ -1714,5 +1714,18 @@ const createGuild = require('../server/guild.cjs');
   assert.equal(fullVec.z, 0, 'Full right thumb push yields z=0');
   assert.ok(cpHtml.includes('orientation: landscape') && cpHtml.includes('touch-interact-ready'), 'Mobile P0 landscape compact header & ready-state interact styles present in index.html');
 
-  console.log('ALL 60 LOGIC, MOBILE-P0-UIUX, P2-BALANCE-OVERHAUL, MELEE-RANGED-SPATIAL, P1-BALANCE-OVERHAUL, P0-BALANCE-OVERHAUL, WHOLE-MAP-VIRTUAL-MMO-M12, VIRTUAL-MMO-PLAYERS-M11, CRISP-PIXEL-UI-SYSTEM, VFX-100PCT-UTILIZATION, MMORPG-ENDGAME-POTENTIAL-TOWER-PARTY-EVENTS-OFFLINE, MMORPG-LIVING-WORLD-BOSS-LIFE-RUNES-TITLES-DAILY, MMORPG-PROGRESSION-OVERHAUL, GEAR-LEVEL-GATES-TIER-MATS, ACCOUNT-LOGIN-DELETE-CHAR, MONSTER-MATS-CRAFT-RESIST, MMORPG-6-PILLARS, HARDCORE-MMO-SCARCITY, CREATOR-OCEAN-INTERACT, V6-FIELD-POI-BOSS, DIORAMA-D1-D4, VFX-SKILL-REWORK-V1-V6, UI-UNIFIED-U4B, CHAR-C6-TOON-ANIM, CHAR-REWORK-C1-C5, FUZZ-QA-36, MMO-M10-PORTALS-CRAFT-KILLSWITCH, MMO-M9-SAFETY-KILLSWITCH, MMO-M8-ROLES-FEAST-GPU, MMO-M7-SOUL-AWAKEN-GPU-FIX, MMO-M6-SPIRE-MENTOR-LIGHTHOUSE, MMO-M5-FERRY-REVIEW, MMO-M4-OVERHAUL, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
+  // 61. Mobile P1 & P2 UI/UX: skill drag-to-aim + cancel zone, haptics, left-handed & opacity settings, PWA fullscreen meta
+  assert.equal(touchMod.computeSkillDragAim(5, 4).active, false, 'Short tap <16px uses auto-aim instead of drag');
+  const dragAim = touchMod.computeSkillDragAim(0, -60);
+  assert.ok(dragAim.active && !dragAim.cancelled && dragAim.dirZ === -1 && dragAim.rangeFrac > 0.8, 'Skill drag beyond 16px returns aim direction and range');
+  const dragCancel = touchMod.computeSkillDragAim(50, -60);
+  assert.ok(dragCancel.active && dragCancel.cancelled, 'Dragging skill to upper-right cancel zone cancels cast');
+  assert.equal(touchMod.triggerHaptic('crit', false), false, 'Disabled haptics never triggers vibration');
+  const mobSetMod = await import('../src/settings.js');
+  assert.equal(mobSetMod.DEFAULTS.haptics, 1, 'Haptics setting defaults to enabled');
+  assert.equal(mobSetMod.DEFAULTS.touchOpacity, 85, 'Touch opacity defaults to 85%');
+  assert.equal(mobSetMod.DEFAULTS.leftHanded, 0, 'Left-handed mirror mode defaults to off');
+  assert.ok(cpHtml.includes('apple-mobile-web-app-capable') && cpHtml.includes('touchCancelZone') && cpHtml.includes('touch-left-handed'), 'Mobile P1/P2 PWA meta, skill cancel zone & left-handed mirror styles present in index.html');
+
+  console.log('ALL 61 LOGIC, MOBILE-P1-P2-UIUX, MOBILE-P0-UIUX, P2-BALANCE-OVERHAUL, MELEE-RANGED-SPATIAL, P1-BALANCE-OVERHAUL, P0-BALANCE-OVERHAUL, WHOLE-MAP-VIRTUAL-MMO-M12, VIRTUAL-MMO-PLAYERS-M11, CRISP-PIXEL-UI-SYSTEM, VFX-100PCT-UTILIZATION, MMORPG-ENDGAME-POTENTIAL-TOWER-PARTY-EVENTS-OFFLINE, MMORPG-LIVING-WORLD-BOSS-LIFE-RUNES-TITLES-DAILY, MMORPG-PROGRESSION-OVERHAUL, GEAR-LEVEL-GATES-TIER-MATS, ACCOUNT-LOGIN-DELETE-CHAR, MONSTER-MATS-CRAFT-RESIST, MMORPG-6-PILLARS, HARDCORE-MMO-SCARCITY, CREATOR-OCEAN-INTERACT, V6-FIELD-POI-BOSS, DIORAMA-D1-D4, VFX-SKILL-REWORK-V1-V6, UI-UNIFIED-U4B, CHAR-C6-TOON-ANIM, CHAR-REWORK-C1-C5, FUZZ-QA-36, MMO-M10-PORTALS-CRAFT-KILLSWITCH, MMO-M9-SAFETY-KILLSWITCH, MMO-M8-ROLES-FEAST-GPU, MMO-M7-SOUL-AWAKEN-GPU-FIX, MMO-M6-SPIRE-MENTOR-LIGHTHOUSE, MMO-M5-FERRY-REVIEW, MMO-M4-OVERHAUL, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
 })();

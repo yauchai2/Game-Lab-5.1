@@ -1,5 +1,12 @@
 # 交接說明（Claude → Codex，2026-11-22）
 
+## 2026-11-27 手機版 P1 & P2 UI/UX 優化（Build `0cc1e458c816`）
+
+- **P1 技能拖曳瞄準與取消區**（`src/touch.js`、`src/index.html`）：新增純函式 `computeSkillDragAim`，於 `#sk-s0..3` 按住滑動超過 `16px` 即切換為方向落點瞄準並顯示 `#touchCancelZone`（滑入右上取消區放開即取消施法）；輕點維持自動鎖敵。
+- **P1 手機背包與 6×6 拼圖適配**（`src/index.html`）：窄屏（`≤ 780px`）將 `#inv .panel` 改為滿版單欄與底部固定裝備詳情抽屜（`sticky bottom`）、按鍵高度統一 `≥ 46px`；`.pz-grid` 放大至 `clamp(42px, 13vw, 48px)` 方便無拖曳點放，並固定底部 `48px` 工具列。
+- **P2 觸覺震動、左手鏡像、透明度與 PWA 全螢幕**（`src/touch.js`、`src/settings.js`、`src/game.js`、`src/index.html`）：新增 `triggerHaptic` 分級震動（翻滾、第 3 擊消彈、暴擊、受擊）、`DEFAULTS` 新增 `haptics` / `touchOpacity` / `leftHanded` 並於 `applySettings` 套用 `--touch-opacity` 與 `body.touch-left-handed` 鏡像排版；補齊 PWA 全螢幕中繼標籤與 `overscroll-behavior: none`。
+- 驗證：`node build.mjs`（2739KB，SHA-256 `0cc1e458c816`）、7 項核心自動化測試全數通過（含第 61 項 `MOBILE-P1-P2-UIUX` 與 `audio_music` 95 事件檢查）。
+
 ## 2026-11-27 手機版 P0 UI/UX 優化（Build `98f5c0c335ab`）
 
 - **左手動態浮動搖桿**（`src/touch.js`、`src/index.html`）：將 `#touchMovement` 擴展為左下浮動感應區，新增純函式 `computeFloatingOrigin`（防切邊夾緊）與 `computeJoystickVector`（14% 死區），按下瞬間搖桿圓心移至落點並提亮，放開後歸位並降至半透明；超窄直屏（`≤ 380px`）自動收緊尺寸避免與右手區重疊。

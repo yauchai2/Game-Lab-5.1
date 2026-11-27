@@ -23,6 +23,7 @@ import { preloadNatureAssets, attachMonsterGlb, attachLandmarkGlb } from './asse
 import { BIOMES, mulberry32, clamp, lerp, angleLerp, rand, pick } from './util.js';
 import { buildTownScenery, townStoneAt, buildGuildKiosk, buildAwakenAltar, buildWardrobe, buildSheep, TOWN_LAYOUT, buildCottage } from './town.js';
 import { loadSettings, applySettings, buildSettingsUI, DIFFICULTY_MODES } from './settings.js';
+import { triggerHaptic } from './touch.js';
 import { combatPace, getFieldDanger, effectiveArmorMitigation, effectiveAttackSpeed, effectiveCritProfile, enemyStageMultipliers, multiProjDamageScale, triggerCircuitCostAndIcd, meleeLungeDistance, partBreakEfficiency, proximityShieldFactor, isInDonutSafeZone, rangedMoveCommitScale, canTriggerOpeningCrit } from './progression.js';
 import { pickHotspots, getFieldHotspot, checkTriggerIcd, foldExcessProjectiles, getFerrySchedule, FERRY_BUFF_MS, getWeeklySpireInfo, mentorDamageScale, getClassTeamRole, parseChatCommand, muteUser, unmuteUser, isMutedUser, DEFAULT_FEATURE_FLAGS } from './mmo_protocol.js';
 import { showWeapon, applyCosmetics, buildPlayer, buildNPC, buildSlime, buildThorn, buildBoar, buildMoth, buildSkyRay, buildGolem, buildStag, buildArch, buildHouse, buildFountain, buildBoard, buildStall } from './models.js';
@@ -2098,7 +2099,7 @@ export class Game {
           if (job === 0) this.fireProj(ep.mesh.position, dir, { speed: 18, mult: 1.15, fire: false, color: 0xffcf4a, size: 0.22, life: 0.9, isTrigger: true });
         }
       }
-      if (deflected > 0) this.audio.sfx('shieldBash');
+      if (deflected > 0) { this.audio.sfx('shieldBash'); triggerHaptic('combo3', this.settings?.haptics !== 0); }
       if (job === 0) {
         this.vfx?.spawnSummon('ground_slam', p.pos.x + dir.x * 1.4, p.y, p.pos.z + dir.y * 1.4, dir.x, dir.y, { theme: 'holy' });
         this.shockRing(p.pos.x + dir.x * 1.4, p.pos.z + dir.y * 1.4, 2.8, this.rollDamage(1.35), 0xffcf4a, 0.45, { isTrigger: true });

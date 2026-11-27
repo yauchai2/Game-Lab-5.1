@@ -16,6 +16,7 @@ export const DIFFICULTY_MODES = {
 
 export const DEFAULTS = {
   master: 9, music: 6, sfx: 8, pixel: 2, camAngle: 0, wind: 1, water: 1, shafts: 1, shake: 0, dmg: 1, chat: 1, coopVfx: 1,
+  haptics: 1, touchOpacity: 85, leftHanded: 0,
   difficulty: 'standard',
   lang: 'zh-TW',
   keybinds: { ...KEY_PRESETS.arpg },
@@ -57,6 +58,12 @@ export function applySettings(g) {
   g.pipe.postMat.uniforms.uShaftK.value = s.shafts ? 1 : 0;
   if (g.world && g.world.waterMat) g.world.waterMat.uniforms.uWater.value = s.water ? 1 : 0;
   const chat = document.getElementById('chat'); if (chat) chat.style.display = s.chat ? '' : 'none';
+  if (typeof document !== 'undefined') {
+    const hud = document.getElementById('hud');
+    const op = Math.max(0.3, Math.min(1, (Number(s.touchOpacity ?? 85)) / 100));
+    if (hud) hud.style.setProperty('--touch-opacity', String(op));
+    document.body?.classList?.toggle('touch-left-handed', !!s.leftHanded);
+  }
   applyDOMLanguage(s.lang || 'zh-TW');
   syncHotbarKeyLabels(g);
   g.ui?.refreshLanguage?.(g);
