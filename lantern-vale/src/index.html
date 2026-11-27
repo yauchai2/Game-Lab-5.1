@@ -2186,6 +2186,47 @@ body:has(#title:not(.hide)) #devPill{top:auto;bottom:10px;left:10px;transform:no
 .dungeon-lobby-fill{display:flex;align-items:center;gap:8px;min-height:44px}
 .dungeon-lobby-fill input{width:20px;height:20px;accent-color:var(--cp-ok)}
 .dungeon-lobby-actions{display:flex;flex-wrap:wrap;gap:8px}
+/* 常用入口與手機任務面板 */
+.hud-button-icon{display:inline-flex;pointer-events:none}
+#hud #btnStatus,#hud #btnStatusClose{display:none}
+@media (pointer: coarse), (any-pointer: coarse) and (max-width: 1100px){
+  #hud :is(#btnMap,#btnMenu,#touchDetails){width:53px;min-height:44px!important;font-size:13px!important}
+  #hud #btnMap{right:calc(var(--edge-right) + 57px)}
+  #hud #touchDetails{right:calc(var(--edge-right) + 114px)}
+  #hud #topbar{
+    right:auto!important;width:max-content;box-sizing:border-box;
+    max-width:min(32vw,220px)!important;
+  }
+  #hud :is(#btnMap,#btnMenu) .hud-button-icon,#menuPop #btnMeadowExpedition,
+  #hud #rightStack #questTracker{display:none!important}
+  #hud #btnStatus,#hud #btnStatusClose{display:inline-flex}
+  #hud #rightStack #btnStatusClose{align-self:flex-end;min-width:64px}
+  #hud #rightStack{background:var(--cp-wood-dark);border:2px solid var(--cp-wood);padding:8px}
+  #hud #rightStack #netBox{display:inline-flex!important}
+  #hud #fieldTarget{display:none}
+  #hud #touchInteract:not(.touch-interact-ready){visibility:hidden;pointer-events:none}
+  #devTuneBtn{display:none!important}
+  #hud #fieldCompass{top:calc(var(--edge-top) + 56px)!important;left:auto!important;right:var(--edge-right)!important;max-width:min(57vw,300px);font-size:12px!important}
+  #hud:has(#boss:not(.hide)) #fieldCompass{visibility:hidden}
+  #panelM #btnPanelX{min-width:44px;min-height:44px}
+  #panelM:is([data-panel="mission"],[data-panel="opening"],[data-panel="expedition"]) .pbody .prow{
+    align-items:flex-start;
+  }
+  #panelM .quest-guide-controls{margin-block:10px 0}
+}
+@media (pointer: coarse) and (orientation: portrait), (any-pointer: coarse) and (max-width: 1100px) and (orientation: portrait){
+  #hud #pcard{top:calc(var(--edge-top) + 82px)}
+  #panelM:is([data-panel="mission"],[data-panel="opening"],[data-panel="expedition"]){justify-content:flex-end}
+  #panelM:is([data-panel="mission"],[data-panel="opening"],[data-panel="expedition"]) > .panel{
+    box-sizing:border-box;width:min(100%,560px);max-height:min(72dvh,540px);
+    padding:10px 12px max(14px,env(safe-area-inset-bottom))!important;
+  }
+}
+@media (pointer: coarse) and (orientation: landscape), (any-pointer: coarse) and (max-width: 1100px) and (orientation: landscape){
+  #hud #topbar{min-height:44px!important;max-height:44px!important}
+  #hud #pcard{top:calc(var(--edge-top) + 51px)!important}
+  #hud #toasts{top:calc(var(--edge-top) + 55px)!important}
+}
 </style>
 </head>
 <body>
@@ -2205,8 +2246,8 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 <canvas id="view"></canvas>
 
 <div id="hud" class="hide"><div id="fieldTarget" hidden></div><div id="fieldCompass" hidden></div>
-  <button id="btnMap" class="mute" title="世界地圖 (M)"><span class="world-map-label">世界地圖</span><span class="touch-only" data-i18n="touchMap">地圖</span></button><button id="btnMenu" type="button" class="mute" aria-controls="menuPop" aria-expanded="false" title="展開功能選單"><span aria-hidden="true">☰</span> <span data-i18n="touchMenu">選單</span></button>
-  <button type="button" id="touchDetails" class="mute touch-only" aria-controls="rightStack" aria-expanded="false" data-i18n="touchQuest">任務</button>
+  <button id="btnMap" class="mute" title="地圖 (M)"><span class="hud-button-icon" aria-hidden="true"></span><span class="world-map-label">地圖</span><span class="touch-only" data-i18n="touchMap">地圖</span></button><button id="btnMenu" type="button" class="mute" aria-controls="menuPop" aria-expanded="false" title="展開功能選單"><span class="hud-button-icon" aria-hidden="true"></span><span data-i18n="touchMenu">選單</span></button>
+  <button type="button" id="touchDetails" class="mute touch-only" aria-controls="panelM" aria-haspopup="dialog" data-i18n="touchQuest">任務</button>
   <nav id="menuPop" class="panel hide" aria-label="遊戲選單">
     <div class="menu-pages" role="group" aria-label="選單分類">
       <button type="button" data-menu-page="adventure" data-i18n="adventureMenu" aria-controls="menu-adventure" aria-pressed="true">冒險</button>
@@ -2214,10 +2255,10 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
       <button type="button" data-menu-page="system" data-i18n="systemMenu" aria-controls="menu-system" aria-pressed="false">系統</button>
     </div>
     <div class="menu-section" id="menu-adventure">
-      <button type="button" id="btnMeadowExpedition" data-i18n="expeditions">區域遠征</button>
+      <button type="button" id="btnMeadowExpedition" data-i18n="touchQuest">任務</button>
       <button type="button" id="btnRegionMap" data-i18n="touchRegion">地區地圖</button>
-      <button type="button" data-hud-action="sk-bag" data-i18n="bag">背包與裝備</button>
-      <button type="button" data-hud-action="sk-puzzle" data-i18n="puzzle">技能拼圖</button>
+      <button type="button" data-hud-action="sk-bag" data-i18n="bag">背包</button>
+      <button type="button" data-hud-action="sk-puzzle" data-i18n="puzzle">技能</button>
       <button type="button" data-hud-action="sk-mount" data-i18n="touchMount">召喚／收起坐騎</button>
       <button type="button" data-hud-action="sk-recall" data-i18n="skRecall">回城</button>
       <button type="button" data-hud-action="sk-auto" data-i18n="touchAuto">切換巡遊</button>
@@ -2226,20 +2267,23 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
       <button type="button" id="btnInvite" data-i18n="partyInvite">複製小隊連結</button>
       <button type="button" id="btnSimRoster" data-i18n="virtualAdventurers">虛擬冒險者</button>
       <button type="button" id="btnChatTouch" data-i18n="touchChat">聊天</button>
-      <button type="button" id="btnZoneShards" data-i18n="shards" class="hide">區域分流</button>
+      <button type="button" id="btnZoneShards" data-i18n="shards" class="hide">分流</button>
     </div>
     <div class="menu-section" id="menu-system" hidden>
-      <button type="button" id="btnSet">遊戲設定</button>
+      <button type="button" id="btnSet">設定</button>
+      <button type="button" id="btnStatus" class="touch-only" aria-expanded="false" aria-controls="rightStack" data-i18n="travelStatus">狀態</button>
       <button type="button" id="btnMute">音效：開</button>
-      <button type="button" id="btnWiki" data-i18n="codex">百科資料庫</button>
+      <button type="button" id="btnWiki" data-i18n="codex">圖鑑</button>
       <button type="button" id="btnChangelog" data-i18n="changelog">更新日誌</button>
       <button type="button" id="btnDebug" data-i18n="diagnostics">除錯工具</button>
+      <button type="button" id="btnMobileTuner" class="touch-only" hidden>開發調校</button>
       <button type="button" id="btnDonate" data-i18n="supportGame">贊助支持</button>
     </div>
   </nav>
   <div id="rightStack">
+    <button type="button" id="btnStatusClose" class="btn small touch-only" data-i18n="close">關閉</button>
     <button type="button" id="questTracker" class="panel hide">
-      <span class="qt-head"><span id="qtTitle">主線任務</span></span>
+      <span class="qt-head"><span id="qtTitle">任務</span></span>
       <span class="qt-desc" id="qtDesc"></span>
       <span class="qt-desc qt-region" id="qtRegion" hidden></span>
       <span class="qt-bar"><span class="qt-fill" id="qtFill"></span></span>
@@ -2335,7 +2379,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     <button type="button" class="sk" id="sk-s1" title="拼圖技能 2"><span class="k key">Q</span><span class="ic">—</span><span class="sname">空位</span><span class="sup" hidden></span><span class="cd"></span></button>
     <button type="button" class="sk" id="sk-s2" title="拼圖技能 3"><span class="k key">E</span><span class="ic">—</span><span class="sname">空位</span><span class="sup" hidden></span><span class="cd"></span></button>
     <button type="button" class="sk" id="sk-s3" title="拼圖技能 4"><span class="k key">C</span><span class="ic">—</span><span class="sname">空位</span><span class="sup" hidden></span><span class="cd"></span></button>
-    <button type="button" class="sk" id="sk-r" title="蜜藥瓶"><span class="k key">R</span><span class="ic">🧪</span><span class="sname">藥瓶</span><span class="cnt"></span><span class="cd"></span></button>
+    <button type="button" class="sk" id="sk-r" title="藥水"><span class="k key">R</span><span class="ic">🧪</span><span class="sname">藥水</span><span class="cnt"></span><span class="cd"></span></button>
     <button type="button" class="sk" id="quickTideUlt" hidden><span class="k">V</span><span data-i18n="ultimateReady">大絕</span></button>
     <button type="button" class="sk" id="apStop" hidden><span class="k">Z</span><span data-i18n="stopAuto">停止巡遊</span></button>
     <div class="touch-combat-actions touch-only">
@@ -2347,7 +2391,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     <button type="button" class="sk util" id="sk-mount" title="召喚／收起坐騎 (G)"><span class="k key">G</span><span class="ic">🦌</span><span class="sname" data-i18n="skMount">坐騎</span></button>
     <button type="button" class="sk util" id="sk-recall" title="快捷回城 (H)"><span class="k key">H</span><span class="ic">🐚</span><span class="sname" data-i18n="skRecall">回城</span><div class="cd"></div></button>
     <button type="button" class="sk util" id="sk-bag" title="物理背包與裝備 (I)"><span class="k">I</span><span class="ic">🎒</span><span class="sname" data-i18n="skBag">背包</span></button>
-    <button type="button" class="sk util pz-open" id="sk-puzzle" title="技能拼圖與寶石商人 (K)"><span class="k">K</span><span class="ic">💎</span><span class="sname" data-i18n="skPuzzle">拼圖</span></button>
+    <button type="button" class="sk util pz-open" id="sk-puzzle" title="技能 (K)"><span class="k">K</span><span class="ic">💎</span><span class="sname" data-i18n="skPuzzle">拼圖</span></button>
     <button type="button" class="sk util" id="sk-auto" title="提燈自動巡遊 (Z · Shift+Z 切換全自動／半自動)"><span class="k key">Z</span><span class="ic">🏮</span><span class="sname">巡遊</span></button>
   </div>
   <div id="tip" class="panel hide"></div>
@@ -2452,7 +2496,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 </dialog>
 <dialog id="worldMap" aria-labelledby="atlasTitle">
   <header>
-    <h2 id="atlasTitle" data-i18n="worldMap">世界地圖</h2>
+    <h2 id="atlasTitle" data-i18n="worldMap">地圖</h2>
     <span class="map-overview"></span>
     <div class="map-search-group">
       <input type="search" class="map-search" placeholder="搜尋島嶼…" aria-label="搜尋地圖"/>
@@ -2484,9 +2528,9 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   <div class="sbody"></div>
   <div class="sfoot"><button class="btn small" id="btnClose">繼續遊戲</button><button type="button" class="btn small" id="btnSwitchChar" style="background:#5a463a">👤 切換角色／帳號</button><span class="hint">Esc 開關設定</span></div>
 </div></div>
-<div id="panelM" class="modal hide"><div class="panel setp"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px"><h3 style="margin:0"></h3><button type="button" class="modal-x" id="btnPanelX" aria-label="關閉">✕</button></div><div class="pshards"></div><div class="quest-guide-controls" hidden><button type="button" class="btn small on" data-quest-guide-follow>✦ 跟隨燈火</button><button type="button" class="btn small" data-quest-guide-toggle>關閉光路</button></div><div class="pbody"></div></div></div>
+<div id="panelM" class="modal hide"><div class="panel setp"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px"><h3 style="margin:0"></h3><button type="button" class="modal-x" id="btnPanelX" aria-label="關閉">✕</button></div><div class="pshards"></div><div class="pbody"></div><div class="quest-guide-controls" hidden><button type="button" class="btn small on" data-quest-guide-follow>跟住路線</button><button type="button" class="btn small" data-quest-guide-toggle>隱藏路線</button></div></div></div>
 <div id="puzzleM" class="modal hide"><div class="panel pzp">
-  <div class="pz-head"><h3>💎 技能拼圖</h3><div style="display:flex;align-items:center;gap:10px"><span class="pz-coins"></span><button type="button" class="modal-x" id="btnPuzzleX" aria-label="關閉技能拼圖">✕</button></div></div>
+  <div class="pz-head"><h3 data-i18n="puzzle">技能</h3><div style="display:flex;align-items:center;gap:10px"><span class="pz-coins"></span><button type="button" class="modal-x" id="btnPuzzleX" aria-label="關閉技能">✕</button></div></div>
   <div class="pz-presets"></div>
   <div class="pz-unlock"></div>
   <div class="pz-info"></div>

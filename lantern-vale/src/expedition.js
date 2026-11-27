@@ -296,7 +296,7 @@ export function completeMeadowObjective(g, objective, partBroken = false) {
     g.ui.banner(def.champion + '現身', def.tactics);
     syncMeadowExpedition(g);
   } else if (stage === 'reward') {
-    g.ui.banner('遠征完成', '打開任務選擇寶石，並領取鑰石。');
+    g.ui.banner('遠征完成', '打開任務選擇寶石，並領取副本鑰匙。');
   } else g.ui.toast('遠征進度已記錄', '#ffd885');
   return true;
 }

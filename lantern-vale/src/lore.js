@@ -40,7 +40,7 @@ export function rewardText(r = {}) {
   if (r.xp) parts.push(`XP ${r.xp}`);
   if (r.coins) parts.push(`金幣 ${r.coins}`);
   if (r.shards) parts.push(`星砂 ${r.shards}`);
-  if (r.keys) parts.push(`鑰石 ${r.keys}`);
+  if (r.keys) parts.push(`副本鑰匙 ${r.keys}`);
   return parts.join(' · ');
 }
 

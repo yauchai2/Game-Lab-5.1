@@ -24,7 +24,7 @@ import { MONSTER_SOULS, SOUL_SLOTS, ensureSouls, equipSoul, unequipSoul, soulTie
 import { DENSITY_TIERS, LEAGUE_MECHANICS, ensureAtlas, setAtlasDensity, toggleAtlasMechanic, computeAtlasSummary, atlasCraftCost } from './atlas.js';
 import { TIDE_PHASES, ULTIMATES, MICRO_BUFFS, lootMultForTide, castUltimate, cycleUltimate, activateCurseShrine } from './tide.js';
 import { getKillStreakTier, getEscalationProfile } from './survivor.js';
-import { STAT_DEFS, ensureMmoState, availableStatPoints, allocateStat, resetStatPoints, getCurrentChapter, claimChapterReward, BESTIARY_DEFS, bestiaryRank, computeEnhanceResonance, getGuildRepInfo, getCompanionBondInfo, AI_COMPANIONS } from './mmo_rpg.js';
+import { STAT_DEFS, ensureMmoState, availableStatPoints, allocateStat, resetStatPoints, getCurrentChapter, BESTIARY_DEFS, bestiaryRank, computeEnhanceResonance, getGuildRepInfo, getCompanionBondInfo, AI_COMPANIONS } from './mmo_rpg.js';
 import { LIFE_SKILLS, LIFE_SKILL_IDS, getLifeSkillInfo, TITLE_DEFS, ensureTitles, equipTitle, computeTitleBonuses, spawnWorldBoss, getSimAdventurers, getSimConfig, DEFAULT_SIM_COUNT, setSimConfig, triggerSimEvent, assistSimTask } from './mmo_world.js';
 import { spawnDynamicEvent, getPartyIds, getActivePartySynergy, computeTowerBonuses } from './mmo_endgame.js';
 import { ALL_GEMS, addGemToBag } from './puzzle.js';
@@ -65,6 +65,19 @@ export class UI {
     this.refreshRegionMap = bindRegionMap(game);
     game.settings = loadSettings(); buildPanels(game); buildSettingsUI(game); applySettings(game);
     const menuBtn = $('btnMenu'), menuPop = $('menuPop');
+    const hud = $('hud'), statusButton = $('btnStatus'), status = $('rightStack');
+    const showStatus = open => {
+      this.hudStatusOpen = open;
+      if (open) game.clearTouchInput?.();
+      hud.classList.toggle('touch-details-open', open);
+      statusButton.setAttribute('aria-expanded', String(open));
+      if (open) $('worldActivity').open = true;
+    };
+    statusButton.onclick = () => {
+      showStatus(!this.hudStatusOpen);
+      if (this.hudStatusOpen) $('btnStatusClose').focus({ preventScroll: true });
+    };
+    $('btnStatusClose').onclick = () => { showStatus(false); menuBtn.focus({ preventScroll: true }); };
     const menuPages = [...menuPop.querySelectorAll('[data-menu-page]')];
     const showMenuPage = page => {
       for (const button of menuPages) {
@@ -75,7 +88,12 @@ export class UI {
     };
     for (const button of menuPages) button.onclick = () => showMenuPage(button.dataset.menuPage);
     const setMenu = (open, restore = false) => {
-      if (open) showMenuPage('adventure');
+      this.hudMenuOpen = open;
+      if (open) {
+        game.clearTouchInput?.();
+        showMenuPage('adventure');
+        showStatus(false);
+      }
       menuPop.classList.toggle('hide', !open);
       menuBtn.setAttribute('aria-expanded', String(open));
       if (restore) menuBtn.focus({ preventScroll: true });
@@ -89,9 +107,17 @@ export class UI {
     }, true);
     addEventListener('click', event => {
       if (!menuPop.contains(event.target) && !menuBtn.contains(event.target)) setMenu(false);
+      if (!status.contains(event.target) && !statusButton.contains(event.target)) showStatus(false);
     });
     addEventListener('keydown', event => {
-      if (menuPop.classList.contains('hide') || document.querySelector('dialog[open]')) return;
+      if (document.querySelector('dialog[open]')) return;
+      if (event.key === 'Escape' && hud.classList.contains('touch-details-open')) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        $('btnStatusClose').click();
+        return;
+      }
+      if (menuPop.classList.contains('hide')) return;
       if (event.key === 'Tab') {
         event.stopImmediatePropagation();
         return;
@@ -101,7 +127,7 @@ export class UI {
       event.stopImmediatePropagation();
       setMenu(false, true);
     }, true);
-    $('btnMute').onclick = () => { game.audio.init(); const m = game.audio.toggleMute(); $('btnMute').textContent = m ? '🔇 音效：關' : '🔊 音效：開'; };
+    $('btnMute').onclick = () => { game.audio.init(); const m = game.audio.toggleMute(); $('btnMute').textContent = m ? '音效：關' : '音效：開'; };
     const dbgBtn = $('btnDebug'); if (dbgBtn && game.dbg?.allowed === false) dbgBtn.style.display = 'none'; else if (dbgBtn) dbgBtn.onclick = () => { $('menuPop')?.classList.add('hide'); game.dbg?.toggle?.(); };
     const rosBtn = $('btnSimRoster'); if (rosBtn) rosBtn.onclick = () => { $('menuPop')?.classList.add('hide'); this.toggleSimRoster(game); };
     $('btnZoneShards').onclick = () => this.openPanel('shards');
@@ -135,7 +161,7 @@ export class UI {
         openTextDialog({ title: '小隊邀請', description: '複製連結給隊友。', value: url, readOnly: true });
       }
     };
-    $('btnMute').textContent = game.audio.muted ? '🔇 音效：關' : '🔊 音效：開';
+    $('btnMute').textContent = game.audio.muted ? '音效：關' : '音效：開';
     bindWorldMap(game); bindTouch(game); bindPuzzleUI(game); bindCodexUI(game);
     $('btnChatSend').onclick = () => this.finishChat(true);
     $('btnChatClose').onclick = () => this.finishChat(false);
@@ -167,40 +193,18 @@ export class UI {
       else if (game.dynEvent?.active) this.toast(`⚡ 動態奇遇【${game.dynEvent.def?.name}】進行中！快完成目標領魔方大獎！`, '#ffd85a');
     };
     const swBtn = $('btnSwitchChar'); if (swBtn) swBtn.onclick = () => { game.audio?.sfx?.('ui'); this.returnToCharSelect?.(); };
-    const qtEl = $('questTracker');
-    const openJourney = () => this.openPanel(openingStep(game.meta.p) ? 'opening' : 'expedition');
-    $('btnMeadowExpedition').onclick = openJourney;
-    this.openTouchJourney = () => {
-      if (game.state !== 'play' || game.interior) return false;
+    const openMissions = () => {
+      if (game.state !== 'play' || game.interior) return;
+      game.clearTouchInput?.();
       if (game.caveRun) {
-        if (!game.cleared || !game.lastCaveClear) return false;
-        this.openPanel('caveClear');
-        return true;
+        this.openPanel(game.cleared && game.lastCaveClear ? 'caveClear' : 'mission');
+      } else if (showExpeditionTracker(game)) {
+        this.openPanel(openingStep(game.meta.p) ? 'opening' : 'expedition');
+      } else {
+        this.openPanel('mission');
       }
-      if (!showExpeditionTracker(game)) return false;
-      openJourney();
-      return true;
     };
-    if (qtEl) qtEl.onclick = () => {
-      if (game.caveRun && game.cleared && game.lastCaveClear) {
-        this.openPanel('caveClear');
-        return;
-      }
-      if (showExpeditionTracker(game)) { openJourney(); return; }
-      const cur = getCurrentChapter(game.meta?.p);
-      if (!cur || !cur.done) return;
-      const rew = claimChapterReward(game.meta.p);
-      if (!rew) return;
-      let gemMsg = '';
-      if (rew.gem && ALL_GEMS[rew.gem]) {
-        addGemToBag(game.meta.p, rew.gem);
-        gemMsg = ` · 寶石【${ALL_GEMS[rew.gem].icon}${ALL_GEMS[rew.gem].name}】`;
-      }
-      game.meta.save();
-      game.recalc();
-      game.audio.sfx('classup');
-      this.banner(`🎉 主線完成！`, `+🪙${rew.coins} · +💎${rew.shards} 星砂 · +${rew.xp} XP${gemMsg}`);
-    };
+    for (const id of ['questTracker', 'btnMeadowExpedition', 'touchDetails']) $(id).onclick = openMissions;
     const dayBtn = $('dayInfo'); if (dayBtn) dayBtn.onclick = () => {
       if (game.net?.ok && !game.photoMode) {
         game.ui.toast('🌐 線上模式採全服統一晝夜時鐘（開啟 P 拍照模式可本地預覽光影）', '#ffe08a');
@@ -930,10 +934,10 @@ export class UI {
       prevField: prevF ? `返回上一區：${prevF.name}（Lv.${prevF.level}）` : '返回燈谷鎮',
       nextField: nextF ? `前往下一區：${nextF.name}（Lv.${nextF.level}）` : '返回海風港鎮',
       nextTower: `🗼 前往試煉之塔第 ${(g.towerFloor || 1) + 1} 層`,
-      dungeon: '消耗 1 鑰石 · 進入副本地圖',
+      dungeon: '消耗 1 副本鑰匙 · 進入副本地圖',
       caveReturn: '返回晨光草原',
     }[near.type] || '傳送門';
-    if (near.type === 'dungeon' && FIELDS[g.field]) el.textContent = '【副本地圖】' + FIELDS[g.field].dungeon + ' · 鑰石 ×1';
+    if (near.type === 'dungeon' && FIELDS[g.field]) el.textContent = '【副本地圖】' + FIELDS[g.field].dungeon + ' · 副本鑰匙 ×1';
     el.className = 'exitHint ' + near.type;
   }
   spotHint(g) {
@@ -1080,7 +1084,7 @@ export class UI {
         const maxCd = sk.def.cd * (1 - S.cdr / 100) * (1 - sk.mod.cdr);
         cd('sk-s' + i, p.skillCds?.[i] || 0, Math.max(0.1, maxCd), false);
       } else {
-        ic.textContent = '+'; sn.textContent = t(lang, 'skEmpty'); sup.hidden = true; el.title = '點擊開啟技能拼圖 (K) 裝備技能';
+        ic.textContent = '+'; sn.textContent = t(lang, 'skEmpty'); sup.hidden = true; el.title = '裝備技能 (K)';
         cd('sk-s' + i, 0, 1, true);
       }
     }
@@ -1173,18 +1177,19 @@ export class UI {
     if (qt) {
       const showQt = !!(g.state === 'play' && !g.interior && !g.photoMode);
       qt.classList.toggle('hide', !showQt);
+      $('touchDetails').hidden = !showQt;
       if (showQt) {
         const curCh = getCurrentChapter(g.meta?.p);
         const showExpedition = showExpeditionTracker(g);
-        qt.disabled = g.caveRun ? !(g.cleared && g.lastCaveClear) : !showExpedition && !curCh?.done;
         const qTi = $('qtTitle'), qDs = $('qtDesc'), qFl = $('qtFill');
+        const questLabel = t(lang, 'touchQuest');
+        if (qTi.textContent !== questLabel) qTi.textContent = questLabel;
         if (g.caveRun) {
           const cave = MEADOW_CAVE[g.caveRun.tier];
           const stage = g.caveRun.stage;
           qt.classList.toggle('done', g.cleared);
           qt.dataset.stage = 'cave';
           qt.title = '';
-          qTi.textContent = `草原洞窟 · ${cave.name}`;
           qDs.textContent = g.cleared ? '通關 · 查看結算' : `${stage + 1}/${cave.stages.length} · ${cave.stages[stage].name}`;
           qFl.style.width = `${g.cleared ? 100 : stage * 100 / cave.stages.length}%`;
         } else if (openingStep(g.meta.p)) {
@@ -1192,7 +1197,6 @@ export class UI {
           qt.classList.remove('done');
           qt.dataset.stage = 'opening';
           qt.title = '';
-          qTi.textContent = '巡燈旅程';
           qDs.textContent = {
             lamp: g.field === 1 ? '點亮南門路燈' : '前往晨光草原',
             spar: '側閃幼狂豬的衝鋒，趁收招反擊',
@@ -1210,26 +1214,23 @@ export class UI {
           qt.classList.toggle('done', stage === 'reward');
           qt.title = def.name;
           qt.dataset.stage = stage;
-          qTi.textContent = stage === 'reward' ? '遠征獎勵' : '區域遠征';
           qDs.textContent = stage === 'choose' ? '選擇清剿前哨或重燃路燈'
             : g.field !== def.field && stage !== 'reward' ? `前往${FIELDS[def.field].name}`
             : stage === 'route' ? `${route.title} · ${active.completed.length}/${route.need}`
-            : stage === 'champion' ? `討伐${def.champion}` : '選一顆寶石並領取鑰石';
+            : stage === 'champion' ? `討伐${def.champion}` : '選一顆寶石並領取副本鑰匙';
           qFl.style.width = stage === 'route' ? `${(active.completed.length / route.need) * 65}%`
             : stage === 'champion' ? '65%' : stage === 'reward' ? '100%' : '0%';
         } else if (curCh) {
           qt.title = '';
           qt.dataset.stage = 'story';
           qt.classList.toggle('done', !!curCh.done);
-          if (qTi) qTi.textContent = curCh.done ? `✨ 點擊領獎：${curCh.def.title}` : `📜 ${curCh.def.title}`;
-          if (qDs) qDs.textContent = `${curCh.def.desc}（${curCh.have}/${curCh.def.need}）`;
+          qDs.textContent = curCh.done ? `${curCh.def.title} · 可領取獎勵` : `${curCh.def.title} · ${curCh.have}/${curCh.def.need}`;
           if (qFl) qFl.style.width = `${Math.min(100, (curCh.have / Math.max(1, curCh.def.need)) * 100)}%`;
         } else {
           qt.title = '';
           qt.dataset.stage = 'complete';
           qt.classList.remove('done');
-          if (qTi) qTi.textContent = '👑 主線全章節通關';
-          if (qDs) qDs.textContent = `目標：挑戰高危星穹島嶼、衝裝 +10 與 S 級冒險者！`;
+          if (qDs) qDs.textContent = '目前的任務已完成';
           if (qFl) qFl.style.width = '100%';
         }
       }
@@ -1463,7 +1464,7 @@ export class UI {
       ['團隊光環', `${getClassTeamRole(cls.id).icon} ${getClassTeamRole(cls.id).name}（${getClassTeamRole(cls.id).desc}）`],
       ['等級 / 經驗', progress.level === 30 ? '30 · 滿級' : progress.level + ' · ' + progress.xp + '/' + xpForNextLevel(progress.level)],
       ...(nextMilestone(progress.level) ? [['下一里程碑', `Lv.${nextMilestone(progress.level).lv} · ${nextMilestone(progress.level).title}`]] : []),
-      ['金幣 / 鑰石', progress.coins + ' / ' + progress.keys],
+      ['金幣 / 副本鑰匙', progress.coins + ' / ' + progress.keys],
       ['木材 / 礦石 / 魚', progress.goods.wood + ' / ' + progress.goods.ore + ' / ' + progress.goods.fish],
       ['生命', `${Math.ceil(p.hp)} / ${S.maxHp}`], ['法力', `${S.mana}`], ['基礎傷害', `${S.baseDmg + S.addFire}`], ['傷害加成', `+${S.dmgPct}%`],
       ['攻擊速度', `+${S.atkSpd}%`], ['暴擊', `${S.crit}% × ${S.critMult}%`], ['範圍', `+${S.area}%`], ['移動速度', `+${S.moveSpd}%`],

@@ -97,17 +97,19 @@ export function applyHudIcons() {
     const iconHtml = pngName ? pxImg(pngName, label || crispKey) : (ICONS[crispKey] || '');
     el.innerHTML = label != null ? `${iconHtml}<span>${label}</span>` : iconHtml;
   };
-  swap('#btnMap', 'map', '地圖');
-  swap('#btnMenu', 'menu', '選單');
+  for (const [id, icon] of [['btnMap', 'map'], ['btnMenu', 'menu']]) {
+    const slot = document.querySelector(`#${id} .hud-button-icon`);
+    if (slot) slot.innerHTML = pxImg(CRISP_ICONS[icon], '');
+  }
   swap('#sk-r .ic', 'flask');
   swap('#sk-mount .ic', 'mount');
   swap('#sk-recall .ic', 'conch');
   swap('#sk-bag .ic', 'bag');
   swap('#sk-puzzle .ic', 'gem');
   swap('#sk-auto .ic', 'lantern');
-  swap('#btnWiki', 'book', '百科資料庫');
+  swap('#btnWiki', 'book', '圖鑑');
   swap('#btnChangelog', 'scroll', '更新日誌');
-  swap('#btnSet', 'gear', '遊戲設定');
+  swap('#btnSet', 'gear', '設定');
   swap('#btnDebug', 'wrench', '除錯工具 (F3)');
-  swap('#btnDonate', 'heart', '贊助支持');
+  swap('#btnDonate', 'heart', '贊助');
 }

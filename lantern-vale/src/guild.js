@@ -23,7 +23,10 @@ export function bindGuild(g) {
     g.dungeon.raidStarted();
     g.ui.mapDialog.close();g.ui.closePanel();g.field=0;
     g.runSeed=31415;g.loadRoom(9,null,true,{raid:true});
-    if(g.touchInteract)g.touchInteract.textContent='離隊';
+    if (g.touchInteract) {
+      g.touchInteract.textContent = '離隊';
+      g.touchInteract.classList.add('touch-interact-ready');
+    }
     g.state='raid'; g.fade=0;
     g.pipe.postMat.uniforms.uFade.value=0; g.pipe.postMat.uniforms.uHurt.value=0;
     g.clearRemotes();g.net.send({t:'pos',zone:'guild:'+g.party,x:0,z:4});

@@ -9,13 +9,44 @@ async function main() {
   });
   const url = process.env.LV_GAME_URL || 'http://localhost:8080';
   try {
-    for (const [width, height, touch] of [[1280, 800, false], [390, 844, true], [844, 390, true]]) {
+    for (const [width, height, touch] of [[1280, 800, false], [390, 844, true], [844, 390, true], [320, 640, true]]) {
       const page = await browser.newPage({ viewport: { width, height }, isMobile: touch, hasTouch: touch });
       const errors = [];
       page.on('pageerror', error => errors.push(error.message));
       await page.goto(url, { waitUntil: 'domcontentloaded' });
       await page.locator('#btnQuickStart').click();
       await page.waitForFunction(() => __game.state === 'play' && __game.zone === 'town');
+      const mission = page.locator(touch ? '#touchDetails' : '#questTracker');
+      if (touch) {
+        assert.equal(await mission.textContent(), '任務');
+        assert.ok((await mission.boundingBox()).height >= 44);
+        assert.equal(await page.locator('#rightStack').isVisible(), false);
+        await mission.tap();
+      } else {
+        assert.equal(await page.locator('#qtTitle').textContent(), '任務');
+        await mission.click();
+      }
+      const panel = page.locator('#panelM');
+      await panel.waitFor();
+      assert.equal(await panel.locator('h3').textContent(), '任務');
+      assert.match(await panel.locator('.pbody').innerText(), /前往晨光草原/);
+      if (touch && process.env.LV_SCREENSHOT_DIR) {
+        await page.screenshot({ path: path.join(process.env.LV_SCREENSHOT_DIR, `mission-${width}x${height}.png`) });
+      }
+      await panel.locator('#btnPanelX').click();
+      if (touch) {
+        const menu = page.locator('#btnMenu');
+        await menu.tap();
+        await page.locator('[data-menu-page="system"]').tap();
+        await page.locator('#btnStatus').tap();
+        await page.locator('#rightStack').waitFor();
+        assert.equal(await page.locator('#questTracker').isVisible(), false);
+        await page.locator('#btnStatusClose').tap();
+        assert.equal(await page.locator('#rightStack').isVisible(), false);
+        if (process.env.LV_SCREENSHOT_DIR) {
+          await page.screenshot({ path: path.join(process.env.LV_SCREENSHOT_DIR, `hud-${width}x${height}.png`) });
+        }
+      }
       await page.evaluate(() => {
         const g = __game, p = g.player.pos;
         g.dropItem(p.x + 1, p.z, __makeItem(() => 0.45, 1, 1, 'charm'), { quiet: true });
@@ -25,6 +56,18 @@ async function main() {
       await page.waitForFunction(() => __game.time > beforeDropTime + 0.25, null, { timeout: 6000 });
       assert.deepEqual(errors, []);
       if (!touch) {
+        await page.evaluate(() => {
+          const p = __game.meta.p;
+          p.opening.finished = true;
+          p.level = 6;
+          p.story.progress.ch1 = 8;
+          window.coinsBeforeMission = p.coins;
+        });
+        await mission.click();
+        assert.equal(await panel.locator('h3').textContent(), '任務');
+        await panel.getByRole('button', { name: '領取獎勵' }).click();
+        assert.equal(await page.evaluate(() => __game.meta.p.coins - coinsBeforeMission), 80);
+        assert.equal(await panel.getByRole('button', { name: '領取獎勵' }).count(), 0);
         await page.close();
         continue;
       }

@@ -120,7 +120,7 @@ export function buildLodge(g, body, title, kind, recipeId = null) {
     const b = document.createElement('button'); b.className = 'btn small'; b.textContent = label; b.disabled = !enabled;
     b.onclick = () => { fn(); g.meta.save(); g.recalc(); refresh(); }; row.append(b);
   };
-  line('Lv.' + p.level + '　經驗 ' + p.xp + '/' + xpForNextLevel(p.level) + '　金幣 ' + p.coins, Object.entries(GOODS).map(([k,n])=> n + ' ' + p.goods[k]).join('　') + '　鑰石 ' + p.keys);
+  line('Lv.' + p.level + '　經驗 ' + p.xp + '/' + xpForNextLevel(p.level) + '　金幣 ' + p.coins, Object.entries(GOODS).map(([k,n])=> n + ' ' + p.goods[k]).join('　') + '　副本鑰匙 ' + p.keys);
   if (kind === 'market') {
     if (g.wallet) {
       const b=document.createElement('button');b.className='btn small';b.textContent='公會交易所';b.onclick=()=>g.ui.openPanel('exchange');body.append(b);
@@ -136,7 +136,7 @@ export function buildLodge(g, body, title, kind, recipeId = null) {
   } else if (kind === 'workshop') {
     const wTab = (recipeId || p.opening?.badge === 'ready') ? 'gear' : (g.ui._workshopTab || 'gear');
     const tabs = document.createElement('div'); tabs.className = 'panel-tabs';
-    for (const [id, lb] of [['gear', '裝備鍛造'], ['tools', '武器與鑰石']]) {
+    for (const [id, lb] of [['gear', '裝備鍛造'], ['tools', '武器與副本鑰匙']]) {
       const tb = document.createElement('button'); tb.type = 'button'; tb.textContent = lb;
       if (id === wTab) tb.className = 'on';
       tb.onclick = () => { g.ui._workshopTab = id; g.audio?.sfx?.('ui'); buildLodge(g, body, title, kind, id === 'tools' ? null : recipeId); };
@@ -227,7 +227,7 @@ export function buildLodge(g, body, title, kind, recipeId = null) {
       action(line('基礎鍛造（隨機詞綴）','香杉木 ×2、星紋礦 ×3'), '鍛造',p.goods.wood>=2 && p.goods.ore>=3,()=>{const name=craft(g); if(name) g.ui.toast('裝備了 '+name);});
     } else {
       materialStock();
-      action(line('製作副本鑰石','星紋礦 ×2'), '製作',p.goods.ore>=2,()=>{p.goods.ore-=2;p.keys++;});
+      action(line('製作副本副本鑰匙','星紋礦 ×2'), '製作',p.goods.ore>=2,()=>{p.goods.ore-=2;p.keys++;});
       action(line('鑲嵌餘燼寶石','星紋礦 ×4 · 解鎖 Q 震擊 · 附加 4 點火傷'),p.gem?'已鑲嵌':'鑲嵌',!p.gem && p.goods.ore>=4,()=>{p.goods.ore-=4;p.gem=true;});
       for (const [id,label] of Object.entries(weapons)) {
         const hint = {staff:'近身杖擊', bow:'遠距離箭矢', blades:'攻擊速度 +40%', shield:'護甲 +15'}[id];

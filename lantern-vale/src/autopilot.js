@@ -228,7 +228,7 @@ export function tickAutopilot(g, dt, manualMv) {
     ap.cozyActive = false;
   }
 
-  // 🛡️ 安全機制 1：HP < 45% 自動喝蜜藥瓶
+  // 🛡️ 安全機制 1：HP < 45% 自動喝藥水
   if (p.hp < p.stats.maxHp * 0.45 && p.flask.charges > 0 && (p.healOver || 0) <= 0) {
     g.tryFlask?.();
   }

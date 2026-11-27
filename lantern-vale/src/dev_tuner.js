@@ -634,6 +634,11 @@ export function installDevTuner(game, hooks) {
   btn.id = 'devTuneBtn'; btn.type = 'button'; btn.textContent = '🎛'; btn.title = '開發者調校面板（`）';
   btn.onclick = () => toggle();
   document.body.appendChild(btn);
+  const menuButton = document.getElementById('btnMobileTuner');
+  if (menuButton) {
+    menuButton.hidden = false;
+    menuButton.onclick = () => toggle();
+  }
 
   function toggle(force) {
     open = typeof force === 'boolean' ? force : !open;
