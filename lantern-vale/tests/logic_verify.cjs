@@ -1666,5 +1666,21 @@ const createGuild = require('../server/guild.cjs');
   const legHead = p0Loot.makeItem(() => 0.5, 10, 3, 'head');
   assert.equal(legHead.rarity, 3, 'New secondary slot (head) drops Legendary unique');
 
-  console.log('ALL 57 LOGIC, P1-BALANCE-OVERHAUL, P0-BALANCE-OVERHAUL, WHOLE-MAP-VIRTUAL-MMO-M12, VIRTUAL-MMO-PLAYERS-M11, CRISP-PIXEL-UI-SYSTEM, VFX-100PCT-UTILIZATION, MMORPG-ENDGAME-POTENTIAL-TOWER-PARTY-EVENTS-OFFLINE, MMORPG-LIVING-WORLD-BOSS-LIFE-RUNES-TITLES-DAILY, MMORPG-PROGRESSION-OVERHAUL, GEAR-LEVEL-GATES-TIER-MATS, ACCOUNT-LOGIN-DELETE-CHAR, MONSTER-MATS-CRAFT-RESIST, MMORPG-6-PILLARS, HARDCORE-MMO-SCARCITY, CREATOR-OCEAN-INTERACT, V6-FIELD-POI-BOSS, DIORAMA-D1-D4, VFX-SKILL-REWORK-V1-V6, UI-UNIFIED-U4B, CHAR-C6-TOON-ANIM, CHAR-REWORK-C1-C5, FUZZ-QA-36, MMO-M10-PORTALS-CRAFT-KILLSWITCH, MMO-M9-SAFETY-KILLSWITCH, MMO-M8-ROLES-FEAST-GPU, MMO-M7-SOUL-AWAKEN-GPU-FIX, MMO-M6-SPIRE-MENTOR-LIGHTHOUSE, MMO-M5-FERRY-REVIEW, MMO-M4-OVERHAUL, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
+  // 58. Melee vs Ranged Non-Stat Spatial Mechanics (Lunge, Lantern Part-Break, Proximity Shield, Donut Safe Zone, Move Commit)
+  assert.equal(p0Prog.meleeLungeDistance(1, 0), 1.6, 'First melee swing lunges 1.6m forward');
+  assert.equal(p0Prog.meleeLungeDistance(2, 0.3), 2.0, 'Post-roll melee strike lunges 2.0m forward');
+  assert.equal(p0Prog.meleeLungeDistance(2, 0), 0, 'Non-first non-post-roll swing does not lunge');
+  assert.equal(p0Prog.partBreakEfficiency({ isMelee: true, dist: 2.5, lampRange: 9 }), 1.5, 'Melee inside lantern light gets 1.5x part-break efficiency');
+  assert.equal(p0Prog.partBreakEfficiency({ isMelee: false, dist: 6.0, lampRange: 9 }), 0.85, 'Ranged inside lantern light gets 0.85x part-break efficiency');
+  assert.equal(p0Prog.partBreakEfficiency({ isMelee: false, dist: 11.0, lampRange: 9 }), 0, 'Blind ranged snipe outside lantern light deals 0 part-break');
+  assert.equal(p0Prog.proximityShieldFactor(true, 3.0, 4.5), 1, 'Inside 4.5m proximity shield deals full damage');
+  assert.equal(p0Prog.proximityShieldFactor(true, 8.0, 4.5), 0.2, 'Outside 4.5m proximity shield deflects 80% projectile damage');
+  assert.equal(p0Prog.isInDonutSafeZone(2.5, 3.5), true, 'Standing within 3.5m is inside boss Donut AoE safe zone');
+  assert.equal(p0Prog.isInDonutSafeZone(6.0, 3.5), false, 'Standing at 6.0m is hit by boss Donut AoE');
+  assert.equal(p0Prog.rangedMoveCommitScale(0.2), 0.55, 'Ranged firing commit slows movement to 55%');
+  assert.equal(p0Prog.rangedMoveCommitScale(0), 1, 'Normal movement unaffected when not firing');
+  assert.equal(p0Prog.canTriggerOpeningCrit(11.0, false, 9.0), false, 'Ranged attack beyond lantern light cannot trigger opening forced crit');
+  assert.equal(p0Prog.canTriggerOpeningCrit(3.0, true, 9.0), true, 'Melee attack triggers opening forced crit');
+
+  console.log('ALL 58 LOGIC, MELEE-RANGED-SPATIAL, P1-BALANCE-OVERHAUL, P0-BALANCE-OVERHAUL, WHOLE-MAP-VIRTUAL-MMO-M12, VIRTUAL-MMO-PLAYERS-M11, CRISP-PIXEL-UI-SYSTEM, VFX-100PCT-UTILIZATION, MMORPG-ENDGAME-POTENTIAL-TOWER-PARTY-EVENTS-OFFLINE, MMORPG-LIVING-WORLD-BOSS-LIFE-RUNES-TITLES-DAILY, MMORPG-PROGRESSION-OVERHAUL, GEAR-LEVEL-GATES-TIER-MATS, ACCOUNT-LOGIN-DELETE-CHAR, MONSTER-MATS-CRAFT-RESIST, MMORPG-6-PILLARS, HARDCORE-MMO-SCARCITY, CREATOR-OCEAN-INTERACT, V6-FIELD-POI-BOSS, DIORAMA-D1-D4, VFX-SKILL-REWORK-V1-V6, UI-UNIFIED-U4B, CHAR-C6-TOON-ANIM, CHAR-REWORK-C1-C5, FUZZ-QA-36, MMO-M10-PORTALS-CRAFT-KILLSWITCH, MMO-M9-SAFETY-KILLSWITCH, MMO-M8-ROLES-FEAST-GPU, MMO-M7-SOUL-AWAKEN-GPU-FIX, MMO-M6-SPIRE-MENTOR-LIGHTHOUSE, MMO-M5-FERRY-REVIEW, MMO-M4-OVERHAUL, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
 })();

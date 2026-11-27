@@ -139,3 +139,36 @@ export function triggerCircuitCostAndIcd(gemDef = {}) {
   const icdMs = Math.round(Math.max(0.45, (gemDef?.cd || 0) * 0.35) * 1000);
   return { manaCost, icdMs };
 }
+
+/** 近戰非數值機制：普攻第 1 刀或翻滾後 0.45s 內附帶自動踏步貼身距離（公尺） */
+export function meleeLungeDistance(comboStep = 1, postRollT = 0) {
+  if ((postRollT || 0) > 0) return 2.0;
+  return comboStep === 1 ? 1.6 : 0;
+}
+
+/** 星燈照域＋部位破壞效率：超出星燈光照圈無法累積部位破壞；近戰 1.5×、遠程燈圈內 0.85× */
+export function partBreakEfficiency({ isMelee = false, dist = 0, lampRange = 9.0 } = {}) {
+  if ((dist || 0) > (lampRange || 9.0)) return 0;
+  return isMelee ? 1.5 : 0.85;
+}
+
+/** 精英外環風障（Proximity Shield）：結界外遠程投射物偏折剩 20%，踏入 4.5m 內全額命中 */
+export function proximityShieldFactor(hasShield = false, shooterDist = 0, shieldRadius = 4.5) {
+  if (!hasShield || (shooterDist || 0) <= (shieldRadius || 4.5)) return 1;
+  return 0.2;
+}
+
+/** 首領外環星雷（Donut AoE）內圈安全區判定：貼身 0–3.5m 免傷 */
+export function isInDonutSafeZone(dist = 0, innerRadius = 3.5) {
+  return (dist || 0) <= (innerRadius || 3.5);
+}
+
+/** 遠程開火移速折減（走 A 操作紀律）：射擊瞬間移速降至 55% */
+export function rangedMoveCommitScale(rangedCommitT = 0) {
+  return (rangedCommitT || 0) > 0 ? 0.55 : 1;
+}
+
+/** 星燈照域破綻判定：超距盲射無法觸發破綻必暴，須近戰或於星燈圈內 */
+export function canTriggerOpeningCrit(dist = 0, isMelee = false, lampRange = 9.0) {
+  return !!isMelee || (dist || 0) <= (lampRange || 9.0);
+}
