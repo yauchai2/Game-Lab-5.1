@@ -783,6 +783,7 @@ export class Game {
     if (this.townGroup) { dropObj(this.townGroup); this.townGroup = null; this.chimneys = null; }
     for (const b of this.bots) this.removeRemote(b); this.bots = [];
     this.dbg?.log?.(`[ZONE] 載入 ${this.zone}`);
+    this.dbg?.onZoneLoaded?.();
     const bi = (title || anyTown) ? 0 : this.biomeFor(depth);
     const B = ambushRoom ? {
       ...BIOMES[0], name: '岔道伏擊', ground: 0xa4a8b3, sky: 0xe3e7ef, sun: 0xffffff,
@@ -3465,7 +3466,7 @@ export class Game {
         const buffSpd = ((this.shrineBuffs?.fury || 0) > 0 ? 1.2 : 1) * ((this.shrineBuffs?.sheep || 0) > 0 ? 1.1 : 1);
         const glideSpd = p.gliding ? (p.souls?.mobility?.id === 'skyray' ? 1.95 : 1.35) : 1;
         const terrainSpd = (p.terrainFx ? (p.terrainFx.speedMult || 1) : 1) * (p.realmRule?.speedMult || 1) * offsetSpeedMul(this.flameRt?.fx?.speedMul ?? 1, p.wickFx?.speedOffset);
-        const devSpd = (this.dev?.on && this.dev?.fastMove) ? 2.2 : 1;
+        const devSpd = this.dev?.on ? (this.dev.speedMul || (this.dev.fastMove ? 2.2 : 1)) : 1;
         const f = chillMul * mountSpd * buffSpd * terrainSpd * devSpd * (attacking ? 0.55 : 1) * (p.climbing ? 0.22 : 1) * glideSpd * (canSprint ? 1.25 : 1);
         if (mountDef?.ramKnockback && mv.lengthSq() > 0.2) {
           for (const e of this.enemies) if (!e.dead && e.type !== 'stag' && e.pos.distanceTo(p.pos) < e.r + 1.0) {
@@ -3581,13 +3582,13 @@ export class Game {
     }
     // 超慢漸進晝夜循環（完整循環 20 分鐘，白晝長達約 70%）與校正光影氛圍
     if (this.state === 'play' && !this.interior) {
-      this.dayTime = (this.dayTime + dt / 1200) % 1;
+      if (!this.devTune?.freezeTime) this.dayTime = (this.dayTime + dt / 1200) % 1;
       const di = dayInfo(this.dayTime);
       this.isNight = di.isNight;
       if (this.isNight && this.field) { this.meta.p.deeds = this.meta.p.deeds || {}; this.meta.p.deeds.nightExplore = 1; }
       if (this.biome) {
-        this.sun.intensity = this.biome.sunI * 1.45 * di.sunMult;
-        this.hemi.intensity = this.biome.ambient * 1.15 * di.hemiMult;
+        this.sun.intensity = this.biome.sunI * 1.45 * di.sunMult * (this.devTune?.sunMul ?? 1);
+        this.hemi.intensity = this.biome.ambient * 1.15 * di.hemiMult * (this.devTune?.hemiMul ?? 1);
         this.pipe.postMat.uniforms.uGrade.value.set(this.biome.grade[0] * di.tint[0], this.biome.grade[1] * di.tint[1], this.biome.grade[2] * di.tint[2]);
       }
       this.lampLight.distance = this.isNight ? 7.5 : 3.8;
@@ -4777,16 +4778,18 @@ export class Game {
     let tx = p.pos.x, tz = p.pos.z;
     if (this.state === 'title') { tx = Math.sin(this.time * 0.08) * 6; tz = Math.cos(this.time * 0.06) * 4; }
     // 鎖定最佳立體斜角鏡頭（camYaw = 0.62，無需 Z/X 手動調整，畫面層次與景深最佳）
-    this.camYaw = 0.62;
+    const dc = this.devTune?.cam; // Dev Tuner 鏡頭覆寫（未調校時為 undefined，行為與原本相同）
+    this.camYaw = dc?.yaw ?? 0.62;
     this.camPos.x = lerp(this.camPos.x, tx, 1 - Math.exp(-dt * 6.5));
     this.camPos.z = lerp(this.camPos.z, tz, 1 - Math.exp(-dt * 6.5));
     this.camY = lerp(this.camY || 0, this.state === 'title' ? 0 : p.y * 0.85, 1 - Math.exp(-dt * 4));
     this.shake = Math.max(0, this.shake - dt * 3.8);
     const s = this.shake * this.shake * 0.18 * (this.settings.shake ? 1 : 0);
-    const preset = [
+    let preset = [
       { yK: 0.68, zK: 0.73, fov: 34 }, // 0: 關閉（標準視角）
       { yK: 0.52, zK: 0.85, fov: 38 }, // 1: 開啟（原低仰角視角）
     ][this.settings?.camAngle ? 1 : 0];
+    if (dc && (dc.yK != null || dc.zK != null || dc.fov != null)) preset = { yK: dc.yK ?? preset.yK, zK: dc.zK ?? preset.zK, fov: dc.fov ?? preset.fov };
     if (Math.abs(this.camera.fov - preset.fov) > 0.1) {
       this.camera.fov = lerp(this.camera.fov, preset.fov, 1 - Math.exp(-dt * 6));
       this.camera.updateProjectionMatrix();
@@ -4795,7 +4798,7 @@ export class Game {
     const punch = this.settings.shake ? (this.camPunch || 0) * 0.4 : 0;
     const trialDist = this.ambushTrial && this.camera.aspect < 0.8 ? 47 : 0;
     const baseDist = this.camDistOverride || trialDist || (this.interior ? 17 : this.photoMode ? 18 : this.state === 'title' ? 40 : 37);
-    const dist = baseDist * (this.interior ? 1 : (this.camZoom || 1)) * (1 + (this.tide?.zoomBonus || 0)) * (1 - punch);
+    const dist = baseDist * (this.interior ? 1 : (this.camZoom || 1)) * (1 + (this.tide?.zoomBonus || 0)) * (1 - punch) * (dc?.dist ?? 1);
     const yaw = this.state === 'title' ? 0.45 : (this.camYaw ?? 0.62);
     const horiz = dist * preset.zK;
     this.camera.position.set(

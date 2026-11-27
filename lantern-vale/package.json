@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "build": "node build.mjs",
-    "test": "node tests/save_migration.cjs && node tests/flame_logic.cjs && node tests/lore_logic.cjs && node tests/wick_logic.cjs && node tests/audio_music.cjs && node tests/logic_verify.cjs && node tests/playtest_review.cjs && node tests/shards.cjs && node tests/playtest_gate.cjs",
+    "test": "node tests/save_migration.cjs && node tests/flame_logic.cjs && node tests/lore_logic.cjs && node tests/wick_logic.cjs && node tests/audio_music.cjs && node tests/logic_verify.cjs && node tests/playtest_review.cjs && node tests/shards.cjs && node tests/playtest_gate.cjs && node tests/dev_tune_merge.cjs",
     "review:once": "node tests/review_watch.cjs --once",
     "review:watch": "node tests/review_watch.cjs --watch",
     "playtest:live": "node scripts/live_playtest.cjs",
@@ -13,7 +13,8 @@
     "test:wick": "node tests/wick_browser.cjs",
     "test:audio": "node tests/audio_music.cjs",
     "test:audio:browser": "node tests/audio_browser.cjs",
-    "test:lore": "node tests/lore_browser.cjs"
+    "test:lore": "node tests/lore_browser.cjs",
+    "test:tuner": "node tests/dev_tuner.cjs"
   },
   "keywords": [],
   "author": "",
