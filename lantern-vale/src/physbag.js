@@ -627,7 +627,7 @@ export function useBagItem(game, itemData, fromListKey) {
     if (old) addGearToBag(p, old);
     game.recalc();
     rememberGear(game);
-    game.audio.sfx('pickup');
+    game.audio.sfx('equip');
     game.ui.toast(`已裝備 ${gear.name}`, itemData.color || '#ffe08a');
     return true;
   }
@@ -713,7 +713,7 @@ export function transferBagItem(game, itemData, fromKey, toKey) {
   const [moved] = from.splice(idx, 1);
   const twin = moved.kind === 'consumable' && to.find(x => x.kind === 'consumable' && x.name === moved.name);
   if (twin) twin.qty = (twin.qty || 1) + (moved.qty || 1); else to.push(moved);
-  game.audio.sfx('ui');
+  game.audio.sfx('bagRustle');
   game.meta.save();
   game.ui.toast(`${moved.name} → ${toKey === 'stashItems' ? t(game.settings?.lang, 'stash') : t(game.settings?.lang, 'bag')}`, '#ffe08a');
   return true;

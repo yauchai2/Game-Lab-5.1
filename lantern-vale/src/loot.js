@@ -223,6 +223,7 @@ export function serializeItem(it) {
     corrupted: !!it.corrupted, bricked: !!it.bricked,
     corruptImplicit: it.corruptImplicit ? { k: it.corruptImplicit.k, v: it.corruptImplicit.v } : null,
     implicit: it.implicit ? { k: it.implicit.k, v: it.implicit.v } : null,
+    ...(Number.isFinite(it.baseImplicitVal) ? { baseImplicitVal: it.baseImplicitVal } : {}),
     mods: it.mods.map(m => ({ k: m.k, v: m.v })), reforged: it.reforged || 0,
   };
 }
@@ -244,6 +245,7 @@ export function deserializeItem(o) {
     corrupted: !!o.corrupted, bricked: !!o.bricked,
     corruptImplicit: o.corruptImplicit ? { ...o.corruptImplicit, fmt: fmtOf(o.corruptImplicit.k) } : null,
     implicit: o.implicit ? { ...o.implicit, fmt: IMP_FMT[o.implicit.k] || fmtOf(o.implicit.k) } : null,
+    ...(Number.isFinite(o.baseImplicitVal) ? { baseImplicitVal: o.baseImplicitVal } : {}),
     mods: o.mods.map(m => ({ k: m.k, v: m.v, fmt: fmtOf(m.k) })),
   };
 }
@@ -313,7 +315,12 @@ export function forgeItem(kind, it, r = Math.random) {
   else if (kind === 'add') { const m = rollMod(r, n, n.mods.map(x => x.k)); if (m) n.mods.push(m); }
   else if (kind === 'tier') {
     n.tier++; const cnt = n.mods.length; n.mods = []; for (let i = 0; i < cnt; i++) { const m = rollMod(r, n, n.mods.map(x => x.k)); if (m) n.mods.push(m); }
-    const imp = n.implicit && IMPLICIT[n.slot] ? implicitOf(n.slot, n.tier) : null; if (imp && n.rarity < 3) n.implicit = imp;
+    const imp = n.implicit && IMPLICIT[n.slot] ? implicitOf(n.slot, n.tier) : null;
+    if (imp && n.rarity < 3) {
+      n.baseImplicitVal = imp.v;
+      if ((n.enhance || 0) > 0) imp.v = Math.max(1, Math.round(n.baseImplicitVal * (1 + 0.14 * n.enhance)));
+      n.implicit = imp;
+    }
   } else if (kind === 'upgrade') {
     n.rarity++; const want = n.rarity === 1 ? 2 : 4; while (n.mods.length < want) { const m = rollMod(r, n, n.mods.map(x => x.k)); if (!m) break; n.mods.push(m); }
     n.base = n.base || SLOTS[n.slot]?.bases[0] || n.name || '裝備';

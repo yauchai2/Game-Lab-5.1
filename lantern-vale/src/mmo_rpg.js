@@ -8,10 +8,10 @@ import { legacyGearRank } from './itemdb.js';
 // 1. 經典 MMORPG 角色四維屬性配點（每升 1 級獲得 3 點屬性點，可免費重置）
 // ============================================================================
 export const STAT_DEFS = [
-  { id: 'str', icon: '⚔️', name: '力量 STR', desc: '每點：基礎傷害 +1.2 · 全傷害 +1.5%' },
-  { id: 'dex', icon: '🏹', name: '敏捷 DEX', desc: '每點：攻速 +2% · 暴擊率 +0.8% · 移速 +0.6%' },
-  { id: 'int', icon: '🔮', name: '智力 INT', desc: '每點：法力上限 +5 · 冷卻縮減 +0.8% · 火傷 +0.6' },
-  { id: 'vit', icon: '🛡️', name: '體質 VIT', desc: '每點：最大生命 +9 · 減傷 +0.6% · 每秒回血 +0.2' },
+  { id: 'str', icon: '⚔️', name: '力量 STR', desc: '每點：基礎傷害 +1.4 · 護甲 +0.4（不再疊加百分比全傷）' },
+  { id: 'dex', icon: '🏹', name: '敏捷 DEX', desc: '每點：攻速 +1.5% · 暴擊率 +0.7% · 移速 +0.5%' },
+  { id: 'int', icon: '🔮', name: '智力 INT', desc: '每點：元素基傷 +1.4 · 法力上限 +5 · 冷卻縮減 +0.6%' },
+  { id: 'vit', icon: '🛡️', name: '體質 VIT', desc: '每點：最大生命 +9 · 護甲 +1.2 · 每秒回血 +0.25' },
 ];
 
 export function ensureMmoState(profile) {
@@ -63,17 +63,17 @@ export function computeAllocatedBonuses(profile) {
   const a = ensureMmoState(profile).allocStats || {};
   const str = a.str || 0, dex = a.dex || 0, intel = a.int || 0, vit = a.vit || 0;
   return {
-    baseDmg: Math.floor(str * 1.2),
-    dmgPct: Math.round(str * 1.5),
-    atkSpd: dex * 2,
-    crit: +(dex * 0.8).toFixed(1),
-    moveSpd: +(dex * 0.6).toFixed(1),
+    baseDmg: Math.floor(str * 1.4),
+    dmgPct: 0,
+    atkSpd: +(dex * 1.5).toFixed(1),
+    crit: +(dex * 0.7).toFixed(1),
+    moveSpd: +(dex * 0.5).toFixed(1),
     mana: intel * 5,
-    cdr: Math.min(35, +(intel * 0.8).toFixed(1)),
-    addFire: Math.floor(intel * 0.6),
+    cdr: Math.min(30, +(intel * 0.6).toFixed(1)),
+    addFire: Math.floor(intel * 1.4),
     maxHp: vit * 9,
-    armor: Math.min(25, +(vit * 0.6).toFixed(1)),
-    regen: +(vit * 0.2).toFixed(1),
+    armor: +(str * 0.4 + vit * 1.2).toFixed(1),
+    regen: +(vit * 0.25).toFixed(1),
   };
 }
 
@@ -143,17 +143,20 @@ export function enhanceItem(profile, item, rng = Math.random, useCharm = false) 
   const lifeUp = grantLifeXp(profile, 'smith', 14);
   addDailyActivity(profile, 8);
 
+  if (item.implicit && !Number.isFinite(item.baseImplicitVal)) {
+    item.baseImplicitVal = cur > 0 ? Math.max(1, Math.round(item.implicit.v / (1 + 0.14 * cur))) : item.implicit.v;
+  }
   const success = rng() < info.rate;
   if (success) {
     item.enhance = cur + 1;
     if (info.baseRate < 1) profile.enhanceFailstack = 0;
-    if (item.implicit) item.implicit.v = Math.max(item.implicit.v + 1, Math.round(item.implicit.v * 1.14));
+    if (item.implicit) item.implicit.v = Math.max(1, Math.round(item.baseImplicitVal * (1 + 0.14 * item.enhance)));
     return { ok: true, success: true, enhance: item.enhance, failstack: profile.enhanceFailstack || 0, lifeUp, msg: `✨ 精煉成功！裝備躍升至 +${item.enhance}！` };
   }
   profile.enhanceFailstack = curFs + 1;
   if (info.downgradeOnFail && !wantCharm) {
     item.enhance = Math.max(0, cur - 1);
-    if (item.implicit) item.implicit.v = Math.max(1, Math.round(item.implicit.v / 1.14));
+    if (item.implicit) item.implicit.v = Math.max(1, Math.round(item.baseImplicitVal * (1 + 0.14 * item.enhance)));
     return { ok: true, success: false, downgraded: true, enhance: item.enhance, failstack: profile.enhanceFailstack, lifeUp, msg: `💥 精煉失敗降為 +${item.enhance}… 疊層保底 +1（下次 +${Math.round(profile.enhanceFailstack * FAILSTACK_PER_FAIL * 100)}%）` };
   }
   return {

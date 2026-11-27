@@ -196,7 +196,17 @@ export function bindWorldMap(game) {
   const wpBtn = document.createElement('button'); wpBtn.className = 'btn small map-travel';
   const duel = document.createElement('button'); duel.className = 'btn small';
   const raid = document.createElement('button'); raid.className = 'btn small'; raid.textContent = '公會組隊副本';
-  raid.onclick = () => game.net.send({ t: 'raidJoin', code: game.party });
+  raid.onclick = () => {
+    dialog.close();
+    if (game.nearSpot()?.kind === 'guild') {
+      game.dungeon.open({ kind: 'raid' }, '共鳴樹庭');
+      return;
+    }
+    game.questDestination = 'guild';
+    game.questGuide.enabled = true;
+    game.mapPin = game.waypoint = null;
+    game.ui.toast('跟隨燈火前往公會大廳，在入口加入等候室。', '#ffe08a');
+  };
   const ferryBtn = document.createElement('button'); ferryBtn.className = 'btn small'; ferryBtn.style.background = '#c97828';
   const actions = document.createElement('div'); actions.className = 'map-actions';
   for (const button of [sailBtn, ferryBtn, wpBtn, duel, raid]) button.type = 'button';
@@ -352,7 +362,7 @@ export function bindWorldMap(game) {
     const reachable = isRegionReachable(game, reg);
     const curReg = getCurrentRegion();
 
-    raid.hidden = !(reg.id === 0 && game.depth < 0 && game.wallet);
+    raid.hidden = !(reg.id === 0 && game.depth < 0 && game.wallet && game.net.dungeonLobbies);
     duel.hidden = !(reg.id === 5 && game.field === 5 && !game.dueling);
     const isWp = game.waypoint?.id === reg.id;
     wpBtn.textContent = isWp ? t(lang, 'clearWaypoint') : `🧭 ${t(lang, 'setWaypoint')}`;

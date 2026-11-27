@@ -91,3 +91,39 @@ export function milestoneText(lv) {
   const hit = PROGRESSION_MILESTONES.find(m => m.lv === lv);
   return hit ? `🎯 里程碑解鎖：${hit.title} — ${hit.desc}` : null;
 }
+
+/** P0 漸近護甲減傷公式：Armor / (Armor + 80)，硬上限 72% */
+export function effectiveArmorMitigation(armor = 0) {
+  const a = Math.max(0, armor || 0);
+  return Math.min(0.72, a / (a + 80));
+}
+
+/** P0 攻速軟／硬上限：80% 以內線性，80% 以上折半，硬上限 120% */
+export function effectiveAttackSpeed(rawAtkSpd = 0) {
+  const r = Math.max(-50, rawAtkSpd || 0);
+  return r <= 80 ? r : Math.min(120, +(80 + (r - 80) * 0.5).toFixed(2));
+}
+
+/** P0 暴擊溢位 1:1 轉暴傷；強制暴擊期間額外將基礎暴擊率（上限 100%）的 50% 轉為暴傷 */
+export function effectiveCritProfile(rawCrit = 0, baseCritMult = 150, forceCrit = false) {
+  const rc = Math.max(0, rawCrit || 0);
+  const normalOverflow = Math.max(0, rc - 100);
+  const forcedBonus = forceCrit ? Math.round(Math.min(100, rc) * 0.5) : 0;
+  return {
+    chance: forceCrit ? 100 : Math.min(100, rc),
+    critMult: baseCritMult + normalOverflow + forcedBonus,
+    overflow: normalOverflow + forcedBonus,
+  };
+}
+
+/** P0 前期怪物倍率平滑化：Lv.1-4 1.15x/1.10x，Lv.5-14 線性爬升至 1.60x/1.45x，Lv.15+ 維持終局標準 */
+export function enemyStageMultipliers(lv = 1) {
+  const n = Math.max(1, lv || 1);
+  if (n <= 4) return { hpMul: 1.15, dmgMul: 1.10 };
+  if (n >= 15) return { hpMul: 1.60, dmgMul: 1.45 };
+  const t = (n - 4) / 11;
+  return {
+    hpMul: +(1.15 + 0.45 * t).toFixed(3),
+    dmgMul: +(1.10 + 0.35 * t).toFixed(3),
+  };
+}

@@ -1,5 +1,30 @@
 # 交接說明（Claude → Codex，2026-11-22）
 
+## 2026-11-27 P0 數值平衡大改（Build `42dd9f1f2cdb`）
+
+- **四維屬性配點解耦**（`src/mmo_rpg.js`）：`STR` 改為每點 `baseDmg +1.4`、`armor +0.4`（移除 `dmgPct` 雙重乘區）；`INT` 改為每點 `addFire +1.4`、`mana +5`、`cdr +0.6%`（上限 30%）；`DEX` 每點 `atkSpd +1.5%`、`crit +0.7%`、`moveSpd +0.5%`；`VIT` 每點 `maxHp +9`、`armor +1.2`、`regen +0.25`。
+- **漸近護甲、攻速上下限與暴擊溢位轉暴傷**（`src/progression.js`、`src/game.js`）：新增 `effectiveArmorMitigation`（`Armor / (Armor + 80)`，硬上限 72%）、`effectiveAttackSpeed`（80% 軟上限折半、120% 硬上限）、`effectiveCritProfile`（暴擊率超過 100% 部分 `1:1` 轉暴傷，強制暴擊期間額外轉化基礎暴擊率 50% 為暴傷）。
+- **裝備精煉防數值漂移**（`src/mmo_rpg.js`、`src/loot.js`）：持久化 `baseImplicitVal`，精煉升級與 `+7` 以上降階皆改由 `Math.round(baseImplicitVal * (1 + 0.14 * enhance))` 直接計算，並於 `serializeItem`／`deserializeItem`／`forgeItem('tier')` 同步維護。
+- **Lv.1–5 前期平滑化**（`src/progression.js`、`src/game.js`、`src/frontier.js`）：`enemyStageMultipliers` 將 Lv.1–4 怪物倍率降至 `1.15x HP / 1.10x DMG` 並於 Lv.5–14 線性爬升至 `1.60x / 1.45x`；`xpForNextLevel` 於 Lv.1–5 套用 `0.88x` 曲線。
+- 驗證：`node build.mjs`（2215KB，SHA-256 `42dd9f1f2cdb`）、`node tests/logic_verify.cjs`（含第 56 項 P0 斷言）與 `node tests/playtest_review.cjs`。
+
+## 2026-11-27 遊戲動作及音效
+
+- 開局角色原本可能延後載入骨骼動畫到一直沒有播放。現在只有標題畫面背景角色延後載入，進場角色即載入職業動畫。普攻每次只觸發一次，跳躍與倒地播放時保留同一段進度，受擊正確使用 GetHit。
+- 腳步以碰撞後的位移決定，地面材質和落地速度同時影響音色及粒子。滑翔風聲走音效音量，可在停止滑翔、離開頁籤或切換區域時收掉。武器、直接施法、附近怪物蓄力與釋放、採集、鍛造及裝備都有相應音色。
+- 本輪音效以 Web Audio 合成。素材盤點位置為 `Game-Lab/temporary`，有 Unity 角色、怪物及特效套件，本輪沒有引入外部素材。透過 `node tests/action_feedback.cjs` 與 `node tests/space_test.cjs` 重跑瀏覽器檢查。
+
+## 2026-11-27 UI 文字對比修正
+
+- 外觀深木卡改用奶油字，選中用淺金字與金框。木框 PNG 的 `border-image-slice: fill` 會蓋住 CSS 底色。需要亮底的卡片和清單保留像素邊框，中央由 CSS 上色。鎖定描述和停用按鈕保留清楚文字。
+- Chromium 桌面 1280×900 和手機模擬 390×844 各抽查 24 個介面，依實際九宮格素材中心及文字顏色檢查穩定狀態的抽樣文字。外觀卡由 1.39:1 提高到 9.11:1，選中時為 10.99:1。介面回歸測試會讀取實際貼圖，避免只檢查 CSS 底色。
+
+## 2026-11-27 副本多人等候室
+
+- 草原洞窟與續戰、區域入口、異界、每週星穹塔、試煉之塔及共鳴樹庭共用等候室。相同分流和副本條件的玩家從同一入口配對，每室最多四位真人。隊長可出發、單人可關閉 AI 或補至三人。
+- 非公會副本共用組隊種子、由伺服器記錄怪物血量及隊伍出口，敵人移動以隊長所在位置資料校正。個人受傷、招式效果及戰利品沿用現有客戶端邏輯。共鳴樹庭繼續由伺服器模擬。組隊行為需要新版 WebSocket 伺服器。
+- 等候中可退出，隊長離開會交接。普通副本本機模式支援 AI，公會副本仍使用線上帳本。洞窟及區域副本在出發時才扣鑰石，退出等候室不會扣除。後續可驗證高延遲環境的戰鬥表現。
+
 ## 2026-11-26 3 秒內資產載入極速優化、物理背包實體體積防重疊修復與 UI 簡約重構階段四
 
 - **建置雜湊**：`game/index.html` `293a2ee0b7fe`（2090KB）。`node tests/logic_verify.cjs`（55/55 全通過）、`node tests/playtest_review.cjs`、`node --check server/server.js` 與 `node --check server/playtest_gate.cjs` 全通過。
