@@ -165,12 +165,12 @@ export class DungeonLobby {
     if (!this.sharesEnemyAttack(enemy) || this.run.leader !== this.g.net.id) return;
     const run = this.run;
     if (phase === 'warn') {
-      enemy.sharedAttack = hint[0] === 4
-        ? { state: enemy.state, roots: warning }
-        : { state: enemy.state, charge: hint[0] === 1, decal: warning };
+      if (hint[0] === 4) enemy.sharedAttack = { state: enemy.state, roots: warning, pulseCount: warning.length };
+      else if (hint[0] === 5) enemy.sharedAttack = warning;
+      else enemy.sharedAttack = { state: enemy.state, charge: hint[0] === 1, decal: warning };
     } else if (!enemy.sharedAttack) return;
     else if (phase === 'pulse') {
-      if (hint === enemy.sharedAttack.roots?.length) enemy.sharedAttack = null;
+      if (hint === enemy.sharedAttack.pulseCount) enemy.sharedAttack = null;
     } else if (phase === 'release' && enemy.sharedAttack.charge) {
       enemy.sharedAttack.state = 'charge';
       enemy.sharedAttack.released = true;
@@ -211,6 +211,13 @@ export class DungeonLobby {
         enemy.facing = extra;
         return;
       }
+      if (shape === 5) {
+        if (!this.run.burstSync || enemy.type !== 'stag') return;
+        enemy.incomingAttack = g.warnStagBurst(x, z, size, extra, duration);
+        enemy.state = 'burst';
+        enemy.t = 0;
+        return;
+      }
       const charge = shape === 1;
       const stag = enemy.type === 'stag';
       const decal = charge
@@ -231,10 +238,13 @@ export class DungeonLobby {
       if (info.phase === 'end') {
         this.clearAttack(enemy);
       } else if (info.phase === 'pulse') {
-        const row = attack.roots?.[info.hint - 1];
-        if (!row) return;
-        g.resolveStagRootRow(enemy, row, info.hint);
-        if (info.hint === attack.roots.length) this.clearAttack(enemy);
+        if (attack.shape === 5) g.resolveStagBurst(enemy, attack, info.hint);
+        else {
+          const row = attack.roots?.[info.hint - 1];
+          if (!row) return;
+          g.resolveStagRootRow(enemy, row, info.hint);
+        }
+        if (info.hint === (attack.pulseCount ?? attack.roots.length)) this.clearAttack(enemy);
       } else if (info.phase === 'release' && attack.decal) {
         attack.decal.t = attack.decal.dur;
         if (attack.charge) {

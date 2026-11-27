@@ -53,20 +53,22 @@ module.exports = function createDungeonLobbies(send, startRaid, announce = () =>
         || !hint.every(Number.isFinite)) return;
       const [shape, x, z, size, extra, duration] = hint;
       if (Math.abs(x) > 1024 || Math.abs(z) > 1024 || size <= 0 || size > 10 || duration < 0.2 || duration > 2) return;
+      const pulseCount = shape === 4 ? 7 : shape === 5 ? size : 0;
       const validShape = room.spec.kind === 'cave'
         ? (shape === 0 && extra > 0 && extra <= 2 || shape === 1 && Math.abs(extra) <= Math.PI)
         : (shape === 1 && Math.abs(extra) <= Math.PI || shape === 2 && extra > 0 && extra < size
           || shape === 3 && extra === 0
-          || shape === 4 && room.rootSync && (size === 2 || size === 3) && Math.abs(extra) <= Math.PI);
+          || shape === 4 && room.rootSync && (size === 2 || size === 3) && Math.abs(extra) <= Math.PI
+          || shape === 5 && room.burstSync && (size === 2 || size === 3) && (extra === 7 || extra === 14));
       if (!validShape) return;
-      room.attacks.set(enemy, { shape, until: now + duration * 1000 + (shape === 4 ? 2500 : 1500), released: false, nextPulse: 1 });
+      room.attacks.set(enemy, { shape, until: now + duration * 1000 + (pulseCount ? 3500 : 1500), released: false, nextPulse: 1, pulseCount });
     } else if (phase === 'pulse') {
-      if (current?.shape !== 4 || current.until <= now || hint !== current.nextPulse) return;
-      if (hint === 7) room.attacks.delete(enemy);
+      if (!current?.pulseCount || current.until <= now || hint !== current.nextPulse) return;
+      if (hint === current.pulseCount) room.attacks.delete(enemy);
       else current.nextPulse++;
     } else {
       if (!current || current.until <= now || (phase !== 'release' && phase !== 'end')) return;
-      if (phase === 'release' && (current.released || current.shape === 4)) return;
+      if (phase === 'release' && (current.released || current.pulseCount)) return;
       if (phase === 'end' || current.shape !== 1) room.attacks.delete(enemy);
       else current.released = true;
     }
@@ -131,9 +133,10 @@ module.exports = function createDungeonLobbies(send, startRaid, announce = () =>
       const minAttackVersion = room.spec.kind === 'cave' ? 1 : 2;
       room.attackSync = members.length > 1 && members.every(member => member.dungeonAttacks >= minAttackVersion);
       room.rootSync = room.attackSync && room.spec.kind !== 'cave' && members.every(member => member.dungeonRootAttacks);
+      room.burstSync = room.attackSync && room.spec.kind !== 'cave' && members.every(member => member.dungeonBurstAttacks);
       room.attacks = new Map();
       for (const member of members) member.dungeonRun = room;
-      const info = { t: 'dungeon_begin', id: room.id, leader: me.id, seed: Math.floor(Math.random() * 999999) + 1, bots, count: members.length, attackSync: room.attackSync, rootSync: room.rootSync };
+      const info = { t: 'dungeon_begin', id: room.id, leader: me.id, seed: Math.floor(Math.random() * 999999) + 1, bots, count: members.length, attackSync: room.attackSync, rootSync: room.rootSync, burstSync: room.burstSync };
       for (const member of members) send(member, info);
       return;
     }

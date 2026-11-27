@@ -129,7 +129,7 @@ class Particles {
 const STAG_ROOT_INTERVAL = 0.12;
 const STAG_ROOT_RADIUS = 1;
 const decalVS = `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`;
-const decalFS = `uniform vec3 uColor; uniform float uProg, uShape, uAlpha, uInner; varying vec2 vUv;
+const decalFS = `uniform vec3 uColor; uniform float uProg, uShape, uAlpha, uInner, uRays; varying vec2 vUv;
   void main(){
     float a = 0.0;
     if (uShape < 0.5) { float d = length(vUv-0.5)*2.0; if (d>1.0) discard;
@@ -143,11 +143,20 @@ const decalFS = `uniform vec3 uColor; uniform float uProg, uShape, uAlpha, uInne
       float front = mix(uInner, 1.0, uProg);
       a = 0.19 + 0.43*step(d,front) + 0.48*step(abs(d-front),0.025)
         + 0.68*step(0.965,d) + 0.68*step(d,uInner+0.035);
-    } else {
+    } else if (uShape < 4.5) {
       float d = length(vUv-0.5)*2.0;
       if (d > 1.0) discard;
       float stripe = step(0.75, fract((vUv.x + vUv.y)*7.0));
       a = min(1.0, 0.32 + 0.16*stripe + 0.44*uProg + 0.45*step(0.84,d));
+    } else {
+      vec2 p = vec2(vUv.x-0.5, 0.5-vUv.y);
+      float d = length(p)*2.0;
+      if (d < 0.12 || d > 1.0) discard;
+      float lane = abs(fract(atan(p.y,p.x)*uRays/6.2831853 + 0.5)-0.5);
+      float ray = 1.0-smoothstep(0.045,0.18,lane);
+      float edge = step(0.93,d) + step(d,0.19);
+      float sweep = step(abs(d-mix(0.19,0.93,uProg)),0.035);
+      a = min(1.0, ray*(0.45 + 0.35*uProg + 0.22*sweep) + 0.38*edge);
     }
     gl_FragColor = vec4(uColor, a*uAlpha);
   }`;
@@ -1842,7 +1851,7 @@ export class Game {
     const mat = new THREE.ShaderMaterial({
       uniforms: { uColor: { value: new THREE.Color(color) }, uProg: { value: 0 },
         uShape: { value: shapeId ?? (annulus ? 3 : shape === 'circle' ? 0 : 1) },
-        uInner: { value: annulus ? size.inner / size.outer : 0 }, uAlpha: { value: 1 } },
+        uInner: { value: annulus ? size.inner / size.outer : 0 }, uRays: { value: 0 }, uAlpha: { value: 1 } },
       vertexShader: decalVS, fragmentShader: decalFS, transparent: true, depthWrite: false,
     });
     let geo;
@@ -4656,6 +4665,44 @@ export class Game {
     if (hit) this.hurtPlayer(enemy.dmg, hit);
   }
 
+  warnStagBurst(x, z, pulseCount, shots, windup) {
+    const origin = new V3(x, this.world.gh(x, z), z);
+    const interval = windup * 0.76;
+    this.enemyCue('enemyWind', origin);
+    return {
+      shape: 5, state: 'burst', origin, pulseCount, shots, windup, interval,
+      until: this.time + windup + (pulseCount - 1) * interval + 1.5,
+      decal: this.stagBurstWarning(origin, shots, 1, windup),
+    };
+  }
+
+  stagBurstWarning(origin, shots, step, duration) {
+    const decal = this.addDecal('circle', origin.x, origin.z, 6.5, 0xffae55, duration, -step * 0.2, null, 5);
+    decal.mesh.position.y = origin.y + 0.19;
+    decal.mat.uniforms.uRays.value = shots;
+    decal.hold = true;
+    return decal;
+  }
+
+  resolveStagBurst(enemy, attack, step) {
+    this.expireWarning(attack.decal);
+    this.fireStagVolley(enemy, attack.origin, attack.shots, step);
+    const { x, y, z } = attack.origin;
+    this.puffs.burst(x, y + 0.65, z, 10, { c: [0xffa040, 0xffe4a4], s: 0.22, speed: 4, up: 2.2, life: 0.35 });
+    if (step < attack.pulseCount) {
+      attack.decal = this.stagBurstWarning(attack.origin, attack.shots, step + 1, attack.interval);
+    }
+  }
+
+  fireStagVolley(enemy, origin, shots, step) {
+    this.enemyCue('enemyCast', origin);
+    for (let i = 0; i < shots; i++) {
+      const angle = i / shots * Math.PI * 2 + step * 0.2;
+      this.fireEnemyProj(origin, new V2(Math.cos(angle), Math.sin(angle)), 6.5, enemy.dmg * 0.8, 0xffa040, 0.25);
+    }
+    this.shake = Math.max(this.shake, 0.2);
+  }
+
   updateBoss(e, dt, dist, dirP, follow, setMv) {
     const p = this.player;
     e.cd -= dt;
@@ -4668,6 +4715,7 @@ export class Game {
         const shared = this.dungeon.sharesEnemyAttack(e);
         const moves = shared ? ['charge', 'stomp', 'donut'] : ['charge', 'burst', 'roots', dist < 4 ? 'stomp' : 'donut'];
         if (shared && this.dungeon.run.rootSync) moves.push('roots');
+        if (shared && this.dungeon.run.burstSync) moves.push('burst');
         if (dist > 7.5) moves.push('donut', 'charge');
         if (!shared && this.enemies.length < 4) moves.push('summon');
         e.state = pick(Math.random, moves); e.t = 0; e.step = 0;
@@ -4708,14 +4756,31 @@ export class Game {
           }
         }
       }
+    } else if (e.state === 'burst' && this.dungeon.sharesEnemyAttack(e)) {
+      if (e.statuses?.freeze > 0) return;
+      if (e.step === 0) {
+        const { x, z } = e.pos;
+        const count = e.phase === 2 ? 3 : 2;
+        const shots = e.brokenWeakens?.has('burst') ? 7 : 14;
+        const windup = e.phase === 2 ? 0.68 : 0.82;
+        e.step = 1;
+        this.dungeon.sendAttack(e, 'warn', [5, x, z, count, shots, windup], this.warnStagBurst(x, z, count, shots, windup));
+      }
+      const attack = e.sharedAttack;
+      if (attack && e.t >= attack.windup + (e.step - 1) * attack.interval) {
+        this.resolveStagBurst(e, attack, e.step);
+        this.dungeon.sendAttack(e, 'pulse', e.step);
+        if (e.step++ === attack.pulseCount) {
+          e.state = 'rest';
+          e.t = 0;
+          e.chargeRecoveryS = 1.1;
+        }
+      }
     } else if (e.state === 'burst') {
       e.flash = Math.max(e.flash, Math.sin(e.t * 30) > 0 ? 0.03 : 0);
       if (e.t > 0.7 * fast && e.step < (e.phase === 2 ? 3 : 2)) {
         e.t = 0.2; e.step++;
-        this.enemyCue('enemyCast', e.pos);
-        const n = e.brokenWeakens?.has('burst') ? 7 : 14, off = e.step * 0.2;
-        for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2 + off; this.fireEnemyProj(e.pos, new V2(Math.cos(a), Math.sin(a)), 6.5, e.dmg * 0.8, 0xffa040, 0.25); }
-        this.shake = 0.2;
+        this.fireStagVolley(e, e.pos, e.brokenWeakens?.has('burst') ? 7 : 14, e.step);
       }
       if (e.step >= (e.phase === 2 ? 3 : 2) && e.t > 0.8) { e.state = 'move'; e.cd = 1.4 * fast; }
     } else if (e.state === 'roots' && this.dungeon.sharesEnemyAttack(e)) {
