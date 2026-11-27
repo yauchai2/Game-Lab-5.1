@@ -2,6 +2,11 @@
 
 const ACCOUNTS_KEY = 'lv_accounts_v1';
 const CURRENT_KEY = 'lv_current_account_v1';
+let storageNamespace = '';
+
+export function setAccountStorageNamespace(namespace) {
+  storageNamespace = namespace;
+}
 
 function getStore(storage) {
   if (storage) return storage;
@@ -26,20 +31,20 @@ export function hashPassword(pw = '', salt = 'lv_salt_2026') {
 export function listAccounts(storage) {
   const st = getStore(storage);
   if (!st) return {};
-  try { return JSON.parse(st.getItem(ACCOUNTS_KEY) || '{}') || {}; } catch { return {}; }
+  try { return JSON.parse(st.getItem(storageNamespace + ACCOUNTS_KEY) || '{}') || {}; } catch { return {}; }
 }
 
 function saveAccounts(map, storage) {
   const st = getStore(storage);
   if (!st) return;
-  try { st.setItem(ACCOUNTS_KEY, JSON.stringify(map)); } catch {}
+  try { st.setItem(storageNamespace + ACCOUNTS_KEY, JSON.stringify(map)); } catch {}
 }
 
 export function getActiveAccount(storage) {
   const st = getStore(storage);
   if (!st) return { username: 'guest', isGuest: true };
   try {
-    const u = st.getItem(CURRENT_KEY);
+    const u = st.getItem(storageNamespace + CURRENT_KEY);
     if (u && u !== 'guest') return { username: u, isGuest: false };
   } catch {}
   return { username: 'guest', isGuest: true };
@@ -57,7 +62,7 @@ export function activePrefix(storage) {
 
 export function slotKeys(slot = 0, username = null, storage = null) {
   const s = Number.isInteger(slot) && slot >= 0 ? slot : 0;
-  const pref = username !== null ? accountPrefix(username) : activePrefix(storage);
+  const pref = storageNamespace + (username !== null ? accountPrefix(username) : activePrefix(storage));
   return {
     charKey: pref + (s === 0 ? 'lv_prof' : 'lv_prof_' + s),
     profileKey: pref + (s === 0 ? 'lv_profile' : 'lv_profile_' + s),
@@ -81,7 +86,7 @@ export function registerAccount(username, password, storage) {
   };
   saveAccounts(accounts, storage);
   const st = getStore(storage);
-  try { st?.setItem(CURRENT_KEY, u); } catch {}
+  try { st?.setItem(storageNamespace + CURRENT_KEY, u); } catch {}
   return { ok: true, account: { username: u, isGuest: false } };
 }
 
@@ -90,7 +95,7 @@ export function loginAccount(username, password, storage) {
   if (!u) return { ok: false, reason: '請輸入帳號' };
   if (u.toLowerCase() === 'guest') {
     const st = getStore(storage);
-    try { st?.setItem(CURRENT_KEY, 'guest'); } catch {}
+    try { st?.setItem(storageNamespace + CURRENT_KEY, 'guest'); } catch {}
     return { ok: true, account: { username: 'guest', isGuest: true } };
   }
   const accounts = listAccounts(storage);
@@ -100,13 +105,13 @@ export function loginAccount(username, password, storage) {
     return { ok: false, reason: '密碼錯誤，請再試一次' };
   }
   const st = getStore(storage);
-  try { st?.setItem(CURRENT_KEY, rec.username); } catch {}
+  try { st?.setItem(storageNamespace + CURRENT_KEY, rec.username); } catch {}
   return { ok: true, account: { username: rec.username, isGuest: false } };
 }
 
 export function logoutAccount(storage) {
   const st = getStore(storage);
-  try { st?.setItem(CURRENT_KEY, 'guest'); } catch {}
+  try { st?.setItem(storageNamespace + CURRENT_KEY, 'guest'); } catch {}
   return { ok: true, account: { username: 'guest', isGuest: true } };
 }
 

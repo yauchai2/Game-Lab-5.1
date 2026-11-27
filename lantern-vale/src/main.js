@@ -2,6 +2,7 @@ import { Pipeline } from './render.js';
 import { Game } from './game.js';
 import { UI } from './ui.js';
 import { Audio } from './audio.js';
+import { setAccountStorageNamespace } from './account.js';
 import { ambushTrialOrder } from './ambush_trial.js';
 import { isTestHub, mountTestHub } from './test_hub.js';
 import { makeItem } from './loot.js';
@@ -24,14 +25,22 @@ if (isTestHub()) {
 function startApp() {
 installDevDiagnostics();
 
+const growth = new URLSearchParams(location.search).get('growth');
+const local = ['localhost', '127.0.0.1'].includes(location.hostname);
+const publicGrowth = growth === 'progression' && !local;
+if (publicGrowth) setAccountStorageNamespace('lv_growth_preview_');
+
 const pipe = new Pipeline(document.getElementById('view'));
 const ui = new UI();
 const audio = new Audio();
 const game = new Game(pipe, ui, audio, ambushTrialOrder());
-if ((typeof __LV_PROD__ === 'undefined' || !__LV_PROD__) &&
-    ['localhost', '127.0.0.1'].includes(location.hostname)) {
-  const growth = new URLSearchParams(location.search).get('growth');
-  if (['prototype', 'advanced', 'progression'].includes(growth)) game.growthPrototype = growth;
+if (growth === 'progression' || (local && (typeof __LV_PROD__ === 'undefined' || !__LV_PROD__) &&
+    ['prototype', 'advanced'].includes(growth))) {
+  game.growthPrototype = growth;
+}
+if (publicGrowth) {
+  game.net.offlineOnly = true;
+  document.getElementById('growthPreviewNote').hidden = false;
 }
 ui.audio = audio;
 ui.bind(game);
