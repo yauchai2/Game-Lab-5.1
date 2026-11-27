@@ -1864,13 +1864,17 @@ export class Game {
     const pos = actor.m.root.position;
     this.cueAt(kind === 'cast' ? 'wisp' : WEAPON_CUES[kind], pos, 12, 0.55);
     if (Math.hypot(pos.x - this.player.pos.x, pos.z - this.player.pos.z) > 18) return;
+    const facing = actor.tf ?? actor.f;
     if (kind === 'bow') {
-      const dx = Math.sin(actor.f), dz = Math.cos(actor.f);
-      this.spawnBeam(pos.x + dx * 0.55, pos.y + 0.9, pos.z + dz * 0.55, pos.x + dx * 3, pos.y + 0.94, pos.z + dz * 3, 0x9bc9d3);
+      const dx = Math.sin(facing), dz = Math.cos(facing);
+      const target = actor.pendingCombatTarget;
+      this.spawnBeam(pos.x + dx * 0.55, pos.y + 0.9, pos.z + dz * 0.55,
+        target?.x ?? pos.x + dx * 3, target ? target.y + 0.5 : pos.y + 0.94,
+        target?.z ?? pos.z + dz * 3, 0x9bc9d3);
     } else if (kind === 'cast') {
       this.fx.burst(pos.x, pos.y + 0.8, pos.z, 4, { c: 0xa1d7ff, s: 0.09, speed: 1.9, up: 1.4, life: 0.26 });
     } else {
-      this.vfx?.spawnSlash(pos.x, pos.y, pos.z, actor.f, { theme: 'wind', scale: 1.25, clean: true });
+      this.vfx?.spawnSlash(pos.x, pos.y, pos.z, facing, { theme: kind === 'shield' ? 'holy' : 'wind', scale: 1.25, clean: true });
     }
   }
   queueMeadowStrike(enemy, x, z, radius, duration, damageMult) {
@@ -2023,7 +2027,7 @@ export class Game {
           if (job === 0) this.fireProj(ep.mesh.position, dir, { speed: 18, mult: 1.15, fire: false, color: 0xffcf4a, size: 0.22, life: 0.9, isTrigger: true });
         }
       }
-      if (deflected > 0) this.audio.sfx('parry');
+      if (deflected > 0) this.audio.sfx('shieldBash');
       if (job === 0) {
         this.vfx?.spawnSummon('ground_slam', p.pos.x + dir.x * 1.4, p.y, p.pos.z + dir.y * 1.4, dir.x, dir.y, { theme: 'holy' });
         this.shockRing(p.pos.x + dir.x * 1.4, p.pos.z + dir.y * 1.4, 2.8, this.rollDamage(1.35), 0xffcf4a, 0.45, { isTrigger: true });
@@ -3458,7 +3462,7 @@ export class Game {
       if (r.a === 1) r.walkT += dt * 11;
       if (r.pendingCombat) {
         this.companionAttack(r, r.pendingCombat);
-        r.pendingCombat = null;
+        r.pendingCombat = r.pendingCombatTarget = null;
       }
       r.attackPose = Math.max(0, (r.attackPose || 0) - dt);
       r.rollTime = r.a === 5 ? Math.min(0.28, (r.rollTime || 0) + dt) : 0;

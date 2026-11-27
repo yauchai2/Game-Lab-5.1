@@ -1,0 +1,357 @@
+{
+  "leaf1": {
+    "source": "leaves01.ogg",
+    "sourceSha256": "93b3bbcd06380eec54335d1869924db6ff2cc6c1cb103502133d78484c5ca836",
+    "pack": "steps"
+  },
+  "leaf2": {
+    "source": "leaves02.ogg",
+    "sourceSha256": "477c35bfd3f740915b24f93cb66364523217692d2749057f9b8be162eb8209f4",
+    "pack": "steps"
+  },
+  "stone1": {
+    "source": "stone01.ogg",
+    "sourceSha256": "99b04d784eb6b531777a64fb0e319f104eb7cdd6b625c1fac68f511605930a2c",
+    "pack": "steps"
+  },
+  "wood1": {
+    "source": "wood01.ogg",
+    "sourceSha256": "482d97c5e1e6eb7b239be46f25d093ebebb94cefb56eedb04807b6a5dc68e972",
+    "pack": "steps"
+  },
+  "wood2": {
+    "source": "wood02.ogg",
+    "sourceSha256": "588bb121bd3db005b4c2a5b55c1cf39b8ec620f820c2123ac1f62748d132dac2",
+    "pack": "steps"
+  },
+  "wood3": {
+    "source": "wood03.ogg",
+    "sourceSha256": "9b677c284389163f132b94e1323ea713a4c7ac9d5fba849cf7cbf8b53a1627e2",
+    "pack": "steps"
+  },
+  "gravel": {
+    "source": "gravel.ogg",
+    "sourceSha256": "34e6057ec1581b5cb8802e4942952b00b1dac235bfcb0ed8cff0ceb15a3ebbbf",
+    "pack": "steps"
+  },
+  "mud": {
+    "source": "mud02.ogg",
+    "sourceSha256": "354682c2cb340cd787d892d31beb87c45dda94ca6e8363b16828ab2f1d129b82",
+    "pack": "steps"
+  },
+  "blade1": {
+    "source": "blade_01.ogg",
+    "sourceSha256": "caf7a7cb9b25cda4bd487c1d12d18b74a34bb18c816fd67277cf3c8d7ef32a3a",
+    "pack": "rpg"
+  },
+  "blade2": {
+    "source": "blade_03.ogg",
+    "sourceSha256": "2cd9e6926f4602a4350e703eeae4df520053e290f358ab692632d651ad368a7c",
+    "pack": "rpg"
+  },
+  "hurt": {
+    "source": "creature_hurt_01.ogg",
+    "sourceSha256": "9948f9ce067e1aae7bd780e974d51ceae03f2611a52afffb0e092ba47e9dc8e1",
+    "pack": "rpg"
+  },
+  "death": {
+    "source": "creature_die_01.ogg",
+    "sourceSha256": "b34a816a401c5d80c77a61dabbedef7d1918a01320bbb67286c70f22db4acd43",
+    "pack": "rpg"
+  },
+  "coin": {
+    "source": "item_coins_03.ogg",
+    "sourceSha256": "cd89cae2221ab5e911f93c208e8b905290f695eea3b1830bc9012cc46f6c047b",
+    "pack": "rpg"
+  },
+  "gem": {
+    "source": "item_gem_02.ogg",
+    "sourceSha256": "a5f4b0b3ae0e272765619289ef6709513e0dfa0785d7559e8a223176a8bcf181",
+    "pack": "rpg"
+  },
+  "fire": {
+    "source": "spell_fire_02.ogg",
+    "sourceSha256": "bf1eef4993f0adb4bd3a1c1ec91f8f6e4ddeb32d922671a14561846d5b7cab98",
+    "pack": "rpg"
+  },
+  "fire2": {
+    "source": "spell_fire_05.ogg",
+    "sourceSha256": "18025b21a4ecb3b41acc0dccb0697a8930262109ea198ff8c5ef0853d3ed1cfa",
+    "pack": "rpg"
+  },
+  "windCast": {
+    "source": "spell_02.ogg",
+    "sourceSha256": "bf9c48b76921e56aa266172d969a2c08215d6ce0ffae7c3584f23fa05d3f8bd4",
+    "pack": "rpg"
+  },
+  "thunder": {
+    "source": "spell_fire_07.ogg",
+    "sourceSha256": "bb13cef9c0b0b4ec7f9335c356b14814c88418abd85dd3747cb62469e9ada93f",
+    "pack": "rpg"
+  },
+  "mine": {
+    "source": "stones_02.ogg",
+    "sourceSha256": "57dc6b85ee986e68ddc4b7fb2b41cc1c885151677d32439fdb299492a3103a65",
+    "pack": "rpg"
+  },
+  "prism": {
+    "source": "spell_01.ogg",
+    "sourceSha256": "09821a53c418c5eeeac4fa25bada9d245e822fed302eeeae9ae4151522a45ae5",
+    "pack": "rpg"
+  },
+  "stone2": {
+    "source": "item_stone_04.ogg",
+    "sourceSha256": "bfd2516d62b68f9c0fa02ad2924065b4d7dadbb2fba04e229da774df75ea45b6",
+    "pack": "rpg"
+  },
+  "jump": {
+    "source": "misc_02.ogg",
+    "sourceSha256": "5a17c4f8d8511fef5345ce5879b76795897c0f15a5b1898b62d719c488d1b546",
+    "pack": "rpg"
+  },
+  "land": {
+    "source": "item_stone_02.ogg",
+    "sourceSha256": "bc9d36c83f44415b16411878f460a5005bea1ede42259daeb179f59d82a754b5",
+    "pack": "rpg"
+  },
+  "shield": {
+    "source": "wood_hit_03.ogg",
+    "sourceSha256": "0f78a5cbe44d2ee45dfc1709f72af87bcbe5e3a8ad369b52535cfe6dbbd626a6",
+    "pack": "metal"
+  },
+  "hit": {
+    "source": "wood_hit_02.ogg",
+    "sourceSha256": "533144d0633e756d91a7ee6d3a1f00bed81ad85d221232c5e4812e4fd7b14177",
+    "pack": "metal"
+  },
+  "hit2": {
+    "source": "wood_hit_05.ogg",
+    "sourceSha256": "a6e1a4cfb65c4fc46248b3db84666275d466c2434c283028c7f0ce70035e75de",
+    "pack": "metal"
+  },
+  "crit": {
+    "source": "metal_hit_03.ogg",
+    "sourceSha256": "9daf6e7e1fc1871acfb063cb25ce050faab559ee6c42fed84bf18a4067f26a4d",
+    "pack": "metal"
+  },
+  "impact": {
+    "source": "wood_slam_02.ogg",
+    "sourceSha256": "73606869502682f640ebc0ab330c66801650a58a363f90c93c7882cd1abb587f",
+    "pack": "metal"
+  },
+  "hammer": {
+    "source": "hammer_02.ogg",
+    "sourceSha256": "0e4a3eac2ffd7bd7f3d7dea84df761bd2ef1dbe754199d16f11aa8dd5a668781",
+    "pack": "metal"
+  },
+  "break": {
+    "source": "wood_breaking_02.ogg",
+    "sourceSha256": "042e97ceaa551dd3fcccba0e9bdf1e8145133ac4d2ee0b0cbcd0ee698b7cb229",
+    "pack": "metal"
+  },
+  "growl": {
+    "source": "grunt_02.ogg",
+    "sourceSha256": "76d78154f2f22b3f373bd3ec4ff0edabb459322f72adabfa285b738f37987cbb",
+    "pack": "creatures"
+  },
+  "roar": {
+    "source": "roar_02.ogg",
+    "sourceSha256": "ceb532ee0fe775d6f86a821099b75f1790ab8022b963cb837c8c1fa4fffee5c2",
+    "pack": "creatures"
+  },
+  "shadow": {
+    "source": "monster_03.ogg",
+    "sourceSha256": "1208729886f3f66e7d8018e8880dff073275fd37b30e1016dd5b164161482df1",
+    "pack": "creatures"
+  },
+  "water1": {
+    "source": "splash_08.ogg",
+    "sourceSha256": "fd4c9c8fbfe4ac7348644918a73b1d004b037bac3ef24a1303549b705624828a",
+    "pack": "water"
+  },
+  "water2": {
+    "source": "splash_11.ogg",
+    "sourceSha256": "408bd00463f8aba63b470c424b90672c71e8b8596d2cbc23b0d467752b18199a",
+    "pack": "water"
+  },
+  "mud2": {
+    "source": "slime_08.ogg",
+    "sourceSha256": "d658b872438737d4bfd0b3b7c1b325f94a4467796266e02ff6f79cf8f3001666",
+    "pack": "water"
+  },
+  "splash": {
+    "source": "splash_04.ogg",
+    "sourceSha256": "58dddea3843b89e9504e6f174ea49cd061b1002bb6ae8a94f358409fabb8340a",
+    "pack": "water"
+  },
+  "ferry": {
+    "source": "splash_13.ogg",
+    "sourceSha256": "10bf42f906ea0366c2091405b7d355e74a496b1fe1c4bd40d8965d703c0db2d7",
+    "pack": "water"
+  },
+  "flask": {
+    "source": "bubble_02.ogg",
+    "sourceSha256": "7992a1a4637ea727b177b3edbc086ec280167d67a8fad010bb8fb58893b2e2f2",
+    "pack": "water"
+  },
+  "swing1": {
+    "source": "qubodup-megaswosh1.wav",
+    "sourceSha256": "2e5464aca5e611837ce6f8a362f15c68a748ae52bbaeaefda0c6ac23a084ef73",
+    "pack": "wind"
+  },
+  "swing2": {
+    "source": "60009__qubodup__swosh_22.flac",
+    "sourceSha256": "c2d125db98ff2d79f3a89a08a24b6618dc1f0410c2cc717e8cc83ebc6956dcca",
+    "pack": "wind"
+  },
+  "cloth1": {
+    "source": "OGG/cloth1.ogg",
+    "sourceSha256": "ddb93a3671233f95da0e0b10367f082f7eb42fa6caaddcf776410aa8833c747d",
+    "pack": "kenney"
+  },
+  "cloth2": {
+    "source": "OGG/cloth3.ogg",
+    "sourceSha256": "a48632d17a4f1416541d261a32a31612e01267144c407fa3ecab3ff410f0085b",
+    "pack": "kenney"
+  },
+  "equip": {
+    "source": "OGG/clothBelt2.ogg",
+    "sourceSha256": "d545b1d9f20e6188140aaf551a96f1e82fe0d15f7ca066fac8b065e1231e0038",
+    "pack": "kenney"
+  },
+  "chop": {
+    "source": "OGG/chop.ogg",
+    "sourceSha256": "d00c2b3c9fff07e376145c8c8c45c90e5084ec192f6ce0387db233f7b86f1486",
+    "pack": "kenney"
+  },
+  "door": {
+    "source": "OGG/doorOpen_1.ogg",
+    "sourceSha256": "4ab93bab96522d8eb109ff96dc57cb6765deb02448fe14c10472084be5bb2a0b",
+    "pack": "kenney"
+  },
+  "sand": {
+    "source": "OGG/footstep03.ogg",
+    "sourceSha256": "a86756b9af9f370455ab47844239bb07fd1bee7a113068c91f0fcd9b72703fae",
+    "pack": "kenney"
+  },
+  "ui": {
+    "source": "click2.wav",
+    "sourceSha256": "366a86202b215395eb9bb7376da4200453a0fb6751884e338a9e720f036fce0a",
+    "pack": "ui"
+  },
+  "hover": {
+    "source": "rollover2.wav",
+    "sourceSha256": "b94d05c654435c46f331a43447ca70dc77647ddcd4a82d66ada5bbc12b766d06",
+    "pack": "ui"
+  },
+  "switchOff": {
+    "source": "switch3.wav",
+    "sourceSha256": "777257d4d750853fc6c9581c69bf07fac2526c542e29238123ad2fcbc1287cb9",
+    "pack": "ui"
+  },
+  "click": {
+    "source": "mouseclick1.wav",
+    "sourceSha256": "d6841333ded83887f69d0cf1ef67e9f7204be6b3489490df5264a652fd00666b",
+    "pack": "ui"
+  },
+  "interact": {
+    "source": "switch5.wav",
+    "sourceSha256": "159f46c4d650d541b8ea17c807ddfbbd5db1276af66b1561f29a064aee03d081",
+    "pack": "ui"
+  },
+  "shutter": {
+    "source": "mouserelease1.wav",
+    "sourceSha256": "32b2da2e738cfce0cfd18df97db728ba20f4d57082c2ccd48147ab96eae3e39e",
+    "pack": "ui"
+  },
+  "warn": {
+    "source": "switch13.wav",
+    "sourceSha256": "5c66a2e13e4fd9a05c8b80a4d3148eee2eedeade39ff9a986e16a627e1cdf87c",
+    "pack": "ui"
+  },
+  "reward": {
+    "source": "OGG/jingles_STEEL/jingles_STEEL06.ogg",
+    "sourceSha256": "7a332720d8a70ac87fe1eae55e440466c2b9a3b39068a946faa30da7753b1df8",
+    "pack": "jingle"
+  },
+  "victory": {
+    "source": "OGG/jingles_STEEL/jingles_STEEL04.ogg",
+    "sourceSha256": "65be5fe4af66574f4725602e454b7ea8d2613ab536a4a719fcb3810a240fdecf",
+    "pack": "jingle"
+  },
+  "defeat": {
+    "source": "OGG/jingles_STEEL/jingles_STEEL12.ogg",
+    "sourceSha256": "17842dd21980be3373a01cc575eec8ddb86e2a49c3afcef7365fc5d907233c0b",
+    "pack": "jingle"
+  },
+  "treasure": {
+    "source": "OGG/jingles_STEEL/jingles_STEEL03.ogg",
+    "sourceSha256": "21233e95b5e2c167293484c9906264c632a5f1fe45744d1d5b52ba1dfb0a18fb",
+    "pack": "jingle"
+  },
+  "heal": {
+    "source": "OGG/jingles_STEEL/jingles_STEEL15.ogg",
+    "sourceSha256": "764db253add93d5824a9329faceeb4247e10cf49a4e4e1653a46fa366d5b2138",
+    "pack": "jingle"
+  },
+  "mount": {
+    "source": "OGG/jingles_STEEL/jingles_STEEL02.ogg",
+    "sourceSha256": "891c2b48d3586744b38be18b8c5a35f46ac30fe06efb48f70f3f5528a0cec0c3",
+    "pack": "jingle"
+  },
+  "bow": {
+    "source": "arrow.mp3",
+    "sourceSha256": "7b64b04286def241f12679f3633c0e20c37d2b28419c624d72f238b773a17e40",
+    "pack": "file"
+  },
+  "windLoop": {
+    "source": "windloop-wind-01_0.ogg",
+    "sourceSha256": "46fb46bd4b4a89ae523a2f4de781e9a1552fc8febaa2b2b6f039990648240121",
+    "pack": "file"
+  },
+  "hoof1": {
+    "source": "hoof-Trot.ogg",
+    "sourceSha256": "0fd1a787f3ebb2c0213de8a807566a4879b659bdf2643c8720d6e1720bb436b9",
+    "pack": "file"
+  },
+  "hoof2": {
+    "source": "hoof-Trot.ogg",
+    "sourceSha256": "0fd1a787f3ebb2c0213de8a807566a4879b659bdf2643c8720d6e1720bb436b9",
+    "pack": "file"
+  },
+  "horn": {
+    "source": "horn-war_horns.wav",
+    "sourceSha256": "a9ab4ae25ab1ee3b3452cf1f6664548212a443faa78045ffa500c34506a2252f",
+    "pack": "file"
+  },
+  "magic": {
+    "source": "magic-magical_1_0.ogg",
+    "sourceSha256": "119f9061a566c72c1c58444b03f8685b833079ef268dda02fe742eb34d3bc68f",
+    "pack": "file"
+  },
+  "light": {
+    "source": "magic-magical_2.ogg",
+    "sourceSha256": "84a70f63f3f21e5ba4a48285b760a663d422ad3feddba2f3cbadd94b76cdc52e",
+    "pack": "file"
+  },
+  "iceCast": {
+    "source": "magic-magical_3.ogg",
+    "sourceSha256": "9fac648a1de869cf9ca2f4b3f1cd47f1766a3ee9d2fdec45831234401d7b2392",
+    "pack": "file"
+  },
+  "bell": {
+    "source": "magic-magical_2.ogg",
+    "sourceSha256": "84a70f63f3f21e5ba4a48285b760a663d422ad3feddba2f3cbadd94b76cdc52e",
+    "pack": "file"
+  },
+  "ice1": {
+    "source": "snow1.flac",
+    "sourceSha256": "d635d9bed8a5d69d4b95638bae51914717e69eece5982550a52c14cf23a10b00",
+    "pack": "file"
+  },
+  "ice2": {
+    "source": "snow2.flac",
+    "sourceSha256": "799c07881c8a49f618401b66403938966c73b2374a19f41dfe6117e89589e7ea",
+    "pack": "file"
+  }
+}

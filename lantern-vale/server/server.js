@@ -24,6 +24,7 @@ const ASSET_DIR = fs.realpathSync(path.join(GAME_DIR, 'assets'));
 const MIME = {
   '.png': 'image/png', '.webp': 'image/webp', '.svg': 'image/svg+xml',
   '.woff2': 'font/woff2',
+  '.mp3': 'audio/mpeg',
   '.glb': 'model/gltf-binary', '.gltf': 'model/gltf+json', '.bin': 'application/octet-stream',
 };
 const _htmlCache = new Map();
@@ -168,6 +169,7 @@ function closeShardMembership(me) {
   if (releaseShard(shards, me.zone, previous, me.party)) lineState.delete(previous);
   else broadcast({ t: 'gone', id: me.id }, person => person !== me && person.shard === previous);
   me.shard = null;
+  me.combat = undefined;
 }
 
 function joinZone(me, zone, party = me.party, requested = null) {
@@ -261,6 +263,14 @@ wss.on('connection', ws => {
         dungeonLobbies.position(me, zone);
         me.x = num(m.x); me.y = num(m.y); me.z = num(m.z); me.f = num(m.f);
         me.a = Number.isInteger(m.a) && m.a >= 0 && m.a <= 5 ? m.a : 0;
+        me.job = Number.isInteger(m.job) && m.job >= 0 && m.job <= 4 ? m.job : undefined;
+        const pose = m.combat;
+        // A repeated position packet must not renew a cosmetic action or move it across shards.
+        if (Array.isArray(pose) && pose.length === 2 && Number.isSafeInteger(pose[0])
+          && pose[0] > (me.combatSeq ?? 0) && Number.isInteger(pose[1]) && pose[1] >= 0 && pose[1] <= 4) {
+          me.combatSeq = pose[0];
+          me.combat = { pose, shard: me.shard, until: Date.now() + 400 };
+        }
         break;
       }
       case 'shard_list':
@@ -333,6 +343,7 @@ setInterval(() => {
   guild.tick();
   for (const line of lineState.values()) line.tide.tick(0.1);
   const rooms = new Map();
+  const now = Date.now();
   for (const p of players.values()) {
     if (!p.shard) continue;
     if (!rooms.has(p.shard)) rooms.set(p.shard, []);
@@ -344,7 +355,10 @@ setInterval(() => {
     if (grid) for (const p of list) grid.insert(p);
     for (const me of list) {
       const peers = (grid ? grid.queryNearby(me.x, me.z, 1) : list).filter(p => p !== me);
-      send(me, { t: 'snap', zone, shard, count: list.length, players: peers.map(({ id, name, col, x, y, z, f, a }) => ({ id, name, col, x, y, z, f, a })) });
+      send(me, { t: 'snap', zone, shard, count: list.length, players: peers.map(({ id, name, col, job, x, y, z, f, a, combat }) => ({
+        id, name, col, job, x, y, z, f, a,
+        combat: combat?.shard === shard && combat.until > now ? combat.pose : undefined,
+      })) });
     }
   }
 }, 100);

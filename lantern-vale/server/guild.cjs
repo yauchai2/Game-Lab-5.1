@@ -147,8 +147,10 @@ module.exports = function createGuild(filename) {
         }
       }
       const members=[...room.members.values()];
-      const snapshot={t:'raidFrame',hp:Math.max(0,room.hp),portalsLeft:room.portalsLeft,warn:room.clock%40>=30,
-        members:members.map(f=>({id:f.me.id,name:f.me.name,hp:f.hp,x:f.x,z:f.z}))};
+      const cycle = room.clock % 40;
+      const snapshot={t:'raidFrame',hp:Math.max(0,room.hp),portalsLeft:room.portalsLeft,impact,
+        warn:cycle>=30,windup:Math.max(0,(cycle-29)/11),
+        members:members.map(f=>({id:f.me.id,name:f.me.name,hp:f.hp,x:f.x,z:f.z,strike:f.lastHit===room.clock}))};
       const humans = members.filter(f => !f.bot);
       for(const f of humans) send(f.me,snapshot);
       if(room.hp>0 && humans.some(f=>f.hp>0)) continue;
