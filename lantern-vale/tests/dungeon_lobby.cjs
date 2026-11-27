@@ -241,8 +241,16 @@ const { chromium } = require('playwright');
         g.boss.cd = 60;
         // Keep the test's level-one characters below the automatic revive threshold.
         g.boss.dmg = 12;
+        g.boss.spd = 0;
+        g.boss.hitCd = 60;
         g.boss.pos.set(0, g.world.gh(0, 0), 0);
-        return g.dungeon.run.attackSync;
+        const impact = g.resolveBossGroundImpact.bind(g);
+        g.resolveBossGroundImpact = (enemy, attack) => {
+          const hp = g.player.hp;
+          impact(enemy, attack);
+          window.lastStagImpact = { shape: attack.shape, hp, after: g.player.hp };
+        };
+        return g.dungeon.run.attackSync && g.dungeon.run.rootSync;
       }), true);
     }
     await atlasGuest.waitForTimeout(2200);
@@ -256,7 +264,7 @@ const { chromium } = require('playwright');
       p.iframes = 0;
       e.state = kind;
       e.t = e.step = e.stun = 0;
-      return { x, z, y, hp: p.hp };
+      return { x, z, y };
     }, { kind, offset });
     const ring = await prepareStagAttack('donut', -2.5);
     await atlasGuest.waitForFunction(({ x, z }) => {
@@ -274,19 +282,15 @@ const { chromium } = require('playwright');
       p.y = p.pos.y;
       p.vel.set(0, 0, 0);
       p.iframes = 0;
-      const impact = g.resolveBossGroundImpact.bind(g);
-      g.resolveBossGroundImpact = (enemy, attack) => {
-        const hp = p.hp;
-        impact(enemy, attack);
-        window.lastStagImpact = { shape: attack.shape, hp, after: p.hp };
-      };
       g.camPos.set(x, y, z);
     }, ring);
     if (dir) await atlasGuest.screenshot({ path: path.join(dir, 'beaconfall-shared-stag-ring.png') });
     await atlasGuest.waitForFunction(() => window.lastStagImpact?.shape === 2);
     const ringImpact = await atlasGuest.evaluate(() => lastStagImpact);
     assert.ok(ringImpact.after < ringImpact.hp, JSON.stringify(ringImpact));
-    assert.equal(await atlasLeader.evaluate(() => __game.player.hp), ring.hp);
+    await atlasLeader.waitForFunction(() => window.lastStagImpact?.shape === 2);
+    const safeRing = await atlasLeader.evaluate(() => lastStagImpact);
+    assert.equal(safeRing.after, safeRing.hp);
 
     const stomp = await prepareStagAttack('stomp', -2.5);
     await atlasGuest.waitForFunction(({ x, z }) => {
@@ -296,8 +300,57 @@ const { chromium } = require('playwright');
     await atlasGuest.waitForFunction(() => window.lastStagImpact?.shape === 3);
     const stompImpact = await atlasGuest.evaluate(() => lastStagImpact);
     assert.equal(stompImpact.after, stompImpact.hp);
-    await atlasLeader.waitForFunction(hp => __game.player.hp < hp, stomp.hp);
+    await atlasLeader.waitForFunction(() => window.lastStagImpact?.shape === 3);
+    const hitStomp = await atlasLeader.evaluate(() => lastStagImpact);
+    assert.ok(hitStomp.after < hitStomp.hp);
 
+    await atlasGuest.evaluate(() => {
+      const g = __game, resolve = g.resolveStagRootRow.bind(g);
+      window.stagRootPulses = [];
+      g.resolveStagRootRow = (enemy, row, step) => {
+        const hp = g.player.hp;
+        resolve(enemy, row, step);
+        stagRootPulses.push({ step, damage: hp - g.player.hp });
+      };
+    });
+    await prepareStagAttack('roots', 5);
+    await atlasGuest.waitForFunction(() => __game.boss.incomingAttack?.shape === 4);
+    const rootRows = page => page.evaluate(() => {
+      const e = __game.boss;
+      return (e.incomingAttack || e.sharedAttack).roots.map(row =>
+        row.map(({ x, z, decal }) => [x, z, decal.dur, decal.hold]));
+    });
+    assert.deepEqual(await rootRows(atlasGuest), await rootRows(atlasLeader));
+    await atlasGuest.evaluate(() => {
+      const g = __game, p = g.player;
+      const { x, y, z } = g.boss.incomingAttack.roots[3][0];
+      p.pos.set(x, y, z);
+      p.y = y;
+      p.vel.set(0, 0, 0);
+      p.iframes = 0;
+      g.camPos.copy(p.pos);
+    });
+    if (dir) await atlasGuest.screenshot({ path: path.join(dir, 'beaconfall-shared-stag-roots.png') });
+    await atlasGuest.waitForFunction(() => stagRootPulses.length === 7 && !__game.boss.incomingAttack);
+    const pulses = await atlasGuest.evaluate(() => stagRootPulses);
+    assert.deepEqual(pulses.map(pulse => pulse.step), [1, 2, 3, 4, 5, 6, 7]);
+    assert.ok(pulses[3].damage > 0);
+    assert.ok(pulses.filter(pulse => pulse.damage > 0).length === 1);
+
+    await atlasLeader.evaluate(() => { __game.boss.phase = 2; });
+    await prepareStagAttack('roots', 5);
+    await atlasGuest.waitForFunction(() => __game.boss.incomingAttack?.shape === 4);
+    assert.ok((await rootRows(atlasGuest)).some(row => row.length === 3));
+    const cancelledWarnings = await atlasGuest.evaluate(() => {
+      window.cancelledRootWarnings = __game.boss.incomingAttack.roots.flat().map(point => point.decal);
+      return cancelledRootWarnings.length;
+    });
+    assert.ok(cancelledWarnings > 0);
+    await atlasLeader.evaluate(() => { __game.boss.stun = 1.6; });
+    await atlasGuest.waitForFunction(() => !__game.boss.incomingAttack && cancelledRootWarnings.every(decal => decal.dead));
+    await atlasGuest.waitForTimeout(1600);
+    assert.equal(await atlasGuest.evaluate(() => stagRootPulses.length), 7);
+    await atlasLeader.evaluate(() => { __game.boss.phase = 1; });
     await prepareStagAttack('charge', 5);
     await atlasGuest.waitForFunction(() => __game.boss.incomingAttack?.shape === 1 && __game.boss.state === 'wind');
     await atlasGuest.waitForFunction(() => __game.boss.incomingAttack?.shape === 1 && __game.boss.state === 'charge');
@@ -336,6 +389,6 @@ const { chromium } = require('playwright');
     await solo.waitForFunction(() => __game.dungeon.run?.id == null && __game.depth === 0 && __game.dungeon.bots.length === 2);
     assert.deepEqual(solo.errors, []);
     await solo.close();
-    console.log('Passed cross-device waiting, cancel and rejoin, shared cave and HP, AI damage, checkpoint, leader transfer, Atlas branch consensus, raid AI, one-shot player/AI feedback, zone isolation, synced cave circles and charges, shared stag ground attacks and charge chains, and raid telegraph timing.');
+    console.log('Passed cross-device waiting, cancel and rejoin, shared cave and HP, AI damage, checkpoint, leader transfer, Atlas branch consensus, raid AI, one-shot player/AI feedback, zone isolation, synced cave circles and charges, shared stag ground attacks, root pulses and interruption, and charge chains, and raid telegraph timing.');
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
