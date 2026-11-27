@@ -10,7 +10,9 @@ const { isLocalDevRequest, receiveDevEvents } = require('./dev_diagnostics.cjs')
 const { receiveDevTune } = require('./dev_tune.cjs');
 const { createPlaytestGate } = require('./playtest_gate.cjs');
 const playtestGate = createPlaytestGate(process.env.LV_PLAYTEST_PASS_FILE);
-const guild = require('./guild.cjs')(process.env.LV_DATABASE || path.join(__dirname, 'data', 'guild.sqlite'));
+const guild = require('./guild.cjs')(process.env.LV_DATABASE || path.join(__dirname, 'data', 'guild.sqlite'), {
+  scaleRaidPopulation: process.env.LV_GROWTH_RAIDS === '1',
+});
 const { SpatialGrid, ZoneTide, assignShard, changeShardParty, releaseShard, SHARD_HARD_CAP, pickHotspots } = require('./zone_engine.cjs');
 
 const FEATURE_FLAGS = {

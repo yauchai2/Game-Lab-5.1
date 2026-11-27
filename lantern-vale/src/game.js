@@ -55,7 +55,7 @@ import { installDebugger } from './debugger.js';
 import { MEADOW_CAVE, enterMeadowCave, advanceMeadowCave } from './meadow_cave.js';
 import { completeMeadowObjective, syncMeadowExpedition, meadowExpedition, syncOpeningEncounter, lightOpeningLamp, finishOpeningPractice } from './expedition.js';
 import { openingStep, recordOpeningEvent, recordOpeningSupportUse, commitCharacterReward } from './opening.js';
-import { availableGrowthLesson, growthLessonRank, mergeGrowthLessons } from './growth_lessons.js';
+import { availableGrowthLesson, GROWTH_JOBS, growthLessonRank, growthMeleeFollowup, growthSwitchChoice, mergeGrowthLessons } from './growth_lessons.js';
 import { creditGrowthField, growthFieldCleared, growthTrialFor, growthUsesAlternate, nextGrowthField, recordGrowthRepeat } from './growth_journey.js';
 
 function disposeObj3D(root) {
@@ -712,7 +712,7 @@ export class Game {
   }
   installGrowthStation() {
     if (this.growthPrototype !== 'progression' || this.field < 1 || this.field > 6 ||
-        ![0, 1].includes(this.character?.job)) return;
+        !GROWTH_JOBS.includes(this.character?.job)) return;
     if (this.field === 1 && this.meta.p.meadowCave?.clears?.normal > 0 &&
         this.attackGrowthRank() > 0 && creditGrowthField(this.meta.p, 1)) this.meta.save();
     const { x, z } = this.player.pos;
@@ -739,15 +739,12 @@ export class Game {
     const choices = [];
     if (trial) choices.push({ icon: '旗', name: trial.name, desc: trial.hint, action: 'trial' });
     if (growthFieldCleared(profile, 2)) {
-      const name = job === 1 ? (alternate ? '扇射' : '穿列') : (alternate ? '收尾震波' : '前推劍氣');
-      const desc = alternate ? '切回角色已有的原分支。'
-        : job === 1 ? '一支箭先以原傷害命中，穿過後以較弱傷害再命中一個目標。'
-          : '持盾第三擊向前送出一段短劍氣，補打原招未命中的目標。';
-      choices.push({ icon: '⇄', name: '切換至' + name, desc, action: 'switch' });
+      choices.push({ icon: '⇄', ...growthSwitchChoice(job, alternate), action: 'switch' });
     }
     const next = nextGrowthField(profile);
     const heading = !this.attackGrowthRank() ? '先完成草原首戰'
-      : next ? `成長路線 · 下一站 ${FIELDS[next].name}` : '第一章完成 · 進階試煉';
+      : next ? `成長路線 · 下一站 ${FIELDS[next].name}`
+        : profile.growthJourney?.guildClear ? '第一章完成 · 共鳴樹庭已完成' : '第一章完成 · 進階試煉';
     choices.push({ icon: '↩', name: '返回', desc: '關閉試煉選單。' });
     this.state = 'boon';
     this.ui.showBoons(this, choices, { heading, onPick: option => {
@@ -788,7 +785,8 @@ export class Game {
       this.meta.save();
       const next = nextGrowthField(this.meta.p);
       const instruction = this.field === 2 ? '已開放第二套攻擊配置，回試煉點可切換。'
-        : next ? `下一站：${FIELDS[next].name}` : '各區已開放進階試煉。';
+        : next ? `下一站：${FIELDS[next].name}`
+          : this.net.ok ? '各區已開放進階試煉；可到公會大廳挑戰共鳴樹庭。' : '各區已開放進階試煉。';
       this.ui.banner(next ? trial.name + ' · 完成' : '鹿王已倒下 · 第一章完成', instruction);
       this.offerGrowthLesson();
     } else {
@@ -2242,8 +2240,10 @@ export class Game {
     if (p.galeBuff) { mult += 0.6; p.galeBuff = false; }
     let hitAny = false;
     const cover = this.ambushTrial?.cover;
-    const guardWaveHits = growthRank > 0 && job === 0 &&
-      this.meta.p.weapon === 'shield' && comboStep === 3 && !p.air ? new Set() : null;
+    const finisherHits = growthRank > 0 && this.meta.p.weapon === CLASSES[job]?.weapon &&
+      comboStep === 3 && !p.air ? new Set() : null;
+    const guardWaveHits = job === 0 ? finisherHits : null;
+    let growthContact = null;
     for (const e of this.enemies) {
       if (e.dead || hitsAmbushCover(cover, p.pos.x, p.y + 0.6, p.pos.z, e.pos.x, e.pos.z)) continue;
       tmp2.set(e.pos.x - p.pos.x, e.pos.z - p.pos.z);
@@ -2262,7 +2262,10 @@ export class Game {
       } else {
         this.hitEnemy(e, this.rollDamage(mult), tmp2.x * 5, tmp2.y * 5, { hitstop: 0.035, aerial: p.air, isMelee: true, comboStep });
       }
-      guardWaveHits?.add(e);
+      if (finisherHits) {
+        finisherHits.add(e);
+        if (job >= 2 && !growthContact && !flyingHigh) growthContact = e.pos.clone();
+      }
       hitAny = true;
     }
     if (hitAny) {
@@ -2306,14 +2309,22 @@ export class Game {
         }
       } else if (job === 2) {
         this.vfx?.spawnDecal('mana_runes', p.pos.x + dir.x * 2.0, p.y, p.pos.z + dir.y * 2.0, { theme: 'bluefire', scaleStart: 1.0, scaleEnd: 3.4, dur: 0.45 });
-        this.fireProj(p.pos, dir, { speed: 18, mult: 1.1, fire: true, color: 0x58d8ff, size: 0.2, life: 0.9, isTrigger: true });
+        this.fireProj(p.pos, dir, { speed: 18, mult: 1.1, fire: true, color: 0x58d8ff, size: 0.2, life: 0.9, isTrigger: true, growthHits: finisherHits });
       } else if (job === 3) {
         this.vfx?.spawnSlash(p.pos.x, p.y, p.pos.z, Math.atan2(dir.x, dir.y), { clean: true, theme: 'death', scale: range * 1.05, tilt: 0.45, dir: -1 });
         this.vfx?.spawnSlash(p.pos.x, p.y, p.pos.z, Math.atan2(dir.x, dir.y), { clean: true, theme: 'arcane', scale: range * 1.05, tilt: -0.45, dir: 1 });
       } else if (job === 4) {
         this.vfx?.spawnHitImpact(p.pos.x + dir.x * 1.6, p.y + 0.3, p.pos.z + dir.y * 1.6, 'lotus', true);
-        this.shockRing(p.pos.x + dir.x * 1.6, p.pos.z + dir.y * 1.6, 2.6, this.rollDamage(1.25), 0xff8eb8, 0.3, { leech: 4, isTrigger: true });
+        this.shockRing(p.pos.x + dir.x * 1.6, p.pos.z + dir.y * 1.6, 2.6, this.rollDamage(1.25), 0xff8eb8, 0.3, { leech: 4, isTrigger: true, recordHits: finisherHits });
       }
+    }
+    const followup = growthMeleeFollowup(job, growthRank, alternateGrowth, p.pos, growthContact, dir);
+    if (followup) {
+      const { x, z, delay, radius, mult, color, slow } = followup;
+      this.growthEffects.push({ remaining: delay, release: () => {
+        this.shockRing(x, z, radius, this.rollDamage(0.78 * mult), color, 0,
+          { isTrigger: true, growthSecondary: true, excludeHits: finisherHits, slow });
+      } });
     }
     if (this.has('moon') && p.swingCount % 4 === 0) this.shockRing(p.pos.x, p.pos.z, 4.5 * (1 + p.stats.area / 100), this.rollDamage(0.8), 0xd8e0ff);
     if (p.specials.has('sweepWave')) this.fireProj(p.pos, dir, { speed: 13, mult: 0.8, pierce: 99, color: 0xfff2c0, size: 0.4, wave: true, life: 0.6 });
@@ -5166,6 +5177,7 @@ export class Game {
             break;
           }
           pr.volleyHits?.add(e);
+          pr.growthHits?.add(e);
           pr.hit.add(e);
           const n = new V2(pr.vx, pr.vz).normalize();
           const shooterDist = Math.hypot(p.pos.x - e.pos.x, p.pos.z - e.pos.z);

@@ -56,6 +56,12 @@ export function recordGrowthRepeat(profile, field) {
   return state.repeats[field];
 }
 
+export function creditGrowthGuild(profile, { won, contributed }) {
+  if (!won || !contributed || !growthFieldCleared(profile, 6) || profile.growthJourney.guildClear) return false;
+  profile.growthJourney.guildClear = true;
+  return true;
+}
+
 export function growthUsesAlternate(profile, job) {
   return growthFieldCleared(profile, 2) && profile.growthJourney?.loadouts?.[job]?.alternate === true;
 }
@@ -63,6 +69,7 @@ export function growthUsesAlternate(profile, job) {
 export function mergeGrowthJourney(profile, saved) {
   if (!saved?.growthJourney) return;
   const local = profile.growthJourney ||= {};
+  if (saved.growthJourney.guildClear === true) local.guildClear = true;
   for (const field of [1, 2, 3, 4, 5, 6]) {
     if (growthFieldCleared(saved, field)) local.clears = { ...local.clears, [field]: true };
     const count = saved.growthJourney.repeats?.[field];
@@ -70,7 +77,7 @@ export function mergeGrowthJourney(profile, saved) {
       local.repeats = { ...local.repeats, [field]: count };
     }
   }
-  for (const job of [0, 1]) {
+  for (const job of [0, 1, 2, 3, 4]) {
     const loadout = saved.growthJourney.loadouts?.[job];
     if (loadout && loadout.changed > (local.loadouts?.[job]?.changed || 0)) {
       local.loadouts = { ...local.loadouts, [job]: loadout };

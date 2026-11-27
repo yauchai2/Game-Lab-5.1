@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { buildPlayer, buildStag } from './models.js';
+import { creditGrowthGuild } from './growth_journey.js';
 
 function accountKey(game) {
   const key='lv_guild_'+game.net.url+'_'+(game.slot||0);
@@ -39,7 +40,7 @@ export function bindGuild(g) {
   n.on('raidFrame',m=>{
     if (!g.raid) return;
     const {allies,boss,warning}=g.raid;
-    warning.visible=m.warn;g.ui.bossBar(true,m.warn?'守護獸蓄力 · 離開紅圈':'共鳴守護獸',m.hp/144);
+    warning.visible=m.warn;g.ui.bossBar(true,m.warn?'守護獸蓄力 · 離開紅圈':'共鳴守護獸',m.hp / (m.maxHp || 144));
     boss.body.rotation.z=m.warn?.08:0;
     const present=new Set();
     for(const member of m.members) {
@@ -53,6 +54,12 @@ export function bindGuild(g) {
       actor.root.visible=member.hp>0;
     }
     for(const [id,actor] of allies) if(!present.has(id)) {g.world.group.remove(actor.root);allies.delete(id);}
+  });
+  n.on('raidResult', result => {
+    if (g.raid && g.growthPrototype === 'progression' && creditGrowthGuild(g.meta.p, result)) {
+      g.meta.save();
+      g.ui.toast('終局紀錄 · 共鳴樹庭完成', '#a4d5ff');
+    }
   });
   g.exitRaid=()=>{if(!g.raid)return;g.raid=null;if(g.touchInteract)g.touchInteract.textContent='互動';g.keys={};g.mouse.l=false;g.enterTown();};
   n.on('raidExit',g.exitRaid);
