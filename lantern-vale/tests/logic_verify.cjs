@@ -278,7 +278,7 @@ const createGuild = require('../server/guild.cjs');
   assert.equal(puzzle.canPlace(pz.presets[0], 'ember', 2, 1, 0, 1), true);
   pz.presets[0].push({ uid: 99, id: 'ember', x: 2, y: 1, rot: 0 });
   const board2 = puzzle.computeBoard(pz.presets[0]);
-  assert.equal(board2[0].mod.dmgMult, 1.25, 'Adjacent 熾炎增幅 boosts active skill damage +25%');
+  assert.equal(board2[0].mod.dmgMult, 1.24, 'P2: Adjacent multi (+8%) + 熾炎增幅 (+16%) boosts active skill damage to 1.24x');
   assert.equal(board2[0].mod.supports.length, 3, 'Three adjacent support gems linked simultaneously');
 
   // 8. World Alive expansion: Ultra-slow smooth Day/Night (long daytime ~70%), 8 Second Classes, 4 Flashy Skills, 6 Field NPCs
@@ -1682,5 +1682,21 @@ const createGuild = require('../server/guild.cjs');
   assert.equal(p0Prog.canTriggerOpeningCrit(11.0, false, 9.0), false, 'Ranged attack beyond lantern light cannot trigger opening forced crit');
   assert.equal(p0Prog.canTriggerOpeningCrit(3.0, true, 9.0), true, 'Melee attack triggers opening forced crit');
 
-  console.log('ALL 58 LOGIC, MELEE-RANGED-SPATIAL, P1-BALANCE-OVERHAUL, P0-BALANCE-OVERHAUL, WHOLE-MAP-VIRTUAL-MMO-M12, VIRTUAL-MMO-PLAYERS-M11, CRISP-PIXEL-UI-SYSTEM, VFX-100PCT-UTILIZATION, MMORPG-ENDGAME-POTENTIAL-TOWER-PARTY-EVENTS-OFFLINE, MMORPG-LIVING-WORLD-BOSS-LIFE-RUNES-TITLES-DAILY, MMORPG-PROGRESSION-OVERHAUL, GEAR-LEVEL-GATES-TIER-MATS, ACCOUNT-LOGIN-DELETE-CHAR, MONSTER-MATS-CRAFT-RESIST, MMORPG-6-PILLARS, HARDCORE-MMO-SCARCITY, CREATOR-OCEAN-INTERACT, V6-FIELD-POI-BOSS, DIORAMA-D1-D4, VFX-SKILL-REWORK-V1-V6, UI-UNIFIED-U4B, CHAR-C6-TOON-ANIM, CHAR-REWORK-C1-C5, FUZZ-QA-36, MMO-M10-PORTALS-CRAFT-KILLSWITCH, MMO-M9-SAFETY-KILLSWITCH, MMO-M8-ROLES-FEAST-GPU, MMO-M7-SOUL-AWAKEN-GPU-FIX, MMO-M6-SPIRE-MENTOR-LIGHTHOUSE, MMO-M5-FERRY-REVIEW, MMO-M4-OVERHAUL, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
+  // 59. P2 Balance Overhaul: 1-cell support gems nerfed to 14-16%, 3-4 cell gems gain sub-affixes, high-diff AI companion cap = 1 & healer CD = 10s
+  const p2Ember = puzzle.computeBoard([{ uid: 1, id: 'bolt', x: 1, y: 1, rot: 0 }, { uid: 2, id: 'ember', x: 1, y: 2, rot: 0 }])[0].mod;
+  assert.equal(p2Ember.dmgMult, 1.16, '1-cell ember grants +16% damage under P2');
+  const p2Blue = puzzle.computeBoard([{ uid: 1, id: 'bolt', x: 1, y: 1, rot: 0 }, { uid: 2, id: 'bluefire', x: 1, y: 2, rot: 0 }])[0].mod;
+  assert.equal(p2Blue.dmgMult, 1.14, '1-cell bluefire grants +14% damage under P2');
+  const p2Haste = puzzle.computeBoard([{ uid: 1, id: 'bolt', x: 1, y: 1, rot: 0 }, { uid: 2, id: 'haste', x: 1, y: 2, rot: 0 }])[0].mod;
+  assert.equal(p2Haste.cdr, 0.14, '1-cell haste grants 14% CDR under P2');
+  const p2Chain = puzzle.computeBoard([{ uid: 1, id: 'bolt', x: 1, y: 1, rot: 0 }, { uid: 2, id: 'chain', x: 1, y: 2, rot: 0 }])[0].mod;
+  assert.ok(p2Chain.chain === 2 && p2Chain.dmgMult === 1.12 && p2Chain.shock === 2.5, '4-cell chain gains +12% damage & shock sub-affix');
+  const p2Echo = puzzle.computeBoard([{ uid: 1, id: 'bolt', x: 1, y: 1, rot: 0 }, { uid: 2, id: 'echo', x: 1, y: 2, rot: 0 }])[0].mod;
+  assert.ok(p2Echo.echo === 1 && p2Echo.cdr === 0.08, '3-cell echo gains 8% CDR sub-affix');
+  assert.equal(p0Mmo.HEALER_COMPANION_CD, 10, 'AI Healer companion cooldown set to 10s');
+  assert.equal(p0Mmo.maxActiveCompanions({ depth: 0 }), 2, 'Normal field allows 2 AI companions');
+  assert.equal(p0Mmo.maxActiveCompanions({ depth: 3 }), 1, 'High-difficulty dungeon (depth >= 3) caps AI companions at 1');
+  assert.equal(p0Mmo.maxActiveCompanions({ settings: { difficulty: 'hard' } }), 1, 'Hard difficulty caps AI companions at 1');
+
+  console.log('ALL 59 LOGIC, P2-BALANCE-OVERHAUL, MELEE-RANGED-SPATIAL, P1-BALANCE-OVERHAUL, P0-BALANCE-OVERHAUL, WHOLE-MAP-VIRTUAL-MMO-M12, VIRTUAL-MMO-PLAYERS-M11, CRISP-PIXEL-UI-SYSTEM, VFX-100PCT-UTILIZATION, MMORPG-ENDGAME-POTENTIAL-TOWER-PARTY-EVENTS-OFFLINE, MMORPG-LIVING-WORLD-BOSS-LIFE-RUNES-TITLES-DAILY, MMORPG-PROGRESSION-OVERHAUL, GEAR-LEVEL-GATES-TIER-MATS, ACCOUNT-LOGIN-DELETE-CHAR, MONSTER-MATS-CRAFT-RESIST, MMORPG-6-PILLARS, HARDCORE-MMO-SCARCITY, CREATOR-OCEAN-INTERACT, V6-FIELD-POI-BOSS, DIORAMA-D1-D4, VFX-SKILL-REWORK-V1-V6, UI-UNIFIED-U4B, CHAR-C6-TOON-ANIM, CHAR-REWORK-C1-C5, FUZZ-QA-36, MMO-M10-PORTALS-CRAFT-KILLSWITCH, MMO-M9-SAFETY-KILLSWITCH, MMO-M8-ROLES-FEAST-GPU, MMO-M7-SOUL-AWAKEN-GPU-FIX, MMO-M6-SPIRE-MENTOR-LIGHTHOUSE, MMO-M5-FERRY-REVIEW, MMO-M4-OVERHAUL, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
 })();

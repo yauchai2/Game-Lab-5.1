@@ -586,11 +586,20 @@ export function claimRankReward(profile, rankCode, combatPower = 100) {
   return { ok: true, rank: target, reward: target.promoReward };
 }
 
+export const HEALER_COMPANION_CD = 10;
+
 export const AI_COMPANIONS = [
-  { id: 'vanguard', icon: '🛡️', name: '巴爾克 · 鐵壁衛士', role: '前排坦克', hood: [0x3a6a9a, 0x264a70], weapon: 'shield', cost: 120, bondDesc: '每羈絆等級：減傷 +1.5% · 生命 +8', desc: '衝鋒嘲諷附近精英怪並吸收火力，為你創造安全輸出空間！' },
-  { id: 'healer',   icon: '🪷', name: '澄音 · 禪燈治療師', role: '輔助補師', hood: [0xd87a98, 0xa8526e], weapon: 'staff',  cost: 150, bondDesc: '每羈絆等級：每秒回血 +0.6 · 回魔 +5%', desc: '每 6 秒為你施放聖燈治癒（回復 18% 生命）並發射遠程光彈！' },
+  { id: 'vanguard', icon: '🛡️', name: '巴爾克 · 鐵壁衛士', role: '前排坦克', hood: [0x3a6a9a, 0x264a70], weapon: 'shield', cost: 120, bondDesc: '每羈絆等級：護甲 +1.5 · 生命 +8', desc: '衝鋒嘲諷附近精英怪並吸收火力，為你創造安全輸出空間！' },
+  { id: 'healer',   icon: '🪷', name: '澄音 · 禪燈治療師', role: '輔助補師', hood: [0xd87a98, 0xa8526e], weapon: 'staff',  cost: 150, bondDesc: '每羈絆等級：每秒回血 +0.6 · 回魔 +5%', desc: '每 10 秒為你施放聖燈治癒（回復 16–32% 生命）並發射遠程光彈！' },
   { id: 'ranger',   icon: '🏹', name: '希爾 · 林風神射手', role: '遠程輸出', hood: [0x4c9a58, 0x306e3a], weapon: 'bow',    cost: 150, bondDesc: '每羈絆等級：攻速 +2% · 暴擊率 +0.8%', desc: '遠距離精準連射箭矢並減速追擊你的敵人！' },
 ];
+
+/** P2 高難副本 AI 隊友上限：深層副本（depth >= 3）、高難度模式或終局試煉限 1 名 AI 隊友 */
+export function maxActiveCompanions(g = {}) {
+  const diff = g?.settings?.difficulty;
+  const highDiff = (g?.depth || 0) >= 3 || (g?.towerFloor || 0) >= 5 || !!g?.isSpire || !!g?.isTower || diff === 'hard' || diff === 'nightmare' || (g?.endgameTier || 0) >= 1;
+  return highDiff ? 1 : 2;
+}
 
 export function companionXpForLevel(lv = 1) {
   return 60 + (lv - 1) * 55;
@@ -656,8 +665,11 @@ export function spawnCompanion3D(g) {
   if (g._companionMesh?.root) g.scene.remove(g._companionMesh.root);
   g._companionMeshes = [];
   g._companionMesh = null;
-  const ids = getPartyIds(g.meta?.p);
+  const allIds = getPartyIds(g.meta?.p);
+  const cap = maxActiveCompanions(g);
+  const ids = allIds.slice(0, cap);
   if (!ids.length || !g.player || !g.world) return null;
+  if (allIds.length > ids.length) g.ui?.toast?.('⚔️ 高難副本限攜帶 1 名 AI 隊友同行', '#ffd85a');
   ids.forEach((cid, idx) => {
     const def = AI_COMPANIONS.find(c => c.id === cid);
     if (!def) return;
@@ -668,7 +680,7 @@ export function spawnCompanion3D(g) {
     const py = g.world.isLand(px, pz) ? g.world.gh(px, pz) : g.player.y;
     m.root.position.set(px, py, pz);
     g.scene.add(m.root);
-    g._companionMeshes.push({ def, idx, root: m.root, m, pos: new THREE.Vector3(px, py, pz), cd: 0.8 + idx * 0.4, healCd: 4.5, facing: 0 });
+    g._companionMeshes.push({ def, idx, root: m.root, m, pos: new THREE.Vector3(px, py, pz), cd: 0.8 + idx * 0.4, healCd: 6.0, facing: 0 });
   });
   g._companionMesh = g._companionMeshes[0] || null;
   return g._companionMesh;
@@ -712,9 +724,9 @@ export function tickCompanion3D(g, dt) {
     c.root.position.set(c.pos.x, c.pos.y + Math.abs(Math.sin(g.time * 8 + i * 2.1)) * (dist > 1.5 ? 0.08 : 0.02), c.pos.z);
     c.root.rotation.y = c.facing;
 
-    // 治療師每 6.5 秒幫受傷玩家回血（隨羈絆等級成長）
+    // P2 治療師每 10 秒幫受傷玩家回血（隨羈絆等級成長）
     if (c.def.id === 'healer' && c.healCd <= 0 && p.hp < p.stats.maxHp * 0.88) {
-      c.healCd = 6.5;
+      c.healCd = HEALER_COMPANION_CD;
       const amt = Math.round(p.stats.maxHp * Math.min(0.32, 0.16 + (bond.lv - 1) * 0.018));
       g.heal(amt, true);
       g.fx.burst(p.pos.x, p.y + 1.0, p.pos.z, 12, { c: [0x7fe08a, 0xffe87a, 0xffffff], s: 0.12, speed: 3.5, up: 2.5, life: 0.5 });

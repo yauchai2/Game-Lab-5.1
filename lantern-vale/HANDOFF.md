@@ -1,5 +1,11 @@
 # 交接說明（Claude → Codex，2026-11-22）
 
+## 2026-11-27 P2 數值平衡大改（Build `387b9331fb7f`）
+
+- **技能拼圖格數成本再平衡**（`src/puzzle.js`）：1 格通用增傷／冷卻寶石下修至合理密度（`ember` `+16%`、`bluefire` `+14%`、`haste` `14% CDR`）；3–4 格大型輔助寶石補齊副詞綴（`multi` `+8% 傷害`、`echo` `+8% CDR`、`split` `+10% 傷害`、`chain` `+12% 傷害與 2.5s 感電`）。
+- **AI 隊友高難度限額與補師冷卻調整**（`src/mmo_rpg.js`）：新增 `maxActiveCompanions(g)` 於深層副本（`depth >= 3`）、高難度模式或終局試煉限攜帶 `1` 名 AI 隊友；補師「澄音」治療冷卻由 `6.5 秒` 調為 `10 秒`（`HEALER_COMPANION_CD = 10`）。
+- 驗證：`node build.mjs`（2718KB，SHA-256 `387b9331fb7f`）、`node tests/logic_verify.cjs`（59/59 全過）與 `node tests/playtest_review.cjs`。
+
 ## 2026-11-27 近戰與遠攻非數值空間平衡（Build `39686dbf0f78`）
 
 - **第一階段（近戰互動紅利）**（`src/progression.js`、`src/game.js`）：普攻第 1 刀（`1.6m`）與翻滾後 `0.45s` 內反擊（`2.0m`）自動向前踏步貼身；第 3 段終結斬可劈碎前方敵方投射物（守燈衛士舉盾直接反彈為友方聖彈）；近戰命中具蓄力打斷與 `1.5×` 部位破壞效率；貼身（`≤ 4.0m`）破綻必暴額外延長怪物硬直 `0.5s`。
