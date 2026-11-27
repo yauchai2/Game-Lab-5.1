@@ -453,17 +453,17 @@ export class UI {
     root.innerHTML = `<div style="margin-bottom:10px;font-size:13px;color:#5a3826">達成全部冒險里程碑並支付鞍具鍛造材料即可永久馴養坐騎！按 <b>G 鍵</b>隨時召喚／收起。</div><div class="mount-grid">${list.map(m => {
       const u = m.status.unlocked, owned = m.owned, usable = owned && u, on = curId === m.id;
       const chkHtml = (m.status.checks || []).map(c => `<span style="display:inline-block;margin-right:6px;font-size:11px;color:${c.ok ? '#267346' : '#a83434'};font-weight:700">${c.ok ? '✔' : '✖'} ${c.label}</span>`).join('');
-      let actHtml = '<span style="font-size:12px;opacity:.7">🔒 尚未達成全部里程碑</span>';
+      let actHtml = '<span style="font-size:12px;color:#5a3826">🔒 尚未達成全部里程碑</span>';
       if (usable) {
         actHtml = `<button type="button" class="btn small ${on ? 'on' : ''}" data-mid="${m.id}">${on ? '✓ 使用中（點此召喚）' : '選擇並召喚'}</button>`;
       } else if (u) {
         actHtml = `<button type="button" class="btn small ${m.canCraft ? 'on' : ''}" data-craft-mid="${m.id}" ${m.canCraft ? '' : 'disabled'}>🔨 馴養／鍛造鞍具（${m.saddleText}）</button>`;
       }
       return `<div class="mount-card ${on ? 'on' : ''} ${usable ? '' : 'locked'}">
-        <div style="display:flex;align-items:center;gap:8px"><span style="font-size:28px">${m.icon}</span><div><span class="tier-tag" style="color:#ffd85a">T${m.tier}</span><b>${m.name}</b><div style="font-size:11px;color:#7a5a46">${usable ? '✔ 已馴養持有' : m.status.text}</div></div></div>
+        <div style="display:flex;align-items:center;gap:8px"><span style="font-size:28px">${m.icon}</span><div><span class="tier-tag" style="color:#ffd85a">T${m.tier}</span><b>${m.name}</b><div style="font-size:11px;color:#5a3826">${usable ? '✔ 已馴養持有' : m.status.text}</div></div></div>
         <div class="mount-prog"><i style="width:${Math.round(m.status.prog * 100)}%"></i></div>
         <div>${chkHtml}</div>
-        <div style="font-size:11.5px;color:#8a4f1f"><b>鞍具材料：</b>${m.saddleText}</div>
+        <div style="font-size:11.5px;color:#793e0a"><b>鞍具材料：</b>${m.saddleText}</div>
         <div style="font-size:12px;color:#2c5a9a"><b>坐騎特性：</b>${m.perk}</div>
         <div>${actHtml}</div>
       </div>`;
@@ -500,7 +500,7 @@ export class UI {
       const eqId = s.equipped[slotKey], eqDef = eqId ? MONSTER_SOULS[eqId] : null;
       return `<div class="soul-card ${eqDef ? 'on' : ''}">
         <div><b>${meta.icon} ${meta.name}</b> <small style="color:#4e2e20">（${meta.desc}）</small></div>
-        ${eqDef ? `<div><b style="color:${eqDef.color};text-shadow:0 1px 0 #2b1d22">${eqDef.icon} ${eqDef.name} — ${eqDef.title}</b><div style="font-size:12px;margin-top:3px">${eqDef.desc}</div></div>
+        ${eqDef ? `<div><b>${eqDef.icon} ${eqDef.name} — ${eqDef.title}</b><div style="font-size:12px;margin-top:3px">${eqDef.desc}</div></div>
           <button type="button" class="btn small" data-unequip-soul="${slotKey}">卸下靈魂</button>`
           : '<div style="color:#4e2e20;font-size:12px">尚未鑲嵌靈魂（擊敗魔物吸收後點擊下方卡片即可鑲嵌）</div>'}
       </div>`;
@@ -509,11 +509,11 @@ export class UI {
       const owned = s.owned.includes(def.id);
       const isEq = s.equipped[def.slot] === def.id;
       const st = owned ? soulTier(game.meta.p, def.id) : null;
-      const starLine = st ? `<span style="color:#b86b08;font-weight:900">${'★'.repeat(st.tier)}${'☆'.repeat(5 - st.tier)}</span> <small style="color:#4e2e20">${st.nextNeed ? `碎片 ${st.shards}/${st.nextNeed}` : '滿階覺醒 ×2.2'}</small>` : '';
+      const starLine = st ? `<span style="color:#793e0a;font-weight:900">${'★'.repeat(st.tier)}${'☆'.repeat(5 - st.tier)}</span> <small style="color:#4e2e20">${st.nextNeed ? `碎片 ${st.shards}/${st.nextNeed}` : '滿階覺醒 ×2.2'}</small>` : '';
       return `<div class="soul-card ${isEq ? 'on' : ''} ${owned ? '' : 'locked'}">
         <div style="display:flex;align-items:center;gap:8px"><span style="font-size:26px">${def.icon}</span><div><b>${def.name}</b><div style="font-size:11px;color:#4e2e20">${SOUL_SLOTS[def.slot].icon} ${SOUL_SLOTS[def.slot].name} ${starLine}</div></div></div>
         <div style="font-size:12px;color:#3b2218"><b>${def.title}</b>：${def.desc}</div>
-        <div>${isEq ? '<span style="color:#ffe89a;font-weight:900">✔ 鑲嵌生效中</span>' : owned ? `<button type="button" class="btn small" data-equip-soul="${def.id}">鑲嵌至${SOUL_SLOTS[def.slot].name}</button>` : '<span style="font-size:12px;color:#5a3826">🔒 擊敗對應魔物吸收取得</span>'}</div>
+        <div>${isEq ? '<span style="color:#245b36;font-weight:900">✔ 鑲嵌生效中</span>' : owned ? `<button type="button" class="btn small" data-equip-soul="${def.id}">鑲嵌至${SOUL_SLOTS[def.slot].name}</button>` : '<span style="font-size:12px;color:#5a3826">🔒 擊敗對應魔物吸收取得</span>'}</div>
       </div>`;
     }).join('');
     root.innerHTML = `<div style="margin-bottom:8px;font-size:13px;color:#5a3826">「怪物即技能」青魔道士系統：擊敗魔物機率吸收靈魂，鑲嵌後直接改造你的移動或攻擊模組！（已收集 <b>${s.owned.length}/${Object.keys(MONSTER_SOULS).length}</b>）</div>
@@ -567,7 +567,7 @@ export class UI {
     const mechCards = LEAGUE_MECHANICS.map(m => {
       const on = a.mechanics.includes(m.id);
       return `<div class="atlas-card ${on ? 'on' : ''}">
-        <div><b>${m.icon} ${m.name}</b> <small style="color:#b8452f">+${Math.round(m.shardBonus * 100)}% 星砂</small></div>
+        <div><b>${m.icon} ${m.name}</b> <small style="color:#702724">+${Math.round(m.shardBonus * 100)}% 星砂</small></div>
         <div style="font-size:13.5px">${m.desc}</div>
         <button type="button" class="btn small ${on ? 'on' : ''}" data-atlas-mech="${m.id}">${on ? '✔ 疊加中（點此關閉）' : '+ 疊加此賽季機制'}</button>
       </div>`;
@@ -662,7 +662,7 @@ export class UI {
     const root = $('cosmeticsRoot'); if (!root) return;
     const p = game.meta.p; p.cosmetics = p.cosmetics || { hat: 'hood', back: 'none', aura: 'none' };
     const section = (title, key, list) => `<h3>${title}</h3><div class="cos-grid">${list.map(c =>
-      `<button type="button" class="cos-btn ${p.cosmetics[key] === c.id ? 'on' : ''}" data-ckey="${key}" data-cid="${c.id}"><div style="font-size:22px">${c.icon}</div><div>${c.name}</div></button>`
+      `<button type="button" class="cos-btn ${p.cosmetics[key] === c.id ? 'on' : ''}" aria-pressed="${p.cosmetics[key] === c.id}" data-ckey="${key}" data-cid="${c.id}"><div style="font-size:22px">${c.icon}</div><div>${c.name}</div></button>`
     ).join('')}</div>`;
     root.innerHTML = `<div style="margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:8px 10px;background:rgba(255,216,90,.16);border:2px solid #c99228;border-radius:8px">
       <span style="font-size:13px;font-weight:800;color:#5a3822">✨ 自由混搭 36 組可愛立體服飾、髮型、瞳色與武器</span>
@@ -1505,10 +1505,10 @@ export class UI {
       const tBon = computeTitleBonuses(progress);
       const titlesHtml = TITLE_DEFS.map(td => {
         const has = tState.unlocked.includes(td.id), eqOn = tState.active === td.id;
-        return `<button type="button" class="chip" data-title-id="${td.id}" title="${td.cond}" style="cursor:${has ? 'pointer' : 'not-allowed'};opacity:${has ? 1 : .45};background:${eqOn ? '#ffd85a' : ''};font-weight:${eqOn ? 900 : 600}">${td.icon} ${td.name}${eqOn ? ' ✔' : ''}</button>`;
+        return `<button type="button" class="chip ${has ? '' : 'locked'}" data-title-id="${td.id}" title="${td.cond}" style="background:${eqOn ? '#ffd85a' : ''};font-weight:${eqOn ? 900 : 600}">${td.icon} ${td.name}${eqOn ? ' ✔' : ''}</button>`;
       }).join('');
       boonsEl.innerHTML = `<div class="mmo-alloc" style="width:100%">
-        <div class="mmo-alloc-head"><span>⚔️ 四維屬性配點（剩餘 <b style="color:#c85418">${availPt}</b> 點 · ${rk.rank}級 ${rk.name}）</span><button type="button" class="mmo-stat-btn" id="btnResetAlloc">♻️ 免費重置</button></div>
+        <div class="mmo-alloc-head"><span>⚔️ 四維屬性配點（剩餘 <b>${availPt}</b> 點 · ${rk.rank}級 ${rk.name}）</span><button type="button" class="mmo-stat-btn" id="btnResetAlloc">♻️ 免費重置</button></div>
         <div class="mmo-alloc-grid">${allocRows}</div>
         <div style="margin-top:8px;font-weight:900;font-size:12px">⛏️ 四大生活副職業專精（採集／鍛造升級，永久加成戰力與成功率）</div>
         <div class="mmo-alloc-grid" style="margin-top:4px">${lifeHtml}</div>
