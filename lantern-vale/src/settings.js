@@ -197,7 +197,7 @@ export function buildSettingsUI(g) {
         const idx = Math.max(0, opts.indexOf(v));
         const modeObj = DIFFICULTY_MODES[opts[idx]] || DIFFICULTY_MODES.standard;
         r.title = modeObj.desc;
-        r.innerHTML = `<span class="sl">${label}<div style="font-size:10px;opacity:.68;margin-top:2px">${modeObj.desc}</div></span><span class="sv"><button class="arr" data-d="-1">◀</button><b class="sval" style="min-width:96px">${modeObj.name}</b><button class="arr" data-d="1">▶</button></span>`;
+        r.innerHTML = `<span class="sl">${label}<small class="setting-detail">${modeObj.desc}</small></span><span class="sv"><button class="arr" data-d="-1">◀</button><b class="sval" style="min-width:96px">${modeObj.name}</b><button class="arr" data-d="1">▶</button></span>`;
         r.querySelectorAll('.arr').forEach(b => b.onclick = () => {
           const ni = (idx + +b.dataset.d + opts.length) % opts.length;
           set(key, opts[ni]);
