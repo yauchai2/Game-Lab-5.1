@@ -180,8 +180,10 @@ export function buildPanels(g) {
     title.textContent = '巡燈旅程';
     if (step === 'lamp' || step === 'spar') {
       const lamp = step === 'lamp';
-      const task = lamp ? '點亮南門路燈' : '擊退幼狂豬';
-      const hint = lamp ? '沿指引走到燈旁並互動。' : '看到直線預警時側閃，等牠收招再反擊。';
+      const task = lamp ? (g.field === 1 ? '點亮南門路燈' : '前往晨光草原') : '擊退幼狂豬';
+      const hint = !lamp ? '看到直線預警時側閃，等牠收招再反擊。'
+        : g.field === 1 ? '沿指引走到燈旁並互動。'
+        : g.zone === 'town' ? '沿光路步行穿過燈谷鎮北門。' : '沿光路前往晨光草原。';
       body.innerHTML = row(`<b>${task}</b><br><small>${hint}</small>`)
         + '<button type="button" class="btn small" data-opening-skip>略過練習</button>';
       body.querySelector('[data-opening-skip]').onclick = () => {
