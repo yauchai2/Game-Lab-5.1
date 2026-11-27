@@ -146,8 +146,27 @@ const { chromium } = require('playwright');
     assert.equal(forwardWave.count, 1);
     assert.equal(forwardWave.extra[0], 0);
     assert.ok(forwardWave.extra[1] > 0);
+    const eventPage = await browser.newPage();
+    eventPage.on('pageerror', error => errors.push(error.message));
+    await eventPage.goto(url);
+    await eventPage.locator('#btnQuickStart').click();
+    const eventCredit = await eventPage.evaluate(() => {
+      const game = __game;
+      game.meta.p.growthLessons = { 0: 1 };
+      game.enterField(1);
+      const start = () => {
+        document.getElementById('dynEventBanner').click();
+        if (!game.dynEvent?.active) throw new Error('No active grassland event');
+        return [...game.dynEvent.targets];
+      };
+      for (const enemy of start()) game.killEnemy(enemy);
+      const spectator = !!game.meta.p.growthJourney?.clears?.[1];
+      for (const enemy of start()) game.hitEnemy(enemy, { dmg: 100000, crit: false, fire: false });
+      return { spectator, participant: !!game.meta.load().growthJourney?.clears?.[1] };
+    });
+    assert.deepEqual(eventCredit, { spectator: false, participant: true });
     assert.deepEqual(errors, []);
-    console.log('Passed field route, persisted loadout, piercing, guard wave, chapter clear, and advanced repeats.');
+    console.log('Passed field route, persisted loadout, piercing, guard wave, chapter clear, event contribution, and advanced repeats.');
   } finally {
     await browser.close();
   }
