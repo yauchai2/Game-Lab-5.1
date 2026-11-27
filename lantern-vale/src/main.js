@@ -29,9 +29,9 @@ const ui = new UI();
 const audio = new Audio();
 const game = new Game(pipe, ui, audio, ambushTrialOrder());
 if ((typeof __LV_PROD__ === 'undefined' || !__LV_PROD__) &&
-    ['localhost', '127.0.0.1'].includes(location.hostname) &&
-    new URLSearchParams(location.search).get('growth') === 'prototype') {
-  game.growthPrototype = true;
+    ['localhost', '127.0.0.1'].includes(location.hostname)) {
+  const growth = new URLSearchParams(location.search).get('growth');
+  if (growth === 'prototype' || growth === 'advanced') game.growthPrototype = growth;
 }
 ui.audio = audio;
 ui.bind(game);

@@ -195,7 +195,7 @@ export class Game {
     this.fx = new Particles(this.scene, 700, false);
     this.puffs = new Particles(this.scene, 300, true);
     this.weather = new Weather(this.scene);
-    this.enemies = []; this.projs = []; this.eprojs = []; this.drops = []; this.decals = []; this.exits = []; this.slashes = []; this.rings = [];
+    this.enemies = []; this.projs = []; this.growthEffects = []; this.eprojs = []; this.drops = []; this.decals = []; this.exits = []; this.slashes = []; this.rings = [];
     this.vfx = new VfxEngine(this.scene, { lazy: true });
     this.keys = {}; this.mouse = { x: 0, y: 0, l: false, r: false }; this.aim = new V3();
     this.ray = new THREE.Raycaster(); this.plane = new THREE.Plane(new V3(0, 1, 0), 0);
@@ -827,7 +827,7 @@ export class Game {
     for (const x of this.exits) dropObj(x.g);
     for (const w of this.player.wisps) dropObj(w.mesh);
     this.player.wisps = [];
-    this.enemies = []; this.projs = []; this.eprojs = []; this.decals = []; this.drops = []; this.exits = []; this.slashes = []; this.rings = [];
+    this.enemies = []; this.projs = []; this.growthEffects = []; this.eprojs = []; this.decals = []; this.drops = []; this.exits = []; this.slashes = []; this.rings = [];
     this.vfx?.clear();
     this.fx.clear(); this.puffs.clear();
     const town = depth === -1, harbor = depth === -2, anyTown = town || harbor;
@@ -2055,6 +2055,14 @@ export class Game {
           const side = dir.clone().rotateAround(new V2(), angle * Math.PI / 180);
           this.fireProj(p.pos, side, { ...arrow, mult: arrow.mult * 0.30, volleyHits, growthSecondary: true, isTrigger: true });
         }
+        if (this.growthPrototype === 'advanced' && this.time >= (p.growthEchoReadyAt ?? 0)) {
+          p.growthEchoReadyAt = this.time + 5.5;
+          const origin = p.pos.clone();
+          const heading = dir.clone();
+          this.growthEffects.push({ remaining: 0.35, release: () => {
+            this.fireProj(origin, heading, { ...arrow, mult: arrow.mult * 0.25, color: 0xa4d5ff, growthSecondary: true, isTrigger: true });
+          } });
+        }
       } else this.fireProj(p.pos, dir, arrow);
       return;
     }
@@ -2119,7 +2127,14 @@ export class Game {
           { isTrigger: true, recordHits: guardWaveHits });
         if (guardWaveHits) {
           this.shockRing(p.pos.x, p.pos.z, 2.1, this.rollDamage(0.78 * 0.30), 0xa4d5ff, 0,
-            { isTrigger: true, growthSecondary: true, excludeHits: guardWaveHits });
+            { isTrigger: true, growthSecondary: true, excludeHits: guardWaveHits, recordHits: guardWaveHits });
+          if (this.growthPrototype === 'advanced') {
+            const { x, z } = p.pos;
+            this.growthEffects.push({ remaining: 0.35, release: () => {
+              this.shockRing(x, z, 3.2, this.rollDamage(0.78 * 0.20), 0x88bbe9, 0,
+                { isTrigger: true, growthSecondary: true, excludeHits: guardWaveHits, minRadius: 2.1 });
+            } });
+          }
         }
       } else if (job === 2) {
         this.vfx?.spawnDecal('mana_runes', p.pos.x + dir.x * 2.0, p.y, p.pos.z + dir.y * 2.0, { theme: 'bluefire', scaleStart: 1.0, scaleEnd: 3.4, dur: 0.45 });
@@ -2202,15 +2217,23 @@ export class Game {
     this.beams.push({ mesh, t: 0.22, max: 0.22 });
   }
   shockRing(x, z, radius, hit, color, stun = 0, opts = {}) {
-    const geo = new THREE.RingGeometry(0.85, 1, 32); geo.rotateX(-Math.PI / 2);
+    const { minRadius } = opts;
+    const geo = new THREE.RingGeometry(minRadius === undefined ? 0.85 : minRadius / radius, 1, 32);
+    geo.rotateX(-Math.PI / 2);
     const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, depthWrite: false }));
-    mesh.position.set(x, 0.12, z); mesh.userData.noNormal = true;
+    mesh.position.set(x, opts.growthSecondary ? this.world.gh(x, z) + 0.14 : 0.12, z);
+    mesh.userData.noNormal = true;
+    const ring = { mesh, t: 0, max: 0.3, radius };
+    if (minRadius !== undefined) {
+      mesh.scale.setScalar(radius);
+      ring.onTick = k => { mesh.material.opacity = 0.9 * (1 - k); };
+    }
     this.scene.add(mesh);
-    this.rings.push({ mesh, t: 0, max: 0.3, radius });
+    this.rings.push(ring);
     for (const e of this.enemies) {
       if (e.dead || opts.excludeHits?.has(e)) continue;
       const d = Math.hypot(e.pos.x - x, e.pos.z - z);
-      if (d < radius + e.r) {
+      if (d < radius + e.r && (opts.minRadius === undefined || d >= opts.minRadius)) {
         opts.recordHits?.add(e);
         const k = 6 / Math.max(d, 0.3);
         const ringHit = hit.dmg ? { ...hit, dmg: Math.round(hit.dmg * (0.9 + Math.random() * 0.2)) } : hit;
@@ -4921,6 +4944,14 @@ export class Game {
   }
 
   updateProjs(dt) {
+    if (this.state === 'play' && this.growthEffects.length) {
+      this.growthEffects = this.growthEffects.filter(effect => {
+        effect.remaining -= dt;
+        if (effect.remaining > 1e-9) return true;
+        effect.release();
+        return false;
+      });
+    }
     const p = this.player;
     const sporePools = this.field === 3 ? this.groundZones.filter(zone => zone.sporeSource && zone.life > 0) : [];
     const cover = this.ambushTrial?.cover;
