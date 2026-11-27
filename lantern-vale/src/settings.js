@@ -187,7 +187,20 @@ export function buildSettingsUI(g) {
       body.innerHTML = `<div class="sabout">${t(lang, 'aboutText')}</div>`;
       const b = document.createElement('button'); b.className = 'btn'; b.textContent = t(lang, 'resetSettings');
       b.onclick = () => { g.settings = { ...DEFAULTS, keybinds: { ...KEY_PRESETS.arpg } }; saveSettings(g.settings); applySettings(g); render(); };
-      body.appendChild(b); return;
+      body.appendChild(b);
+      for (const [label, path] of [
+        ['audioCredits', 'assets/audio/CREDITS.md'],
+        ['animationCredits', 'assets/char/LOCOMOTION_CREDITS.md'],
+      ]) {
+        const credits = document.createElement('a');
+        credits.className = 'srow';
+        credits.href = path;
+        credits.target = '_blank';
+        credits.rel = 'noopener';
+        credits.textContent = t(lang, label);
+        body.appendChild(credits);
+      }
+      return;
     }
     if (tab === 'video') {
       const lr = document.createElement('div'); lr.className = 'srow';
