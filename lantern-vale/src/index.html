@@ -120,7 +120,7 @@ dialog{font-family:var(--font-ui)}
 .ebar-recovery span{display:none}
 .ebar-recovery i{display:block;height:4px;background:#ffcf4a;transform-origin:left}
 .epart{background:#3b2a2af0;color:#ffe9a0;border:1px solid #ffcf4a;padding:0 5px;font-size:11px;line-height:1.35;white-space:nowrap}
-.epart.brk{opacity:.55;text-decoration:line-through;border-color:#8a7a70;color:#c8beb6}
+.epart.brk{background:#3b2928;border-color:#d1aa79;color:#fff0d6}
 .epart.crit{background:#8c1d2cf5;border-color:#ffd85a;color:#fff8e4;animation:pulseSt .45s infinite alternate}
 .eaffix{background:#5a2232f2;color:#ffd85a;border:1px solid #ff9a4a;padding:0 6px;font-size:11px;line-height:1.35;white-space:nowrap;font-weight:700}
 #nums{position:absolute;inset:0;overflow:hidden}
@@ -1962,23 +1962,100 @@ body:has(#menuPop:not(.hide),[aria-modal="true"]:not(.hide)) #toasts{opacity:0}
 #worldActivity:hover,#worldActivity[open]{opacity:1}
 #worldActivity > summary{padding:5px 10px!important;font-size:11.5px!important;background:transparent!important;border:0!important}
 #hud #skills .sk{border-image:none!important;background:rgba(30,19,24,.82)!important;border:1.5px solid rgba(255,224,150,.38)!important;border-radius:10px!important;box-shadow:0 2px 8px rgba(0,0,0,.28)!important}
-@media (any-pointer: coarse){
-  #touchMove{background:rgba(24,16,22,.32)!important;border:1.5px solid rgba(255,232,168,.42)!important;box-shadow:none!important;backdrop-filter:blur(3px)}
-  #touchMove span{background:rgba(255,246,226,.78)!important;border:1.5px solid rgba(43,29,51,.55)!important;box-shadow:none!important}
-  #touchInteract{border-radius:999px!important;padding:0 16px!important;background:rgba(28,18,24,.82)!important;border:1.5px solid rgba(255,226,150,.55)!important;box-shadow:0 2px 8px rgba(0,0,0,.28)!important}
-  #hud #skills{grid-template-columns:repeat(3,var(--touch-size))!important;align-items:center!important;justify-items:center!important;gap:8px!important}
-  #hud #skills .sk,.touch-key{
-    border-radius:50%!important;background:rgba(28,18,24,.82)!important;
-    border:1.5px solid rgba(255,226,150,.48)!important;color:#fff6e2!important;
-    box-shadow:0 2px 8px rgba(0,0,0,.28)!important;backdrop-filter:blur(3px);
+/* ===== 手機版 P0 UI/UX：浮動搖桿、右手扇形鍵盤、條件浮現互動鍵與橫屏極簡頂欄 ===== */
+@media (pointer: coarse), (any-pointer: coarse) and (max-width: 1100px){
+  /* 左手浮動搖桿感應區 */
+  #hud #touchMovement{
+    position:absolute!important;left:var(--edge-left)!important;bottom:var(--edge-bottom)!important;
+    width:min(164px,36vw)!important;height:min(164px,34dvh)!important;
+    display:block!important;pointer-events:auto!important;touch-action:none!important;z-index:18;
+  }
+  #touchMove{
+    position:absolute!important;left:4px;bottom:4px;width:104px!important;height:104px!important;
+    display:grid;place-items:center;border-radius:50%;opacity:.48;pointer-events:none!important;
+    background:rgba(24,16,22,.36)!important;border:1.5px solid rgba(255,232,168,.46)!important;
+    box-shadow:none!important;backdrop-filter:blur(3px);transition:opacity .12s ease;
+  }
+  #touchMove.held,#touchMove.floating{opacity:.96!important}
+  #touchMove span{width:40px!important;height:40px!important;background:rgba(255,246,226,.86)!important;border:1.5px solid rgba(43,29,51,.6)!important;box-shadow:0 2px 6px rgba(0,0,0,.3)!important}
+  #touchMove.held span{background:rgba(255,216,90,.96)!important}
+
+  /* 條件浮現互動鍵：移至右手區上方，不打斷左手移動 */
+  #touchInteract{
+    position:absolute!important;right:calc(var(--edge-right) + 8px)!important;bottom:calc(var(--edge-bottom) + 206px)!important;
+    width:auto!important;min-width:84px!important;min-height:44px!important;padding:0 16px!important;
+    border-radius:999px!important;z-index:22!important;opacity:.55;
+    background:rgba(28,18,24,.82)!important;border:1.5px solid rgba(255,226,150,.55)!important;
+    color:#fff6e2!important;box-shadow:0 2px 8px rgba(0,0,0,.32)!important;
+    transition:opacity .14s,transform .14s,box-shadow .14s!important;
+  }
+  #touchInteract.touch-interact-ready{
+    opacity:1!important;transform:scale(1.04);background:rgba(244,198,86,.92)!important;
+    color:#2b1d14!important;border-color:#fff6d6!important;box-shadow:0 0 14px rgba(255,216,90,.65)!important;
+  }
+
+  /* 右手拇指扇形動作鍵盤（Thumb Arc） */
+  #hud #skills{
+    position:absolute!important;right:var(--edge-right)!important;left:auto!important;bottom:var(--edge-bottom)!important;
+    display:block!important;width:206px!important;height:198px!important;
+    background:transparent!important;border:0!important;box-shadow:none!important;
+    padding:0!important;margin:0!important;pointer-events:none!important;z-index:18!important;
+  }
+  #hud #skills .touch-combat-actions{display:contents!important}
+  #hud #skills .sk,#hud #skills .touch-key{
+    position:absolute!important;pointer-events:auto!important;
+    border-radius:50%!important;background:rgba(28,18,24,.84)!important;
+    border:1.5px solid rgba(255,226,150,.5)!important;color:#fff6e2!important;
+    box-shadow:0 2px 8px rgba(0,0,0,.32)!important;backdrop-filter:blur(3px);
     transition:transform .08s,background .08s!important;
   }
-  .touch-key:active,.touch-key.held{transform:scale(.92)!important;background:rgba(255,216,90,.82)!important;color:#2b1d14!important}
+  .touch-key:active,.touch-key.held{transform:scale(.92)!important;background:rgba(255,216,90,.88)!important;color:#2b1d14!important}
+  /* 主攻鍵 68px 置於右下角黃金拇指位 */
   #skills #touchAttack{
-    grid-column:span 1!important;width:62px!important;height:62px!important;min-width:62px!important;min-height:62px!important;
-    background:rgba(244,198,86,.84)!important;color:#2b1d14!important;border:2px solid #fff3cf!important;font-size:15px!important;
+    right:2px;bottom:2px;width:68px!important;height:68px!important;min-width:68px!important;min-height:68px!important;
+    background:rgba(244,198,86,.9)!important;color:#2b1d14!important;border:2px solid #fff3cf!important;font-size:15px!important;
   }
-  #skills #touchAttack.held{background:rgba(255,224,116,.96)!important}
+  #skills #touchAttack.held{background:rgba(255,228,128,.98)!important}
+  /* 內弧：翻滾（左下）與跳躍滑翔（正上） */
+  #skills #touchRoll{right:82px;bottom:6px;width:52px!important;height:52px!important;min-width:52px!important;min-height:52px!important;font-size:13px!important}
+  #skills #touchJump{right:6px;bottom:82px;width:52px!important;height:52px!important;min-width:52px!important;min-height:52px!important;font-size:13px!important}
+  /* 外弧：拼圖技能 s0-s3 與藥瓶 */
+  #skills #sk-s0{right:80px;bottom:68px;width:48px!important;height:48px!important}
+  #skills #sk-s1{right:144px;bottom:14px;width:48px!important;height:48px!important}
+  #skills #sk-s2{right:138px;bottom:76px;width:48px!important;height:48px!important}
+  #skills #sk-s3{right:76px;bottom:130px;width:48px!important;height:48px!important}
+  #skills #sk-r{right:14px;bottom:144px;width:46px!important;height:46px!important}
+  #skills #quickTideUlt{right:142px;bottom:138px;width:52px!important;height:52px!important;border-color:#ffd85a!important}
+  #skills #apStop{right:142px;bottom:138px;width:52px!important;height:52px!important}
+}
+
+/* 超窄直屏（如 320×568）：等比收緊左右熱區確保零重疊 */
+@media (pointer: coarse) and (max-width: 380px), (any-pointer: coarse) and (max-width: 380px){
+  #hud #touchMovement{width:104px!important;height:124px!important}
+  #touchMove{width:92px!important;height:92px!important}
+  #hud #skills{width:184px!important;height:178px!important}
+  #skills #touchAttack{width:60px!important;height:60px!important;min-width:60px!important;min-height:60px!important}
+  #skills #touchRoll{right:70px;bottom:4px;width:46px!important;height:46px!important;min-width:46px!important;min-height:46px!important}
+  #skills #touchJump{right:4px;bottom:72px;width:46px!important;height:46px!important;min-width:46px!important;min-height:46px!important}
+  #skills #sk-s0{right:68px;bottom:60px;width:44px!important;height:44px!important}
+  #skills #sk-s1{right:124px;bottom:10px;width:44px!important;height:44px!important}
+  #skills #sk-s2{right:120px;bottom:66px;width:44px!important;height:44px!important}
+  #skills #sk-s3{right:66px;bottom:114px;width:44px!important;height:44px!important}
+  #skills #sk-r{right:10px;bottom:126px;width:44px!important;height:44px!important}
+  #touchInteract{bottom:calc(var(--edge-bottom) + 184px)!important}
+}
+
+/* 橫屏單行極簡頂欄：壓縮頂部高度至 ≤ 42px，保留 ≥ 68% 純淨中央戰鬥視野 */
+@media (pointer: coarse) and (orientation: landscape), (any-pointer: coarse) and (orientation: landscape) and (max-width: 1100px){
+  #hud{--controls-height:142px}
+  #hud #topbar{min-height:36px!important;max-height:40px!important;padding:2px 10px!important;font-size:12px!important;right:calc(var(--edge-right) + 178px)!important}
+  #hud :is(#btnMap,#btnMenu,#touchDetails){min-height:38px!important;height:38px!important}
+  #hud #pcard{top:calc(var(--edge-top) + 44px)!important;left:var(--edge-left)!important;scale:.56!important;transform-origin:left top!important}
+  #hud #boss{top:var(--edge-top)!important;left:50%!important;right:auto!important;transform:translateX(-50%)!important;width:min(300px,42vw)!important}
+  #hud #fieldTarget,#hud #fieldCompass{top:calc(var(--edge-top) + 44px)!important;left:auto!important;right:var(--edge-right)!important;max-width:36vw!important;font-size:11px!important}
+  #hud #fieldCompass{top:calc(var(--edge-top) + 68px)!important}
+  #hud #toasts{top:calc(var(--edge-top) + 44px)!important;left:50%!important;right:auto!important;transform:translateX(-50%)!important;width:min(310px,50vw)!important;max-height:38px!important;overflow:hidden!important}
+  #touchInteract{right:calc(var(--edge-right) + 216px)!important;bottom:calc(var(--edge-bottom) + 12px)!important}
 }
 /* ===== Loading UI/UX（星燈啟動遮罩、柔順過場、非同步微光指示器） ===== */
 #bootSplash{position:fixed;inset:0;z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#1a1426;color:#fff6e2;transition:opacity .26s ease;pointer-events:auto}
@@ -2217,9 +2294,9 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   </div>
   <canvas id="hudFx"></canvas>
   <div id="touchMovement" class="touch-only">
-    <button type="button" id="touchInteract" class="touch-key" data-i18n="touchInteract">互動</button>
     <div id="touchMove" aria-hidden="true"><span></span></div>
   </div>
+  <button type="button" id="touchInteract" class="touch-key touch-only" data-i18n="touchInteract">互動</button>
   <div id="skills" class="panel">
     <button type="button" class="sk" id="sk-s0" title="拼圖技能 1"><span class="k key">右鍵</span><span class="ic">—</span><span class="sname">空位</span><span class="sup" hidden></span><span class="cd"></span></button>
     <button type="button" class="sk" id="sk-s1" title="拼圖技能 2"><span class="k key">Q</span><span class="ic">—</span><span class="sname">空位</span><span class="sup" hidden></span><span class="cd"></span></button>

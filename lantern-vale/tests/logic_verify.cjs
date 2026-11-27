@@ -1698,5 +1698,21 @@ const createGuild = require('../server/guild.cjs');
   assert.equal(p0Mmo.maxActiveCompanions({ depth: 3 }), 1, 'High-difficulty dungeon (depth >= 3) caps AI companions at 1');
   assert.equal(p0Mmo.maxActiveCompanions({ settings: { difficulty: 'hard' } }), 1, 'Hard difficulty caps AI companions at 1');
 
-  console.log('ALL 59 LOGIC, P2-BALANCE-OVERHAUL, MELEE-RANGED-SPATIAL, P1-BALANCE-OVERHAUL, P0-BALANCE-OVERHAUL, WHOLE-MAP-VIRTUAL-MMO-M12, VIRTUAL-MMO-PLAYERS-M11, CRISP-PIXEL-UI-SYSTEM, VFX-100PCT-UTILIZATION, MMORPG-ENDGAME-POTENTIAL-TOWER-PARTY-EVENTS-OFFLINE, MMORPG-LIVING-WORLD-BOSS-LIFE-RUNES-TITLES-DAILY, MMORPG-PROGRESSION-OVERHAUL, GEAR-LEVEL-GATES-TIER-MATS, ACCOUNT-LOGIN-DELETE-CHAR, MONSTER-MATS-CRAFT-RESIST, MMORPG-6-PILLARS, HARDCORE-MMO-SCARCITY, CREATOR-OCEAN-INTERACT, V6-FIELD-POI-BOSS, DIORAMA-D1-D4, VFX-SKILL-REWORK-V1-V6, UI-UNIFIED-U4B, CHAR-C6-TOON-ANIM, CHAR-REWORK-C1-C5, FUZZ-QA-36, MMO-M10-PORTALS-CRAFT-KILLSWITCH, MMO-M9-SAFETY-KILLSWITCH, MMO-M8-ROLES-FEAST-GPU, MMO-M7-SOUL-AWAKEN-GPU-FIX, MMO-M6-SPIRE-MENTOR-LIGHTHOUSE, MMO-M5-FERRY-REVIEW, MMO-M4-OVERHAUL, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
+  // 60. Mobile P0 UI/UX: floating joystick math, thumb-arc layout, landscape compact header & right-side interact button
+  const touchMod = await import('../src/touch.js');
+  const zoneRect = { left: 10, right: 174, top: 200, bottom: 364 };
+  const origInside = touchMod.computeFloatingOrigin(90, 280, zoneRect, 52);
+  assert.equal(origInside.cx, 90, 'Floating joystick centers on touch inside zone');
+  assert.equal(origInside.cy, 280, 'Floating joystick Y centers on touch inside zone');
+  const origClamp = touchMod.computeFloatingOrigin(15, 205, zoneRect, 52);
+  assert.equal(origClamp.cx, 62, 'Floating joystick clamps X inside zone bounds');
+  assert.equal(origClamp.cy, 252, 'Floating joystick clamps Y inside zone bounds');
+  const deadVec = touchMod.computeJoystickVector(93, 280, 90, 280, 40, 0.14);
+  assert.equal(deadVec.strength, 0, 'Small thumb jitter within 14% deadzone yields 0 movement');
+  const fullVec = touchMod.computeJoystickVector(140, 280, 90, 280, 40, 0.14);
+  assert.equal(fullVec.x, 1, 'Full right thumb push yields normalized x=1');
+  assert.equal(fullVec.z, 0, 'Full right thumb push yields z=0');
+  assert.ok(cpHtml.includes('orientation: landscape') && cpHtml.includes('touch-interact-ready'), 'Mobile P0 landscape compact header & ready-state interact styles present in index.html');
+
+  console.log('ALL 60 LOGIC, MOBILE-P0-UIUX, P2-BALANCE-OVERHAUL, MELEE-RANGED-SPATIAL, P1-BALANCE-OVERHAUL, P0-BALANCE-OVERHAUL, WHOLE-MAP-VIRTUAL-MMO-M12, VIRTUAL-MMO-PLAYERS-M11, CRISP-PIXEL-UI-SYSTEM, VFX-100PCT-UTILIZATION, MMORPG-ENDGAME-POTENTIAL-TOWER-PARTY-EVENTS-OFFLINE, MMORPG-LIVING-WORLD-BOSS-LIFE-RUNES-TITLES-DAILY, MMORPG-PROGRESSION-OVERHAUL, GEAR-LEVEL-GATES-TIER-MATS, ACCOUNT-LOGIN-DELETE-CHAR, MONSTER-MATS-CRAFT-RESIST, MMORPG-6-PILLARS, HARDCORE-MMO-SCARCITY, CREATOR-OCEAN-INTERACT, V6-FIELD-POI-BOSS, DIORAMA-D1-D4, VFX-SKILL-REWORK-V1-V6, UI-UNIFIED-U4B, CHAR-C6-TOON-ANIM, CHAR-REWORK-C1-C5, FUZZ-QA-36, MMO-M10-PORTALS-CRAFT-KILLSWITCH, MMO-M9-SAFETY-KILLSWITCH, MMO-M8-ROLES-FEAST-GPU, MMO-M7-SOUL-AWAKEN-GPU-FIX, MMO-M6-SPIRE-MENTOR-LIGHTHOUSE, MMO-M5-FERRY-REVIEW, MMO-M4-OVERHAUL, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
 })();

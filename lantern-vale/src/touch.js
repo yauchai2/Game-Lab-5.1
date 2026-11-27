@@ -1,6 +1,37 @@
+/** 計算浮動搖桿圓心：夾緊在左手感應區內避免切邊 */
+export function computeFloatingOrigin(clientX, clientY, zoneRect, padRadius = 54) {
+  const minX = zoneRect.left + padRadius;
+  const maxX = Math.max(minX, zoneRect.right - padRadius);
+  const minY = zoneRect.top + padRadius;
+  const maxY = Math.max(minY, zoneRect.bottom - padRadius);
+  const cx = Math.max(minX, Math.min(maxX, clientX));
+  const cy = Math.max(minY, Math.min(maxY, clientY));
+  return { cx, cy, offsetX: cx - zoneRect.left - padRadius, offsetY: cy - zoneRect.top - padRadius };
+}
+
+/** 計算搖桿正規化向量與旋鈕位移（含 14% 防抖死區） */
+export function computeJoystickVector(clientX, clientY, originX, originY, maxTravel = 40, deadzone = 0.14) {
+  const dx = clientX - originX;
+  const dy = clientY - originY;
+  const dist = Math.hypot(dx, dy);
+  const norm = dist / Math.max(1, maxTravel);
+  const strength = Math.max(0, Math.min(1, (norm - deadzone) / (1 - deadzone)));
+  const ux = dist > 0 ? dx / dist : 0;
+  const uz = dist > 0 ? dy / dist : 0;
+  const knobTravel = maxTravel * 0.72;
+  return {
+    x: ux * strength,
+    z: uz * strength,
+    strength,
+    knobX: +(ux * Math.min(1, norm) * knobTravel).toFixed(1),
+    knobY: +(uz * Math.min(1, norm) * knobTravel).toFixed(1),
+  };
+}
+
 export function bindTouch(g) {
   const el = id => document.getElementById(id);
   const hud = el('hud');
+  const zone = el('touchMovement');
   const pad = el('touchMove'), knob = pad.firstElementChild;
   const interact = g.touchInteract = el('touchInteract');
   const input = g.touchInput = { x: 0, z: 0, attack: false, glide: false };
@@ -39,15 +70,33 @@ export function bindTouch(g) {
   hud.addEventListener('selectstart', blockSelect);
   hud.addEventListener('contextmenu', blockSelect);
 
-  function move(e) {
-    const r = pad.getBoundingClientRect();
-    const x = (e.clientX - r.left - r.width / 2) / (r.width * 0.38);
-    const z = (e.clientY - r.top - r.height / 2) / (r.height * 0.38);
-    const distance = Math.hypot(x, z);
-    const strength = Math.max(0, Math.min(1, (distance - 0.13) / 0.87));
-    input.x = distance ? x / distance * strength : 0;
-    input.z = distance ? z / distance * strength : 0;
-    knob.style.transform = `translate(${input.x * 25}px, ${input.z * 25}px)`;
+  let joyOrigin = null;
+  function startMove(e) {
+    const zr = zone.getBoundingClientRect();
+    const padR = (pad.offsetWidth || 108) * 0.5;
+    const o = computeFloatingOrigin(e.clientX, e.clientY, zr, padR);
+    joyOrigin = { x: o.cx, y: o.cy, maxTravel: Math.max(32, padR * 0.78) };
+    pad.classList.add('held', 'floating');
+    pad.style.left = `${o.offsetX}px`;
+    pad.style.top = `${o.offsetY}px`;
+    pad.style.bottom = 'auto';
+    updateMove(e);
+  }
+  function updateMove(e) {
+    if (!joyOrigin) return;
+    const v = computeJoystickVector(e.clientX, e.clientY, joyOrigin.x, joyOrigin.y, joyOrigin.maxTravel);
+    input.x = v.x;
+    input.z = v.z;
+    knob.style.transform = `translate(${v.knobX}px, ${v.knobY}px)`;
+  }
+  function stopMove() {
+    joyOrigin = null;
+    input.x = input.z = 0;
+    knob.style.transform = '';
+    pad.classList.remove('held', 'floating');
+    pad.style.left = '';
+    pad.style.top = '';
+    pad.style.bottom = '';
   }
 
   function attack() {
@@ -68,7 +117,7 @@ export function bindTouch(g) {
     g.tryRoll();
   }
 
-  const releaseMove = hold(pad, move, () => { input.x = input.z = 0; knob.style.transform = ''; }, move);
+  const releaseMove = hold(zone, startMove, stopMove, updateMove);
   const releaseAttack = hold(el('touchAttack'), () => { input.attack = true; attack(); }, () => { input.attack = false; });
   const releaseJump = hold(el('touchJump'), () => { input.glide = !g.raid; jump(); }, () => { input.glide = false; });
   const releaseRoll = hold(el('touchRoll'), roll, () => {});

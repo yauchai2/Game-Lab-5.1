@@ -126,15 +126,38 @@ class Particles {
 }
 
 // ---------------- telegraph decals ----------------
+const STAG_ROOT_INTERVAL = 0.12;
+const STAG_ROOT_RADIUS = 1;
 const decalVS = `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`;
-const decalFS = `uniform vec3 uColor; uniform float uProg, uShape, uAlpha; varying vec2 vUv;
+const decalFS = `uniform vec3 uColor; uniform float uProg, uShape, uAlpha, uInner, uRays; varying vec2 vUv;
   void main(){
     float a = 0.0;
     if (uShape < 0.5) { float d = length(vUv-0.5)*2.0; if (d>1.0) discard;
       a = smoothstep(0.86,0.9,d)*0.9 + step(d,uProg)*0.32 + step(abs(d-uProg),0.04)*0.5; }
     else if (uShape < 1.5) { float edge = step(0.92, max(abs(vUv.x-0.5)*2.0, 0.0)) ;
       a = edge*0.8 + step(vUv.y, uProg)*0.3 + step(abs(vUv.y-uProg),0.02)*0.5; }
-    else { float d = length(vUv-0.5)*2.0; if (d>1.0) discard; a = smoothstep(0.6,1.0,d)*(1.0-smoothstep(0.95,1.0,d))*1.2; }
+    else if (uShape < 2.5) { float d = length(vUv-0.5)*2.0; if (d>1.0) discard; a = smoothstep(0.6,1.0,d)*(1.0-smoothstep(0.95,1.0,d))*1.2; }
+    else if (uShape < 3.5) {
+      float d = length(vUv-0.5)*2.0;
+      if (d < uInner || d > 1.0) discard;
+      float front = mix(uInner, 1.0, uProg);
+      a = 0.19 + 0.43*step(d,front) + 0.48*step(abs(d-front),0.025)
+        + 0.68*step(0.965,d) + 0.68*step(d,uInner+0.035);
+    } else if (uShape < 4.5) {
+      float d = length(vUv-0.5)*2.0;
+      if (d > 1.0) discard;
+      float stripe = step(0.75, fract((vUv.x + vUv.y)*7.0));
+      a = min(1.0, 0.32 + 0.16*stripe + 0.44*uProg + 0.45*step(0.84,d));
+    } else {
+      vec2 p = vec2(vUv.x-0.5, 0.5-vUv.y);
+      float d = length(p)*2.0;
+      if (d < 0.12 || d > 1.0) discard;
+      float lane = abs(fract(atan(p.y,p.x)*uRays/6.2831853 + 0.5)-0.5);
+      float ray = 1.0-smoothstep(0.045,0.18,lane);
+      float edge = step(0.93,d) + step(d,0.19);
+      float sweep = step(abs(d-mix(0.19,0.93,uProg)),0.035);
+      a = min(1.0, ray*(0.45 + 0.35*uProg + 0.22*sweep) + 0.38*edge);
+    }
     gl_FragColor = vec4(uColor, a*uAlpha);
   }`;
 
@@ -1263,7 +1286,10 @@ export class Game {
     }
     this.ambushTrial?.enemyHit(e, Math.min(dmg, e.hp), opts.isDoT);
     if (!opts.dungeonBot && this.dungeon.run) this.dungeon.run.lastFight = this.time;
-    if (!this.dungeon.damage(e, dmg, opts.dungeonBot, !opts.isDoT)) e.hp -= dmg;
+    const sharedParts = this.dungeon.sharesStagParts(e);
+    const sharedPartHit = sharedParts && this.getPartHit(e, dmg, opts);
+    const partFraction = sharedPartHit ? [sharedPartHit.part.id, sharedPartHit.damage / sharedPartHit.part.maxHp] : undefined;
+    if (!this.dungeon.damage(e, dmg, opts.dungeonBot, !opts.isDoT, partFraction)) e.hp -= dmg;
     e.flash = 0.14;
     if (e.isWorldBoss) onWorldBossHit(this, e, dmg, true);
     if (!opts.isDoT) {
@@ -1333,35 +1359,11 @@ export class Game {
     if (!opts.isDoT && (p.perfectCritT || 0) > 0 && hitDist <= 4.0) {
       e.stun = Math.max(e.stun || 0, 0.5);
     }
-    // 部位破壞與星燈照域聯動：星燈圈外盲射不累積部位破壞，近戰享 1.5× 破防優勢
-    if (!opts.isDoT && e.parts?.length) {
-      const lampGate = Math.max(7.5, this.lampLight?.distance || 7.5) + 1.5;
-      const pbEff = partBreakEfficiency({ isMelee: !!opts.isMelee, dist: hitDist, lampRange: lampGate });
-      const hx = opts.hitPos ? opts.hitPos.x : p.pos.x, hz = opts.hitPos ? opts.hitPos.z : p.pos.z;
-      const part = pbEff > 0 ? resolveHitPart(e, hx, hz) : null;
-      if (part) {
-        const role = getClassTeamRole(this.character?.job ?? 0);
-        const pr = damagePart(e, part, Math.round(dmg * (role.partBreakMult || 1) * pbEff));
-        if (pr.broken) {
-          if (this.runStats) this.runStats.partsBroken++;
-          if (e.m.parts?.[pr.part.id]) e.m.parts[pr.part.id].visible = false;
-          this.hitstop = Math.max(this.hitstop, 0.1);
-          this.shake = Math.max(this.shake, 0.58);
-          this.camPunch = Math.max(this.camPunch || 0, 0.14);
-          this.audio.sfx('partBreak');
-          this.puffs.burst(e.pos.x, e.pos.y + 1.2, e.pos.z, 18, { c: [0xffe480, 0x7ae8ff, 0xffffff], s: 0.22, speed: 6, up: 5, life: 0.75 });
-          this.ui.dmgNum(e.pos.x, e.pos.y + 2.2, e.pos.z, `✂️ ${pr.part.name}破壞!`, 'crit');
-          // 部位破壞以破防虛弱為主，僅 6% 機率掉專屬裝備（不再每次破部位必噴神裝！）
-          if (e.sporeGuardian || this.caveRun) {
-            this.ui.toast(`${pr.part.name}已破壞 · ${pr.part.weakenDesc}`, '#ffd85a');
-          } else if (pr.dropItem && Math.random() < 0.06) {
-            this.ui.toast(`✂️ 斬斷 ${pr.part.icon} ${pr.part.name}！（${pr.part.weakenDesc}）幸運掉落專屬裝備！`, '#ffd85a');
-            this.dropItem(e.pos.x + (Math.random() - 0.5) * 1.8, e.pos.z + (Math.random() - 0.5) * 1.8, pr.dropItem);
-          } else {
-            this.meta.p.coins = (this.meta.p.coins || 0) + 15;
-            this.ui.toast(`✂️ 斬斷 ${pr.part.icon} ${pr.part.name}！（${pr.part.weakenDesc}）+🪙15`, '#ffd85a');
-          }
-        }
+    if (!sharedParts) {
+      const partHit = this.getPartHit(e, dmg, opts);
+      if (partHit) {
+        const result = damagePart(e, partHit.part, partHit.damage);
+        if (result.broken) this.showPartBreak(e, result, true);
       }
     }
     // 環境元素連鎖反應：攻擊附帶火／冰／雷／水元素時，觸發周圍地表連鎖反應
@@ -1548,6 +1550,58 @@ export class Game {
       }
     }
   }
+  getPartHit(enemy, damage, options) {
+    if (options.isDoT || !enemy.parts?.length) return null;
+    const p = this.player;
+    const dist = Math.hypot(enemy.pos.x - p.pos.x, enemy.pos.z - p.pos.z);
+    const lampRange = Math.max(7.5, this.lampLight?.distance || 7.5) + 1.5;
+    const efficiency = partBreakEfficiency({ isMelee: !!options.isMelee, dist, lampRange });
+    if (efficiency <= 0) return null;
+    const { x, z } = options.hitPos || p.pos;
+    const part = resolveHitPart(enemy, x, z);
+    if (!part) return null;
+    const role = getClassTeamRole(this.character?.job ?? 0);
+    return { part, damage: Math.round(damage * (role.partBreakMult || 1) * efficiency) };
+  }
+
+  applySharedStagPart(enemy, id, fraction, local) {
+    const part = enemy.parts?.find(candidate => candidate.id === id);
+    if (!part || part.broken) return;
+    part.hp = Math.min(part.hp, Math.max(1, Math.round(fraction * part.maxHp)));
+    if (fraction > 0) return;
+    const result = damagePart(enemy, part, part.hp);
+    if (local === undefined) {
+      if (enemy.m.parts?.[id]) enemy.m.parts[id].visible = false;
+    } else {
+      this.showPartBreak(enemy, result, local);
+    }
+  }
+
+  showPartBreak(enemy, { part, dropItem }, local) {
+    if (enemy.m.parts?.[part.id]) enemy.m.parts[part.id].visible = false;
+    this.puffs.burst(enemy.pos.x, enemy.pos.y + 1.2, enemy.pos.z, 18, { c: [0xffe480, 0x7ae8ff, 0xffffff], s: 0.22, speed: 6, up: 5, life: 0.75 });
+    this.ui.dmgNum(enemy.pos.x, enemy.pos.y + 2.2, enemy.pos.z, `✂️ ${part.name}破壞!`, 'crit');
+    if (!local) {
+      this.cueAt('partBreak', enemy.pos, 16, 0.8);
+      this.ui.toast(`隊友破壞了${part.name} · ${part.weakenDesc}`, '#ffd85a');
+      return;
+    }
+    if (this.runStats) this.runStats.partsBroken++;
+    this.hitstop = Math.max(this.hitstop, 0.1);
+    this.shake = Math.max(this.shake, 0.58);
+    this.camPunch = Math.max(this.camPunch || 0, 0.14);
+    this.audio.sfx('partBreak');
+    if (enemy.sporeGuardian || this.caveRun) {
+      this.ui.toast(`${part.name}已破壞 · ${part.weakenDesc}`, '#ffd85a');
+    } else if (dropItem && Math.random() < 0.06) {
+      this.ui.toast(`✂️ 斬斷 ${part.icon} ${part.name}！（${part.weakenDesc}）幸運掉落專屬裝備！`, '#ffd85a');
+      this.dropItem(enemy.pos.x + (Math.random() - 0.5) * 1.8, enemy.pos.z + (Math.random() - 0.5) * 1.8, dropItem);
+    } else {
+      this.meta.p.coins = (this.meta.p.coins || 0) + 15;
+      this.ui.toast(`✂️ 斬斷 ${part.icon} ${part.name}！（${part.weakenDesc}）+🪙15`, '#ffd85a');
+    }
+  }
+
   heal(v, show = true) {
     const p = this.player; const before = p.hp;
     p.hp = Math.min(p.stats.maxHp, p.hp + v);
@@ -1825,12 +1879,15 @@ export class Game {
   }
 
   addDecal(shape, x, z, size, color, dur, rot, onDone, shapeId) {
+    const annulus = shape === 'annulus';
     const mat = new THREE.ShaderMaterial({
-      uniforms: { uColor: { value: new THREE.Color(color) }, uProg: { value: 0 }, uShape: { value: shapeId ?? (shape === 'circle' ? 0 : 1) }, uAlpha: { value: 1 } },
+      uniforms: { uColor: { value: new THREE.Color(color) }, uProg: { value: 0 },
+        uShape: { value: shapeId ?? (annulus ? 3 : shape === 'circle' ? 0 : 1) },
+        uInner: { value: annulus ? size.inner / size.outer : 0 }, uRays: { value: 0 }, uAlpha: { value: 1 } },
       vertexShader: decalVS, fragmentShader: decalFS, transparent: true, depthWrite: false,
     });
     let geo;
-    if (shape === 'circle') { geo = new THREE.PlaneGeometry(size * 2, size * 2); geo.rotateX(-Math.PI / 2); }
+    if (shape !== 'rect') { const radius = annulus ? size.outer : size; geo = new THREE.PlaneGeometry(radius * 2, radius * 2); geo.rotateX(-Math.PI / 2); }
     else { geo = new THREE.PlaneGeometry(size.w, size.l); geo.translate(0, size.l / 2, 0); geo.rotateX(-Math.PI / 2); geo.rotateY(Math.PI); }
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.set(x, 0.06, z); if (rot !== null && rot !== undefined) mesh.rotation.y = rot;
@@ -1839,6 +1896,13 @@ export class Game {
     const d = { mesh, mat, t: 0, dur, onDone };
     this.decals.push(d);
     return d;
+  }
+
+  expireWarning(decal) {
+    if (decal.dead) return;
+    decal.onDone = null;
+    decal.hold = false;
+    decal.t = decal.dur;
   }
 
   cueAt(name, pos, range, strength) {
@@ -1865,13 +1929,25 @@ export class Game {
     const pos = actor.m.root.position;
     this.cueAt(kind === 'cast' ? 'wisp' : WEAPON_CUES[kind], pos, 12, 0.55);
     if (Math.hypot(pos.x - this.player.pos.x, pos.z - this.player.pos.z) > 18) return;
+    const facing = actor.tf ?? actor.f;
     if (kind === 'bow') {
-      const dx = Math.sin(actor.f), dz = Math.cos(actor.f);
-      this.spawnBeam(pos.x + dx * 0.55, pos.y + 0.9, pos.z + dz * 0.55, pos.x + dx * 3, pos.y + 0.94, pos.z + dz * 3, 0x9bc9d3);
+      const dx = Math.sin(facing), dz = Math.cos(facing);
+      const target = actor.pendingCombatTarget;
+      this.spawnBeam(pos.x + dx * 0.55, pos.y + 0.9, pos.z + dz * 0.55,
+        target?.x ?? pos.x + dx * 3, target ? target.y + 0.5 : pos.y + 0.94,
+        target?.z ?? pos.z + dz * 3, 0x9bc9d3);
     } else if (kind === 'cast') {
       this.fx.burst(pos.x, pos.y + 0.8, pos.z, 4, { c: 0xa1d7ff, s: 0.09, speed: 1.9, up: 1.4, life: 0.26 });
     } else {
-      this.vfx?.spawnSlash(pos.x, pos.y, pos.z, actor.f, { theme: 'wind', scale: 1.25, clean: true });
+      this.vfx?.spawnSlash(pos.x, pos.y, pos.z, facing, { theme: kind === 'shield' ? 'holy' : 'wind', scale: 1.25, clean: true });
+    }
+  }
+  resolveMeadowImpact(enemy, x, z, radius, damageMult) {
+    const y = this.world.gh(x, z);
+    this.enemyCue('enemyRelease', enemy.pos);
+    this.puffs.burst(x, y + 0.25, z, 8, { c: [0xffbe73, 0xffe8ac], s: 0.18, speed: 3.6, life: 0.45 });
+    if (Math.abs(this.player.y - y) < 1.5 && Math.hypot(this.player.pos.x - x, this.player.pos.z - z) < radius) {
+      this.hurtPlayer(enemy.dmg * damageMult, new V3(x, y + 0.16, z));
     }
   }
   queueMeadowStrike(enemy, x, z, radius, duration, damageMult) {
@@ -1890,13 +1966,11 @@ export class Game {
       } else if (enemy.expeditionName) {
         enemy.chargeRecoveryS = 0.95;
       }
-      this.enemyCue('enemyRelease', enemy.pos);
-      this.puffs.burst(x, y + 0.25, z, 8, { c: [0xffbe73, 0xffe8ac], s: 0.18, speed: 3.6, life: 0.45 });
-      if (Math.abs(this.player.y - y) < 1.5 && Math.hypot(this.player.pos.x - x, this.player.pos.z - z) < radius) {
-        this.hurtPlayer(enemy.dmg * damageMult, warning.mesh.position);
-      }
+      this.dungeon.sendAttack(enemy, 'release');
+      this.resolveMeadowImpact(enemy, x, z, radius, damageMult);
     });
     warning.mesh.position.y = y + 0.16;
+    this.dungeon.sendAttack(enemy, 'warn', [0, x, z, radius, damageMult, duration], warning);
   }
 
   queueSporeBurst(enemy) {
@@ -3459,7 +3533,7 @@ export class Game {
       if (r.a === 1) r.walkT += dt * 11;
       if (r.pendingCombat) {
         this.companionAttack(r, r.pendingCombat);
-        r.pendingCombat = null;
+        r.pendingCombat = r.pendingCombatTarget = null;
       }
       r.attackPose = Math.max(0, (r.attackPose || 0) - dt);
       r.rollTime = r.a === 5 ? Math.min(0.28, (r.rollTime || 0) + dt) : 0;
@@ -3813,7 +3887,15 @@ export class Game {
       this.audio.setDim(this.field ? (this.flameRt?.dim || 0) : 0);
     }
     this.updatePickups(dt);
-    if (this.state === 'play') this.ui.spotHint(this);
+    if (this.state === 'play') {
+      this.ui.spotHint(this);
+      if (this.touchInteract) {
+        const eh = document.getElementById('exitHint'), sh = document.getElementById('spotHint');
+        const nearDrop = this.drops?.some(d => !d.gone && Math.hypot(d.pos.x - this.player.pos.x, d.pos.z - this.player.pos.z) < 3.6);
+        const ready = !!this.raid || !!this.gatherActive || !!nearDrop || (eh && eh.style.display !== 'none') || (sh && sh.style.display !== 'none');
+        this.touchInteract.classList.toggle('touch-interact-ready', ready);
+      }
+    }
     if (!this.interior) this.updateEnemies(dt);
     this.updateProjs(dt);
     this.updateMisc(dt);
@@ -4154,8 +4236,12 @@ export class Game {
       const dirP = _dirP.set(rdx * invD, rdz * invD);
       let mvx = 0, mvz = 0;
       const spd = est.freeze > 0 ? 0 : e.spd * (e.slow > 0 ? 0.45 : 1);
-      // knockback
-      if (e.knock.lengthSq() > 0.01) { this.moveEntity(e.pos, e.knock.x * dt, e.knock.z * dt, e.r); e.knock.multiplyScalar(Math.exp(-dt * 9)); }
+      const replicatedChargeEnemy = (e.type === 'boar' || e.type === 'stag') && this.dungeon.followsEnemyAttack(e);
+      // The leader applies knockback to enemies that share charge positions.
+      if (e.knock.lengthSq() > 0.01) {
+        if (!replicatedChargeEnemy) this.moveEntity(e.pos, e.knock.x * dt, e.knock.z * dt, e.r);
+        e.knock.multiplyScalar(Math.exp(-dt * 9));
+      }
       const follow = (s = 1) => {
         if (dist > 1.5 && W.flowDir(e.pos.x, e.pos.z, _flowV)) { mvx = _flowV.x * spd * s; mvz = _flowV.y * spd * s; }
         else { mvx = dirP.x * spd * s; mvz = dirP.y * spd * s; }
@@ -4209,6 +4295,14 @@ export class Game {
       }
       if (e.stun > 0 || !playing || (this.field && dist > (e.tideAggro ? 32 : e.legendary ? 14 : 18))) {
         // idle
+      } else if (replicatedChargeEnemy) {
+        if (e.state === 'charge') {
+          if (e.type === 'stag' && dist < 1.8) this.hurtPlayer(e.dmg * 1.3, e.pos);
+          else if (e.type === 'boar' && dist < e.r + 0.5) this.hurtPlayer(e.dmg * (e.brokenWeakens?.has('charge') ? 0.65 : 1), e.pos, null, 'boar', 'charge');
+        }
+        if (e.type === 'stag') {
+          e.m.body.position.y = e.state === 'stomp' ? Math.min(1, e.t * 2) * 0.8 : 0;
+        }
       } else if (e.type === 'slime') {
         if (!e.meadowPounce || e.state === 'move') {
           follow(0.6 + 0.6 * Math.max(0, Math.sin(e.t * 6 + e.ph)));
@@ -4216,7 +4310,7 @@ export class Game {
             e.cd -= dt;
             const nearbyPounce = e.cd <= 0 && dist < 4.3 && this.enemies.some(other =>
               other !== e && other.meadowPounce && !other.dead && other.state === 'meadow-strike' && other.pos.distanceToSquared(e.pos) < 36);
-            if (e.cd <= 0 && dist < 4.3 && !nearbyPounce) {
+            if (e.cd <= 0 && dist < 4.3 && !nearbyPounce && !this.dungeon.followsEnemyAttack(e)) {
               const reach = Math.min(2.8, dist);
               this.queueMeadowStrike(e, e.pos.x + dirP.x * reach, e.pos.z + dirP.y * reach, 1.45, 0.85, 1);
               mvx = mvz = 0;
@@ -4234,7 +4328,7 @@ export class Game {
           if (dist > 8) follow(); else if (dist < 4.5) { mvx = -dirP.x * spd; mvz = -dirP.y * spd; }
           else { mvx = -dirP.y * spd * 0.4 * Math.sign(Math.sin(e.ph)); mvz = dirP.x * spd * 0.4 * Math.sign(Math.sin(e.ph)); }
           if (e.cd <= 0 && dist < 12) {
-            if (e.expeditionName && !e.rootCastLast) {
+            if (e.expeditionName && !e.rootCastLast && !this.dungeon.followsEnemyAttack(e)) {
               e.rootCastLast = true;
               this.queueMeadowStrike(e, p.pos.x, p.pos.z, 2.65, 1.1, 1.15);
               mvx = mvz = 0;
@@ -4271,18 +4365,23 @@ export class Game {
             e.state = 'wind'; e.t = 0; e.cdir = dirP.clone();
             this.enemyCue('enemyWind', e.pos);
             this.ambushTrial?.beginCharge(e, p);
-            e.dec = this.addDecal('rect', e.pos.x, e.pos.z, { w: 1.2 * e.m.root.scale.x, l: 6.4 }, 0xff5040, e.chargeWindS ?? 0.75, Math.atan2(e.cdir.x, e.cdir.y));
+            const direction = Math.atan2(e.cdir.x, e.cdir.y);
+            const duration = e.chargeWindS ?? 0.75;
+            const width = this.dungeon.sharesEnemyAttack(e) ? 2 * (e.r + 0.5) : 1.2 * e.m.root.scale.x;
+            e.dec = this.addDecal('rect', e.pos.x, e.pos.z, { w: width, l: 6.4 }, 0xff5040, duration, direction);
+            this.dungeon.sendAttack(e, 'warn', [1, e.pos.x, e.pos.z, width, direction, duration], e.dec);
             if (e.openingPractice) {
               if (!e.practiceChargeStarted) recordOpeningEvent(this, 'practice_warning');
               e.practiceChargeStarted = true;
               e.practiceCharge = { x: e.pos.x, z: e.pos.z, hit: false };
             }
-            if (e.expeditionName || e.openingPractice) e.dec.mesh.position.y = this.world.gh(e.pos.x, e.pos.z) + 0.16;
+            if (e.expeditionName || e.openingPractice || this.dungeon.sharesEnemyAttack(e)) e.dec.mesh.position.y = this.world.gh(e.pos.x, e.pos.z) + 0.16;
           }
         } else if (e.state === 'wind') {
           e.m.body.position.x = Math.sin(e.t * 60) * 0.05;
           if (e.t > (e.chargeWindS ?? 0.75)) {
             e.state = 'charge'; e.t = 0;
+            this.dungeon.sendAttack(e, 'release');
             this.enemyCue('enemyRelease', e.pos);
           }
         } else if (e.state === 'charge') {
@@ -4525,11 +4624,13 @@ export class Game {
         else if (e.type !== 'slime' && e.state !== 'aim') e.m.body.scale.set(1, 1, 1);
       }
       if (e.type === 'boar' && e.state === 'wind') {
-        const wind = Math.min(1, e.t / (e.chargeWindS ?? 0.75));
+        const wind = Math.min(1, e.t / (e.incomingAttack?.decal.dur ?? e.chargeWindS ?? 0.75));
         e.m.body.rotation.x = -0.32 * wind;
         e.m.body.scale.set(1 + wind * 0.09, 1 - wind * 0.17, 1 + wind * 0.1);
       } else if (e.type === 'boar' && e.state === 'charge') {
         e.m.body.rotation.x = 0.22 * (1 - Math.min(1, e.t / 0.6));
+      } else if (e.type === 'stag' && (e.state === 'wind' || e.state === 'charge')) {
+        e.m.body.rotation.x = e.state === 'wind' || e.step === 1 && !replicatedChargeEnemy ? -0.28 : 0.18;
       } else if (e.type === 'golem' && e.state === 'slam') {
         e.m.body.rotation.x = -0.4 * Math.sin(Math.min(1, e.t / 0.85) * Math.PI * 2);
       }
@@ -4547,6 +4648,101 @@ export class Game {
     if (this.boss) this.ui.bossBar(!this.field || this.boss.pos.distanceTo(p.pos)<10, null, this.boss.hp / this.boss.maxHp, this.boss.parts);
   }
 
+  resolveBossGroundImpact(enemy, { shape, x, z, size, extra }) {
+    const ring = shape === 2;
+    const y = this.world.gh(x, z);
+    const origin = new V3(x, y, z);
+    this.enemyCue('enemyRelease', origin);
+    this.shake = Math.max(this.shake, ring ? 0.65 : 0.7);
+    if (ring) {
+      const radius = (size + extra) / 2;
+      for (let i = 0; i < 16; i++) {
+        const angle = i / 16 * Math.PI * 2;
+        const px = x + Math.cos(angle) * radius, pz = z + Math.sin(angle) * radius;
+        this.puffs.burst(px, this.world.gh(px, pz) + 0.25, pz, 3, { c: 0xff8a40, s: 0.35, speed: 3, up: 3, life: 0.5 });
+      }
+    } else {
+      this.puffs.burst(x, y + 0.2, z, 20, { c: 0xf4ecd8, s: 0.5, speed: 5, up: 1, g: -0.4, life: 0.7, grow: 1.4, drag: 3 });
+    }
+    const dist = Math.hypot(this.player.pos.x - x, this.player.pos.z - z);
+    if (ring ? !isInDonutSafeZone(dist, extra) && dist <= size : dist < size) {
+      this.hurtPlayer(enemy.dmg * (ring ? 1.35 : 1.4), origin);
+    }
+  }
+
+  warnStagRoots(x, z, lanes, angle, windup) {
+    this.enemyCue('enemyCast', { x, z });
+    const spacing = lanes === 3 ? 0.7 : 0.5;
+    return Array.from({ length: 7 }, (_, row) => {
+      const distance = (row + 1) * 1.6;
+      const points = [];
+      for (let lane = 0; lane < lanes; lane++) {
+        const direction = angle + (lane - (lanes - 1) / 2) * spacing;
+        const cx = x + Math.sin(direction) * distance, cz = z + Math.cos(direction) * distance;
+        if (!this.world.isLand(cx, cz)) continue;
+        const y = this.world.gh(cx, cz);
+        const decal = this.addDecal('circle', cx, cz, STAG_ROOT_RADIUS, 0xff9a54, windup + row * STAG_ROOT_INTERVAL, null, null, 4);
+        decal.mesh.position.y = y + 0.13;
+        decal.hold = true;
+        points.push({ x: cx, y, z: cz, decal });
+      }
+      return points;
+    });
+  }
+
+  resolveStagRootRow(enemy, row, step) {
+    const p = this.player;
+    let hit = null, nearest = Infinity, sound = null;
+    for (const point of row) {
+      const { x, y, z, decal } = point;
+      this.expireWarning(decal);
+      this.puffs.burst(x, y + 0.15, z, 10, { c: [0x795532, 0x9ccc62, 0xd9bd7f], s: 0.25, speed: 2, up: 6, life: 0.6 });
+      const distance = Math.hypot(p.pos.x - x, p.pos.z - z);
+      if (distance < nearest) { nearest = distance; sound = point; }
+      if (distance < STAG_ROOT_RADIUS && (!hit || Math.abs(y - p.y) < Math.abs(hit.y - p.y))) hit = point;
+    }
+    if (sound && (step === 1 || step === 4 || step === 7)) this.enemyCue('enemyRelease', sound);
+    if (hit) this.hurtPlayer(enemy.dmg, hit);
+  }
+
+  warnStagBurst(x, z, pulseCount, shots, windup) {
+    const origin = new V3(x, this.world.gh(x, z), z);
+    const interval = windup * 0.76;
+    this.enemyCue('enemyWind', origin);
+    return {
+      shape: 5, state: 'burst', origin, pulseCount, shots, windup, interval,
+      until: this.time + windup + (pulseCount - 1) * interval + 1.5,
+      decal: this.stagBurstWarning(origin, shots, 1, windup),
+    };
+  }
+
+  stagBurstWarning(origin, shots, step, duration) {
+    const decal = this.addDecal('circle', origin.x, origin.z, 6.5, 0xffae55, duration, -step * 0.2, null, 5);
+    decal.mesh.position.y = origin.y + 0.19;
+    decal.mat.uniforms.uRays.value = shots;
+    decal.hold = true;
+    return decal;
+  }
+
+  resolveStagBurst(enemy, attack, step) {
+    this.expireWarning(attack.decal);
+    this.fireStagVolley(enemy, attack.origin, attack.shots, step);
+    const { x, y, z } = attack.origin;
+    this.puffs.burst(x, y + 0.65, z, 10, { c: [0xffa040, 0xffe4a4], s: 0.22, speed: 4, up: 2.2, life: 0.35 });
+    if (step < attack.pulseCount) {
+      attack.decal = this.stagBurstWarning(attack.origin, attack.shots, step + 1, attack.interval);
+    }
+  }
+
+  fireStagVolley(enemy, origin, shots, step) {
+    this.enemyCue('enemyCast', origin);
+    for (let i = 0; i < shots; i++) {
+      const angle = i / shots * Math.PI * 2 + step * 0.2;
+      this.fireEnemyProj(origin, new V2(Math.cos(angle), Math.sin(angle)), 6.5, enemy.dmg * 0.8, 0xffa040, 0.25);
+    }
+    this.shake = Math.max(this.shake, 0.2);
+  }
+
   updateBoss(e, dt, dist, dirP, follow, setMv) {
     const p = this.player;
     e.cd -= dt;
@@ -4556,32 +4752,95 @@ export class Game {
       follow(0.8);
       e.m.body.position.y = Math.abs(Math.sin(e.t * 5)) * 0.1;
       if (e.cd <= 0) {
-        const moves = ['charge', 'burst', 'roots', dist < 4 ? 'stomp' : 'donut'];
+        const shared = this.dungeon.sharesEnemyAttack(e);
+        const moves = shared ? ['charge', 'stomp', 'donut'] : ['charge', 'burst', 'roots', dist < 4 ? 'stomp' : 'donut'];
+        if (shared && this.dungeon.run.rootSync) moves.push('roots');
+        if (shared && this.dungeon.run.burstSync) moves.push('burst');
         if (dist > 7.5) moves.push('donut', 'charge');
-        if (this.enemies.length < 4) moves.push('summon');
+        if (!shared && this.enemies.length < 4) moves.push('summon');
         e.state = pick(Math.random, moves); e.t = 0; e.step = 0;
       }
     } else if (e.state === 'charge') {
-      if (e.step === 0) { this.enemyCue('enemyWind', e.pos); e.cdir = dirP.clone(); this.addDecal('rect', e.pos.x, e.pos.z, { w: 2.4, l: 14 }, 0xff5040, 0.9 * fast, Math.atan2(e.cdir.x, e.cdir.y)); e.step = 1; e.facing = Math.atan2(e.cdir.x, e.cdir.y); }
-      if (e.step === 1 && e.t > 0.9 * fast) { this.enemyCue('enemyRelease', e.pos); e.step = 2; e.t = 0; }
+      if (e.step === 0) {
+        this.enemyCue('enemyWind', e.pos);
+        e.cdir = dirP.clone();
+        const angle = Math.atan2(e.cdir.x, e.cdir.y);
+        const duration = 0.9 * fast;
+        const width = 3.6;
+        const warning = this.addDecal('rect', e.pos.x, e.pos.z, { w: width, l: 14 }, 0xff5040, duration, angle);
+        warning.mesh.position.y = this.world.gh(e.pos.x, e.pos.z) + 0.16;
+        e.step = 1;
+        e.facing = angle;
+        this.dungeon.sendAttack(e, 'warn', [1, e.pos.x, e.pos.z, width, angle, duration], warning);
+      }
+      if (e.step === 1 && e.t > 0.9 * fast) {
+        this.enemyCue('enemyRelease', e.pos);
+        e.step = 2;
+        e.t = 0;
+        this.dungeon.sendAttack(e, 'release');
+      }
       if (e.step === 2) {
         const b = e.pos.clone();
         const chSpd = e.brokenWeakens?.has('charge') ? 11 : 16;
         this.moveEntity(e.pos, e.cdir.x * chSpd * dt, e.cdir.y * chSpd * dt, 1);
         if (Math.random() < 0.8) this.puffs.emit(e.pos.x + (Math.random() - 0.5), 0.1, e.pos.z, { c: 0xf4ecd8, s: 0.4, g: -0.3, life: 0.5, grow: 1 });
         if (dist < 1.8) this.hurtPlayer(e.dmg * 1.3, e.pos);
-        if (e.t > 0.85 || b.distanceTo(e.pos) < 0.01) { this.shake = 0.4; e.charges = (e.charges || 0) + 1; if (e.charges < (e.phase === 2 ? 3 : 2)) { e.step = 0; e.t = 0; } else { e.charges = 0; e.state = 'rest'; e.t = 0; e.chargeRecoveryS = 1.15; } }
+        if (e.t > 0.85 || b.distanceTo(e.pos) < 0.01) {
+          this.dungeon.sendAttack(e, 'end');
+          this.shake = 0.4;
+          e.charges = (e.charges || 0) + 1;
+          e.t = 0;
+          if (e.charges < (e.phase === 2 ? 3 : 2)) e.step = 0;
+          else {
+            e.charges = 0; e.state = 'rest'; e.chargeRecoveryS = 1.15;
+          }
+        }
+      }
+    } else if (e.state === 'burst' && this.dungeon.sharesEnemyAttack(e)) {
+      if (e.statuses?.freeze > 0) return;
+      if (e.step === 0) {
+        const { x, z } = e.pos;
+        const count = e.phase === 2 ? 3 : 2;
+        const shots = e.brokenWeakens?.has('burst') ? 7 : 14;
+        const windup = e.phase === 2 ? 0.68 : 0.82;
+        e.step = 1;
+        this.dungeon.sendAttack(e, 'warn', [5, x, z, count, shots, windup], this.warnStagBurst(x, z, count, shots, windup));
+      }
+      const attack = e.sharedAttack;
+      if (attack && e.t >= attack.windup + (e.step - 1) * attack.interval) {
+        this.resolveStagBurst(e, attack, e.step);
+        this.dungeon.sendAttack(e, 'pulse', e.step);
+        if (e.step++ === attack.pulseCount) {
+          e.state = 'rest';
+          e.t = 0;
+          e.chargeRecoveryS = 1.1;
+        }
       }
     } else if (e.state === 'burst') {
       e.flash = Math.max(e.flash, Math.sin(e.t * 30) > 0 ? 0.03 : 0);
       if (e.t > 0.7 * fast && e.step < (e.phase === 2 ? 3 : 2)) {
         e.t = 0.2; e.step++;
-        this.enemyCue('enemyCast', e.pos);
-        const n = e.brokenWeakens?.has('burst') ? 7 : 14, off = e.step * 0.2;
-        for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2 + off; this.fireEnemyProj(e.pos, new V2(Math.cos(a), Math.sin(a)), 6.5, e.dmg * 0.8, 0xffa040, 0.25); }
-        this.shake = 0.2;
+        this.fireStagVolley(e, e.pos, e.brokenWeakens?.has('burst') ? 7 : 14, e.step);
       }
       if (e.step >= (e.phase === 2 ? 3 : 2) && e.t > 0.8) { e.state = 'move'; e.cd = 1.4 * fast; }
+    } else if (e.state === 'roots' && this.dungeon.sharesEnemyAttack(e)) {
+      if (e.statuses?.freeze > 0) return;
+      if (e.step === 0) {
+        const angle = Math.atan2(dirP.x, dirP.y);
+        const lanes = e.phase === 2 ? 3 : 2;
+        const windup = e.phase === 2 ? 0.6 : 0.72;
+        const { x, z } = e.pos;
+        e.facing = angle;
+        e.step = 1;
+        this.dungeon.sendAttack(e, 'warn', [4, x, z, lanes, angle, windup], this.warnStagRoots(x, z, lanes, angle, windup));
+        e.rootWindup = windup;
+      }
+      const rows = e.sharedAttack?.roots;
+      if (rows && e.t >= e.rootWindup + (e.step - 1) * STAG_ROOT_INTERVAL) {
+        this.resolveStagRootRow(e, rows[e.step - 1], e.step);
+        this.dungeon.sendAttack(e, 'pulse', e.step++);
+      }
+      if (e.t > 1.65 && !e.sharedAttack) { e.state = 'rest'; e.t = 0; e.chargeRecoveryS = 1.1; }
     } else if (e.state === 'roots') {
       if (e.step === 0) {
         this.enemyCue('enemyCast', e.pos);
@@ -4598,31 +4857,31 @@ export class Game {
         }
       }
       if (e.t > 1.6) { e.state = 'move'; e.cd = 1.2 * fast; }
-    } else if (e.state === 'stomp') {
-      if (e.step === 0) { this.enemyCue('enemyWind', e.pos); e.step = 1; this.addDecal('circle', e.pos.x, e.pos.z, 4, 0xff5040, 0.8 * fast); }
-      e.m.body.position.y = Math.min(1, e.t * 2) * 0.8;
-      if (e.t > 0.8 * fast && e.step === 1) {
-        e.step = 2; e.m.body.position.y = 0; this.shake = 0.7;
-        this.enemyCue('enemyRelease', e.pos);
-        this.puffs.burst(e.pos.x, 0.2, e.pos.z, 20, { c: 0xf4ecd8, s: 0.5, speed: 5, up: 1, g: -0.4, life: 0.7, grow: 1.4, drag: 3 });
-        if (dist < 4.2) this.hurtPlayer(e.dmg * 1.4, e.pos);
-      }
-      if (e.t > 1.4) { e.state = 'rest'; e.t = 0; e.chargeRecoveryS = 1.15; }
-    } else if (e.state === 'donut') {
+    } else if (e.state === 'stomp' || e.state === 'donut') {
+      const ring = e.state === 'donut';
+      const duration = (ring ? 0.95 : 0.8) * fast;
       if (e.step === 0) {
-        this.enemyCue('enemyWind', e.pos); e.step = 1;
-        this.addDecal('circle', e.pos.x, e.pos.z, 9.5, 0xff5a3a, 0.95 * fast);
-        this.addDecal('circle', e.pos.x, e.pos.z, 3.5, 0x6ae8ff, 0.95 * fast);
+        this.enemyCue('enemyWind', e.pos);
+        e.step = 1;
+        const { x, z } = e.pos;
+        const size = ring ? 9.5 : 4.2;
+        const extra = ring ? 3.5 : 0;
+        const shape = ring ? 2 : 3;
+        const warning = ring
+          ? this.addDecal('annulus', x, z, { outer: size, inner: extra }, 0xff5a3a, duration, null)
+          : this.addDecal('circle', x, z, size, 0xff5040, duration, null);
+        warning.mesh.position.y = this.world.gh(x, z) + 0.16;
+        e.groundAttack = { shape, x, z, size, extra };
+        this.dungeon.sendAttack(e, 'warn', [shape, x, z, size, extra, duration], warning);
       }
-      if (e.t > 0.95 * fast && e.step === 1) {
-        e.step = 2; this.shake = 0.65; this.enemyCue('enemyRelease', e.pos);
-        for (let i = 0; i < 16; i++) {
-          const a = (i / 16) * Math.PI * 2;
-          this.puffs.burst(e.pos.x + Math.cos(a) * 6.5, 0.25, e.pos.z + Math.sin(a) * 6.5, 3, { c: 0xff8a40, s: 0.35, speed: 3, up: 3, life: 0.5 });
-        }
-        if (!isInDonutSafeZone(dist, 3.5) && dist <= 9.5) this.hurtPlayer(e.dmg * 1.35, e.pos);
+      if (!ring) e.m.body.position.y = Math.min(1, e.t * 2) * 0.8;
+      if (e.t > duration && e.step === 1) {
+        e.step = 2;
+        e.m.body.position.y = 0;
+        this.dungeon.sendAttack(e, 'release');
+        this.resolveBossGroundImpact(e, e.groundAttack);
       }
-      if (e.t > 1.45) { e.state = 'rest'; e.t = 0; e.chargeRecoveryS = 1.1; }
+      if (e.t > (ring ? 1.45 : 1.4)) { e.state = 'rest'; e.t = 0; e.chargeRecoveryS = ring ? 1.1 : 1.15; }
     } else if (e.state === 'rest') {
       if (e.t >= (e.chargeRecoveryS ?? 1.15)) { e.state = 'move'; e.cd = 1.2 * fast; }
     } else if (e.state === 'summon') {
@@ -4742,7 +5001,7 @@ export class Game {
     for (const d of this.decals) {
       d.t += dt; d.mat.uniforms.uProg.value = Math.min(1, d.t / d.dur);
       if (d.frost) { d.mat.uniforms.uAlpha.value = 1 - d.t / d.dur; for (const e of this.enemies) if (e.pos.distanceTo(d.mesh.position) < 2.4) e.slow = 0.5; }
-      if (d.t >= d.dur) { this.scene.remove(d.mesh); d.mesh.geometry?.dispose?.(); d.mat.dispose(); if (d.onDone) d.onDone(); d.dead = true; }
+      if (d.t >= d.dur && !d.hold) { this.scene.remove(d.mesh); d.mesh.geometry?.dispose?.(); d.mat.dispose(); if (d.onDone) d.onDone(); d.dead = true; }
     }
     this.decals = this.decals.filter(d => !d.dead);
     for (const s of this.slashes) { s.t -= dt; s.mesh.material.opacity = Math.max(0, s.t / s.max) * 0.85; s.mesh.scale.setScalar(1 + (1 - s.t / s.max) * 0.15); if (s.t <= 0) { this.scene.remove(s.mesh); s.mesh.geometry?.dispose?.(); s.mesh.material?.dispose?.(); } }
