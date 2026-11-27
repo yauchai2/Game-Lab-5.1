@@ -1,4 +1,4 @@
-// Phase 5B：Godot 風格底部除錯工具列（F3 / ` 鍵開關）
+// Phase 5B：Godot 風格底部除錯工具列（F3 開關；` 鍵開調校面板 dev_tuner.js）
 // 提供：錯誤與警告攔截、輸出日誌過濾、即時 FPS/FrameTime 折線監視器、WebGL 顯存與 ObjectDB 統計、快捷除錯工具
 
 import { canvasUiFont } from './ui_typography.js';
@@ -13,11 +13,37 @@ import { MOUNTS } from './mounts.js';
 import { getSimAdventurers, getSimConfig, setSimConfig, triggerSimEvent } from './mmo_world.js';
 
 import { recordDevEvent, setDevContext, setDevRecording } from './dev_diagnostics.js';
+import { installDevTuner } from './dev_tuner.js';
 
 const MAX_LOGS = 250;
 const HIST_LEN = 64;
 
+/**
+ * 開發者工具是否可用：
+ *  - `?dev`（或 `?dev=1`）→ 開啟並記住（localStorage lv_dev_unlock），`?dev=0` → 關閉並清除記憶。
+ *  - 否則只有非 --prod 建置在本機（localhost / 區網 / file://）才開。
+ * GitHub Pages 的公開版沒有 ?dev 時，F3、`、除錯按鈕、調校面板全部不存在。
+ */
+export function devAllowed() {
+  try {
+    const qs = new URLSearchParams(location.search);
+    if (qs.has('dev')) {
+      const off = ['0', 'off', 'false'].includes((qs.get('dev') || '').toLowerCase());
+      try { off ? localStorage.removeItem('lv_dev_unlock') : localStorage.setItem('lv_dev_unlock', '1'); } catch (_) {}
+      return !off;
+    }
+    try { if (localStorage.getItem('lv_dev_unlock') === '1') return true; } catch (_) {}
+    if (typeof __LV_PROD__ !== 'undefined' && __LV_PROD__) return false;
+    const h = location.hostname;
+    return location.protocol === 'file:' || h === '' || h === 'localhost' || h === '[::1]' || /^127\./.test(h) || /^10\./.test(h) ||
+      /^192\.168\./.test(h) || /^172\.(1[6-9]|2\d|3[01])\./.test(h) || h.endsWith('.local');
+  } catch (_) { return false; }
+}
+
 export function installDebugger(game) {
+  if (!devAllowed()) {
+    return { allowed: false, toggle: () => false, setDevMode() {}, openTools() {}, isOpen: () => false, getCounts: () => ({ errors: 0, warnings: 0, total: 0 }), log() {}, recordFrame() {}, onZoneLoaded() {} };
+  }
   const logs = [];
   let errCount = 0, warnCount = 0;
   let open = false;
@@ -95,6 +121,7 @@ export function installDebugger(game) {
         <button type="button" class="dbg-tab" data-tab="mmo">👥 虛擬 MMO</button>
       </div>
       <div class="dbg-right">
+        <button type="button" class="dbg-dev-sw" id="dbgTuneOpen" title="開發者調校面板（反引號鍵）">🎛 調校面板</button>
         <button type="button" class="dbg-dev-sw" id="dbgDevMaster" title="切換開發者模式 (Shift+F3)">🧪 DEV：關</button>
         <span id="dbgMiniFps">60 FPS · 16.6ms</span>
         <button type="button" class="dbg-x" id="dbgClose" title="關閉除錯面板 (F3)">✕</button>
@@ -552,7 +579,19 @@ export function installDebugger(game) {
   if (mmoMapBtn) mmoMapBtn.onclick = () => game.ui?.toggleRegionMap?.(game);
   syncMmoTab();
 
-  // 快捷鍵 F3 / ` 開關除錯面板，Shift+F3 快速切換開發者模式
+  // 🎛 調校面板（滑桿 / 開關 / 按鈕 / 匯出匯入），見 dev_tuner.js
+  const tuner = installDevTuner(game, {
+    ensureDev: () => { if (!game.dev.on) setDevMode(true); },
+    sync: syncDevUI,
+    toast: (m, c) => game.ui?.toast?.(m, c),
+    getStats: () => {
+      const info = game.pipe?.renderer?.info;
+      return { fps: smoothFps, frameMs: smoothMs, drawCalls: info?.render?.calls, triangles: info?.render?.triangles };
+    },
+  });
+  $d('dbgTuneOpen').onclick = () => tuner.toggle(true);
+
+  // 快捷鍵：F3 = 底部除錯列；` = 調校面板；Shift+F3 = 快速切換開發者模式
   window.addEventListener('keydown', e => {
     if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT')) return;
     if (e.key === 'F3' && e.shiftKey) {
@@ -560,15 +599,23 @@ export function installDebugger(game) {
       setDevMode();
       return;
     }
-    if (e.key === 'F3' || e.code === 'Backquote') {
+    if (e.code === 'Backquote') {
+      e.preventDefault();
+      tuner.toggle();
+      return;
+    }
+    if (e.key === 'F3') {
       e.preventDefault();
       toggle();
     }
   });
 
   return {
+    allowed: true,
+    tuner,
     toggle,
     setDevMode,
+    onZoneLoaded: () => setTimeout(() => tuner.reapply(), 60),
     openTools: () => { toggle(true); setTab('tools'); },
     isOpen: () => open,
     getCounts: () => ({ errors: errCount, warnings: warnCount, total: logs.length }),

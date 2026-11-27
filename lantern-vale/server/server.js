@@ -7,6 +7,7 @@ const { pipeline } = require('node:stream/promises');
 const COMPRESS_EXTS = new Set(['.glb', '.gltf', '.bin', '.svg', '.json', '.js', '.css']);
 const { WebSocketServer } = require('ws');
 const { isLocalDevRequest, receiveDevEvents } = require('./dev_diagnostics.cjs');
+const { receiveDevTune } = require('./dev_tune.cjs');
 const { createPlaytestGate } = require('./playtest_gate.cjs');
 const playtestGate = createPlaytestGate(process.env.LV_PLAYTEST_PASS_FILE);
 const guild = require('./guild.cjs')(process.env.LV_DATABASE || path.join(__dirname, 'data', 'guild.sqlite'));
@@ -52,6 +53,7 @@ const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
     if (playtestGate && await playtestGate.block(req, res, url)) return;
     if (url.pathname === '/__dev/events') return await receiveDevEvents(req, res);
+    if (url.pathname === '/__dev/tune') return await receiveDevTune(req, res);
     if (req.method !== 'GET' && req.method !== 'HEAD') {
       res.writeHead(405, { Allow: 'GET, HEAD' }).end();
     } else if (url.pathname === '/health') {

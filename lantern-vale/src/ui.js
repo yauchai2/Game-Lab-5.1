@@ -102,7 +102,7 @@ export class UI {
       setMenu(false, true);
     }, true);
     $('btnMute').onclick = () => { game.audio.init(); const m = game.audio.toggleMute(); $('btnMute').textContent = m ? '🔇 音效：關' : '🔊 音效：開'; };
-    const dbgBtn = $('btnDebug'); if (dbgBtn) dbgBtn.onclick = () => { $('menuPop')?.classList.add('hide'); game.dbg?.toggle?.(); };
+    const dbgBtn = $('btnDebug'); if (dbgBtn && game.dbg?.allowed === false) dbgBtn.style.display = 'none'; else if (dbgBtn) dbgBtn.onclick = () => { $('menuPop')?.classList.add('hide'); game.dbg?.toggle?.(); };
     const rosBtn = $('btnSimRoster'); if (rosBtn) rosBtn.onclick = () => { $('menuPop')?.classList.add('hide'); this.toggleSimRoster(game); };
     $('btnZoneShards').onclick = () => this.openPanel('shards');
     const netBox = $('netBox'); if (netBox) netBox.onclick = () => {

@@ -272,7 +272,7 @@ export function applyModularLook(rigRoot, lookInput, equipWeapon = 'staff') {
 }
 
 let _toonGrad = null;
-function getToonGrad() {
+export function getToonGrad() {
   if (_toonGrad) return _toonGrad;
   const data = new Uint8Array([165, 165, 165, 255, 222, 222, 222, 255, 255, 255, 255, 255]);
   const tex = new THREE.DataTexture(data, 3, 1, THREE.RGBAFormat);
