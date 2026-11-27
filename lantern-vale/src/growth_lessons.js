@@ -1,4 +1,5 @@
 // Permanent practice rewards for the local growth playtest.
+import { growthFieldCleared } from './growth_journey.js';
 const LESSONS = {
   0: [
     { icon: '環', name: '學會收尾震波', desc: '持盾普攻第三擊多一圈腳下震波，補打原招未命中的敵人。' },
@@ -20,7 +21,7 @@ export function availableGrowthLesson(profile, job) {
   const firstClear = profile.meadowCave?.clears?.normal > 0;
   const eligible = rank === 0
     ? profile.opening?.practice === 'done' || firstClear || !!profile.meadowExpedition?.cleared?.[1]
-    : rank === 1 && firstClear;
+    : rank === 1 && (firstClear || growthFieldCleared(profile, 1));
   const lesson = LESSONS[job]?.[rank];
   return eligible && lesson ? { ...lesson, rank: rank + 1 } : null;
 }

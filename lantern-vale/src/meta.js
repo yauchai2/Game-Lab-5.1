@@ -3,6 +3,7 @@ import { progressDefaults } from './frontier.js';
 import { serializeItem, deserializeItem } from './loot.js';
 import { slotKeys } from './account.js';
 import { mergeGrowthLessons } from './growth_lessons.js';
+import { mergeGrowthJourney } from './growth_journey.js';
 import { SAVE_SCHEMA_VERSION, BEACONFALL_DEFAULTS, migrateProfile } from './save_schema.js';
 
 export const MODS = [
@@ -49,7 +50,11 @@ export class Meta {
     try {
       // An already open tab may save after another tab has learned a lesson.
       const previous = localStorage.getItem(this.key);
-      if (previous?.includes('"growthLessons"')) mergeGrowthLessons(this.p, JSON.parse(previous));
+      if (previous && (previous.includes('"growthLessons"') || previous.includes('"growthJourney"'))) {
+        const saved = JSON.parse(previous);
+        mergeGrowthLessons(this.p, saved);
+        mergeGrowthJourney(this.p, saved);
+      }
       localStorage.setItem(this.key, JSON.stringify(this.p));
     } catch (e) { /* ignore */ }
   }

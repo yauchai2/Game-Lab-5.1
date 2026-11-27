@@ -56,6 +56,7 @@ import { MEADOW_CAVE, enterMeadowCave, advanceMeadowCave } from './meadow_cave.j
 import { completeMeadowObjective, syncMeadowExpedition, meadowExpedition, syncOpeningEncounter, lightOpeningLamp, finishOpeningPractice } from './expedition.js';
 import { openingStep, recordOpeningEvent, recordOpeningSupportUse, commitCharacterReward } from './opening.js';
 import { availableGrowthLesson, growthLessonRank, mergeGrowthLessons } from './growth_lessons.js';
+import { creditGrowthField, growthFieldCleared, growthTrialFor, growthUsesAlternate, nextGrowthField, recordGrowthRepeat } from './growth_journey.js';
 
 function disposeObj3D(root) {
   if (!root || !root.traverse) return;
@@ -553,7 +554,7 @@ export class Game {
     if (!this.field || this.state === 'title') return;
     this.zoneStates.set(this.field, {
       savedAt: Date.now(),
-      enemies: this.enemies.filter(e => !e.dead && !e.rival && !e.expeditionId && !e.openingPractice).map(e => ({
+      enemies: this.enemies.filter(e => !e.dead && !e.rival && !e.expeditionId && !e.openingPractice && !e.growthTrial).map(e => ({
         type: e.type, x: e.pos.x, z: e.pos.z, hp: e.hp, maxHp: e.maxHp,
         elite: !!e.elite, spawnIndex: e.spawnIndex, level: e.level, legendary: !!e.legendary,
       })),
@@ -656,6 +657,7 @@ export class Game {
       if (entrance) this.spots.push({ kind: 'meadowCave', label: '查看草原洞窟', x: entrance.x, z: entrance.z, top: 4.4 });
     }
     spawnSimAdventurers(this);
+    this.installGrowthStation();
     this.offerGrowthLesson();
   }
   offerGrowthLesson() {
@@ -686,6 +688,11 @@ export class Game {
               this.ui.toast('未能儲存招式，下次回到晨光草原可以再試。', '#ffc080');
             } else {
               mergeGrowthLessons(meta.p, saved);
+              if (this.field === 1 && growthLessonRank(meta.p, job) && nextGrowthField(meta.p) === 1 &&
+                  this.growthMarker && !this.mapPin) {
+                const { x, z } = this.growthMarker.position;
+                this.mapPin = { x, z, label: '地區試煉 · 南門守燈' };
+              }
               this.ui.toast(lesson.name, '#a4d5ff');
             }
             if (this.state === 'boon') this.state = 'play';
@@ -702,6 +709,93 @@ export class Game {
     }
     if (this.field !== 1) return 0;
     return this.growthPrototype === 'advanced' ? 2 : this.growthPrototype === 'prototype' ? 1 : 0;
+  }
+  installGrowthStation() {
+    if (this.growthPrototype !== 'progression' || this.field < 1 || this.field > 6 ||
+        ![0, 1].includes(this.character?.job)) return;
+    if (this.field === 1 && this.meta.p.meadowCave?.clears?.normal > 0 &&
+        this.attackGrowthRank() > 0 && creditGrowthField(this.meta.p, 1)) this.meta.save();
+    const { x, z } = this.player.pos;
+    const point = this.world.isLand(x + 3, z) ? { x: x + 3, z } : { x, z };
+    const marker = new THREE.Mesh(new THREE.OctahedronGeometry(0.38), new THREE.MeshBasicMaterial({ color: 0x96d9e8 }));
+    marker.position.set(point.x, this.world.gh(point.x, point.z) + 1.1, point.z);
+    this.growthMarker = marker;
+    this.scene.add(marker);
+    this.spots.push({ ...point, top: 1.5, mesh: marker, kind: 'growthStation', label: '查看地區試煉與招式' });
+    if (nextGrowthField(this.meta.p) === this.field && this.attackGrowthRank() > 0 && !this.mapPin) {
+      this.mapPin = { ...point, label: '地區試煉' };
+    }
+  }
+  openGrowthStation(spot) {
+    if (this.growthTrial) {
+      this.ui.toast(`試煉進行中 · 第 ${this.growthTrial.wave + 1} 波`, '#a4d5ff');
+      return;
+    }
+    if (this.offerGrowthLesson()) return;
+    const profile = this.meta.p;
+    const job = this.character.job;
+    const trial = this.attackGrowthRank() > 0 ? growthTrialFor(profile, this.field) : null;
+    const alternate = growthUsesAlternate(profile, job);
+    const choices = [];
+    if (trial) choices.push({ icon: '旗', name: trial.name, desc: trial.hint, action: 'trial' });
+    if (growthFieldCleared(profile, 2)) {
+      const name = job === 1 ? (alternate ? '扇射' : '穿列') : (alternate ? '收尾震波' : '前推劍氣');
+      const desc = alternate ? '切回角色已有的原分支。'
+        : job === 1 ? '一支箭先以原傷害命中，穿過後以較弱傷害再命中一個目標。'
+          : '持盾第三擊向前送出一段短劍氣，補打原招未命中的目標。';
+      choices.push({ icon: '⇄', name: '切換至' + name, desc, action: 'switch' });
+    }
+    const next = nextGrowthField(profile);
+    const heading = !this.attackGrowthRank() ? '先完成草原首戰'
+      : next ? `成長路線 · 下一站 ${FIELDS[next].name}` : '第一章完成 · 進階試煉';
+    choices.push({ icon: '↩', name: '返回', desc: '關閉試煉選單。' });
+    this.state = 'boon';
+    this.ui.showBoons(this, choices, { heading, onPick: option => {
+      this.state = 'play';
+      if (option.action === 'trial') {
+        this.growthTrial = { ...trial, x: spot.x, z: spot.z, heading: this.player.facing, wave: 0 };
+        this.spawnGrowthWave();
+      } else if (option.action === 'switch') {
+        profile.growthJourney.loadouts ||= {};
+        profile.growthJourney.loadouts[job] = { alternate: !alternate, changed: Date.now() };
+        this.meta.save();
+        this.ui.toast(option.name, '#a4d5ff');
+      }
+    } });
+  }
+  spawnGrowthWave() {
+    const trial = this.growthTrial;
+    const sine = Math.sin(trial.heading), cosine = Math.cos(trial.heading);
+    for (const [type, forward, side] of trial.waves[trial.wave]) {
+      const x = trial.x + forward * sine + side * cosine;
+      const z = trial.z + forward * cosine - side * sine;
+      const point = this.world.isLand(x, z) ? { x, z }
+        : this.world.randomWalkable(this.rng, this.player.pos, forward);
+      const enemy = this.spawnEnemy(type, point, false);
+      enemy.growthTrial = trial;
+    }
+    this.ui.banner(trial.name, `第 ${trial.wave + 1} / ${trial.waves.length} 波 · ${trial.hint}`);
+  }
+  finishGrowthWave(trial) {
+    if (this.growthTrial !== trial || this.enemies.some(enemy => enemy.growthTrial === trial && !enemy.dead)) return;
+    if (++trial.wave < trial.waves.length) {
+      this.spawnGrowthWave();
+      return;
+    }
+    this.growthTrial = null;
+    if (this.boss?.growthTrial === trial) { this.boss = null; this.ui.bossBar(false); }
+    if (creditGrowthField(this.meta.p, this.field)) {
+      this.meta.save();
+      const next = nextGrowthField(this.meta.p);
+      const instruction = this.field === 2 ? '已開放第二套攻擊配置，回試煉點可切換。'
+        : next ? `下一站：${FIELDS[next].name}` : '各區已開放進階試煉。';
+      this.ui.banner(next ? trial.name + ' · 完成' : '鹿王已倒下 · 第一章完成', instruction);
+      this.offerGrowthLesson();
+    } else {
+      const repeat = recordGrowthRepeat(this.meta.p, this.field);
+      if (repeat) this.meta.save();
+      this.ui.banner(trial.name + ' · 完成', '下一輪會更換敵人編組。回到試煉點可先換配置。');
+    }
   }
   startMeadowCave(tier) {
     if (!Object.hasOwn(MEADOW_CAVE, tier)) return false;
@@ -867,6 +961,8 @@ export class Game {
     this._fadedMats?.clear();
     this._lastHitMats = null;
     for (const e of this.enemies) dropObj(e.m.root);
+    if (this.growthMarker) dropObj(this.growthMarker);
+    this.growthMarker = this.growthTrial = null;
     for (const a of [...this.projs, ...this.eprojs, ...this.decals, ...this.slashes, ...this.rings]) dropObj(a.mesh);
     for (const d of this.drops) dropObj(d.g);
     for (const k of this.pickups) dropObj(k.g); this.pickups = [];
@@ -1341,6 +1437,10 @@ export class Game {
     if (!this.dungeon.damage(e, dmg, opts.dungeonBot, !opts.isDoT, partFraction)) e.hp -= dmg;
     e.flash = 0.14;
     if (e.isWorldBoss) onWorldBossHit(this, e, dmg, true);
+    if (this.growthPrototype === 'progression' && this.field === 1 && dmg > 0 && !opts.dungeonBot &&
+        this.dynEvent?.active && this.dynEvent.targets?.includes(e) && !isAutopilotActive(this)) {
+      this.dynEvent.growthContributed = true;
+    }
     if (!opts.isDoT) {
       // 加強打擊感：壓扁彈回（squash-and-stretch）、暴擊衝擊環、更強震動與頓幀
       e.squash = hit.crit ? 0.36 : 0.22;
@@ -1449,6 +1549,10 @@ export class Game {
     this.puffs.burst(e.pos.x, 0.3, e.pos.z, 6, { c: 0xffffff, s: 0.4, speed: 1.5, up: 1, g: -1, life: 0.8, grow: 1.4, drag: 3 });
     this.shake = Math.max(this.shake, e.type === 'stag' ? 1 : e.elite ? 0.42 : 0.22);
     if (e.elite || e.type === 'stag') this.camPunch = e.type === 'stag' ? 0.2 : 0.11;
+    if (e.growthTrial) {
+      this.finishGrowthWave(e.growthTrial);
+      return;
+    }
     if (e.openingPractice) {
       finishOpeningPractice(this);
       return;
@@ -1500,7 +1604,15 @@ export class Game {
     if (e.type === 'stag' || e.isTideBoss) this.meta.p.bountyProg.bossKills = (this.meta.p.bountyProg.bossKills || 0) + 1;
     if (e.isWorldBoss) onWorldBossDefeated(this, e);
     if (!autoOn) onPlayerHelpSimKill(this, e);
-    if (e.isDynEvent) onDynEventEnemyKilled(this, e);
+    if (e.isDynEvent) {
+      const contributed = this.dynEvent?.growthContributed;
+      if (onDynEventEnemyKilled(this, e) && contributed && !autoOn && this.field === 1 &&
+          this.growthPrototype === 'progression' && this.attackGrowthRank() > 0 &&
+          creditGrowthField(this.meta.p, 1)) {
+        this.meta.save();
+        this.offerGrowthLesson();
+      }
+    }
     if (!autoOn) {
       const runeDrop = rollRuneDrop(this.meta.p, !!e.elite, e.type === 'stag' || !!e.isTideBoss);
       if (runeDrop) {
@@ -2075,6 +2187,8 @@ export class Game {
     this.ambushTrial?.event('attack');
     const dir = this.aimDir(); p.facing = Math.atan2(dir.x, dir.y);
     const growthRank = this.attackGrowthRank();
+    const alternateGrowth = growthRank > 0 && this.growthPrototype === 'progression' &&
+      growthUsesAlternate(this.meta.p, this.character?.job);
     p.swing = 1; p.swingT = 0.18; p.swingCount++;
     this.audio.sfx(WEAPON_CUES[this.meta.p.weapon] || 'staffSwing', p.swingCount % 2 ? 1 : 1.1);
     this.markCombatPose(this.meta.p.weapon || 'staff');
@@ -2096,7 +2210,9 @@ export class Game {
       p.rangedCommitT = 0.24;
       onBasicHit(this, 'bow');
       const arrow = { speed: 21, mult: p.air ? 1.15 : .85, color: p.air ? 0x8ef0ff : 0xebd69f, size: .09, life: .85, airShot: p.air };
-      if (growthRank > 0 && this.character?.job === 1 && !p.air) {
+      if (alternateGrowth && this.character?.job === 1 && !p.air) {
+        this.fireProj(p.pos, dir, { ...arrow, pierce: 1, growthPierceMultiplier: growthRank === 2 ? 0.5 : 0.4 });
+      } else if (growthRank > 0 && this.character?.job === 1 && !p.air) {
         const volleyHits = new Set();
         this.fireProj(p.pos, dir, { ...arrow, volleyHits });
         for (const angle of [-16, 16]) {
@@ -2173,7 +2289,11 @@ export class Game {
         this.vfx?.spawnSummon('ground_slam', p.pos.x + dir.x * 1.4, p.y, p.pos.z + dir.y * 1.4, dir.x, dir.y, { theme: 'holy' });
         this.shockRing(p.pos.x + dir.x * 1.4, p.pos.z + dir.y * 1.4, 2.8, this.rollDamage(1.35), 0xffcf4a, 0.45,
           { isTrigger: true, recordHits: guardWaveHits });
-        if (guardWaveHits) {
+        if (guardWaveHits && alternateGrowth) {
+          this.fireProj(p.pos, dir, { speed: 10, mult: 0.78 * 0.30, color: 0xa4d5ff, wave: true,
+            pierce: growthRank === 2 ? 2 : 1, life: 0.48, volleyHits: guardWaveHits,
+            growthSecondary: true, isTrigger: true });
+        } else if (guardWaveHits) {
           this.shockRing(p.pos.x, p.pos.z, 2.1, this.rollDamage(0.78 * 0.30), 0xa4d5ff, 0,
             { isTrigger: true, growthSecondary: true, excludeHits: guardWaveHits, recordHits: guardWaveHits });
           if (growthRank === 2) {
@@ -3151,6 +3271,7 @@ export class Game {
   }
   tryInteract() {
     const s = this.nearSpot(); if (!s) return false;
+    if (s.kind === 'growthStation') { this.openGrowthStation(s); return true; }
     if (s.kind === 'meadowCave') {
       this.ui.openPanel('meadowCave');
       return true;
@@ -4201,6 +4322,9 @@ export class Game {
       const tier = this.caveRun.tier;
       const result = advanceMeadowCave(this.meta.p, this.caveRun, this.waveIdx - 1);
       if (result?.complete) {
+        if (tier === 'normal' && this.growthPrototype === 'progression' && this.attackGrowthRank() > 0) {
+          creditGrowthField(this.meta.p, 1);
+        }
         recordOpeningEvent(this, 'cave_clear', tier);
         grantExperience(this, result.xp);
         this.bankRun(1);
@@ -5036,7 +5160,11 @@ export class Game {
         const d = Math.hypot(e.pos.x - pr.mesh.position.x, e.pos.z - pr.mesh.position.z);
         const vTol = e.flying ? 3.8 : 2.4;
         if (d < e.r + (pr.wave ? 0.8 : 0.25) && Math.abs(pr.mesh.position.y - (e.pos.y + 0.6)) < vTol) {
-          if (pr.volleyHits?.has(e)) { pr.life = 0; break; }
+          if (pr.volleyHits?.has(e)) {
+            if (pr.wave) continue;
+            pr.life = 0;
+            break;
+          }
           pr.volleyHits?.add(e);
           pr.hit.add(e);
           const n = new V2(pr.vx, pr.vz).normalize();
@@ -5058,7 +5186,12 @@ export class Game {
             for (const o of this.enemies) if (!o.dead && !pr.hit.has(o)) { const dd = o.pos.distanceTo(e.pos); if (dd < bd) { bd = dd; best = o; } }
             if (best) { pr.chain--; this.spawnBeam(e.pos.x, e.pos.y + 0.7, e.pos.z, best.pos.x, best.pos.y + 0.7, best.pos.z, pr.color || 0xffe07a); const nd = new V2(best.pos.x - e.pos.x, best.pos.z - e.pos.z).normalize(); const sp = Math.hypot(pr.vx, pr.vz); pr.vx = nd.x * sp; pr.vz = nd.y * sp; pr.life = 0.8; continue; }
           }
-          if ((pr.pierce || 0) <= 0) { pr.life = 0; break; } else pr.pierce--;
+          if ((pr.pierce || 0) <= 0) { pr.life = 0; break; }
+          pr.pierce--;
+          if (pr.growthPierceMultiplier) {
+            pr.mult *= pr.growthPierceMultiplier;
+            pr.growthSecondary = pr.isTrigger = true;
+          }
         }
       }
       if (pr.hit0) { pr.hit.add(pr.hit0); pr.hit0 = null; }
