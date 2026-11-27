@@ -1324,7 +1324,7 @@ export class Game {
     p.dmgDealt += dmg;
     this.ui.dmgNum(e.pos.x, e.pos.y + 1.2 * e.m.root.scale.x + (e.type === 'stag' ? 2.5 : 0), e.pos.z, dmg, (hit.crit || opts.aerial) ? 'crit' : hit.fire ? 'fire' : opts.isDoT ? 'heal' : '');
     this.fx.burst(e.pos.x, e.pos.y + 0.6, e.pos.z, hit.crit ? 12 : opts.isDoT ? 3 : 6, { c: hit.fire ? [0xffb040, 0xff7030] : hit.crit ? [0xffe47a, 0xffffff, 0xff9a50] : [0xffffff, 0xfff2b0], s: hit.crit ? 0.13 : 0.1, speed: hit.crit ? 6.5 : 5, up: 3.5, life: 0.38 });
-    if (p.stats.lifeOnHit && !opts.isDoT) this.heal(p.stats.lifeOnHit, false);
+    if (p.stats.lifeOnHit && !opts.isDoT && !opts.growthSecondary) this.heal(p.stats.lifeOnHit, false);
     if (opts.leech && !opts.isDoT) {
       p.leechBuffT = Math.max(p.leechBuffT || 0, 3.5);
       recordOpeningSupportUse(this, 'leech', p.hp < p.stats.maxHp && !!opts.openingLeech);
@@ -2047,7 +2047,16 @@ export class Game {
     if (this.meta.p.weapon === 'bow') {
       p.rangedCommitT = 0.24;
       onBasicHit(this, 'bow');
-      this.fireProj(p.pos, dir, { speed: 21, mult: p.air ? 1.15 : .85, color: p.air ? 0x8ef0ff : 0xebd69f, size: .09, life: .85, airShot: p.air }); return;
+      const arrow = { speed: 21, mult: p.air ? 1.15 : .85, color: p.air ? 0x8ef0ff : 0xebd69f, size: .09, life: .85, airShot: p.air };
+      if (this.growthPrototype && this.field === 1 && this.character?.job === 1 && !p.air) {
+        const volleyHits = new Set();
+        this.fireProj(p.pos, dir, { ...arrow, volleyHits });
+        for (const angle of [-16, 16]) {
+          const side = dir.clone().rotateAround(new V2(), angle * Math.PI / 180);
+          this.fireProj(p.pos, side, { ...arrow, mult: arrow.mult * 0.30, volleyHits, growthSecondary: true, isTrigger: true });
+        }
+      } else this.fireProj(p.pos, dir, arrow);
+      return;
     }
     const comboStep = ((p.swingCount - 1) % 3) + 1;
     const job = this.character?.job ?? 0;
@@ -2061,6 +2070,8 @@ export class Game {
     if (p.galeBuff) { mult += 0.6; p.galeBuff = false; }
     let hitAny = false;
     const cover = this.ambushTrial?.cover;
+    const guardWaveHits = this.growthPrototype && this.field === 1 && job === 0 &&
+      this.meta.p.weapon === 'shield' && comboStep === 3 && !p.air ? new Set() : null;
     for (const e of this.enemies) {
       if (e.dead || hitsAmbushCover(cover, p.pos.x, p.y + 0.6, p.pos.z, e.pos.x, e.pos.z)) continue;
       tmp2.set(e.pos.x - p.pos.x, e.pos.z - p.pos.z);
@@ -2079,6 +2090,7 @@ export class Game {
       } else {
         this.hitEnemy(e, this.rollDamage(mult), tmp2.x * 5, tmp2.y * 5, { hitstop: 0.035, aerial: p.air, isMelee: true, comboStep });
       }
+      guardWaveHits?.add(e);
       hitAny = true;
     }
     if (hitAny) {
@@ -2103,7 +2115,12 @@ export class Game {
       if (deflected > 0) { this.audio.sfx('shieldBash'); triggerHaptic('combo3', this.settings?.haptics !== 0); }
       if (job === 0) {
         this.vfx?.spawnSummon('ground_slam', p.pos.x + dir.x * 1.4, p.y, p.pos.z + dir.y * 1.4, dir.x, dir.y, { theme: 'holy' });
-        this.shockRing(p.pos.x + dir.x * 1.4, p.pos.z + dir.y * 1.4, 2.8, this.rollDamage(1.35), 0xffcf4a, 0.45, { isTrigger: true });
+        this.shockRing(p.pos.x + dir.x * 1.4, p.pos.z + dir.y * 1.4, 2.8, this.rollDamage(1.35), 0xffcf4a, 0.45,
+          { isTrigger: true, recordHits: guardWaveHits });
+        if (guardWaveHits) {
+          this.shockRing(p.pos.x, p.pos.z, 2.1, this.rollDamage(0.78 * 0.30), 0xa4d5ff, 0,
+            { isTrigger: true, growthSecondary: true, excludeHits: guardWaveHits });
+        }
       } else if (job === 2) {
         this.vfx?.spawnDecal('mana_runes', p.pos.x + dir.x * 2.0, p.y, p.pos.z + dir.y * 2.0, { theme: 'bluefire', scaleStart: 1.0, scaleEnd: 3.4, dur: 0.45 });
         this.fireProj(p.pos, dir, { speed: 18, mult: 1.1, fire: true, color: 0x58d8ff, size: 0.2, life: 0.9, isTrigger: true });
@@ -2191,16 +2208,17 @@ export class Game {
     this.scene.add(mesh);
     this.rings.push({ mesh, t: 0, max: 0.3, radius });
     for (const e of this.enemies) {
-      if (e.dead) continue;
+      if (e.dead || opts.excludeHits?.has(e)) continue;
       const d = Math.hypot(e.pos.x - x, e.pos.z - z);
       if (d < radius + e.r) {
+        opts.recordHits?.add(e);
         const k = 6 / Math.max(d, 0.3);
         const ringHit = hit.dmg ? { ...hit, dmg: Math.round(hit.dmg * (0.9 + Math.random() * 0.2)) } : hit;
         this.hitEnemy(e, ringHit, (e.pos.x - x) * k * 0.3, (e.pos.z - z) * k * 0.3, {
           stun, slow: opts.slow, leech: opts.leech,
           triggerOnHit: opts.triggerOnHit, triggerOnCrit: opts.triggerOnCrit,
           openingFrost: opts.openingFrost, openingLeech: opts.openingLeech,
-          isTrigger: opts.isTrigger, isReaction: opts.isReaction,
+          isTrigger: opts.isTrigger, isReaction: opts.isReaction, growthSecondary: opts.growthSecondary,
         });
       }
     }
@@ -2565,6 +2583,7 @@ export class Game {
     // 自我審查優化：接通投射物上限過載折算（超過 16 枚時轉化為現存投射物過載傷害，避免畫質掉幀）
     const fold = foldExcessProjectiles(this.projs.length, 1);
     if (fold.spawnCount <= 0) {
+      if (o.growthSecondary || this.projs.at(-1)?.growthSecondary) return;
       const last = this.projs[this.projs.length - 1];
       if (last) last.mult = Math.min(4.5, (last.mult || 1) * fold.overloadMult);
       return;
@@ -4938,6 +4957,8 @@ export class Game {
         const d = Math.hypot(e.pos.x - pr.mesh.position.x, e.pos.z - pr.mesh.position.z);
         const vTol = e.flying ? 3.8 : 2.4;
         if (d < e.r + (pr.wave ? 0.8 : 0.25) && Math.abs(pr.mesh.position.y - (e.pos.y + 0.6)) < vTol) {
+          if (pr.volleyHits?.has(e)) { pr.life = 0; break; }
+          pr.volleyHits?.add(e);
           pr.hit.add(e);
           const n = new V2(pr.vx, pr.vz).normalize();
           const shooterDist = Math.hypot(p.pos.x - e.pos.x, p.pos.z - e.pos.z);
@@ -4948,7 +4969,7 @@ export class Game {
             this.fx.burst(pr.mesh.position.x, pr.mesh.position.y, pr.mesh.position.z, 5, { c: [0x6ae8ff, 0xffffff], s: 0.1, speed: 3, up: 1.5, life: 0.28 });
             if (!this._proxHintT || this.time - this._proxHintT > 5) { this._proxHintT = this.time; this.ui.toast('🛡️ 外環風障偏折遠程投射！請貼近 4.5m 內破陣', '#6ae8ff'); }
           }
-          this.hitEnemy(e, this.rollDamage(pr.mult * shieldFactor, pr.fire, { allowOpeningCrit }), n.x * 3, n.y * 3, { hitPos: pr.mesh.position, hitstop: 0.02, slow: pr.slow, leech: pr.leech, poison: pr.poison, shock: pr.shock, aerial: !!pr.airShot, triggerOnHit: pr.triggerOnHit, triggerOnCrit: pr.triggerOnCrit, openingFrost: pr.openingFrost, openingLeech: pr.openingLeech, isTrigger: pr.isTrigger });
+          this.hitEnemy(e, this.rollDamage(pr.mult * shieldFactor, pr.fire, { allowOpeningCrit }), n.x * 3, n.y * 3, { hitPos: pr.mesh.position, hitstop: 0.02, slow: pr.slow, leech: pr.leech, poison: pr.poison, shock: pr.shock, aerial: !!pr.airShot, triggerOnHit: pr.triggerOnHit, triggerOnCrit: pr.triggerOnCrit, openingFrost: pr.openingFrost, openingLeech: pr.openingLeech, isTrigger: pr.isTrigger, growthSecondary: pr.growthSecondary });
           if (pr.split) {
             for (let i = 0; i < 3; i++) { const a = Math.atan2(n.y, n.x) + (i - 1) * 0.7; this.fireProj(pr.mesh.position, new V2(Math.cos(a), Math.sin(a)), { speed: 12, mult: 0.45, fire: true, color: 0xffd27a, size: 0.1, life: 0.5, hit0: e, isTrigger: true }); }
             this.projs[this.projs.length - 1].hit?.add(e);
