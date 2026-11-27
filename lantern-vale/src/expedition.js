@@ -199,8 +199,8 @@ export function lightOpeningLamp(g) {
 export function finishOpeningPractice(g) {
   g.meta.p.opening.practice = 'done';
   g.meta.save();
-  g.ui.banner('南門小徑安全了', '打開任務，選擇清剿前哨或重燃路燈。');
   recordOpeningEvent(g, 'practice_complete');
+  if (!g.offerGrowthLesson?.()) g.ui.banner('南門小徑安全了', '打開任務，選擇清剿前哨或重燃路燈。');
 }
 
 export function syncMeadowExpedition(g) {

@@ -54,7 +54,8 @@ import { createAutopilotState, isAutopilotActive, manualSparkMult, toggleAutopil
 import { installDebugger } from './debugger.js';
 import { MEADOW_CAVE, enterMeadowCave, advanceMeadowCave } from './meadow_cave.js';
 import { completeMeadowObjective, syncMeadowExpedition, meadowExpedition, syncOpeningEncounter, lightOpeningLamp, finishOpeningPractice } from './expedition.js';
-import { openingStep, recordOpeningEvent, recordOpeningSupportUse } from './opening.js';
+import { openingStep, recordOpeningEvent, recordOpeningSupportUse, commitCharacterReward } from './opening.js';
+import { availableGrowthLesson, growthLessonRank, mergeGrowthLessons } from './growth_lessons.js';
 
 function disposeObj3D(root) {
   if (!root || !root.traverse) return;
@@ -655,6 +656,52 @@ export class Game {
       if (entrance) this.spots.push({ kind: 'meadowCave', label: '查看草原洞窟', x: entrance.x, z: entrance.z, top: 4.4 });
     }
     spawnSimAdventurers(this);
+    this.offerGrowthLesson();
+  }
+  offerGrowthLesson() {
+    if (this.growthPrototype !== 'progression' || this.field !== 1 || this.state !== 'play') return;
+    const meta = this.meta;
+    const job = this.character?.job;
+    const lesson = availableGrowthLesson(meta.p, job);
+    if (!lesson) return;
+    this.state = 'boon';
+    this.ui.showBoons(this, [lesson, { icon: '↩', name: '稍後再學', desc: '下次回到晨光草原可以再選。' }], {
+      heading: lesson.rank === 1 ? '學習永久招式' : '深化永久招式',
+      onPick: async choice => {
+        if (choice !== lesson) { this.state = 'play'; return; }
+        try {
+          await commitCharacterReward(meta, saved => growthLessonRank(saved, job) >= lesson.rank, () => {
+            mergeGrowthLessons(meta.p, { growthLessons: { [job]: lesson.rank } });
+            meta.save();
+            return true;
+          });
+        } catch {
+          // The saved rank below determines whether the lesson can be used.
+        } finally {
+          if (this.meta === meta) {
+            const saved = meta.load();
+            if (growthLessonRank(saved, job) < lesson.rank) {
+              // Keep the previous rank in memory when storage could not be written.
+              if (meta.p.growthLessons) meta.p.growthLessons[job] = growthLessonRank(saved, job);
+              this.ui.toast('未能儲存招式，下次回到晨光草原可以再試。', '#ffc080');
+            } else {
+              mergeGrowthLessons(meta.p, saved);
+              this.ui.toast(lesson.name, '#a4d5ff');
+            }
+            if (this.state === 'boon') this.state = 'play';
+          }
+        }
+      },
+    });
+    return true;
+  }
+  attackGrowthRank() {
+    if (this.dueling) return 0;
+    if (this.growthPrototype === 'progression') {
+      return this.field > 0 || this.caveRun ? growthLessonRank(this.meta.p, this.character?.job) : 0;
+    }
+    if (this.field !== 1) return 0;
+    return this.growthPrototype === 'advanced' ? 2 : this.growthPrototype === 'prototype' ? 1 : 0;
   }
   startMeadowCave(tier) {
     if (!Object.hasOwn(MEADOW_CAVE, tier)) return false;
@@ -2027,6 +2074,7 @@ export class Game {
     p.cds.action = pace.recovery * 0.55;
     this.ambushTrial?.event('attack');
     const dir = this.aimDir(); p.facing = Math.atan2(dir.x, dir.y);
+    const growthRank = this.attackGrowthRank();
     p.swing = 1; p.swingT = 0.18; p.swingCount++;
     this.audio.sfx(WEAPON_CUES[this.meta.p.weapon] || 'staffSwing', p.swingCount % 2 ? 1 : 1.1);
     this.markCombatPose(this.meta.p.weapon || 'staff');
@@ -2048,14 +2096,14 @@ export class Game {
       p.rangedCommitT = 0.24;
       onBasicHit(this, 'bow');
       const arrow = { speed: 21, mult: p.air ? 1.15 : .85, color: p.air ? 0x8ef0ff : 0xebd69f, size: .09, life: .85, airShot: p.air };
-      if (this.growthPrototype && this.field === 1 && this.character?.job === 1 && !p.air) {
+      if (growthRank > 0 && this.character?.job === 1 && !p.air) {
         const volleyHits = new Set();
         this.fireProj(p.pos, dir, { ...arrow, volleyHits });
         for (const angle of [-16, 16]) {
           const side = dir.clone().rotateAround(new V2(), angle * Math.PI / 180);
           this.fireProj(p.pos, side, { ...arrow, mult: arrow.mult * 0.30, volleyHits, growthSecondary: true, isTrigger: true });
         }
-        if (this.growthPrototype === 'advanced' && this.time >= (p.growthEchoReadyAt ?? 0)) {
+        if (growthRank === 2 && this.time >= (p.growthEchoReadyAt ?? 0)) {
           p.growthEchoReadyAt = this.time + 5.5;
           const origin = p.pos.clone();
           const heading = dir.clone();
@@ -2078,7 +2126,7 @@ export class Game {
     if (p.galeBuff) { mult += 0.6; p.galeBuff = false; }
     let hitAny = false;
     const cover = this.ambushTrial?.cover;
-    const guardWaveHits = this.growthPrototype && this.field === 1 && job === 0 &&
+    const guardWaveHits = growthRank > 0 && job === 0 &&
       this.meta.p.weapon === 'shield' && comboStep === 3 && !p.air ? new Set() : null;
     for (const e of this.enemies) {
       if (e.dead || hitsAmbushCover(cover, p.pos.x, p.y + 0.6, p.pos.z, e.pos.x, e.pos.z)) continue;
@@ -2128,7 +2176,7 @@ export class Game {
         if (guardWaveHits) {
           this.shockRing(p.pos.x, p.pos.z, 2.1, this.rollDamage(0.78 * 0.30), 0xa4d5ff, 0,
             { isTrigger: true, growthSecondary: true, excludeHits: guardWaveHits, recordHits: guardWaveHits });
-          if (this.growthPrototype === 'advanced') {
+          if (growthRank === 2) {
             const { x, z } = p.pos;
             this.growthEffects.push({ remaining: 0.35, release: () => {
               this.shockRing(x, z, 3.2, this.rollDamage(0.78 * 0.20), 0x88bbe9, 0,

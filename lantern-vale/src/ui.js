@@ -1540,9 +1540,11 @@ export class UI {
       if (rBtn) rBtn.onclick = () => { resetStatPoints(g.meta.p); g.meta.save(); g.recalc(); g.audio.sfx('ui'); this.renderInv(g, true); };
     }
   }
-  showBoons(g, choices) {
+  showBoons(g, choices, { heading = '選擇一份祝福', onPick = null } = {}) {
     this.boonChoices = choices;
+    this.boonPick = onPick;
     const el = $('boons'); el.classList.remove('hide');
+    el.querySelector('h2').textContent = heading;
     el.querySelector('.cards').innerHTML = choices.map((b, i) => `<button class="card" data-i="${i}"><div class="bicon">${b.icon}</div><div class="bname">${b.name}</div><div class="bdesc">${b.desc}</div><div class="key">${i + 1}</div></button>`).join('');
     el.querySelectorAll('.card').forEach(c => c.onclick = () => this.pickBoonIndex(+c.dataset.i));
   }
@@ -1550,7 +1552,10 @@ export class UI {
     if (!this.boonChoices || !this.boonChoices[i]) return;
     const b = this.boonChoices[i]; this.boonChoices = null;
     $('boons').classList.add('hide');
-    this.game.takeBoon(b);
+    const pick = this.boonPick;
+    this.boonPick = null;
+    if (pick) pick(b);
+    else this.game.takeBoon(b);
   }
   runSummary(g) {
     const p = g.player; const secs = Math.round((performance.now() - g.runStart) / 1000);
