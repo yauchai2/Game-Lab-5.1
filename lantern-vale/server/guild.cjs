@@ -112,11 +112,12 @@ module.exports = function createGuild(filename) {
     if (m.t==='trade') { trade(me,m); return; }
     if (m.t!=='raidJoin'||me.raid) return;
     const code=String(m.code||'').trim().slice(0,12) || ('個人-'+me.id);
+    if (code.startsWith('lobby-')) return;
     const power = Number.isFinite(+m.power) ? Math.max(6, Math.min(32, Math.round(+m.power))) : 8;
     joinRaid(me, code, power);
   }
   function membersHaveFought(room) {
-    return [...room.members.values()].some(fighter => !fighter.bot && fighter.hp > 0 && fighter.damage > 0);
+    return [...room.members.values()].some(fighter => !fighter.bot && fighter.hp > 0 && room.clock - (fighter.lastHit ?? -Infinity) < 70);
   }
 
   function tick() {
@@ -138,7 +139,7 @@ module.exports = function createGuild(filename) {
         f.z=Math.max(-4.6,Math.min(4.6,f.z+f.dz/length*.45));
         f.cooldown=Math.max(0,f.cooldown-1);
         const dist=Math.hypot(f.x-room.x,f.z-room.z);
-        if (f.attack&&!f.cooldown&&dist<3) {room.hp-=f.power;f.damage+=f.power;f.cooldown=5;}
+        if (f.attack&&!f.cooldown&&dist<3) {room.hp-=f.power;f.damage+=f.power;f.cooldown=5;f.lastHit=room.clock;}
         if (impact&&dist<3.4) {
           f.hp=Math.max(0,f.hp-16);
           f.mitigated+=16;

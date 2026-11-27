@@ -4,7 +4,7 @@ export const cleanPartyCode = value => String(value || '').replace(/[\u0000-\u00
 export class Net {
   constructor() {
     this.ws = null; this.ok = false; this.id = null; this.online = 1; this.handlers = {};
-    this.zoneShards = false; this.shard = null; this.shardListing = null;
+    this.dungeonLobbies = false; this.zoneShards = false; this.shard = null; this.shardListing = null;
   }
   on(t, fn) { this.handlers[t] = fn; }
   get url() {
@@ -16,7 +16,7 @@ export class Net {
   resetConnection() {
     const socket = this.ws;
     this.ws = null; this.ok = false; this.id = null; this.online = 1;
-    this.zoneShards = false; this.shard = null; this.shardListing = null;
+    this.dungeonLobbies = false; this.zoneShards = false; this.shard = null; this.shardListing = null;
     if (socket && socket.readyState <= WebSocket.OPEN) socket.close();
   }
   disconnect() {
@@ -46,7 +46,7 @@ export class Net {
       if (this.ws !== socket) return;
       let m;
       try { m = JSON.parse(ev.data); } catch { return; }
-      if (m.t === 'welcome') { this.id = m.id; this.zoneShards = m.zoneShards === true; }
+      if (m.t === 'welcome') { this.id = m.id; this.zoneShards = m.zoneShards === true; this.dungeonLobbies = m.dungeonLobbies === true; }
       if (m.t === 'online') this.online = m.n;
       this.emit(m.t, m);
     };

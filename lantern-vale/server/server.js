@@ -146,6 +146,10 @@ const send = (me, data) => {
 const dungeonLobbies = require('./dungeon_lobby.cjs')(send, (members, id, bots) => {
   guild.startDungeonRaid(members, id, bots);
   for (const member of members) enterRaidChannel(member);
+}, leader => {
+  broadcast({ t: 'sys', text: `${leader.name} 正在副本入口招募隊友。可由同一入口加入等候室。` },
+    player => player !== leader && player.shard === leader.shard
+      && Math.hypot(player.x - leader.x, player.z - leader.z) <= 30);
 });
 function enterRaidChannel(member) {
   if (!member.raid || !member.shard) return;
@@ -199,7 +203,8 @@ function currentZone(value, me, party) {
   if (/^field:(?:[1-9]|1[0-9]|20)$/.test(value)) return value;
   const run = /^run:.+:([0-9]{1,2})$/.exec(value);
   const depth = Number(run?.[1]);
-  if (run && me.dungeonRun && value === `run:d${me.dungeonRun.id}:${depth}`) return value;
+  const coop = /^dungeon:([0-9]+):[0-9]{1,2}$/.exec(value);
+  if (coop) return Number(coop[1]) === me.dungeonRun?.id ? value : null;
   if (run) return `run:${party || 'solo' + me.id}:${depth}`;
   return null;
 }
@@ -231,7 +236,7 @@ wss.on('connection', ws => {
     let m;
     try { m = JSON.parse(raw); } catch { return; }
     if (!m || typeof m !== 'object') return;
-    if (['dungeon_join', 'dungeon_leave', 'dungeon_start', 'dungeon_wave', 'dungeon_hit'].includes(m.t)) {
+    if (['dungeon_join', 'dungeon_leave', 'dungeon_start', 'dungeon_wave', 'dungeon_hit', 'dungeon_positions', 'dungeon_exit'].includes(m.t)) {
       dungeonLobbies.message(me, m);
       return;
     }
