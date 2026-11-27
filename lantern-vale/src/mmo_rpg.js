@@ -8,10 +8,10 @@ import { legacyGearRank } from './itemdb.js';
 // 1. 經典 MMORPG 角色四維屬性配點（每升 1 級獲得 3 點屬性點，可免費重置）
 // ============================================================================
 export const STAT_DEFS = [
-  { id: 'str', icon: '⚔️', name: '力量 STR', desc: '每點：基礎傷害 +1.2 · 全傷害 +1.5%' },
-  { id: 'dex', icon: '🏹', name: '敏捷 DEX', desc: '每點：攻速 +2% · 暴擊率 +0.8% · 移速 +0.6%' },
-  { id: 'int', icon: '🔮', name: '智力 INT', desc: '每點：法力上限 +5 · 冷卻縮減 +0.8% · 火傷 +0.6' },
-  { id: 'vit', icon: '🛡️', name: '體質 VIT', desc: '每點：最大生命 +9 · 減傷 +0.6% · 每秒回血 +0.2' },
+  { id: 'str', icon: '⚔️', name: '力量 STR', desc: '每點：基礎傷害 +1.4 · 護甲 +0.4（不再疊加百分比全傷）' },
+  { id: 'dex', icon: '🏹', name: '敏捷 DEX', desc: '每點：攻速 +1.5% · 暴擊率 +0.7% · 移速 +0.5%' },
+  { id: 'int', icon: '🔮', name: '智力 INT', desc: '每點：元素基傷 +1.4 · 法力上限 +5 · 冷卻縮減 +0.6%' },
+  { id: 'vit', icon: '🛡️', name: '體質 VIT', desc: '每點：最大生命 +9 · 護甲 +1.2 · 每秒回血 +0.25' },
 ];
 
 export function ensureMmoState(profile) {
@@ -63,17 +63,17 @@ export function computeAllocatedBonuses(profile) {
   const a = ensureMmoState(profile).allocStats || {};
   const str = a.str || 0, dex = a.dex || 0, intel = a.int || 0, vit = a.vit || 0;
   return {
-    baseDmg: Math.floor(str * 1.2),
-    dmgPct: Math.round(str * 1.5),
-    atkSpd: dex * 2,
-    crit: +(dex * 0.8).toFixed(1),
-    moveSpd: +(dex * 0.6).toFixed(1),
+    baseDmg: Math.floor(str * 1.4),
+    dmgPct: 0,
+    atkSpd: +(dex * 1.5).toFixed(1),
+    crit: +(dex * 0.7).toFixed(1),
+    moveSpd: +(dex * 0.5).toFixed(1),
     mana: intel * 5,
-    cdr: Math.min(35, +(intel * 0.8).toFixed(1)),
-    addFire: Math.floor(intel * 0.6),
+    cdr: Math.min(30, +(intel * 0.6).toFixed(1)),
+    addFire: Math.floor(intel * 1.4),
     maxHp: vit * 9,
-    armor: Math.min(25, +(vit * 0.6).toFixed(1)),
-    regen: +(vit * 0.2).toFixed(1),
+    armor: +(str * 0.4 + vit * 1.2).toFixed(1),
+    regen: +(vit * 0.25).toFixed(1),
   };
 }
 
@@ -89,17 +89,19 @@ export const ENHANCE_RESONANCE_TIERS = [
   { minLv: 9, name: '緋紅神話共鳴 (+9)', icon: '🔥', color: '#ff5a88', bonuses: { maxHp: 130, dmgPct: 32, crit: 12, atkSpd: 16, allRes: 8 } },
 ];
 
+export const RESONANCE_SLOTS = ['head', 'staff', 'body', 'cloak', 'hands', 'feet', 'charm', 'relic'];
+
 export function computeEnhanceResonance(equip = {}) {
-  const slots = ['staff', 'cloak', 'charm'];
-  const levels = slots.map(k => equip?.[k] ? (equip[k].enhance || 0) : 0);
-  const allEquipped = slots.every(k => !!equip?.[k]);
-  const minLv = allEquipped ? Math.min(...levels) : 0;
+  const levels = RESONANCE_SLOTS.map(k => equip?.[k] ? (equip[k].enhance || 0) : 0);
+  const equippedCount = RESONANCE_SLOTS.filter(k => !!equip?.[k]).length;
+  const avgLv = +(levels.reduce((a, b) => a + b, 0) / RESONANCE_SLOTS.length).toFixed(1);
+  const minLv = equippedCount >= 3 ? Math.floor(avgLv) : 0;
   let active = null;
   for (const tier of ENHANCE_RESONANCE_TIERS) {
     if (minLv >= tier.minLv) active = tier;
   }
   const next = ENHANCE_RESONANCE_TIERS.find(t => t.minLv > minLv) || null;
-  return { minLv, active, next, bonuses: active ? { ...active.bonuses } : {} };
+  return { minLv, avgLv, equippedCount, active, next, bonuses: active ? { ...active.bonuses } : {} };
 }
 
 export function enhanceInfo(curLv = 0, failstack = 0, smithLv = 1) {
@@ -143,17 +145,20 @@ export function enhanceItem(profile, item, rng = Math.random, useCharm = false) 
   const lifeUp = grantLifeXp(profile, 'smith', 14);
   addDailyActivity(profile, 8);
 
+  if (item.implicit && !Number.isFinite(item.baseImplicitVal)) {
+    item.baseImplicitVal = cur > 0 ? Math.max(1, Math.round(item.implicit.v / (1 + 0.14 * cur))) : item.implicit.v;
+  }
   const success = rng() < info.rate;
   if (success) {
     item.enhance = cur + 1;
     if (info.baseRate < 1) profile.enhanceFailstack = 0;
-    if (item.implicit) item.implicit.v = Math.max(item.implicit.v + 1, Math.round(item.implicit.v * 1.14));
+    if (item.implicit) item.implicit.v = Math.max(1, Math.round(item.baseImplicitVal * (1 + 0.14 * item.enhance)));
     return { ok: true, success: true, enhance: item.enhance, failstack: profile.enhanceFailstack || 0, lifeUp, msg: `✨ 精煉成功！裝備躍升至 +${item.enhance}！` };
   }
   profile.enhanceFailstack = curFs + 1;
   if (info.downgradeOnFail && !wantCharm) {
     item.enhance = Math.max(0, cur - 1);
-    if (item.implicit) item.implicit.v = Math.max(1, Math.round(item.implicit.v / 1.14));
+    if (item.implicit) item.implicit.v = Math.max(1, Math.round(item.baseImplicitVal * (1 + 0.14 * item.enhance)));
     return { ok: true, success: false, downgraded: true, enhance: item.enhance, failstack: profile.enhanceFailstack, lifeUp, msg: `💥 精煉失敗降為 +${item.enhance}… 疊層保底 +1（下次 +${Math.round(profile.enhanceFailstack * FAILSTACK_PER_FAIL * 100)}%）` };
   }
   return {
@@ -390,34 +395,34 @@ export function craftMonsterGear(profile, recipeId, fmtResolver = (k => v => `${
 }
 
 // ============================================================================
-// 3. 四大 MMORPG 裝備套裝（2 件套 / 3 件全套特效，驅動刷裝與拍賣行交易！）
+// 3. 四大 MMORPG 裝備套裝（P1 改為 2 件套 / 4 件全套制，8 欄配裝更具取捨深度！）
 // ============================================================================
 export const MMO_SETS = {
   ember_conqueror: {
     id: 'ember_conqueror', icon: '🔥', name: '熾炎征服者', color: '#ff7a3a',
     b2Desc: '(2) 全傷害 +18% · 火焰傷害 +5',
-    b3Desc: '(3) 暴擊率 +12% · 暴傷 +35%（攻擊機率引爆烈焰）',
+    b3Desc: '(4) 暴擊率 +12% · 暴傷 +35%（攻擊機率引爆烈焰）',
     b2: { dmgPct: 18, addFire: 5 },
     b3: { crit: 12, critMult: 35 },
   },
   frost_warden: {
     id: 'frost_warden', icon: '❄️', name: '霜穹守護者', color: '#7ae8ff',
-    b2Desc: '(2) 最大生命 +45 · 減傷 +8%',
-    b3Desc: '(3) 每秒回血 +4 · 受擊時寒霜反擊凍結近身敵人',
+    b2Desc: '(2) 最大生命 +45 · 護甲 +8',
+    b3Desc: '(4) 每秒回血 +4 · 護甲 +6（受擊寒霜反擊）',
     b2: { maxHp: 45, armor: 8 },
     b3: { regen: 4, armor: 6 },
   },
   gale_hunter: {
     id: 'gale_hunter', icon: '⚡', name: '疾風獵影', color: '#7fe08a',
     b2Desc: '(2) 攻速 +18% · 移速 +10%',
-    b3Desc: '(3) 暴擊率 +10% · 翻滾冷卻 -25%',
+    b3Desc: '(4) 暴擊率 +10% · 翻滾冷卻 -25%',
     b2: { atkSpd: 18, moveSpd: 10 },
     b3: { crit: 10, rollCdr: 25 },
   },
   star_sage: {
     id: 'star_sage', icon: '🌟', name: '星燈賢者', color: '#d898ff',
     b2Desc: '(2) 冷卻縮減 +14% · 最大法力 +30',
-    b3Desc: '(3) 範圍 +22% · 回魔 +40%',
+    b3Desc: '(4) 範圍 +22% · 回魔 +40%',
     b2: { cdr: 14, mana: 30 },
     b3: { area: 22, manaRegen: 40 },
   },
@@ -436,9 +441,9 @@ export function computeSetBonuses(equip = {}) {
     const def = MMO_SETS[sid];
     if (n >= 2) {
       for (const [k, v] of Object.entries(def.b2)) stats[k] = (stats[k] || 0) + v;
-      active.push({ id: sid, def, count: n, full: n >= 3 });
+      active.push({ id: sid, def, count: n, full: n >= 4 });
     }
-    if (n >= 3) {
+    if (n >= 4) {
       for (const [k, v] of Object.entries(def.b3)) stats[k] = (stats[k] || 0) + v;
     }
   }
@@ -581,11 +586,20 @@ export function claimRankReward(profile, rankCode, combatPower = 100) {
   return { ok: true, rank: target, reward: target.promoReward };
 }
 
+export const HEALER_COMPANION_CD = 10;
+
 export const AI_COMPANIONS = [
-  { id: 'vanguard', icon: '🛡️', name: '巴爾克 · 鐵壁衛士', role: '前排坦克', hood: [0x3a6a9a, 0x264a70], weapon: 'shield', cost: 120, bondDesc: '每羈絆等級：減傷 +1.5% · 生命 +8', desc: '衝鋒嘲諷附近精英怪並吸收火力，為你創造安全輸出空間！' },
-  { id: 'healer',   icon: '🪷', name: '澄音 · 禪燈治療師', role: '輔助補師', hood: [0xd87a98, 0xa8526e], weapon: 'staff',  cost: 150, bondDesc: '每羈絆等級：每秒回血 +0.6 · 回魔 +5%', desc: '每 6 秒為你施放聖燈治癒（回復 18% 生命）並發射遠程光彈！' },
+  { id: 'vanguard', icon: '🛡️', name: '巴爾克 · 鐵壁衛士', role: '前排坦克', hood: [0x3a6a9a, 0x264a70], weapon: 'shield', cost: 120, bondDesc: '每羈絆等級：護甲 +1.5 · 生命 +8', desc: '衝鋒嘲諷附近精英怪並吸收火力，為你創造安全輸出空間！' },
+  { id: 'healer',   icon: '🪷', name: '澄音 · 禪燈治療師', role: '輔助補師', hood: [0xd87a98, 0xa8526e], weapon: 'staff',  cost: 150, bondDesc: '每羈絆等級：每秒回血 +0.6 · 回魔 +5%', desc: '每 10 秒為你施放聖燈治癒（回復 16–32% 生命）並發射遠程光彈！' },
   { id: 'ranger',   icon: '🏹', name: '希爾 · 林風神射手', role: '遠程輸出', hood: [0x4c9a58, 0x306e3a], weapon: 'bow',    cost: 150, bondDesc: '每羈絆等級：攻速 +2% · 暴擊率 +0.8%', desc: '遠距離精準連射箭矢並減速追擊你的敵人！' },
 ];
+
+/** P2 高難副本 AI 隊友上限：深層副本（depth >= 3）、高難度模式或終局試煉限 1 名 AI 隊友 */
+export function maxActiveCompanions(g = {}) {
+  const diff = g?.settings?.difficulty;
+  const highDiff = (g?.depth || 0) >= 3 || (g?.towerFloor || 0) >= 5 || !!g?.isSpire || !!g?.isTower || diff === 'hard' || diff === 'nightmare' || (g?.endgameTier || 0) >= 1;
+  return highDiff ? 1 : 2;
+}
 
 export function companionXpForLevel(lv = 1) {
   return 60 + (lv - 1) * 55;
@@ -651,8 +665,11 @@ export function spawnCompanion3D(g) {
   if (g._companionMesh?.root) g.scene.remove(g._companionMesh.root);
   g._companionMeshes = [];
   g._companionMesh = null;
-  const ids = getPartyIds(g.meta?.p);
+  const allIds = getPartyIds(g.meta?.p);
+  const cap = maxActiveCompanions(g);
+  const ids = allIds.slice(0, cap);
   if (!ids.length || !g.player || !g.world) return null;
+  if (allIds.length > ids.length) g.ui?.toast?.('⚔️ 高難副本限攜帶 1 名 AI 隊友同行', '#ffd85a');
   ids.forEach((cid, idx) => {
     const def = AI_COMPANIONS.find(c => c.id === cid);
     if (!def) return;
@@ -663,7 +680,7 @@ export function spawnCompanion3D(g) {
     const py = g.world.isLand(px, pz) ? g.world.gh(px, pz) : g.player.y;
     m.root.position.set(px, py, pz);
     g.scene.add(m.root);
-    g._companionMeshes.push({ def, idx, root: m.root, m, pos: new THREE.Vector3(px, py, pz), cd: 0.8 + idx * 0.4, healCd: 4.5, facing: 0 });
+    g._companionMeshes.push({ def, idx, root: m.root, m, pos: new THREE.Vector3(px, py, pz), cd: 0.8 + idx * 0.4, healCd: 6.0, facing: 0 });
   });
   g._companionMesh = g._companionMeshes[0] || null;
   return g._companionMesh;
@@ -707,9 +724,9 @@ export function tickCompanion3D(g, dt) {
     c.root.position.set(c.pos.x, c.pos.y + Math.abs(Math.sin(g.time * 8 + i * 2.1)) * (dist > 1.5 ? 0.08 : 0.02), c.pos.z);
     c.root.rotation.y = c.facing;
 
-    // 治療師每 6.5 秒幫受傷玩家回血（隨羈絆等級成長）
+    // P2 治療師每 10 秒幫受傷玩家回血（隨羈絆等級成長）
     if (c.def.id === 'healer' && c.healCd <= 0 && p.hp < p.stats.maxHp * 0.88) {
-      c.healCd = 6.5;
+      c.healCd = HEALER_COMPANION_CD;
       const amt = Math.round(p.stats.maxHp * Math.min(0.32, 0.16 + (bond.lv - 1) * 0.018));
       g.heal(amt, true);
       g.fx.burst(p.pos.x, p.y + 1.0, p.pos.z, 12, { c: [0x7fe08a, 0xffe87a, 0xffffff], s: 0.12, speed: 3.5, up: 2.5, life: 0.5 });

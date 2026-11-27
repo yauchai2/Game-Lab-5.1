@@ -76,7 +76,8 @@ export function restoreGear(g, player) {
 }
 export function xpForNextLevel(lv = 1) {
   const n = Math.max(1, Math.round(lv || 1));
-  return Math.round(120 + n * 95 + n * n * 14);
+  const base = 120 + n * 95 + n * n * 14;
+  return Math.round(base * (n <= 5 ? 0.88 : 1));
 }
 export function grantExperience(g, amount) {
   const p = g.meta.p;

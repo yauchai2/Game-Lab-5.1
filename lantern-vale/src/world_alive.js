@@ -71,7 +71,7 @@ export const SECOND_CLASSES = {
   ],
   2: [
     { id: 'starcaller', name: '焚星賢者', title: '☄ 焚星大賢者', icon: '☄', aura: 0xff7a40, auraTheme: 'fire', gem: 'fire_whale', trial: '施放拼圖技能 25 次', trialCheck: p => ({ ok: (p?.deeds?.casts || 0) >= 25, label: `拼圖施法 ${p?.deeds?.casts || 0}/25` }), bonuses: { addFire: 8, dmgPct: 22 }, desc: '引動天穹熾炎，解鎖 3D 巨獸寶石「🐋 熾炎巨鯨」。' },
-    { id: 'frostweaver', name: '霜燈織夢師', title: '❄ 霜燈織夢者', icon: '❄', aura: 0x7ac8ff, auraTheme: 'bluefire', gem: 'black_hole', trial: '於星夜探索野外並踏足 3 區', trialCheck: p => ({ ok: !!(p?.deeds?.nightExplore) && (p?.visitedFields?.length || 0) >= 3, label: `星夜探索 ${p?.deeds?.nightExplore ? '✔' : '0/1'} · 區域 ${p?.visitedFields?.length || 0}/3` }), bonuses: { mana: 40, manaRegen: 50, cdr: 15 }, desc: '編織幽藍星域，解鎖 3D 聚怪寶石「🕳️ 星域黑洞」。' },
+    { id: 'frostweaver', name: '霜燈織夢師', title: '❄ 霜燈織夢者', icon: '❄', aura: 0x7ac8ff, auraTheme: 'bluefire', gem: 'black_hole', trial: '於星夜探索野外並踏足 3 區', trialCheck: p => ({ ok: !!(p?.deeds?.nightExplore) && (p?.visitedFields?.length || 0) >= 3, label: `星夜探索 ${p?.deeds?.nightExplore ? '✔' : '0/1'} · 區域 ${p?.visitedFields?.length || 0}/3` }), bonuses: { mana: 40, manaRegen: 50, cdr: 15 }, desc: '編織幽藍星域（額外法力 12% 轉化為元素基傷），解鎖 3D 聚怪寶石「🕳️ 星域黑洞」。' },
   ],
   3: [
     { id: 'crimsonblade', name: '緋月劍舞者', title: '🌙 緋月舞劍士', icon: '🌙', aura: 0xff6a8a, auraTheme: 'arcane', gem: 'sword_beams', trial: '討伐 5 隻高危精英魔物', trialCheck: p => ({ ok: eliteCountOf(p) >= 5, label: `精英討伐 ${eliteCountOf(p)}/5` }), bonuses: { atkSpd: 25, critMult: 45 }, desc: '在月影中疾斬如風，解鎖 3D 劍波寶石「🌙 附魔劍氣」。' },
@@ -331,6 +331,7 @@ export function startGatherMini(g, spot, onFinish) {
   const icon = { wood: '🪓 砍伐香杉木', ore: '⛏ 開採星紋礦', fish: '🎣 垂釣溪銀魚' }[spot.kind] || '採集';
   label.textContent = `${icon} — 在金色區間按 [F] 或 [空白] 觸發完美採集！`;
   root.classList.remove('hide');
+  g.audio.sfx('gatherReady');
   const start = performance.now();
   const dur = 1350;
   let done = false;
@@ -345,12 +346,12 @@ export function startGatherMini(g, spot, onFinish) {
     const t = ((performance.now() - start) % dur) / dur;
     const pos = t < 0.5 ? t * 2 : (1 - t) * 2;
     const perfect = hit && pos >= 0.36 && pos <= 0.64;
+    if (hit) g.audio.sfx(spot.kind === 'fish' ? 'splash' : spot.kind === 'ore' ? 'mine' : 'chop');
+    else g.audio.sfx('gatherMiss');
     if (perfect) {
       g.audio.sfx('perfect');
       g.meta.p.deeds = g.meta.p.deeds || {};
       g.meta.p.deeds.perfectGather = (g.meta.p.deeds.perfectGather || 0) + 1;
-    } else {
-      g.audio.sfx(spot.kind === 'fish' ? 'splash' : spot.kind === 'ore' ? 'mine' : 'chop');
     }
     onFinish(perfect);
   };

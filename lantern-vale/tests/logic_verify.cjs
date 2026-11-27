@@ -278,7 +278,7 @@ const createGuild = require('../server/guild.cjs');
   assert.equal(puzzle.canPlace(pz.presets[0], 'ember', 2, 1, 0, 1), true);
   pz.presets[0].push({ uid: 99, id: 'ember', x: 2, y: 1, rot: 0 });
   const board2 = puzzle.computeBoard(pz.presets[0]);
-  assert.equal(board2[0].mod.dmgMult, 1.25, 'Adjacent 熾炎增幅 boosts active skill damage +25%');
+  assert.equal(board2[0].mod.dmgMult, 1.24, 'P2: Adjacent multi (+8%) + 熾炎增幅 (+16%) boosts active skill damage to 1.24x');
   assert.equal(board2[0].mod.supports.length, 3, 'Three adjacent support gems linked simultaneously');
 
   // 8. World Alive expansion: Ultra-slow smooth Day/Night (long daytime ~70%), 8 Second Classes, 4 Flashy Skills, 6 Field NPCs
@@ -1122,7 +1122,7 @@ const createGuild = require('../server/guild.cjs');
   const modelsSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'models.js'), 'utf8');
   const rigSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'char_rig.js'), 'utf8');
   assert.ok(rigSrc.includes('toToonMaterial') && gameSrc.includes('toon: true'), 'In-game modular heroes use MeshToonMaterial wrapper');
-  assert.ok(gameSrc.includes("play('skill'") && gameSrc.includes("play('getHit'") && gameSrc.includes("play('buff'"), 'Combat skill/getHit/buff skeletal animations wired');
+  assert.ok(gameSrc.includes("play('skill'") && gameSrc.includes("play('hit'") && gameSrc.includes("play('buff'"), 'Combat skill/hit/buff skeletal animations wired');
   assert.ok(gameSrc.includes("'runBack'") && gameSrc.includes("'runL'") && gameSrc.includes("'runR'"), 'Directional combat strafe animations wired');
   assert.ok(modelsSrc.includes('root.add(xray)'), 'X-Ray occlusion silhouette attached to root so it works with modular heroRig');
 
@@ -1254,14 +1254,17 @@ const createGuild = require('../server/guild.cjs');
   const enhFail = mmoRpg.enhanceItem(mmoProf, testWeapon, () => 0.99);
   assert.ok(enhFail.ok && !enhFail.success && enhFail.downgraded && testWeapon.enhance === 6, '+7 fail downgrades to +6');
 
-  // 4 Gear Sets (2-pc & 3-pc)
-  const setEq = {
+  // 4 Gear Sets (P1: 2-pc & 4-pc)
+  const setEq3 = {
     staff: { setId: 'ember_conqueror' },
     cloak: { setId: 'ember_conqueror' },
     charm: { setId: 'ember_conqueror' },
   };
-  const setOut = mmoRpg.computeSetBonuses(setEq);
-  assert.ok(setOut.active.length === 1 && setOut.active[0].full && setOut.stats.dmgPct === 18 && setOut.stats.critMult === 35, '3-pc Ember Conqueror full set bonus activates');
+  const setOut3 = mmoRpg.computeSetBonuses(setEq3);
+  assert.ok(setOut3.active.length === 1 && !setOut3.active[0].full && setOut3.stats.dmgPct === 18 && !setOut3.stats.critMult, '3-pc activates 2-pc bonus only under P1 2/4-pc rule');
+  const setEq4 = { ...setEq3, head: { setId: 'ember_conqueror' } };
+  const setOut = mmoRpg.computeSetBonuses(setEq4);
+  assert.ok(setOut.active.length === 1 && setOut.active[0].full && setOut.stats.dmgPct === 18 && setOut.stats.critMult === 35, '4-pc Ember Conqueror full set bonus activates');
 
   // Bestiary Mastery permanent account stats
   for (let i = 0; i < 10; i++) mmoRpg.recordBestiaryKill(mmoProf, 'slime');
@@ -1387,8 +1390,10 @@ const createGuild = require('../server/guild.cjs');
   assert.ok(mmoRpg.enhanceInfo(5, 1).rate > mmoRpg.enhanceInfo(5, 0).rate, 'Failstack boosts next enhancement success rate');
   const fSucc = mmoRpg.enhanceItem(fsProf, fsItem, () => 0.01);
   assert.ok(fSucc.ok && fSucc.success && fsProf.enhanceFailstack === 0, 'Successful enhancement resets failstack to 0');
-  const res3 = mmoRpg.computeEnhanceResonance({ staff: { enhance: 5 }, cloak: { enhance: 5 }, charm: { enhance: 5 } });
-  assert.ok(res3.active && res3.active.minLv === 5 && res3.bonuses.dmgPct === 12 && res3.bonuses.crit === 4, 'Full +5 gear activates Star-Silver Enhancement Resonance');
+  const resPartial = mmoRpg.computeEnhanceResonance({ staff: { enhance: 5 }, cloak: { enhance: 5 }, charm: { enhance: 5 } });
+  assert.ok(resPartial.minLv < 5 && !resPartial.active, 'Only 3 slots at +5 cannot trigger +5 8-slot resonance');
+  const res8 = mmoRpg.computeEnhanceResonance({ head: { enhance: 5 }, staff: { enhance: 5 }, body: { enhance: 5 }, cloak: { enhance: 5 }, hands: { enhance: 5 }, feet: { enhance: 5 }, charm: { enhance: 5 }, relic: { enhance: 5 } });
+  assert.ok(res8.active && res8.active.minLv === 5 && res8.bonuses.dmgPct === 12 && res8.bonuses.crit === 4, 'Full 8-slot +5 gear activates Star-Silver Enhancement Resonance');
 
   // Guild Reputation Lv.1->10 & 5 Repeatable Bounties + Companion Bond Lv.1->10 + Rank Promo Chest
   assert.equal(mmoRpg.GUILD_BOUNTIES.length, 5, '5 repeatable Guild Bounties defined');
@@ -1611,5 +1616,87 @@ const createGuild = require('../server/guild.cjs');
   const regionMapSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'region_map.js'), 'utf8');
   assert.ok(regionMapSrc.includes('g._simAdvs') && regionMapSrc.includes('#48f0c8'), 'Region minimap renders cyan-mint virtual MMO player dots');
 
-  console.log('ALL 55 LOGIC, WHOLE-MAP-VIRTUAL-MMO-M12, VIRTUAL-MMO-PLAYERS-M11, CRISP-PIXEL-UI-SYSTEM, VFX-100PCT-UTILIZATION, MMORPG-ENDGAME-POTENTIAL-TOWER-PARTY-EVENTS-OFFLINE, MMORPG-LIVING-WORLD-BOSS-LIFE-RUNES-TITLES-DAILY, MMORPG-PROGRESSION-OVERHAUL, GEAR-LEVEL-GATES-TIER-MATS, ACCOUNT-LOGIN-DELETE-CHAR, MONSTER-MATS-CRAFT-RESIST, MMORPG-6-PILLARS, HARDCORE-MMO-SCARCITY, CREATOR-OCEAN-INTERACT, V6-FIELD-POI-BOSS, DIORAMA-D1-D4, VFX-SKILL-REWORK-V1-V6, UI-UNIFIED-U4B, CHAR-C6-TOON-ANIM, CHAR-REWORK-C1-C5, FUZZ-QA-36, MMO-M10-PORTALS-CRAFT-KILLSWITCH, MMO-M9-SAFETY-KILLSWITCH, MMO-M8-ROLES-FEAST-GPU, MMO-M7-SOUL-AWAKEN-GPU-FIX, MMO-M6-SPIRE-MENTOR-LIGHTHOUSE, MMO-M5-FERRY-REVIEW, MMO-M4-OVERHAUL, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
+  // 56. P0 Balance Overhaul: asymptotic armor, attack speed caps, crit overflow, STR/INT decoupling, zero-drift enhance, Lv.1-5 smoothing
+  const p0Prog = await import('../src/progression.js');
+  const p0Mmo = await import('../src/mmo_rpg.js');
+  const p0Loot = await import('../src/loot.js');
+  const p0Frontier = await import('../src/frontier.js');
+  assert.equal(p0Prog.effectiveArmorMitigation(0), 0, 'Armor 0 yields 0% mitigation');
+  assert.equal(p0Prog.effectiveArmorMitigation(80), 0.5, 'Armor 80 yields 50% mitigation (Armor/(Armor+80))');
+  assert.equal(p0Prog.effectiveArmorMitigation(400), 0.72, 'Armor mitigation caps at 72%');
+  assert.equal(p0Prog.effectiveAttackSpeed(60), 60, 'Attack speed linear up to 80%');
+  assert.equal(p0Prog.effectiveAttackSpeed(120), 100, 'Attack speed halves above 80% soft cap');
+  assert.equal(p0Prog.effectiveAttackSpeed(200), 120, 'Attack speed hard caps at 120%');
+  const cpOver = p0Prog.effectiveCritProfile(125, 150, false);
+  assert.equal(cpOver.chance, 100, 'Crit chance caps at 100%');
+  assert.equal(cpOver.critMult, 175, 'Crit overflow converts 1:1 to crit multiplier');
+  const cpForce = p0Prog.effectiveCritProfile(80, 150, true);
+  assert.equal(cpForce.chance, 100, 'Forced crit sets chance to 100%');
+  assert.equal(cpForce.critMult, 190, 'Forced crit converts 50% of base crit into bonus crit multiplier');
+  assert.deepEqual(p0Prog.enemyStageMultipliers(1), { hpMul: 1.15, dmgMul: 1.10 }, 'Lv.1-4 enemy stage multipliers smoothed to 1.15x / 1.10x');
+  assert.deepEqual(p0Prog.enemyStageMultipliers(15), { hpMul: 1.60, dmgMul: 1.45 }, 'Lv.15+ enemy stage multipliers reach 1.60x / 1.45x');
+  const midMul = p0Prog.enemyStageMultipliers(10);
+  assert.ok(midMul.hpMul > 1.15 && midMul.hpMul < 1.60 && midMul.dmgMul > 1.10 && midMul.dmgMul < 1.45, 'Lv.5-14 enemy stage multipliers interpolate smoothly');
+  const p0Prof = { level: 30, allocStats: { str: 10, dex: 10, int: 10, vit: 10 }, coins: 99999, shards: 9999, mats: { ore: 9999 }, life: { smith: { lv: 1, xp: 0 } } };
+  const p0Bon = p0Mmo.computeAllocatedBonuses(p0Prof);
+  assert.equal(p0Bon.baseDmg, 14, 'STR +10 grants +14 baseDmg');
+  assert.equal(p0Bon.dmgPct, 0, 'STR no longer double-dips into dmgPct');
+  assert.equal(p0Bon.addFire, 14, 'INT +10 grants +14 elemental base damage');
+  assert.equal(p0Bon.armor, 16, 'STR +10 and VIT +10 grant 4 + 12 = 16 armor rating');
+  const driftItem = { slot: 'weapon', rarity: 1, tier: 2, enhance: 7, baseImplicitVal: 20, implicit: { k: 'baseDmg', v: Math.round(20 * (1 + 0.14 * 7)) }, mods: [] };
+  const failRes = p0Mmo.enhanceItem(p0Prof, driftItem, () => 0.99, false);
+  assert.equal(failRes.downgraded, true, '+7 enhance fail downgrades to +6');
+  assert.equal(driftItem.implicit.v, Math.round(20 * (1 + 0.14 * 6)), 'Downgrade computes exact value from baseImplicitVal');
+  const okRes = p0Mmo.enhanceItem(p0Prof, driftItem, () => 0.0, false);
+  assert.equal(okRes.success, true, '+6 enhance succeeds back to +7');
+  assert.equal(driftItem.implicit.v, Math.round(20 * (1 + 0.14 * 7)), 'Re-enhancing to +7 has zero value drift');
+  const roundTrip = p0Loot.deserializeItem(p0Loot.serializeItem(driftItem));
+  assert.equal(roundTrip.baseImplicitVal, 20, 'serializeItem/deserializeItem preserves baseImplicitVal');
+  assert.equal(p0Frontier.xpForNextLevel(1), 202, 'Lv.1 XP smoothed by 0.88x to 202');
+  assert.equal(p0Frontier.xpForNextLevel(6), 1194, 'Lv.6+ XP stays on full curve');
+
+  // 57. P1 Balance Overhaul: 8-slot uniques/resonance/sets, multiProj 0.78x, CoH/CoC 40% mana + scaled ICD
+  assert.equal(p0Prog.multiProjDamageScale(1), 1, 'Single projectile deals 1.0x damage');
+  assert.equal(p0Prog.multiProjDamageScale(2), 0.78, 'Multi-projectile applies 0.78x per-projectile scale');
+  assert.deepEqual(p0Prog.triggerCircuitCostAndIcd({ mana: 8, cd: 0.42 }), { manaCost: 3, icdMs: 450 }, 'Low-CD CoH/CoC enforces 40% mana and 450ms minimum ICD');
+  assert.deepEqual(p0Prog.triggerCircuitCostAndIcd({ mana: 16, cd: 7.2 }), { manaCost: 6, icdMs: 2520 }, 'High-CD ultimate CoH/CoC enforces 40% mana and 35% CD ICD');
+  for (const sl of Object.keys(p0Loot.SLOTS)) {
+    assert.ok(p0Loot.UNIQUES.some(u => u.slot === sl), `Slot ${sl} has at least one Legendary unique`);
+  }
+  const legHead = p0Loot.makeItem(() => 0.5, 10, 3, 'head');
+  assert.equal(legHead.rarity, 3, 'New secondary slot (head) drops Legendary unique');
+
+  // 58. Melee vs Ranged Non-Stat Spatial Mechanics (Lunge, Lantern Part-Break, Proximity Shield, Donut Safe Zone, Move Commit)
+  assert.equal(p0Prog.meleeLungeDistance(1, 0), 1.6, 'First melee swing lunges 1.6m forward');
+  assert.equal(p0Prog.meleeLungeDistance(2, 0.3), 2.0, 'Post-roll melee strike lunges 2.0m forward');
+  assert.equal(p0Prog.meleeLungeDistance(2, 0), 0, 'Non-first non-post-roll swing does not lunge');
+  assert.equal(p0Prog.partBreakEfficiency({ isMelee: true, dist: 2.5, lampRange: 9 }), 1.5, 'Melee inside lantern light gets 1.5x part-break efficiency');
+  assert.equal(p0Prog.partBreakEfficiency({ isMelee: false, dist: 6.0, lampRange: 9 }), 0.85, 'Ranged inside lantern light gets 0.85x part-break efficiency');
+  assert.equal(p0Prog.partBreakEfficiency({ isMelee: false, dist: 11.0, lampRange: 9 }), 0, 'Blind ranged snipe outside lantern light deals 0 part-break');
+  assert.equal(p0Prog.proximityShieldFactor(true, 3.0, 4.5), 1, 'Inside 4.5m proximity shield deals full damage');
+  assert.equal(p0Prog.proximityShieldFactor(true, 8.0, 4.5), 0.2, 'Outside 4.5m proximity shield deflects 80% projectile damage');
+  assert.equal(p0Prog.isInDonutSafeZone(2.5, 3.5), true, 'Standing within 3.5m is inside boss Donut AoE safe zone');
+  assert.equal(p0Prog.isInDonutSafeZone(6.0, 3.5), false, 'Standing at 6.0m is hit by boss Donut AoE');
+  assert.equal(p0Prog.rangedMoveCommitScale(0.2), 0.55, 'Ranged firing commit slows movement to 55%');
+  assert.equal(p0Prog.rangedMoveCommitScale(0), 1, 'Normal movement unaffected when not firing');
+  assert.equal(p0Prog.canTriggerOpeningCrit(11.0, false, 9.0), false, 'Ranged attack beyond lantern light cannot trigger opening forced crit');
+  assert.equal(p0Prog.canTriggerOpeningCrit(3.0, true, 9.0), true, 'Melee attack triggers opening forced crit');
+
+  // 59. P2 Balance Overhaul: 1-cell support gems nerfed to 14-16%, 3-4 cell gems gain sub-affixes, high-diff AI companion cap = 1 & healer CD = 10s
+  const p2Ember = puzzle.computeBoard([{ uid: 1, id: 'bolt', x: 1, y: 1, rot: 0 }, { uid: 2, id: 'ember', x: 1, y: 2, rot: 0 }])[0].mod;
+  assert.equal(p2Ember.dmgMult, 1.16, '1-cell ember grants +16% damage under P2');
+  const p2Blue = puzzle.computeBoard([{ uid: 1, id: 'bolt', x: 1, y: 1, rot: 0 }, { uid: 2, id: 'bluefire', x: 1, y: 2, rot: 0 }])[0].mod;
+  assert.equal(p2Blue.dmgMult, 1.14, '1-cell bluefire grants +14% damage under P2');
+  const p2Haste = puzzle.computeBoard([{ uid: 1, id: 'bolt', x: 1, y: 1, rot: 0 }, { uid: 2, id: 'haste', x: 1, y: 2, rot: 0 }])[0].mod;
+  assert.equal(p2Haste.cdr, 0.14, '1-cell haste grants 14% CDR under P2');
+  const p2Chain = puzzle.computeBoard([{ uid: 1, id: 'bolt', x: 1, y: 1, rot: 0 }, { uid: 2, id: 'chain', x: 1, y: 2, rot: 0 }])[0].mod;
+  assert.ok(p2Chain.chain === 2 && p2Chain.dmgMult === 1.12 && p2Chain.shock === 2.5, '4-cell chain gains +12% damage & shock sub-affix');
+  const p2Echo = puzzle.computeBoard([{ uid: 1, id: 'bolt', x: 1, y: 1, rot: 0 }, { uid: 2, id: 'echo', x: 1, y: 2, rot: 0 }])[0].mod;
+  assert.ok(p2Echo.echo === 1 && p2Echo.cdr === 0.08, '3-cell echo gains 8% CDR sub-affix');
+  assert.equal(p0Mmo.HEALER_COMPANION_CD, 10, 'AI Healer companion cooldown set to 10s');
+  assert.equal(p0Mmo.maxActiveCompanions({ depth: 0 }), 2, 'Normal field allows 2 AI companions');
+  assert.equal(p0Mmo.maxActiveCompanions({ depth: 3 }), 1, 'High-difficulty dungeon (depth >= 3) caps AI companions at 1');
+  assert.equal(p0Mmo.maxActiveCompanions({ settings: { difficulty: 'hard' } }), 1, 'Hard difficulty caps AI companions at 1');
+
+  console.log('ALL 59 LOGIC, P2-BALANCE-OVERHAUL, MELEE-RANGED-SPATIAL, P1-BALANCE-OVERHAUL, P0-BALANCE-OVERHAUL, WHOLE-MAP-VIRTUAL-MMO-M12, VIRTUAL-MMO-PLAYERS-M11, CRISP-PIXEL-UI-SYSTEM, VFX-100PCT-UTILIZATION, MMORPG-ENDGAME-POTENTIAL-TOWER-PARTY-EVENTS-OFFLINE, MMORPG-LIVING-WORLD-BOSS-LIFE-RUNES-TITLES-DAILY, MMORPG-PROGRESSION-OVERHAUL, GEAR-LEVEL-GATES-TIER-MATS, ACCOUNT-LOGIN-DELETE-CHAR, MONSTER-MATS-CRAFT-RESIST, MMORPG-6-PILLARS, HARDCORE-MMO-SCARCITY, CREATOR-OCEAN-INTERACT, V6-FIELD-POI-BOSS, DIORAMA-D1-D4, VFX-SKILL-REWORK-V1-V6, UI-UNIFIED-U4B, CHAR-C6-TOON-ANIM, CHAR-REWORK-C1-C5, FUZZ-QA-36, MMO-M10-PORTALS-CRAFT-KILLSWITCH, MMO-M9-SAFETY-KILLSWITCH, MMO-M8-ROLES-FEAST-GPU, MMO-M7-SOUL-AWAKEN-GPU-FIX, MMO-M6-SPIRE-MENTOR-LIGHTHOUSE, MMO-M5-FERRY-REVIEW, MMO-M4-OVERHAUL, MMO-M3-FEAST-TAX, MMO-M2-HOTSPOTS, MMO-M1, PROGRESSION-B2, ICONS-U3, DIFFICULTY-B1, AUTOPILOT, TERRAIN-FX, V5-BLUEPRINTS, EMBER-TIDE, SALVAGE, AUTO-EQUIP, AUTO-BUILD, COMBAT-PARTS-ELEMENTS, BUILD-OVERHAUL, ART, SHRINES, SHEEP, MOUNTS, TIERS, COLLISION-SYNTHESIS, CODEX, FLUID-VIAL, MULTI-SHAPE BAG, I18N, PIER & GUILD SERVER CHECKS PASSED');
 })();

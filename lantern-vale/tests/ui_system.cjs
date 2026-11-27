@@ -2,6 +2,36 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const { chromium } = require('playwright');
 
+async function assertReadable(label, surfaceSelector) {
+  const ratio = await label.evaluate(async (element, selector) => {
+    const colors = value => value.match(/[\d.]+/g).map(Number);
+    const surface = getComputedStyle(element.closest(selector));
+    let background = colors(surface.backgroundColor);
+    if (surface.borderImageSlice.includes('fill')) {
+      const texture = new Image();
+      texture.src = surface.borderImageSource.slice(5, -2);
+      await texture.decode();
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = 1;
+      const context = canvas.getContext('2d');
+      // The center of the nine-slice paints over backgroundColor.
+      context.drawImage(texture, Math.floor(texture.width / 2), Math.floor(texture.height / 2), 1, 1, 0, 0, 1, 1);
+      const [r, g, b, alpha] = context.getImageData(0, 0, 1, 1).data;
+      background = [r, g, b].map((channel, i) => (channel * alpha + background[i] * (255 - alpha)) / 255);
+    }
+    const luminance = rgb => rgb.slice(0, 3).reduce((sum, value, i) => {
+      const channel = value / 255;
+      const linear = channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+      return sum + linear * [0.2126, 0.7152, 0.0722][i];
+    }, 0);
+    const text = luminance(colors(getComputedStyle(element).color));
+    const bg = luminance(background);
+    return (Math.max(text, bg) + 0.05) / (Math.min(text, bg) + 0.05);
+  }, surfaceSelector);
+  assert.ok(ratio >= 4.5, `Expected readable text for "${await label.textContent()}", got ${ratio.toFixed(2)}:1`);
+}
+
+
 (async () => {
   const browser = await chromium.launch({
     channel: process.env.LV_CHROMIUM_CHANNEL || 'chrome',
@@ -73,6 +103,7 @@ const { chromium } = require('playwright');
     const decreasePixelSize = pixels.locator('[data-d="-1"]');
     const increasePixelSize = pixels.locator('[data-d="1"]');
     assert.equal(await pixels.locator('.sval').textContent(), '細');
+    await assertReadable(pixels.locator('.sval'), '.srow');
     assert.equal(await page.evaluate(() => __game.pipe.pixelScale), 2);
     assert.equal(await increasePixelSize.isDisabled(), true);
     await decreasePixelSize.click();
@@ -106,6 +137,18 @@ const { chromium } = require('playwright');
     await visible('#pane-souls');
     await page.locator('[data-invtab="atlas"]').click();
     await visible('#pane-atlas');
+    await page.locator('[data-invtab="style"]').click();
+    const defaultHat = page.locator('.cos-btn[data-ckey="hat"][aria-pressed="true"]');
+    const otherHat = page.locator('.cos-btn[data-ckey="hat"][aria-pressed="false"]').first();
+    await assertReadable(defaultHat.locator('div').last(), '.cos-btn');
+    await assertReadable(otherHat.locator('div').last(), '.cos-btn');
+    await otherHat.hover();
+    await assertReadable(otherHat.locator('div').last(), '.cos-btn');
+    const otherHatId = await otherHat.getAttribute('data-cid');
+    await otherHat.click();
+    assert.equal(await defaultHat.getAttribute('data-cid'), otherHatId);
+    await assertReadable(defaultHat.locator('div').last(), '.cos-btn');
+    await shot('lantern-ui-cosmetics.png');
     await page.keyboard.press('Escape');
     await page.keyboard.press('k');
     await visible('#puzzleM');

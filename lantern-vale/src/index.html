@@ -105,7 +105,6 @@ dialog{font-family:var(--font-ui)}
 .atlas-card:hover{background:#fff1cf}
 .soul-card .btn.small,.atlas-card .btn.small{font-size:13px;padding:3px 9px}
 .soul-card.on,.atlas-card.on{outline:3px solid #b85cf0;background:#f8edff}
-.soul-card.locked{opacity:.68;filter:grayscale(.45)}
 .atlas-bar{background:#3b2a2a;color:#fff6e2;padding:6px 12px;margin-bottom:6px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;font-size:13px}
 .btn.corrupt-btn{background:#9b2458!important;color:#fff6e2!important;font-size:12px;padding:3px 10px;margin-top:6px}
 .cmp{margin-top:6px}.cmp.up{color:#2f8a4e}.cmp.down{color:#b8443a}
@@ -146,7 +145,7 @@ dialog{font-family:var(--font-ui)}
 .card:hover{transform:translateY(-6px);box-shadow:0 11px 0 var(--ink);background:#fffaf0}
 .bicon{width:64px;height:64px;margin:4px auto 10px;border-radius:50%;background:#c08cff;border:3px solid var(--ink);display:flex;align-items:center;justify-content:center;font-size:30px;color:var(--paper);text-shadow:0 2px 0 var(--ink)}
 .bname{font-size:20px;margin-bottom:8px}.bdesc{font-size:14px;line-height:1.6;opacity:.85}
-.card .key{position:absolute;top:6px;left:8px;font-size:12px;opacity:.5}
+.card .key{position:absolute;top:6px;left:8px;font-size:12px;color:var(--cp-ink)}
 #inv .panel{padding:14px 16px;width:min(900px,95vw);max-height:92vh;overflow:auto;display:grid;grid-template-columns:1.4fr 1fr;gap:12px}
 #invEquip{display:flex;flex-direction:column;gap:10px}
 .slot{display:flex;gap:10px;align-items:flex-start;padding:8px;border:2px dashed rgba(43,29,51,.3);border-radius:8px;font-size:13px;line-height:1.5}
@@ -233,7 +232,8 @@ html,body{image-rendering:pixelated;-webkit-font-smoothing:none;font-smooth:neve
 .srow:hover{background:rgba(255,207,74,.28)}
 .srow:hover .sl:before{content:'\25B6 ';color:var(--ink)}
 .sv{display:flex;align-items:center;gap:8px}
-.sval{color:#d8402a;font-weight:400;min-width:48px;text-align:center}
+.setting-detail{display:block;margin-top:2px;font-size:var(--ui-type-detail);color:#4e2e20}
+.sval{color:var(--cp-ink);font-weight:700;min-width:48px;text-align:center}
 .arr{font-family:inherit;font-size:14px;background:none;border:0;color:var(--ink);cursor:pointer;padding:2px 6px}
 .arr:hover{color:#d8402a}.arr.wide{background:var(--paper2);box-shadow:var(--box);margin:4px;padding:2px 10px}
 .kb{display:inline-block;min-width:64px;text-align:center;background:var(--ink);color:var(--paper);padding:0 6px;font-weight:400}
@@ -355,7 +355,8 @@ html,body{image-rendering:pixelated;-webkit-font-smoothing:none;font-smooth:neve
 .mmo-alloc-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
 .mmo-stat-row{display:flex;align-items:center;justify-content:space-between;background:#f4e6c8;border:2px solid #3b2a2a;padding:4px 7px;font-size:12px}
 .mmo-stat-btn{font-family:inherit;font-weight:900;font-size:11px;padding:2px 7px;background:#e8b85a;color:#2b1812;border:2px solid #3b2a2a;cursor:pointer}
-.mmo-stat-btn:disabled{opacity:.4;cursor:not-allowed}
+.mmo-stat-btn:disabled,.mmo-alloc .chip.locked{background:#f2dfbe;color:#4e2e20;border-color:#80684c;cursor:not-allowed}
+.mmo-alloc .empty{opacity:1;color:#4e2e20}
 #accountModal,#delCharModal{position:fixed;inset:0;z-index:220;background:rgba(28,18,14,.74);display:flex;align-items:center;justify-content:center;padding:16px;pointer-events:auto}
 #accountModal.hide,#delCharModal.hide{display:none!important}
 .acct-box{width:min(420px,94vw);background:#fff8e6;color:#3a261c;border:4px solid #3a261c;box-shadow:6px 6px 0 #2b1812;padding:18px 20px;text-align:left}
@@ -448,7 +449,7 @@ html,body{image-rendering:pixelated;-webkit-font-smoothing:none;font-smooth:neve
 .cx-card{background:#fff8e6;border:2px solid #8a6c4c;border-radius:8px;padding:10px;box-shadow:0 2px 0 rgba(60,38,28,.25)}
 .cx-ch{display:flex;align-items:center;gap:8px;margin-bottom:6px}
 .cx-ic{font-size:24px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;background:#2b1d22;border-radius:6px}
-.cx-sub{font-size:11px;color:#7a5a40}
+.cx-sub{font-size:11px;color:#5a3b28}
 .cx-desc{font-size:12.5px;line-height:1.45;color:#3c2a22}
 .cx-log-card{background:#fff8e6;border:2px solid #8a6c4c;border-radius:8px;padding:10px 12px;margin-bottom:10px}
 .cx-log-head{display:flex;justify-content:space-between;border-bottom:1px dashed #c8b28c;padding-bottom:4px;margin-bottom:6px;font-size:14px}
@@ -470,7 +471,7 @@ html,body{image-rendering:pixelated;-webkit-font-smoothing:none;font-smooth:neve
 .atlas button:hover{transform:translate(-50%,-54%) scale(1.04);z-index:4}
 .atlas button[aria-pressed=true]{background:#4a3326;color:#fff6db;border-color:#ffd85a;z-index:4}
 .atlas button.here{outline:3px solid #ff5a3c;background:#ffe9a0;color:#3b2218;z-index:3}
-.atlas button.fogged{background:#e6eef4d9;color:#5a6878;border-style:dashed;border-color:#8da2b8}
+.atlas button.fogged{background:#e6eef4d9;color:#3f4b58;border-style:dashed;border-color:#8da2b8}
 .atlas button.match{outline:3px solid #3ce8ff;box-shadow:0 0 10px #3ce8ff;z-index:5}
 .atlas button .lv-sub{display:block;font-size:9.5px;font-weight:700;opacity:.78;margin-top:1px}
 .player-pin{position:absolute;transform:translate(-50%,-135%);background:#d93a49;color:#fff8e4;border:2px solid #2b1812;padding:2px 8px;font-size:12px;font-weight:900;white-space:nowrap;pointer-events:none;z-index:5;box-shadow:0 3px 0 rgba(43,24,18,.65);animation:pinBounce .85s infinite alternate}
@@ -488,7 +489,6 @@ html,body{image-rendering:pixelated;-webkit-font-smoothing:none;font-smooth:neve
 .mount-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
 .mount-card{background:#fff8e6;border:2px solid #7a5a46;padding:10px;display:flex;flex-direction:column;gap:6px;font-size:13px}
 .mount-card.on{outline:3px solid #e8734a;background:#fff3cf}
-.mount-card.locked{opacity:.78;filter:grayscale(.35)}
 .mount-prog{height:8px;background:#d8c4a0;border:1px solid #5a3826;overflow:hidden}.mount-prog i{display:block;height:100%;background:#58a858}
 .map-info{display:grid;gap:5px;margin-top:8px}.map-location{font-size:13px;color:#715c45}.region-detail{font-size:13.5px;line-height:1.45}
 .map-legend{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px;font-size:11.5px;align-items:center}
@@ -500,7 +500,7 @@ html,body{image-rendering:pixelated;-webkit-font-smoothing:none;font-smooth:neve
 .map-cp-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;align-items:center}
 .map-cp-btn{border:2px solid #2b6e8c;background:#dff7ff;color:#154258;padding:3px 9px;border-radius:6px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit}
 .map-cp-btn:hover{background:#bdeeff}
-.map-cp-btn.locked{background:#e8dec8;border-color:#9a8b74;color:#7a6c58;cursor:not-allowed;opacity:.75}
+.map-cp-btn.locked{background:#e8dec8;border-color:#9a8b74;color:#594832;cursor:not-allowed}
 @media(max-width:520px){.atlas{aspect-ratio:1.45}.atlas button{font-size:14px;padding:4px}.atlas button:after{content:"";position:absolute;inset:-8px -2px}.map-close{width:40px;height:40px}#hud .mute{top:51px}#netBox{top:94px}#boss{top:116px}.map-info{min-height:86px}}
 .map-actions{display:flex;gap:8px;justify-content:flex-end}.map-actions [hidden]{display:none}.map-actions button{margin-top:7px}
 .map-actions{flex-wrap:wrap}
@@ -656,18 +656,18 @@ body.holding-gem,body.holding-gem *{cursor:grabbing!important}
   .cr-stage-bar{left:50%;bottom:50vh}
 }
 .pz-cell{position:relative;border:0;background:#f3e3c3;color:#fff;font-family:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0;line-height:1;font-size:11px}
-.pz-cell.locked{background:#58453c;color:#9d887b;font-size:13px;opacity:.75}
+.pz-cell.locked{background:#58453c;color:#f1dfb8;font-size:13px}
 .pz-cell.can{background:#ffe9a0;outline:2px solid #e8734a}
 .pz-cell.filled{color:#fff;text-shadow:0 1px 0 #2b1d33;box-shadow:inset 0 0 0 2px rgba(255,255,255,.35)}
 .pz-cell.linked{box-shadow:inset 0 0 0 2.5px #ffd85a,0 0 7px rgba(255,216,90,.65)}
 .pz-cell.preview-ok{background:#9be66a!important;outline:2px solid #2f8a4e!important;color:#2b1d22}
 .pz-cell.preview-bad{background:#e05555!important;outline:2px solid #7a1c1c!important;color:#fff}
-.pz-cell .pz-ic{font-size:15px}.pz-cell .pz-lb{font-size:10px;white-space:nowrap}.pz-cell .pz-dot{width:8px;height:8px;background:rgba(255,255,255,.55);display:block}
+.pz-cell .pz-ic{font-size:15px}.pz-cell .pz-lb{font-size:10px;white-space:nowrap;padding:0 2px;color:#fff3db;background:var(--cp-ink)}.pz-cell .pz-dot{width:8px;height:8px;background:rgba(255,255,255,.55);display:block}
 .pz-info{background:#f3e3c3;padding:6px 10px;font-size:13px;line-height:1.5;border-left:4px solid #e8734a;margin:6px 0}
 .pz-bag{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;max-height:270px;overflow:auto;padding:2px}
 .pz-gem{display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--paper2);border:2px solid #7a5a46;font-family:inherit;text-align:left;color:var(--ink)}
 .pz-gem.on{background:#ffe9a0;outline:3px solid #e8734a}
-.pz-gem span b{display:block;font-size:13px;font-weight:400}.pz-gem span small{font-size:11px;color:#7a5a46}
+.pz-gem span b{display:block;font-size:13px;font-weight:400}.pz-gem span small{font-size:11px;color:#5a3826}
 .pz-mini{display:inline-grid;gap:1px;padding:3px;background:#3b2a2a;flex:none}.pz-mini i{display:block;width:9px;height:9px}
 .pz-shop{display:flex;flex-direction:column;gap:6px;max-height:270px;overflow:auto;padding:2px}
 .pz-shop-item{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 8px;background:var(--paper2);border-bottom:2px dotted rgba(59,42,42,.25)}
@@ -1009,10 +1009,10 @@ html,body{image-rendering:auto;-webkit-font-smoothing:antialiased;color:var(--ui
   --cp-hp:#e0383e; --cp-hp-hi:#ff8274; --cp-hp-sh:#9c1f3a;
   --cp-mp:#3d8fe8; --cp-mp-hi:#8fd3ff; --cp-mp-sh:#2a55b8;
   --cp-epic:#9a5ce8; --cp-epic-hi:#d6a5ff; --cp-epic-sh:#5e1530;
-  --cp-cta:#e2573b; --cp-cta-hi:#ff8f70; --cp-cta-sh:#9c2c1c;
-  --cp-ok:#469e52; --cp-ok-hi:#85d87a; --cp-ok-sh:#266030;
-  --cp-alt:#3d72b8; --cp-alt-hi:#7eb6ff; --cp-alt-sh:#224478;
-  --cp-danger:#c8323e; --cp-danger-hi:#ff6b72; --cp-danger-sh:#7a1822;
+  --cp-cta:#ae3928; --cp-cta-hi:#ff8f70; --cp-cta-sh:#9c2c1c;
+  --cp-ok:#2f733b; --cp-ok-hi:#85d87a; --cp-ok-sh:#266030;
+  --cp-alt:#315d99; --cp-alt-hi:#7eb6ff; --cp-alt-sh:#224478;
+  --cp-danger:#ad2735; --cp-danger-hi:#ff6b72; --cp-danger-sh:#7a1822;
   --cp-box:0 -3px 0 0 var(--cp-ink),0 3px 0 0 var(--cp-ink),-3px 0 0 0 var(--cp-ink),3px 0 0 0 var(--cp-ink);
   --cp-boxsh:var(--cp-box),0 6px 0 0 rgba(36,20,28,.62);
 }
@@ -1140,10 +1140,6 @@ button,select,a,summary,.sk,.pz-cell,.pz-gem,.atlas button,.du-card,.sb-slot,.so
   border-image-source:url("assets/ui/crisp_pixel/wood/button_medium_pressed.png")!important;
   transform:translateY(2px);
 }
-.btn[disabled],.acct-btn[disabled],.sv-btn:disabled{
-  border-image-source:url("assets/ui/crisp_pixel/wood/button_medium_disabled.png")!important;
-  color:#5a4a42!important;text-shadow:none!important;opacity:.72!important;
-}
 
 /* 補齊缺失的語義按鈕（主要 CTA 橘紅 / 確認綠 / 輔助藍 / 危險紅 / 深木頂欄按鈕） */
 #btnStart,#btnRetry,#btnAgain,.btn.corrupt-btn{
@@ -1223,6 +1219,9 @@ button,select,a,summary,.sk,.pz-cell,.pz-gem,.atlas button,.du-card,.sb-slot,.so
   background:var(--cp-parchment-hi)!important;color:var(--cp-ink)!important;
   box-shadow:0 3px 0 rgba(36,20,28,.45)!important;
 }
+/* A filled nine-slice paints over the CSS background. Keep the dark art on wood tiles only. */
+.sb-slot,.du-card,.card,.pz-gem{border-image-slice:15!important}
+.cos-btn,.eq-mini,.sb-stat{background:var(--cp-wood-dark)!important;color:var(--cp-parchment-hi)!important}
 .sb-slot:hover,.du-card:hover,.card:hover,.cos-btn:hover,.pz-gem:hover,.eq-mini:hover{
   border-image-source:url("assets/ui/crisp_pixel/wood/slot_hover.png")!important;
 }
@@ -1230,6 +1229,8 @@ button,select,a,summary,.sk,.pz-cell,.pz-gem,.atlas button,.du-card,.sb-slot,.so
   border-image-source:url("assets/ui/crisp_pixel/wood/slot_selected.png")!important;
   background:var(--cp-gold-hi)!important;outline:none!important;
 }
+
+.cos-btn.on{background:var(--cp-wood-dark)!important;color:var(--cp-gold-hi)!important}
 
 /* 11. 頭像框（portrait_frame.png）與任務列表項目（quest_entry.png） */
 #pcard .pc-por,.portraitwell,.slotname{
@@ -1242,13 +1243,13 @@ button,select,a,summary,.sk,.pz-cell,.pz-gem,.atlas button,.du-card,.sb-slot,.so
 
 .prow,.srow,.pz-shop-item,.mmo-stat-row,.ch-item,.cx-log-card,.soul-card,.atlas-card,.cx-card,.mount-card,.pitem,.slot{
   border-style:solid!important;border-width:8px 8px 8px 14px!important;border-radius:0!important;
-  border-image:url("assets/ui/crisp_pixel/wood/quest_entry.png") 9 9 9 18 fill / 8px 8px 8px 14px / 0 stretch!important;
+  border-image:url("assets/ui/crisp_pixel/wood/quest_entry.png") 9 9 9 18 / 8px 8px 8px 14px / 0 stretch!important;
   background:var(--cp-parchment-hi)!important;color:var(--cp-ink)!important;
   box-shadow:0 3px 0 rgba(36,20,28,.35)!important;
 }
 .soul-card.on,.atlas-card.on,.mount-card.on{
   border-image-source:url("assets/ui/crisp_pixel/wood/slot_epic.png")!important;
-  background:#f5e4ff!important;outline:none!important;
+  outline:none!important;
 }
 
 /* 12. 貨幣銘牌（currency_plate.png）與輸入框（input_normal.png） */
@@ -1335,11 +1336,6 @@ button,select,a,summary,.sk,.pz-cell,.pz-gem,.atlas button,.du-card,.sb-slot,.so
 .bag-actions{display:grid!important;grid-template-columns:repeat(3,1fr)!important;gap:4px!important;width:100%!important}
 .bag-actions .btn.small{border-width:6px 6px 9px 6px!important;border-image-width:6px 6px 9px 6px!important;padding:4px 4px!important;font-size:11px!important;margin:0!important;white-space:nowrap!important}
 
-/* 7. 已選取的紫框史詩卡片（副本設計台／怪物靈魂／坐騎）改亮字確保清晰可讀 */
-.atlas-card.on,.soul-card.on,.mount-card.on{color:#fff4ff!important;text-shadow:0 1px 0 var(--cp-ink)!important}
-.atlas-card.on b,.soul-card.on b,.mount-card.on b{color:#ffe89a!important}
-.atlas-card.on small,.soul-card.on small,.mount-card.on small{color:#e6ccff!important}
-
 /* 8. 自動巡遊停用鈕全寬＋鐵匠鋪貨幣條改深木內凹條＋Boss 框改木框面板 */
 #autoHud .ap-btn.stop{flex:1 1 100%!important;width:100%!important;padding:5px 8px!important;margin:2px 0 0!important}
 .pshards{
@@ -1401,9 +1397,6 @@ button,select,a,summary,.sk,.pz-cell,.pz-gem,.atlas button,.du-card,.sb-slot,.so
 #worldMap .map-close:focus:not(:focus-visible){outline:none!important}
 .atlas{border:3px solid var(--cp-ink)!important;box-shadow:inset 0 0 0 2px var(--cp-wood-hi),0 4px 0 rgba(36,20,28,.45)!important}
 
-/* 8. 怪物靈魂未解鎖卡片改暖羊皮紙淡化，告別灰濁感 */
-.soul-card.locked{opacity:.8!important;filter:sepia(.28) saturate(.75)!important}
-
 /* 9. 客製化 CrispPixel 紅木金塊捲軸 */
 ::-webkit-scrollbar{width:10px;height:10px}
 ::-webkit-scrollbar-track{background:var(--cp-wood-dark);border-left:2px solid var(--cp-ink)}
@@ -1434,6 +1427,7 @@ button,select,a,summary,.sk,.pz-cell,.pz-gem,.atlas button,.du-card,.sb-slot,.so
 .prow,.srow,.soul-card,.atlas-card,.mount-card,.pz-shop-item,.cx-card,.cx-log-card{
   background:#f7e4bc!important;
 }
+.soul-card.on,.atlas-card.on,.mount-card.on{background:#f5e4ff!important}
 .prow b,.prow strong{text-shadow:none!important}
 .prow .pl small{color:#4e2e20!important}
 .pz-info{background:#f7e6c0!important}
@@ -1475,9 +1469,9 @@ button,select,a,summary,.sk,.pz-cell,.pz-gem,.atlas button,.du-card,.sb-slot,.so
    Phase U7：第四輪細部對比與排版精修（停用按鈕清晰化、靈魂／拼圖副文加深、任務標題減截斷）
    ========================================================================== */
 .btn[disabled],.acct-btn[disabled],.sv-btn:disabled{
-  color:#38241c!important;text-shadow:0 1px 0 rgba(255,244,218,.58)!important;opacity:.84!important;
+  border-image-source:url("assets/ui/crisp_pixel/wood/button_medium_disabled.png")!important;
+  background:var(--cp-parchment-hi)!important;color:var(--cp-ink)!important;text-shadow:none!important;opacity:1!important;filter:none!important;
 }
-.soul-card.locked{opacity:.92!important;filter:sepia(.16) saturate(.84)!important}
 .psmall,.pz-unlock{color:#4a2c1e!important}
 .eq-mini small{color:#f4dfc0!important}
 #questTracker .qt-head{border-width:3px 7px!important;padding:0 2px!important}
@@ -1929,7 +1923,7 @@ body:has(#menuPop:not(.hide),[aria-modal="true"]:not(.hide)) #toasts{opacity:0}
 .eq-slot.rar-0{--rc:#c9b98f}.eq-slot.rar-1{--rc:#7fb2ff}.eq-slot.rar-2{--rc:#ffd85a}.eq-slot.rar-3{--rc:#ff9a4a}
 .eq-slot.empty{opacity:.82}
 .eq-slot .eq-art{width:52px;height:52px;object-fit:contain;pointer-events:none;filter:drop-shadow(0 2px 0 rgba(0,0,0,.45))}
-.eq-slot .eq-glyph{font-style:normal;font-size:26px;font-weight:900;color:rgba(255,240,200,.28)}
+.eq-slot .eq-glyph{font-style:normal;font-size:26px;font-weight:900;color:var(--cp-parchment-hi)}
 .eq-slot .eq-name{position:absolute;bottom:3px;left:0;right:0;text-align:center;font-size:10px;color:#d8b888;letter-spacing:1px}
 .eq-slot.empty .eq-glyph{position:relative;top:-6px}
 .eq-slot .eq-tier{position:absolute;left:3px;top:2px;font-size:9px;line-height:1;text-shadow:0 1px 0 var(--cp-ink),1px 0 0 var(--cp-ink),-1px 0 0 var(--cp-ink)}
@@ -1949,7 +1943,7 @@ body:has(#menuPop:not(.hide),[aria-modal="true"]:not(.hide)) #toasts{opacity:0}
 /* ===== 階段一：極簡常駐 HUD、名牌清場與手機半透明圓鈕 ===== */
 #tags{z-index:1!important}
 #pcard{z-index:14!important}
-.ptag.sim-adv{background:transparent!important;border-color:transparent!important;box-shadow:none!important;padding:1px 4px!important;font-size:11.5px!important;opacity:.86;border-radius:6px!important}
+.ptag.sim-adv{background:rgba(36,20,28,.82)!important;color:var(--cp-parchment-hi)!important;border-color:transparent!important;box-shadow:none!important;padding:1px 4px!important;font-size:11.5px!important;border-radius:6px!important}
 .ptag.sim-adv .sim-ti,.ptag.sim-adv .sim-lv{display:none!important}
 .ptag.sim-adv:hover{background:rgba(36,22,28,.78)!important;border-color:rgba(255,224,150,.55)!important;opacity:1}
 .ptag.sim-adv.following{background:rgba(28,68,42,.72)!important;border-color:rgba(127,224,138,.65)!important;opacity:1}
@@ -1967,14 +1961,14 @@ body:has(#menuPop:not(.hide),[aria-modal="true"]:not(.hide)) #toasts{opacity:0}
 #worldActivity{opacity:.72;transition:opacity .15s}
 #worldActivity:hover,#worldActivity[open]{opacity:1}
 #worldActivity > summary{padding:5px 10px!important;font-size:11.5px!important;background:transparent!important;border:0!important}
-#hud #skills .sk{border-image:none!important;background:rgba(30,19,24,.62)!important;border:1.5px solid rgba(255,224,150,.38)!important;border-radius:10px!important;box-shadow:0 2px 8px rgba(0,0,0,.28)!important}
+#hud #skills .sk{border-image:none!important;background:rgba(30,19,24,.82)!important;border:1.5px solid rgba(255,224,150,.38)!important;border-radius:10px!important;box-shadow:0 2px 8px rgba(0,0,0,.28)!important}
 @media (any-pointer: coarse){
   #touchMove{background:rgba(24,16,22,.32)!important;border:1.5px solid rgba(255,232,168,.42)!important;box-shadow:none!important;backdrop-filter:blur(3px)}
   #touchMove span{background:rgba(255,246,226,.78)!important;border:1.5px solid rgba(43,29,51,.55)!important;box-shadow:none!important}
-  #touchInteract{border-radius:999px!important;padding:0 16px!important;background:rgba(28,18,24,.66)!important;border:1.5px solid rgba(255,226,150,.55)!important;box-shadow:0 2px 8px rgba(0,0,0,.28)!important}
+  #touchInteract{border-radius:999px!important;padding:0 16px!important;background:rgba(28,18,24,.82)!important;border:1.5px solid rgba(255,226,150,.55)!important;box-shadow:0 2px 8px rgba(0,0,0,.28)!important}
   #hud #skills{grid-template-columns:repeat(3,var(--touch-size))!important;align-items:center!important;justify-items:center!important;gap:8px!important}
   #hud #skills .sk,.touch-key{
-    border-radius:50%!important;background:rgba(28,18,24,.54)!important;
+    border-radius:50%!important;background:rgba(28,18,24,.82)!important;
     border:1.5px solid rgba(255,226,150,.48)!important;color:#fff6e2!important;
     box-shadow:0 2px 8px rgba(0,0,0,.28)!important;backdrop-filter:blur(3px);
     transition:transform .08s,background .08s!important;
@@ -2078,6 +2072,11 @@ body:has(#title:not(.hide)) #devPill{top:auto;bottom:10px;left:10px;transform:no
 #bootSplash .bs-logo{filter:none;animation:none}
 #bootSplash .bs-bar{width:168px;height:12px;border-radius:0;background:#24141c;box-shadow:0 0 0 3px #8f4a1e;margin-top:4px}
 #bootSplash .bs-bar i{border-radius:0;width:38%;background:repeating-linear-gradient(90deg,#ffcf4a 0 8px,#f7a93a 8px 10px)}
+/* Dungeon staging room */
+.dungeon-lobby-roster{margin:8px 0;padding-inline-start:1.6em}
+.dungeon-lobby-fill{display:flex;align-items:center;gap:8px;min-height:44px}
+.dungeon-lobby-fill input{width:20px;height:20px;accent-color:var(--cp-ok)}
+.dungeon-lobby-actions{display:flex;flex-wrap:wrap;gap:8px}
 </style>
 </head>
 <body>

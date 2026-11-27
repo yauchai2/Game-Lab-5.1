@@ -70,7 +70,7 @@ export const CLASSES = [
     id: 4, key: 'monk', name: '禪燈武僧', icon: '🥋', weapon: 'staff',
     summary: '攻速 +18% · 生命 +20 · 每秒回血 +2',
     desc: '手持聖燈法杖凝聚【蓮華禪韻】，滿 3 蓮印自動綻放全隊治療領域，兼具繁花聖樹與雷鳴連擊。',
-    classMech: { id: 'lotus', name: '蓮華禪韻', icon: '🪷', max: 3, color: '#ff8eb8', desc: '普攻與施法凝聚蓮印，滿 3 枚自動綻放蓮華治癒領域回復全隊並加速！' },
+    classMech: { id: 'lotus', name: '蓮華禪韻', icon: '🪷', max: 3, color: '#ff8eb8', desc: '近戰命中凝聚蓮印，滿 3 枚自動綻放蓮華治癒領域回復全隊並加速！' },
     classUlt: 'spirit_sun',
     auraTheme: 'lotus',
     bonuses: { atkSpd: 18, maxHp: 20, regen: 2 },
@@ -113,21 +113,21 @@ export const ACTIVE_GEMS = {
 };
 
 export const SUPPORT_GEMS = {
-  multi: { id: 'multi', type: 'support', name: '多重投射', short: '多重', icon: '⇶', color: '#c4843d', price: 15, shape: [[0,0],[0,1],[1,1]], desc: '相鄰主動技能額外增加 +2 投射物或箭雨波數。' },
-  echo:  { id: 'echo',  type: 'support', name: '連發迴響', short: '連發', icon: '⟳', color: '#7a5cc4', price: 18, shape: [[0,0],[1,0],[2,0]], desc: '相鄰主動技能額外觸發 1 次（65% 傷害）。' },
+  multi: { id: 'multi', type: 'support', name: '多重投射', short: '多重', icon: '⇶', color: '#c4843d', price: 15, shape: [[0,0],[0,1],[1,1]], desc: '相鄰主動技能額外增加 +2 投射物或箭雨波數，並附加傷害 +8%。' },
+  echo:  { id: 'echo',  type: 'support', name: '連發迴響', short: '連發', icon: '⟳', color: '#7a5cc4', price: 18, shape: [[0,0],[1,0],[2,0]], desc: '相鄰主動技能額外觸發 1 次（65% 傷害），並附加冷卻縮減 8%。' },
   area:  { id: 'area',  type: 'support', name: '擴大範圍', short: '擴域', icon: '◎', color: '#3f9688', price: 14, shape: [[0,0],[1,0]], desc: '相鄰主動技能作用範圍 +35%。' },
-  ember: { id: 'ember', type: 'support', name: '熾炎增幅', short: '熾炎', icon: '✴', color: '#d9543a', price: 14, shape: [[0,0]], desc: '相鄰主動技能傷害 +25% 並附加火焰傷害。' },
-  chain: { id: 'chain', type: 'support', name: '連鎖跳躍', short: '連鎖', icon: '⚡', color: '#4f7ed6', price: 16, shape: [[0,0],[1,0],[1,1],[2,1]], desc: '相鄰投射物命中後額外彈跳 +2 個目標。' },
-  haste: { id: 'haste', type: 'support', name: '極速詠唱', short: '極速', icon: '⏩', color: '#58a858', price: 13, shape: [[0,0]], desc: '相鄰主動技能冷卻時間縮減 18%。' },
+  ember: { id: 'ember', type: 'support', name: '熾炎增幅', short: '熾炎', icon: '✴', color: '#d9543a', price: 14, shape: [[0,0]], desc: '相鄰主動技能傷害 +16% 並附加火焰傷害。' },
+  chain: { id: 'chain', type: 'support', name: '連鎖跳躍', short: '連鎖', icon: '⚡', color: '#4f7ed6', price: 16, shape: [[0,0],[1,0],[1,1],[2,1]], desc: '相鄰投射物命中後額外彈跳 +2 個目標，並附加傷害 +12% 與短暫感電。' },
+  haste: { id: 'haste', type: 'support', name: '極速詠唱', short: '極速', icon: '⏩', color: '#58a858', price: 13, shape: [[0,0]], desc: '相鄰主動技能冷卻時間縮減 14%。' },
   frost: { id: 'frost', type: 'support', name: '霜緩附魔', short: '霜緩', icon: '❄', color: '#5aa0e0', price: 14, shape: [[0,0],[1,0]], desc: '相鄰主動技能命中時緩速敵人 45%。' },
   leech: { id: 'leech', type: 'support', name: '生命汲取', short: '汲血', icon: '♥', color: '#c84862', price: 14, shape: [[0,0]], desc: '相鄰主動技能命中回復 8 點生命，並賦予 3.5 秒汲血光環（普攻每次命中回復 3 點生命）。' },
   vamp:  { id: 'vamp',  type: 'support', name: '血月汲取', short: '血月', icon: '🩸', color: '#a8324c', price: 20, shape: [[0,0],[0,1]], desc: '相鄰主動技能傷害 +15%、命中回復 10 點生命並賦予 3.5 秒汲血光環。' },
   storm: { id: 'storm', type: 'support', name: '雷鳴連鎖', short: '雷鳴', icon: '🌩', color: '#4a6cd8', price: 20, shape: [[0,0],[1,0]], desc: '相鄰主動技能附加感電（+25% 易傷）且額外連鎖 +1 目標。' },
-  split: { id: 'split', type: 'support', name: '分裂稜鏡', short: '分裂', icon: '⑂',  color: '#e88c38', price: 22, shape: [[0,0],[1,0],[0,1]], desc: '相鄰投射物命中目標時向四周分裂出 3 枚次級火花！' },
-  coh:   { id: 'coh',   type: 'support', name: '命中觸發器', short: '命中觸發', icon: '🔗', color: '#b85cf0', price: 26, shape: [[0,0],[1,0]], desc: '【邏輯電路】橋接兩顆主動技能：前招命中時自動觸發相鄰另一招（0.65 秒保護冷卻）。' },
-  coc:   { id: 'coc',   type: 'support', name: '暴擊觸發器', short: '暴擊觸發', icon: '💥', color: '#f04878', price: 28, shape: [[0,0],[0,1]], desc: '【邏輯電路】橋接兩顆主動技能：暴擊時立即免費觸發相鄰另一招（0.45 秒保護冷卻）。' },
+  split: { id: 'split', type: 'support', name: '分裂稜鏡', short: '分裂', icon: '⑂',  color: '#e88c38', price: 22, shape: [[0,0],[1,0],[0,1]], desc: '相鄰投射物命中目標時向四周分裂出 3 枚次級火花，並附加傷害 +10%！' },
+  coh:   { id: 'coh',   type: 'support', name: '命中觸發器', short: '命中觸發', icon: '🔗', color: '#b85cf0', price: 26, shape: [[0,0],[1,0]], desc: '【邏輯電路】橋接兩顆主動技能：前招命中時自動觸發相鄰另一招（消耗 40% 法力，獨立冷卻 MAX(0.45 秒, 原 CD × 35%)）。' },
+  coc:   { id: 'coc',   type: 'support', name: '暴擊觸發器', short: '暴擊觸發', icon: '💥', color: '#f04878', price: 28, shape: [[0,0],[0,1]], desc: '【邏輯電路】橋接兩顆主動技能：暴擊時自動觸發相鄰另一招（消耗 40% 法力，獨立冷卻 MAX(0.45 秒, 原 CD × 35%)）。' },
   orbit:    { id: 'orbit',    type: 'support', name: '環繞軌道核',   short: '軌道', icon: '🪐', color: '#3ec6d8', price: 24, shape: [[0,0],[1,0]], desc: '【魔杖改造】相鄰投射物改為環繞角色高速旋轉的軌道切割彈幕！' },
-  bluefire: { id: 'bluefire', type: 'support', name: '幽藍魂火轉化', short: '藍火', icon: '🔵', color: '#2a98f0', price: 22, shape: [[0,0]], desc: '【視覺演化】將相鄰主動技能轉化為幽藍魂火特效，耗魔 -25% 且傷害 +18%！' },
+  bluefire: { id: 'bluefire', type: 'support', name: '幽藍魂火轉化', short: '藍火', icon: '🔵', color: '#2a98f0', price: 22, shape: [[0,0]], desc: '【視覺演化】將相鄰主動技能轉化為幽藍魂火特效，耗魔 -25% 且傷害 +14%！' },
   vortex:   { id: 'vortex',   type: 'support', name: '聚能引力核',   short: '聚怪', icon: '🌀', color: '#8a5cf0', price: 24, shape: [[0,0],[0,1]], desc: '【視覺演化】相鄰範圍技能命中時產生向心引力，將周圍怪海拉向中心！' },
   sv_ember_core:  { id: 'sv_ember_core',  type: 'support', name: '餘燼火種核', short: '火種核', icon: '☄️', color: '#ff6a30', price: 32, shape: [[0,0],[1,0]], desc: '【倖存者聯動】裝備於拼盤時，狂潮開局自帶 Lv.2 餘燼飛彈且超武傷害 +25%！' },
   sv_resonance:   { id: 'sv_resonance',   type: 'support', name: '超武共鳴核', short: '共鳴核', icon: '🌟', color: '#ffd85a', price: 36, shape: [[0,0],[0,1]], desc: '【倖存者聯動】裝備於拼盤時，擁有至少 2 把超武時觸發星穹共鳴（暴傷 +40%、冷卻 -15%）！' },
@@ -274,19 +274,19 @@ export function computeBoard(placed, partyGemId = null) {
       supports: linkedDefs,
     };
     for (const s of linkedDefs) {
-      if (s.id === 'multi') mod.multi += 2;
-      if (s.id === 'echo') mod.echo += 1;
+      if (s.id === 'multi') { mod.multi += 2; mod.dmgMult = +(mod.dmgMult + 0.08).toFixed(2); }
+      if (s.id === 'echo') { mod.echo += 1; mod.cdr = Math.min(0.6, +(mod.cdr + 0.08).toFixed(2)); }
       if (s.id === 'area') mod.area += 0.35;
-      if (s.id === 'ember') { mod.dmgMult += 0.25; mod.fire = true; }
-      if (s.id === 'chain') mod.chain += 2;
-      if (s.id === 'haste') mod.cdr = Math.min(0.6, mod.cdr + 0.18);
+      if (s.id === 'ember') { mod.dmgMult = +(mod.dmgMult + 0.16).toFixed(2); mod.fire = true; }
+      if (s.id === 'chain') { mod.chain += 2; mod.dmgMult = +(mod.dmgMult + 0.12).toFixed(2); mod.shock += 2.5; }
+      if (s.id === 'haste') mod.cdr = Math.min(0.6, +(mod.cdr + 0.14).toFixed(2));
       if (s.id === 'frost') mod.frost += 1;
       if (s.id === 'leech') mod.leech += 8;
-      if (s.id === 'vamp') { mod.dmgMult += 0.15; mod.leech += 10; }
+      if (s.id === 'vamp') { mod.dmgMult = +(mod.dmgMult + 0.15).toFixed(2); mod.leech += 10; }
       if (s.id === 'storm') { mod.shock += 4.5; mod.chain += 1; }
-      if (s.id === 'split') mod.split = true;
+      if (s.id === 'split') { mod.split = true; mod.dmgMult = +(mod.dmgMult + 0.10).toFixed(2); }
       if (s.id === 'orbit') mod.orbit = true;
-      if (s.id === 'bluefire') { mod.bluefire = true; mod.dmgMult += 0.18; mod.fire = true; }
+      if (s.id === 'bluefire') { mod.bluefire = true; mod.dmgMult = +(mod.dmgMult + 0.14).toFixed(2); mod.fire = true; }
       if (s.id === 'vortex') { mod.vortex = true; mod.area += 0.15; }
     }
     // 輔助寶石視覺變異主題（優先序：幽藍魂火 > 雷鳴 > 霜緩 > 熾炎）
