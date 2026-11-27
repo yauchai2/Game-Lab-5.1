@@ -468,7 +468,7 @@ export function buildPanels(g) {
     body.querySelectorAll('[data-forge]').forEach(b => b.onclick = () => {
       const k = b.dataset.forge, f = FORGE[k], cur = sel ? eq[sel] : M.heirloom; if (!cur || !f.ok(cur) || M.p.shards < f.cost(cur)) return;
       M.p.shards -= f.cost(cur); const n = forgeItem(k, cur); saveGear(n);
-      g.audio.sfx('pickup'); g.ui.toast(`${f.name}完成`, RARITY[n.rarity].color); render();
+      g.audio.sfx('forge'); g.ui.toast(`${f.name}完成`, RARITY[n.rarity].color); render();
     });
     const ehBtn = body.querySelector('[data-enhance]');
     if (ehBtn) ehBtn.onclick = () => {
@@ -477,7 +477,7 @@ export function buildPanels(g) {
       if (!resEnh.ok) { g.ui.toast(resEnh.reason, '#ff8a8a'); return; }
       saveGear(cur);
       recordStoryEvent(M.p, 'enhance', 1);
-      g.audio.sfx(resEnh.success ? 'classup' : resEnh.downgraded ? 'corruptBrick' : 'ui');
+      g.audio.sfx(resEnh.success ? 'forge' : resEnh.downgraded ? 'corruptBrick' : 'ui');
       g.ui.toast(resEnh.msg, resEnh.success ? '#ffd85a' : '#ff8a8a');
       if (resEnh.lifeUp) g.ui.toast(`鍛造宗師升級至 Lv.${resEnh.lifeUp.lv}！精煉成功率與基礎傷害永久提升。`, '#7fe08a');
       render();

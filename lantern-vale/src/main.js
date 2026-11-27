@@ -44,13 +44,18 @@ game.updateCamera(0);
 pipe.render(game.scene, game.camera, game.time);
 hideBootSplash();
 let last = null;
-document.addEventListener('visibilitychange', () => { last = null; });
+document.addEventListener('visibilitychange', () => {
+  last = null;
+  if (document.hidden) game.audio.setGlide(false);
+});
 function frame(now) {
   const elapsedMs = last === null ? 1000 / 60 : now - last;
   const dt = Math.min(0.05, Math.max(0, elapsedMs / 1000));
   last = now;
   const t0 = performance.now();
   game.update(dt);
+  game.audio.setGlide(Boolean(game.player.gliding && game.state === 'play' && !game.ui.mapDialog?.open &&
+    !game.draftPause && !game.sailing && !game.photoMode && !document.hidden));
   game.questGuide.update(game);
   const t1 = performance.now();
   pipe.render(game.scene, game.camera, game.time);

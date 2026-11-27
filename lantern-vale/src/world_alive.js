@@ -331,6 +331,7 @@ export function startGatherMini(g, spot, onFinish) {
   const icon = { wood: '🪓 砍伐香杉木', ore: '⛏ 開採星紋礦', fish: '🎣 垂釣溪銀魚' }[spot.kind] || '採集';
   label.textContent = `${icon} — 在金色區間按 [F] 或 [空白] 觸發完美採集！`;
   root.classList.remove('hide');
+  g.audio.sfx('gatherReady');
   const start = performance.now();
   const dur = 1350;
   let done = false;
@@ -345,12 +346,12 @@ export function startGatherMini(g, spot, onFinish) {
     const t = ((performance.now() - start) % dur) / dur;
     const pos = t < 0.5 ? t * 2 : (1 - t) * 2;
     const perfect = hit && pos >= 0.36 && pos <= 0.64;
+    if (hit) g.audio.sfx(spot.kind === 'fish' ? 'splash' : spot.kind === 'ore' ? 'mine' : 'chop');
+    else g.audio.sfx('gatherMiss');
     if (perfect) {
       g.audio.sfx('perfect');
       g.meta.p.deeds = g.meta.p.deeds || {};
       g.meta.p.deeds.perfectGather = (g.meta.p.deeds.perfectGather || 0) + 1;
-    } else {
-      g.audio.sfx(spot.kind === 'fish' ? 'splash' : spot.kind === 'ore' ? 'mine' : 'chop');
     }
     onFinish(perfect);
   };

@@ -1,5 +1,6 @@
 // Procedural audio (WebAudio): zero downloads, zero licensing. Cozy chiptune-ish music + synthesized SFX.
 // Music recipes live in music_themes.js (per-region themes, Ember Tide layers, Dimming filter); direction doc: docs/beaconfall/AUDIO.md.
+import { CAST_ACCENTS, playContact } from './action_audio.js';
 import { THEMES, effectiveTheme, DIM_FILTER_HZ, DIM_DRONE_VOL } from './music_themes.js';
 const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
 
@@ -35,6 +36,13 @@ export class Audio {
     const wsrc = this.ctx.createBufferSource(); wsrc.buffer = buf; wsrc.loop = true;
     const wbp = this.ctx.createBiquadFilter(); wbp.type = 'bandpass'; wbp.frequency.value = 700; wbp.Q.value = 0.6;
     wsrc.connect(wbp); wbp.connect(this.windGain); this.windGain.connect(this.musicBus); wsrc.start();
+    const glide = this.ctx.createBufferSource();
+    glide.buffer = buf; glide.loop = true;
+    const glideFilter = this.ctx.createBiquadFilter();
+    glideFilter.type = 'bandpass'; glideFilter.frequency.value = 880; glideFilter.Q.value = 0.7;
+    this.glideGain = this.ctx.createGain(); this.glideGain.gain.value = 0;
+    glide.connect(glideFilter); glideFilter.connect(this.glideGain); this.glideGain.connect(this.sfxBus);
+    glide.start();
     this.dimDrone = this.ctx.createGain(); this.dimDrone.gain.value = 0; this.dimDrone.connect(this.musicBus);
     this.dimOscs = [0, 1.4].map(off => { const o = this.ctx.createOscillator(); o.type = 'sine'; o.frequency.value = mtof(33) + off; o.connect(this.dimDrone); o.start(); return o; });
     this.nextT = this.ctx.currentTime + 0.1;
@@ -103,9 +111,9 @@ export class Audio {
     o.connect(g); g.connect(bus); if (send) { const s = this.ctx.createGain(); s.gain.value = send; g.connect(s); s.connect(this.delay); }
     o.start(t); o.stop(t + dur + 0.05);
   }
-  noise(t, dur, vol, hp, bus = this.sfxBus, lpf = 0) {
+  noise(t, dur, vol, hp, bus = this.sfxBus, lpf = 0, type = lpf ? 'lowpass' : 'highpass') {
     const n = this.ctx.createBufferSource(); n.buffer = this.noiseBuf;
-    const f = this.ctx.createBiquadFilter(); f.type = lpf ? 'lowpass' : 'highpass'; f.frequency.value = lpf || hp;
+    const f = this.ctx.createBiquadFilter(); f.type = type; f.frequency.value = lpf || hp;
     const g = this.ctx.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     n.connect(f); f.connect(g); g.connect(bus); n.start(t, Math.random() * 0.5); n.stop(t + dur + 0.05);
   }
@@ -212,37 +220,67 @@ export class Audio {
     g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     o.connect(g); g.connect(this.sfxBus); o.start(t); o.stop(t + dur + 0.05);
   }
+  setGlide(active) {
+    if (!this.glideGain || this.glideActive === active) return;
+    this.glideActive = active;
+    this.glideGain.gain.setTargetAtTime(active ? 0.12 : 0, this.ctx.currentTime, 0.12);
+  }
+  contact(surface, strength = 0.7, hoof = false) {
+    if (this.ctx?.state !== 'running' || this.muted || this.sfxVol <= 0) return;
+    playContact(this, surface, strength, hoof);
+  }
+  castAccent(theme) {
+    if (this.ctx?.state !== 'running' || this.muted || this.sfxVol <= 0) return;
+    this.tone(...(CAST_ACCENTS[theme] || CAST_ACCENTS.arcane));
+  }
   sfx(name, v = 1) {
-    if (!this.ctx || this.muted) return;
+    if (this.ctx?.state !== 'running' || this.muted || this.sfxVol <= 0) return;
     const now = this.ctx.currentTime;
-    const lim = { hit: 0.04, step: 0.18, enemyDie: 0.05, crit: 0.05, hover: 0.075, flameGain: 0.4, flameSpend: 0.25, enterLight: 1.2, leaveLight: 1.2, dimIn: 0.6, dimOut: 0.6 }[name]; // rate limit
-    if (lim && this.last[name] && now - this.last[name] < lim) return; this.last[name] = now;
+    const lim = { hit: 0.04, step: 0.18, enemyWind: 0.16, enemyRelease: 0.12, enemyCast: 0.18, rustle: 0.2, enemyDie: 0.05, crit: 0.05, hover: 0.075, flameGain: 0.4, flameSpend: 0.25, enterLight: 1.2, leaveLight: 1.2, dimIn: 0.6, dimOut: 0.6 }[name]; // rate limit
+    if (lim && this.last[name] !== undefined && now - this.last[name] < lim) return; this.last[name] = now;
     const t = now;
     switch (name) {
-      case 'swing': this.noise(t, 0.14, 0.5, 1800); this.tone('triangle', 420, 160, 0.12, 0.12); break;
+      case 'swing':
+      case 'staffSwing': this.noise(t, 0.13, 0.19, 1250, this.sfxBus, 0, 'bandpass'); this.tone('triangle', 270, 115, 0.095, 0.09); break;
+      case 'bowRelease':
+        this.tone('triangle', 295, 135, 0.075, 0.105);
+        this.noise(t + 0.012, 0.065, 0.15, 3400, this.sfxBus, 0, 'bandpass'); break;
+      case 'bladeSwipe': {
+        const hz = v > 1 ? 2800 : 2200;
+        this.noise(t, 0.10, 0.19, hz, this.sfxBus, 0, 'bandpass');
+        this.tone('sine', hz * 0.71, hz * 0.67, 0.07, 0.055); break;
+      }
+      case 'shieldBash':
+        this.tone('triangle', 173, 72, 0.13, 0.13);
+        this.noise(t + 0.02, 0.10, 0.13, 710, this.sfxBus, 0, 'bandpass'); break;
+      case 'enemyWind':
+        this.noise(t, 0.19, 0.26 * v, 460, this.sfxBus, 0, 'bandpass');
+        this.tone('triangle', 90, 57, 0.21, 0.14 * v); break;
+      case 'enemyRelease':
+        this.tone('sine', 147, 52, 0.19, 0.22 * v);
+        this.noise(t + 0.026, 0.14, 0.29 * v, 760, this.sfxBus, 0, 'bandpass'); break;
+      case 'enemyCast':
+        this.tone('triangle', 356, 538, 0.19, 0.105 * v);
+        this.noise(t + 0.032, 0.14, 0.18 * v, 1750, this.sfxBus, 0, 'bandpass'); break;
+      case 'rustle': this.noise(t, 0.13, 0.09, 2600, this.sfxBus, 0, 'bandpass'); break;
       case 'bolt': this.tone('square', 700, 180, 0.2, 0.1); this.noise(t, 0.1, 0.2, 3000); break;
-      case 'hit': this.tone('square', 220, 90, 0.08, 0.14); this.noise(t, 0.06, 0.3, 1200); break;
+      case 'hit': this.tone('triangle', 180, 79, 0.075, 0.12); this.noise(t, 0.065, 0.20, 1050, this.sfxBus, 0, 'bandpass'); break;
       case 'crit': this.tone('square', 520, 880, 0.12, 0.14); this.tone('triangle', 1040, 1560, 0.15, 0.1, 0.04); this.noise(t, 0.08, 0.3, 2000); break;
       case 'enemyDie': this.tone('triangle', 360, 70, 0.28, 0.18); this.noise(t, 0.2, 0.3, 600); break;
       case 'bossDie': for (let i = 0; i < 6; i++) { this.tone('sawtooth', 300 - i * 30, 40, 0.5, 0.14, i * 0.12); this.noise(t + i * 0.12, 0.3, 0.4, 0, this.sfxBus, 900); } break;
       case 'hurt': this.tone('sawtooth', 300, 80, 0.25, 0.2); this.noise(t, 0.15, 0.35, 0, this.sfxBus, 1200); break;
       case 'roll': this.noise(t, 0.28, 0.35, 900); this.tone('sine', 300, 600, 0.22, 0.06); break;
-      case 'jump': this.tone('square', 260, 520, 0.14, 0.09); break;
-      case 'land': this.noise(t, 0.09, 0.4, 0, this.sfxBus, 500); this.tone('sine', 120, 60, 0.1, 0.12); break;
-      case 'glide': this.noise(t, 0.4, 0.07, 2500); break;
-      case 'climb': this.tone('triangle', 200 + Math.random() * 60, 150, 0.06, 0.07); break;
-      case 'step': {
-        const pitch = 135 + Math.random() * 45;
-        this.noise(t, 0.045, 0.16 * v, 0, this.sfxBus, 950);
-        this.tone('triangle', pitch, pitch * 0.55, 0.04, 0.08 * v);
-        break;
-      }
-      case 'sprintStep': {
-        const pitch = 185 + Math.random() * 55;
-        this.noise(t, 0.055, 0.24 * v, 0, this.sfxBus, 1450);
-        this.tone('triangle', pitch, pitch * 0.5, 0.045, 0.11 * v);
-        break;
-      }
+      case 'jump': this.noise(t, 0.085, 0.07, 950, this.sfxBus, 0, 'bandpass'); this.tone('sine', 175, 345, 0.12, 0.07); break;
+      case 'land': this.tone('sine', 115, 54, 0.12, 0.105 * v); break;
+      case 'glide': this.noise(t, 0.22, 0.14, 1450, this.sfxBus, 0, 'bandpass'); break;
+      case 'climb': this.noise(t, 0.08, 0.12, 850 + Math.random() * 260, this.sfxBus, 0, 'bandpass'); this.tone('triangle', 155, 100, 0.055, 0.045); break;
+      case 'step':
+      case 'sprintStep': this.contact('grass', (name === 'step' ? 0.7 : 0.94) * v); break;
+      case 'mountOn':
+        this.tone('sine', 220, 400, 0.2, 0.11);
+        this.tone('triangle', 660, 990, 0.23, 0.06, 0.09);
+        this.noise(t, 0.16, 0.10, 1200, this.sfxBus, 0, 'bandpass'); break;
+      case 'mountOff': this.tone('triangle', 445, 142, 0.17, 0.10); this.noise(t, 0.14, 0.07, 990, this.sfxBus, 0, 'bandpass'); break;
       case 'sit': this.tone('triangle', 180, 120, 0.11, 0.1); this.noise(t + 0.03, 0.05, 0.09, 0, this.sfxBus, 500); break;
       case 'kick': this.tone('sine', 160, 65, 0.1, 0.16); this.noise(t, 0.06, 0.22, 0, this.sfxBus, 750); break;
       case 'synth': [523, 659, 784, 1047, 1319].forEach((f, i) => this.tone('triangle', f, f * 1.03, 0.28, 0.11, i * 0.045)); break;
@@ -251,7 +289,19 @@ export class Audio {
       case 'wisp': for (let i = 0; i < 4; i++) this.tone('sine', 880 + i * 220, 1200 + i * 220, 0.3, 0.06, i * 0.06); break;
       case 'flask': this.tone('sine', 300, 500, 0.12, 0.12); this.tone('sine', 400, 650, 0.14, 0.1, 0.1); this.noise(t + 0.2, 0.1, 0.15, 0, this.sfxBus, 900); break;
       case 'orb': this.tone('triangle', 660, 990, 0.1, 0.1); break;
-      case 'pickup': this.tone('square', 520, 520, 0.07, 0.1); this.tone('square', 780, 780, 0.1, 0.1, 0.07); break;
+      case 'pickup':
+        this.tone('triangle', 523, 587, 0.07, 0.085);
+        this.tone('sine', 784, 880, 0.13, 0.078, 0.064); break;
+      case 'equip':
+        this.noise(t, 0.07, 0.125, 870, this.sfxBus, 0, 'bandpass');
+        this.tone('triangle', 415, 265, 0.08, 0.10, 0.036); break;
+      case 'bagRustle':
+        this.noise(t, 0.105, 0.11, 770, this.sfxBus, 0, 'bandpass');
+        this.noise(t + 0.08, 0.085, 0.07, 1120, this.sfxBus, 0, 'bandpass'); break;
+      case 'ferry':
+        this.noise(t, 0.36, 0.16, 550, this.sfxBus, 0, 'bandpass');
+        this.noise(t + 0.18, 0.52, 0.13, 1520, this.sfxBus, 0, 'bandpass');
+        this.tone('triangle', 210, 125, 0.24, 0.045); break;
       case 'drop0': this.tone('triangle', 600, 400, 0.12, 0.1); break;
       case 'drop1': this.tone('triangle', 700, 500, 0.15, 0.12); this.tone('triangle', 1000, 800, 0.2, 0.1, 0.08); break;
       case 'drop2': [523, 659, 784, 1047].forEach((f, i) => this.tone('triangle', f, f, 0.25, 0.12, i * 0.07)); break;
@@ -259,7 +309,14 @@ export class Audio {
       case 'boon': [523, 659, 784].forEach((f, i) => this.tone('sine', f, f * 1.01, 0.5, 0.12, i * 0.09)); break;
       case 'exit': [440, 554, 659, 880].forEach((f, i) => this.tone('sine', f, f, 0.4, 0.09, i * 0.08)); break;
       case 'warp': this.tone('sine', 200, 1200, 0.5, 0.12); this.noise(t, 0.5, 0.2, 2000); break;
-      case 'ui': this.tone('square', 600, 800, 0.05, 0.07); break;
+      case 'ui': this.tone('triangle', 510, 675, 0.045, 0.055); break;
+      case 'forge':
+        this.tone('triangle', 714, 641, 0.065, 0.11);
+        this.tone('sine', 1720, 1640, 0.21, 0.065);
+        this.noise(t, 0.082, 0.17, 2700, this.sfxBus, 0, 'bandpass'); break;
+      case 'gatherReady': this.tone('sine', 430, 570, 0.09, 0.055); break;
+      case 'gatherMiss': this.tone('triangle', 285, 195, 0.085, 0.06); break;
+      case 'interact': this.noise(t, 0.045, 0.075, 1050, this.sfxBus, 0, 'bandpass'); this.tone('sine', 490, 552, 0.07, 0.065); break;
       case 'hover': this.tone('triangle', 520 + Math.random() * 55, 680, 0.032, 0.026); break;
       case 'chat': this.tone('sine', 900, 900, 0.06, 0.07); this.tone('sine', 1200, 1200, 0.08, 0.06, 0.06); break;
       case 'emote': this.tone('triangle', 500, 900, 0.15, 0.1); break;
