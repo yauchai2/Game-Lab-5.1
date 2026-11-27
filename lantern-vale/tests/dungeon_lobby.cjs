@@ -34,6 +34,36 @@ const { chromium } = require('playwright');
     const count = (page, n) => page.waitForFunction(n => __game.dungeon.pending?.info?.members.length === n, n);
     const leader = await open();
     const guest = await open(true);
+    const leaderId = await leader.evaluate(() => __game.net.id);
+    await guest.waitForFunction(id => __game.remotes.has(id), leaderId);
+    await guest.evaluate(() => {
+      const g = __game, attack = g.companionAttack.bind(g), sound = g.audio.sfx.bind(g.audio);
+      window.teamActions = [];
+      window.spatialCues = [];
+      g.companionAttack = (actor, kind) => { teamActions.push([actor.id, kind]); attack(actor, kind); };
+      g.audio.sfx = (name, volume, pan) => {
+        if (pan != null) spatialCues.push([name, volume, pan]);
+        sound(name, volume, pan);
+      };
+    });
+    await leader.evaluate(() => {
+      const g = __game;
+      g.player.pos.x += 2;
+      g.meta.p.weapon = 'bow';
+      g.player.cds.atk = g.player.cds.action = 0;
+      g.tryAttack();
+    });
+    await guest.waitForFunction(id => teamActions.some(([actor, kind]) => actor === id && kind === 'bow'), leaderId);
+    await guest.waitForFunction(() => spatialCues.some(([name, volume, pan]) => name === 'bowRelease' && volume < 0.55 && Math.abs(pan) > 0.01));
+    await leader.evaluate(() => { __game.player.cds.action = __game.player.cds.bolt = 0; __game.tryBolt(); });
+    await guest.waitForFunction(id => teamActions.some(([actor, kind]) => actor === id && kind === 'cast'), leaderId);
+    assert.deepEqual(await guest.evaluate(id => teamActions.filter(e => e[0] === id).map(e => e[1]), leaderId), ['bow', 'cast']);
+    await leader.evaluate(() => __game.enterField(1));
+    await guest.waitForFunction(id => !__game.remotes.has(id), leaderId);
+    await leader.evaluate(() => { __game.player.cds.atk = __game.player.cds.action = 0; __game.tryAttack(); });
+    await guest.waitForTimeout(500);
+    assert.equal(await guest.evaluate(id => teamActions.filter(e => e[0] === id).length, leaderId), 2);
+
     await cave(leader, false);
     await count(leader, 1);
     await cave(guest, true);
@@ -64,11 +94,16 @@ const { chromium } = require('playwright');
     await leader.evaluate(() => {
       const g = __game;
       g.hitEnemy(g.enemies[0], { dmg: 6 });
+    });
+    await guest.waitForFunction(() => spatialCues.some(([name, volume]) => name === 'hit' && volume > 0 && volume <= 0.57));
+    await leader.evaluate(() => {
+      const g = __game;
       const ally = g.dungeon.bots[0];
       ally.actor.tx = g.enemies[0].pos.x;
       ally.actor.tz = g.enemies[0].pos.z;
     });
     await guest.waitForFunction(() => __game.enemies[0].hp < __game.enemies[0].maxHp - 6);
+    await guest.waitForFunction(() => teamActions.some(([id, kind]) => id === 'bot-dungeon-0' && kind === 'shield'));
     const hp = page => page.evaluate(() => __game.enemies[0].hp / __game.enemies[0].maxHp);
     await leader.waitForFunction(expected => Math.abs(__game.enemies[0].hp / __game.enemies[0].maxHp - expected) < 1e-8, await hp(guest));
 
@@ -129,6 +164,19 @@ const { chromium } = require('playwright');
     await solo.locator('[data-dungeon-start]').click();
     await solo.waitForFunction(() => __game.raid?.allies.size === 2);
     await solo.evaluate(() => {
+      const g = __game, original = g.enemyCue.bind(g);
+      window.raidCues = [];
+      g.enemyCue = (name, pos) => { raidCues.push(name); original(name, pos); };
+      g.keys.w = true;
+      g.mouse.l = true;
+    });
+    await solo.waitForFunction(() => __game.player.swingT > 0);
+    await solo.evaluate(() => { __game.keys = {}; __game.mouse.l = false; });
+    await solo.waitForFunction(() => raidCues.includes('enemyWind'));
+    if (dir) await solo.screenshot({ path: path.join(dir, 'beaconfall-raid-windup.png'), animations: 'disabled' });
+    await solo.waitForFunction(() => raidCues.includes('enemyRelease'));
+    assert.deepEqual(await solo.evaluate(() => raidCues.slice(0, 2)), ['enemyWind', 'enemyRelease']);
+    await solo.evaluate(() => {
       const g = __game;
       g.net.disconnect();
       g.queueRun({ kind: 'run' }, '離線冒險副本');
@@ -137,6 +185,6 @@ const { chromium } = require('playwright');
     await solo.waitForFunction(() => __game.dungeon.run?.id == null && __game.depth === 0 && __game.dungeon.bots.length === 2);
     assert.deepEqual(solo.errors, []);
     await solo.close();
-    console.log('Passed cross-device waiting, cancel and rejoin, shared cave and HP, AI damage, checkpoint, leader transfer, Atlas branch consensus, and raid AI.');
+    console.log('Passed cross-device waiting, cancel and rejoin, shared cave and HP, AI damage, checkpoint, leader transfer, Atlas branch consensus, raid AI, one-shot player/AI feedback, zone isolation and raid telegraph timing.');
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

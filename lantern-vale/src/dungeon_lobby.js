@@ -30,7 +30,7 @@ export class DungeonLobby {
       info.hp.forEach((hp, index) => this.applyHealth(index, hp));
     });
     net.on('dungeon_enemy', info => {
-      if (this.isWave(info)) this.applyHealth(info.enemy, info.hp, !info.bot);
+      if (this.isWave(info)) this.applyHealth(info.enemy, info.hp, !info.bot, info.impact === true && info.by !== net.id);
     });
     net.on('dungeon_exit', info => {
       if (!this.isWave(info) || this.run.exit === info.exit) return;
@@ -144,18 +144,22 @@ export class DungeonLobby {
     return this.run?.id != null && this.run.id === info.id && this.run.wave === info.wave;
   }
 
-  damage(enemy, amount, bot) {
+  damage(enemy, amount, bot, impact) {
     const run = this.run;
     if (run?.id == null || !run.wave || run.enemies[enemy.dungeonIndex] !== enemy) return false;
-    this.g.net.send({ t: 'dungeon_hit', id: run.id, wave: run.wave, enemy: enemy.dungeonIndex, fraction: amount / enemy.maxHp, bot: !!bot });
+    this.g.net.send({ t: 'dungeon_hit', id: run.id, wave: run.wave, enemy: enemy.dungeonIndex, fraction: amount / enemy.maxHp, bot: !!bot, impact });
     return true;
   }
 
-  applyHealth(index, hp, playerHit = false) {
+  applyHealth(index, hp, playerHit = false, teammateImpact = false) {
     const e = this.run.enemies[index];
     if (!e || e.dead) return;
     if (e.hp > hp * e.maxHp) {
       e.flash = 0.14;
+      if (teammateImpact) {
+        e.squash = Math.max(e.squash || 0, 0.12);
+        this.g.cueAt('hit', e.pos, 13, 0.57);
+      }
       if (playerHit) this.run.lastFight = this.g.time;
     }
     e.hp = hp * e.maxHp;
@@ -200,7 +204,7 @@ export class DungeonLobby {
     if (this.bots.length < run.bots) {
       for (let i = this.bots.length; i < run.bots; i++) {
         const id = 'bot-dungeon-' + i;
-        const actor = g.addRemote(id, BOT_NAMES[i], i + 2);
+        const actor = g.addRemote(id, BOT_NAMES[i], i + 2, 'villager', i);
         actor.dungeonBot = true;
         const offset = i ? -1 : 1;
         actor.tx = p.pos.x; actor.tz = p.pos.z;
@@ -232,7 +236,8 @@ export class DungeonLobby {
       bot.cd = Math.max(0, bot.cd - dt);
       if (target && d <= reach + 0.15 && bot.cd === 0 && g.time - (run.lastFight ?? -Infinity) < 7) {
         bot.cd = bot.offset > 0 ? 1.45 : 1.85;
-        if (bot.offset < 0) g.spawnBeam?.(actor.tx, actor.ty + 0.8, actor.tz, target.pos.x, target.pos.y + 0.5, target.pos.z, 0xfad68c);
+        actor.pendingCombat = bot.offset < 0 ? 'bow' : 'shield';
+        if (bot.offset < 0) actor.pendingCombatTarget = target.pos;
         if (run.id == null || run.leader === g.net.id) {
           g.hitEnemy(target, { dmg: Math.max(1, Math.round(2 + p.stats.baseDmg * 0.28)) }, 0, 0, { dungeonBot: true, isTrigger: true });
         }

@@ -16,7 +16,7 @@ const { chromium } = require('playwright');
   await page.waitForTimeout(1200);
   await page.keyboard.press('Space');
   await page.keyboard.down('Space');
-  await page.waitForFunction(() => __game.player.air && __game.player.y > 0, null, { timeout: 3000 });
+  await page.waitForFunction(() => __game.player.air && __game.player.y > 0.08, null, { timeout: 3000 });
   const double = await st(); console.log('double', double);
   assert.ok(double.air && double.y > 0 && !double.roll, 'a double Space press jumps');
   await page.waitForFunction(() => __game.player.gliding && __game.audio.glideActive, null, { timeout: 6000 });

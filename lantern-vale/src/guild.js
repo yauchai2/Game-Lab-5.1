@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { WEAPON_CUES } from './action_audio.js';
 import { buildPlayer, buildStag } from './models.js';
 
 function accountKey(game) {
@@ -28,28 +29,55 @@ export function bindGuild(g) {
     g.clearRemotes();g.net.send({t:'pos',zone:'guild:'+g.party,x:0,z:4});
     g.player.stats.maxHp=100;document.getElementById('myTag').style.display='none'; g.keys={};g.mouse.l=false;
     const boss=buildStag();g.world.group.add(boss.root);
-    const warning=new THREE.Mesh(new THREE.RingGeometry(3.18,3.4,36),new THREE.MeshBasicMaterial({color:0xff794b,side:THREE.DoubleSide}));
-    warning.rotation.x=-Math.PI/2;warning.position.y=.11;g.world.group.add(warning);
+    const warning=new THREE.Mesh(new THREE.RingGeometry(3.18,3.4,36),new THREE.MeshBasicMaterial({color:0xff794b,side:THREE.DoubleSide,transparent:true,opacity:0.4,depthWrite:false}));
+    warning.rotation.x=-Math.PI/2;warning.position.y=.11;warning.visible=false;g.world.group.add(warning);
     const allies=new Map();
-    g.raid={boss,warning,allies,sendIn:0};
+    g.raid={boss,warning,allies,sendIn:0,warn:false,windup:0,windupPose:0,impactPose:0};
     g.player.pos.set(0,0,4);g.player.m.root.visible=true;
     g.ui.banner('共鳴樹庭','靠近守護獸揮擊 · 紅圈亮起時撤離 · Esc 離開');
     g.ui.bossBar(true,'共鳴守護獸',1);
   });
   n.on('raidFrame',m=>{
     if (!g.raid) return;
-    const {allies,boss,warning}=g.raid;
+    const raid = g.raid;
+    const {allies,boss,warning}=raid;
+    if (m.warn && !raid.warn) g.enemyCue('enemyWind', boss.root.position);
+    if (m.impact) {
+      g.enemyCue('enemyRelease', boss.root.position);
+      raid.impactPose = 0.22;
+      g.puffs.burst(0, 0.18, 0, 12, { c: 0xe6b085, s: 0.23, speed: 3.0, up: 0.6, life: 0.4 });
+    }
+    raid.warn = m.warn;
+    raid.windup = m.warn ? (m.windup ?? 0.5) : 0;
     warning.visible=m.warn;g.ui.bossBar(true,m.warn?'守護獸蓄力 · 離開紅圈':'共鳴守護獸',m.hp/144);
-    boss.body.rotation.z=m.warn?.08:0;
     const present=new Set();
     for(const member of m.members) {
       if(member.id===n.id) {
-        g.player.pos.set(member.x,0,member.z);g.player.hp=member.hp;continue;
+        const p = g.player;
+        p.vel.set((member.x - p.pos.x) * 10, 0, (member.z - p.pos.z) * 10);
+        p.walkT = p.vel.lengthSq() > 0.04 ? (p.walkT || 0.01) : 0;
+        if (p.hp > member.hp) {
+          g.audio.sfx('hurt');
+          p.recoilPose = 0.18;
+          p.heroRig?.play('hit', { once: true, force: true });
+        }
+        p.pos.set(member.x,0,member.z);p.y=0;p.hp=member.hp;
+        if (member.strike) {
+          g.audio.sfx(WEAPON_CUES[g.meta.p.weapon] || 'staffSwing');
+          p.swingT = 0.20;
+          p.heroRig?.play('attack', { once: true, fade: 0.05 });
+        }
+        continue;
       }
       present.add(member.id);
       let actor=allies.get(member.id);
       if(!actor) {actor=buildPlayer(0x9775ae,0x705183);allies.set(member.id,actor);g.world.group.add(actor.root);}
+      actor.moving = actor.root.position.distanceToSquared({ x: member.x, y: 0, z: member.z }) > 0.0004;
       actor.root.position.set(member.x,0,member.z);actor.root.rotation.y=Math.atan2(-member.x,-member.z);
+      if (member.strike) {
+        actor.strikePose = 0.25;
+        g.cueAt('staffSwing', actor.root.position, 12, 0.53);
+      }
       actor.root.visible=member.hp>0;
     }
     for(const [id,actor] of allies) if(!present.has(id)) {g.world.group.remove(actor.root);allies.delete(id);}
@@ -70,9 +98,23 @@ export function updateRaid(g,dt) {
   }
   g.time+=dt;
   p.facing=Math.atan2(-p.pos.x,-p.pos.z);
-  p.m.root.position.copy(p.pos);p.m.root.rotation.y=p.facing;
-  p.m.body.rotation.z=attack?Math.sin(g.time*16)*.14:0;
-  r.boss.body.position.y=.07*Math.sin(g.time*3);
+  if (p.walkT > 0) p.walkT += dt * 11;
+  p.swingT = Math.max(0, p.swingT - dt);
+  g.animatePlayer(dt);
+  for (const actor of r.allies.values()) {
+    actor.strikePose = Math.max(0, (actor.strikePose || 0) - dt);
+    actor.staff.rotation.x = Math.sin((actor.strikePose / 0.25) * Math.PI) * 1.65;
+    const stride = actor.moving ? Math.sin(g.time * 13) : 0;
+    actor.legL.position.z = stride * 0.13;
+    actor.legR.position.z = -stride * 0.13;
+    actor.body.position.y = Math.abs(stride) * 0.075;
+  }
+  r.impactPose = Math.max(0, r.impactPose - dt);
+  r.windupPose += (r.windup - r.windupPose) * (1 - Math.exp(-dt * 14));
+  r.boss.body.position.y = 0.07 * Math.sin(g.time * 3) + 0.40 * r.windupPose;
+  r.boss.body.rotation.x = -0.30 * r.windupPose + r.impactPose;
+  r.warning.material.opacity = 0.44 + 0.48 * r.windupPose;
+  g.puffs.update(dt);
   g.updateCamera(dt);g.ui.update(g);
   document.getElementById('roomInfo').textContent='共鳴樹庭 · '+(r.allies.size+1)+' 人';
 }

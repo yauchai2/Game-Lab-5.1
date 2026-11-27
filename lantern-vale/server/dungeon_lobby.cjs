@@ -137,7 +137,7 @@ module.exports = function createDungeonLobbies(send, startRaid, announce = () =>
       hp[m.enemy] = Math.max(0, hp[m.enemy] - Math.min(1, m.fraction));
       for (const member of room.members) {
         if (member.dungeonWave === m.wave) {
-          send(member, { t: 'dungeon_enemy', id: room.id, wave: m.wave, enemy: m.enemy, hp: hp[m.enemy], bot });
+          send(member, { t: 'dungeon_enemy', id: room.id, wave: m.wave, enemy: m.enemy, hp: hp[m.enemy], bot, by: me.id, impact: m.impact === true });
         }
       }
     }
