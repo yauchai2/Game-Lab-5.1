@@ -1656,12 +1656,12 @@ html{scrollbar-color:var(--cp-gold-sh) var(--cp-wood-dark);scrollbar-width:thin}
 .dialog-header{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .dialog-header :is(h2,h3){margin:0;min-width:0}
 .dialog-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
-#textDialog{
+:is(#textDialog,#saveConflict){
   box-sizing:border-box;width:min(500px,calc(100vw - 28px));max-height:calc(100dvh - 28px);
   background:var(--ui-paper-readable);color:var(--cp-ink);border:3px solid var(--cp-wood);
   box-shadow:var(--cp-boxsh);padding:clamp(14px,4vw,24px);
 }
-#textDialog::backdrop{background:#24141cb8}
+:is(#textDialog,#saveConflict)::backdrop{background:#24141cb8}
 #textDialog p{line-height:1.55}
 #textDialog textarea{display:block;width:100%;box-sizing:border-box;resize:none;padding:8px;margin-top:4px;font-size:16px;color:var(--cp-ink);background:#fff9e8;border:2px solid var(--cp-wood)}
 #textDialog textarea[aria-invalid=true]{border-color:var(--cp-danger-sh)}
@@ -2069,7 +2069,8 @@ html,body{overscroll-behavior:none}
   background:rgba(46,20,28,.88);color:#ffd8d8;border:1.5px solid rgba(255,130,130,.65);
   box-shadow:0 3px 10px rgba(0,0,0,.35);pointer-events:none;transition:transform .1s,background .1s;
 }
-#touchCancelZone.hot{transform:scale(1.12);background:rgba(216,48,68,.95);color:#fff;border-color:#fff}
+#touchCancelZone.hot{background:rgba(216,48,68,.95);color:#fff;border-color:#fff}
+#skills .sk{touch-action:none}
 @media (pointer: coarse), (any-pointer: coarse) and (max-width: 1100px){
   #hud #skills .sk,#hud #skills .touch-key{opacity:var(--touch-opacity,.85)}
   body.touch-left-handed #hud #touchMovement{left:auto!important;right:var(--edge-right)!important}
@@ -2443,6 +2444,11 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
       <button type="submit" class="btn small">確認</button>
     </div>
   </form>
+</dialog>
+<dialog id="saveConflict" aria-labelledby="saveConflictTitle">
+  <h2 id="saveConflictTitle">角色存檔已更新</h2>
+  <p>另一個分頁已更新這個角色。請重新載入最新進度再繼續。</p>
+  <button type="button" class="btn small on" autofocus>重新載入進度</button>
 </dialog>
 <dialog id="worldMap" aria-labelledby="atlasTitle">
   <header>

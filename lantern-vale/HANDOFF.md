@@ -1,5 +1,12 @@
 # 交接說明（Claude → Codex，2026-11-22）
 
+## 2026-11-27 開局穩定性與回訪
+
+- 掉落物的手機互動提示共用裝備拾取的判定，寶珠維持靠近自動吸收。手機拖曳技能由放手提交，拖到介面上的取消區或系統中斷時不施放，輕點仍會自動瞄準。
+- 同角色的舊分頁寫檔前會核對載入時的存檔。遇到衝突會暫停並提示重新載入。一般工坊開頁不寫檔，拍賣只在實際到期結算時寫檔；徽章和遠征領獎保留同角色領獎鎖。
+- 精英洞窟引路存入巡燈進度，重新登入後可繼續步行，入場仍用一枚鑰石。AI 補位設定由等候室保留，換房主時繼續沿用，隊伍名單刷新後還原鍵盤焦點。
+- 回歸用 `tests/opening_mobile.cjs`、`tests/opening_rewards.cjs`、`tests/quest_guide.cjs`、`tests/meadow_cave_flow.cjs` 及 `tests/dungeon_lobby.cjs`。真人初玩節奏及洞口交付比較仍列在 [頭十分鐘體驗規格](docs/FIRST_TEN_MINUTES_PLAN.md)。
+
 ## 2026-11-27 手機版 P1 & P2 UI/UX 優化（Build `0cc1e458c816`）
 
 - **P1 技能拖曳瞄準與取消區**（`src/touch.js`、`src/index.html`）：新增純函式 `computeSkillDragAim`，於 `#sk-s0..3` 按住滑動超過 `16px` 即切換為方向落點瞄準並顯示 `#touchCancelZone`（滑入右上取消區放開即取消施法）；輕點維持自動鎖敵。

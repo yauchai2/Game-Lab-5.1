@@ -1717,9 +1717,7 @@ const createGuild = require('../server/guild.cjs');
   // 61. Mobile P1 & P2 UI/UX: skill drag-to-aim + cancel zone, haptics, left-handed & opacity settings, PWA fullscreen meta
   assert.equal(touchMod.computeSkillDragAim(5, 4).active, false, 'Short tap <16px uses auto-aim instead of drag');
   const dragAim = touchMod.computeSkillDragAim(0, -60);
-  assert.ok(dragAim.active && !dragAim.cancelled && dragAim.dirZ === -1 && dragAim.rangeFrac > 0.8, 'Skill drag beyond 16px returns aim direction and range');
-  const dragCancel = touchMod.computeSkillDragAim(50, -60);
-  assert.ok(dragCancel.active && dragCancel.cancelled, 'Dragging skill to upper-right cancel zone cancels cast');
+  assert.ok(dragAim.active && dragAim.dirZ === -1 && dragAim.rangeFrac > 0.8, 'Skill drag beyond 16px returns aim direction and range');
   assert.equal(touchMod.triggerHaptic('crit', false), false, 'Disabled haptics never triggers vibration');
   const mobSetMod = await import('../src/settings.js');
   assert.equal(mobSetMod.DEFAULTS.haptics, 1, 'Haptics setting defaults to enabled');

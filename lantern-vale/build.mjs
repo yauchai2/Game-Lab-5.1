@@ -10,7 +10,10 @@ const r = await esbuild.build({
   format: 'iife',
   write: false,
   target: 'es2020',
-  define: { __LV_PROD__: String(isProd) },
+  define: {
+    __LV_PROD__: String(isProd),
+    __LV_EFFECTS_B64__: JSON.stringify(fs.readFileSync('game/assets/audio/effects.mp3').toString('base64')),
+  },
 });
 const js = r.outputFiles[0].text.replace(/<\/script/g, '<\\/script');
 const template = fs.readFileSync('src/index.html', 'utf8');
@@ -22,6 +25,8 @@ fs.writeFileSync('dist/index.html', html);
 const fontPath = 'assets/ui/fonts';
 fs.cpSync(`game/${fontPath}`, `dist/${fontPath}`, { recursive: true });
 fs.cpSync('game/assets/ui/logo', 'dist/assets/ui/logo', { recursive: true });
+fs.cpSync('game/assets/audio/music', 'dist/assets/audio/music', { recursive: true });
+fs.copyFileSync('game/assets/audio/CREDITS.md', 'dist/assets/audio/CREDITS.md');
 console.log('built', (html.length / 1024).toFixed(0) + 'KB');
 const fontLicenses = ['OFL.txt', 'LICENSES/ark-pixel/OFL.txt', 'LICENSES/cubic-11/OFL.txt', 'LICENSES/galmuri/LICENSE.txt'];
 const fontNotices = fontLicenses.map(file => fs.readFileSync(`game/${fontPath}/${file}`, 'utf8')).join('\n');

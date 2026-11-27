@@ -28,14 +28,12 @@ export function computeJoystickVector(clientX, clientY, originX, originY, maxTra
   };
 }
 
-/** P1 技能按住拖曳瞄準與取消區判定：滑動 < 16px 視為輕點自動鎖敵；滑至右上角取消區則取消施法 */
-export function computeSkillDragAim(dx, dy, threshold = 16, cancelDx = 42, cancelDy = -52) {
+/** 滑動不足 16px 時沿用點按自動瞄準。 */
+export function computeSkillDragAim(dx, dy, threshold = 16) {
   const dist = Math.hypot(dx || 0, dy || 0);
-  if (dist < threshold) return { active: false, cancelled: false, dirX: 0, dirZ: 0, rangeFrac: 0 };
-  if (dx >= cancelDx && dy <= cancelDy) return { active: true, cancelled: true, dirX: 0, dirZ: 0, rangeFrac: 0 };
+  if (dist < threshold) return { active: false, dirX: 0, dirZ: 0, rangeFrac: 0 };
   return {
     active: true,
-    cancelled: false,
     dirX: +(dx / dist).toFixed(3),
     dirZ: +(dy / dist).toFixed(3),
     rangeFrac: +Math.min(1, dist / 72).toFixed(3),
@@ -132,53 +130,62 @@ export function bindTouch(g) {
     pad.style.bottom = '';
   }
 
-  // P1 技能按住拖曳瞄準與取消區（#sk-s0..3）
+  let skillGesture = null;
+  function readSkillDrag(x, y, gesture) {
+    const drag = computeSkillDragAim(x - gesture.x, y - gesture.y);
+    if (cancelZone && drag.active) {
+      cancelZone.hidden = false;
+      const rect = cancelZone.getBoundingClientRect();
+      drag.cancelled = x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+      cancelZone.classList.toggle('hot', drag.cancelled);
+    } else if (cancelZone) {
+      cancelZone.hidden = true;
+      cancelZone.classList.remove('hot');
+    }
+    return drag;
+  }
+
+  function endSkillGesture(event) {
+    const gesture = skillGesture;
+    if (!gesture || (event && event.pointerId !== gesture.id)) return;
+    const release = event?.type === 'pointerup' && g.canUseTouchControls();
+    const drag = release ? readSkillDrag(event.clientX, event.clientY, gesture) : null;
+    skillGesture = null;
+    gesture.button.classList.remove('held');
+    if (cancelZone) {
+      cancelZone.hidden = true;
+      cancelZone.classList.remove('hot');
+    }
+    if (gesture.button.hasPointerCapture(gesture.id)) gesture.button.releasePointerCapture(gesture.id);
+    if (!drag || drag.cancelled) return;
+    let aim;
+    if (drag.active) {
+      const { pos, y } = g.player;
+      const reach = 2.6 + drag.rangeFrac * 7.4;
+      const c = Math.cos(g.camYaw || 0), s = Math.sin(g.camYaw || 0);
+      aim = g.aim.clone().set(pos.x + (drag.dirX * c + drag.dirZ * s) * reach,
+        y, pos.z + (drag.dirZ * c - drag.dirX * s) * reach);
+    } else {
+      g.aimForTouch();
+      aim = g.aim.clone();
+    }
+    g.ui.activateHotbar(gesture.slot, true, aim);
+  }
   for (let slot = 0; slot < 4; slot++) {
-    const btn = el(`sk-s${slot}`);
-    if (!btn) continue;
-    let pid = null, sx = 0, sy = 0, dragAim = null;
-    btn.addEventListener('pointerdown', e => {
-      if (e.pointerType !== 'touch' || !g.canUseTouchControls() || pid !== null) return;
-      pid = e.pointerId; sx = e.clientX; sy = e.clientY; dragAim = null;
-      btn.setPointerCapture(pid);
-      btn.classList.add('held');
+    const button = el(`sk-s${slot}`);
+    if (!button) continue;
+    button.addEventListener('pointerdown', event => {
+      if (!['touch', 'pen'].includes(event.pointerType) || !g.canUseTouchControls() || g.raid || skillGesture) return;
+      event.preventDefault();
+      g.audio.init();
+      skillGesture = { slot, button, id: event.pointerId, x: event.clientX, y: event.clientY };
+      button.setPointerCapture(event.pointerId);
+      button.classList.add('held');
     });
-    btn.addEventListener('pointermove', e => {
-      if (e.pointerId !== pid) return;
-      const res = computeSkillDragAim(e.clientX - sx, e.clientY - sy);
-      dragAim = res;
-      if (cancelZone) {
-        cancelZone.hidden = !res.active;
-        cancelZone.classList.toggle('hot', res.cancelled);
-      }
-      if (res.active && !res.cancelled && g.player?.pos && g.aim) {
-        const reach = 2.6 + res.rangeFrac * 7.4;
-        g.aim.set(g.player.pos.x + res.dirX * reach, g.player.y || 0, g.player.pos.z + res.dirZ * reach);
-      }
+    button.addEventListener('pointermove', event => {
+      if (skillGesture?.id === event.pointerId) readSkillDrag(event.clientX, event.clientY, skillGesture);
     });
-    const endSkillDrag = e => {
-      if (pid === null || (e?.pointerId != null && e.pointerId !== pid)) return;
-      const wasActive = !!dragAim?.active;
-      const wasCancelled = !!dragAim?.cancelled;
-      const id = pid; pid = null; dragAim = null;
-      btn.classList.remove('held');
-      if (cancelZone) { cancelZone.hidden = true; cancelZone.classList.remove('hot'); }
-      if (btn.hasPointerCapture(id)) btn.releasePointerCapture(id);
-      if (wasCancelled) {
-        g.ui?.toast?.('已取消施法', '#b8c4d8');
-        btn.dataset.suppressClick = '1';
-        setTimeout(() => { delete btn.dataset.suppressClick; }, 60);
-      } else if (wasActive && g.canUseTouchControls()) {
-        triggerHaptic('light', g.settings?.haptics !== 0);
-        g.tryCastPuzzleSkill?.(slot);
-        btn.dataset.suppressClick = '1';
-        setTimeout(() => { delete btn.dataset.suppressClick; }, 60);
-      }
-    };
-    for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) btn.addEventListener(type, endSkillDrag);
-    btn.addEventListener('click', e => {
-      if (btn.dataset.suppressClick) { e.stopImmediatePropagation(); e.preventDefault(); }
-    }, true);
+    for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) button.addEventListener(type, endSkillGesture);
   }
 
   function attack() {
@@ -204,7 +211,7 @@ export function bindTouch(g) {
   const releaseAttack = hold(el('touchAttack'), () => { input.attack = true; attack(); }, () => { input.attack = false; });
   const releaseJump = hold(el('touchJump'), () => { input.glide = !g.raid; jump(); }, () => { input.glide = false; });
   const releaseRoll = hold(el('touchRoll'), roll, () => {});
-  const reset = () => { releaseMove(); releaseAttack(); releaseJump(); releaseRoll(); if (cancelZone) cancelZone.hidden = true; };
+  const reset = () => { releaseMove(); releaseAttack(); releaseJump(); releaseRoll(); endSkillGesture(); };
   g.clearTouchInput = reset;
   window.addEventListener('blur', reset);
   document.addEventListener('visibilitychange', reset);

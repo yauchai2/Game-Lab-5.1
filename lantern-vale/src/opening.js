@@ -28,6 +28,11 @@ export function openingStep(profile) {
   return null;
 }
 
+export function openingDestination(profile) {
+  return openingStep(profile) === 'next' && profile.opening.nextDestination === 'cave' && profile.keys > 0
+    ? 'cave' : null;
+}
+
 export function openingPracticeOpponent(g) {
   if (g.field !== 1 || g.state !== 'play' || g.interior) return null;
   return g.enemies.find(enemy => enemy.openingPractice && !enemy.dead
@@ -80,7 +85,7 @@ export function recordOpeningSupportUse(game, id, effective) {
 // Lock the saved-receipt check and commit together when tabs share a character.
 export function commitCharacterReward(meta, alreadyClaimed, commit) {
   const run = () => {
-    if (meta.key && alreadyClaimed(meta.load())) return false;
+    if (!meta.canSave() || (meta.key && alreadyClaimed(meta.load()))) return false;
     return commit();
   };
   const locks = globalThis.navigator?.locks;

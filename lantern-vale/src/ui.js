@@ -28,7 +28,7 @@ import { STAT_DEFS, ensureMmoState, availableStatPoints, allocateStat, resetStat
 import { LIFE_SKILLS, LIFE_SKILL_IDS, getLifeSkillInfo, TITLE_DEFS, ensureTitles, equipTitle, computeTitleBonuses, spawnWorldBoss, getSimAdventurers, getSimConfig, DEFAULT_SIM_COUNT, setSimConfig, triggerSimEvent, assistSimTask } from './mmo_world.js';
 import { spawnDynamicEvent, getPartyIds, getActivePartySynergy, computeTowerBonuses } from './mmo_endgame.js';
 import { ALL_GEMS, addGemToBag } from './puzzle.js';
-import { beginOpening, openingPracticeOpponent, openingStep, recordOpeningEvent } from './opening.js';
+import { beginOpening, openingDestination, openingPracticeOpponent, openingStep, recordOpeningEvent } from './opening.js';
 import { MEADOW_CAVE } from './meadow_cave.js';
 import { MEADOW_TIERS, expeditionRoute, isMeadowIntro, meadowExpedition, meadowStage } from './expedition.js';
 import { getActiveAccount, slotKeys } from './account.js';
@@ -208,31 +208,21 @@ export class UI {
       }
       game.dayTime = ((game.dayTime || 0) + 0.25) % 1; const d = dayInfo(game.dayTime); game.ui.toast(`時間推進至 ${d.icon} ${d.label}`, '#ffe9a0');
     };
+    this.activateHotbar = (index, touch = false, aim = null) => {
+      if (touch && (game.raid || !game.canUseTouchControls())) return;
+      if (!game.player.hotbar?.[index] && !(index === 0 && (touch || game.ambushTrial))) {
+        game.audio.sfx('ui');
+        this.openPuzzle?.();
+        return;
+      }
+      game.castHotbar(index, aim);
+    };
     for (let i = 0; i < 4; i++) {
       const slot = $('sk-s' + i);
-      const triggerSlot = touch => {
-        if (touch && (game.raid || !game.canUseTouchControls())) return;
-        if (!game.player.hotbar?.[i] && !(i === 0 && (touch || game.ambushTrial))) {
-          game.audio.sfx('ui');
-          this.openPuzzle?.();
-        } else {
-          if (touch) game.aimForTouch();
-          game.castHotbar(i);
-        }
-      };
-      slot.addEventListener('touchstart', event => {
-        if (game.canUseTouchControls()) event.preventDefault();
-      }, { passive: false });
       slot.addEventListener('contextmenu', event => event.preventDefault());
-      slot.addEventListener('pointerdown', event => {
-        if (event.pointerType !== 'touch' && event.pointerType !== 'pen') return;
-        event.preventDefault();
-        triggerSlot(true);
-      });
       slot.onclick = event => {
         if (event.pointerType === 'touch' || event.pointerType === 'pen') return;
-        const touch = matchMedia('(pointer: coarse)').matches && event.detail > 0;
-        triggerSlot(touch);
+        this.activateHotbar(i);
       };
     }
     // 點擊彈窗外部深色遮罩即可快速關閉
@@ -1204,12 +1194,12 @@ export class UI {
           qt.title = '';
           qTi.textContent = '巡燈旅程';
           qDs.textContent = {
-            lamp: g.field === 1 ? '點亮南門路燈' : '前往南門，點亮第一盞燈',
+            lamp: g.field === 1 ? '點亮南門路燈' : '前往晨光草原',
             spar: '側閃幼狂豬的衝鋒，趁收招反擊',
             support: '準備寶石，進入草原洞窟',
             resume: '繼續草原洞窟',
             badge: '打造首通獎勵 · 巡燈徽章',
-            next: g.questDestination === 'cave' ? '前往草原洞窟入口' : '選擇下一站 · 遠征或洞窟',
+            next: (g.questDestination || openingDestination(g.meta.p)) === 'cave' ? '前往草原洞窟入口' : '選擇下一站 · 遠征或洞窟',
           }[step];
           qFl.style.width = '0%';
         } else if (showExpedition) {
@@ -1246,7 +1236,8 @@ export class UI {
     }
     const qr = $('qtRegion');
     if (qr) {
-      const rl = (g.state === 'play' && !g.interior && !g.photoMode && !g.caveRun) ? trackerLine(g.meta?.p || {}, g.field || 0) : null;
+      const showRegionQuest = g.state === 'play' && !g.interior && !g.photoMode && !g.caveRun && !openingStep(g.meta.p);
+      const rl = showRegionQuest ? trackerLine(g.meta.p, g.field || 0) : null;
       if (rl) { const t = `🗺️ ${rl.title} · ${rl.text}`; if (qr.textContent !== t) qr.textContent = t; }
       qr.hidden = !rl;
     }
@@ -1381,7 +1372,7 @@ export class UI {
     const destination = navigationTarget(g);
     compass.hidden = this.practiceFocused || (!destination && !townOpening);
     if (townOpening && !destination) {
-      const label = '點亮南門路燈 · 打開任務出發';
+      const label = '前往晨光草原 · 打開任務出發';
       if (compass.textContent !== label) compass.textContent = label;
     } else if (destination) {
       const label = `${destination.label} · ${describeMapTarget(p.pos, destination)}`;
