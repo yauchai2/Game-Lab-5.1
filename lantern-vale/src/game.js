@@ -2023,7 +2023,7 @@ export class Game {
           if (job === 0) this.fireProj(ep.mesh.position, dir, { speed: 18, mult: 1.15, fire: false, color: 0xffcf4a, size: 0.22, life: 0.9, isTrigger: true });
         }
       }
-      if (deflected > 0) this.audio.sfx('parry');
+      if (deflected > 0) this.audio.sfx('shieldBash');
       if (job === 0) {
         this.vfx?.spawnSummon('ground_slam', p.pos.x + dir.x * 1.4, p.y, p.pos.z + dir.y * 1.4, dir.x, dir.y, { theme: 'holy' });
         this.shockRing(p.pos.x + dir.x * 1.4, p.pos.z + dir.y * 1.4, 2.8, this.rollDamage(1.35), 0xffcf4a, 0.45, { isTrigger: true });
