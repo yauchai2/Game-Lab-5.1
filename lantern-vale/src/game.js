@@ -127,14 +127,21 @@ class Particles {
 
 // ---------------- telegraph decals ----------------
 const decalVS = `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`;
-const decalFS = `uniform vec3 uColor; uniform float uProg, uShape, uAlpha; varying vec2 vUv;
+const decalFS = `uniform vec3 uColor; uniform float uProg, uShape, uAlpha, uInner; varying vec2 vUv;
   void main(){
     float a = 0.0;
     if (uShape < 0.5) { float d = length(vUv-0.5)*2.0; if (d>1.0) discard;
       a = smoothstep(0.86,0.9,d)*0.9 + step(d,uProg)*0.32 + step(abs(d-uProg),0.04)*0.5; }
     else if (uShape < 1.5) { float edge = step(0.92, max(abs(vUv.x-0.5)*2.0, 0.0)) ;
       a = edge*0.8 + step(vUv.y, uProg)*0.3 + step(abs(vUv.y-uProg),0.02)*0.5; }
-    else { float d = length(vUv-0.5)*2.0; if (d>1.0) discard; a = smoothstep(0.6,1.0,d)*(1.0-smoothstep(0.95,1.0,d))*1.2; }
+    else if (uShape < 2.5) { float d = length(vUv-0.5)*2.0; if (d>1.0) discard; a = smoothstep(0.6,1.0,d)*(1.0-smoothstep(0.95,1.0,d))*1.2; }
+    else {
+      float d = length(vUv-0.5)*2.0;
+      if (d < uInner || d > 1.0) discard;
+      float front = mix(uInner, 1.0, uProg);
+      a = 0.19 + 0.43*step(d,front) + 0.48*step(abs(d-front),0.025)
+        + 0.68*step(0.965,d) + 0.68*step(d,uInner+0.035);
+    }
     gl_FragColor = vec4(uColor, a*uAlpha);
   }`;
 
@@ -1824,12 +1831,15 @@ export class Game {
   }
 
   addDecal(shape, x, z, size, color, dur, rot, onDone, shapeId) {
+    const annulus = shape === 'annulus';
     const mat = new THREE.ShaderMaterial({
-      uniforms: { uColor: { value: new THREE.Color(color) }, uProg: { value: 0 }, uShape: { value: shapeId ?? (shape === 'circle' ? 0 : 1) }, uAlpha: { value: 1 } },
+      uniforms: { uColor: { value: new THREE.Color(color) }, uProg: { value: 0 },
+        uShape: { value: shapeId ?? (annulus ? 3 : shape === 'circle' ? 0 : 1) },
+        uInner: { value: annulus ? size.inner / size.outer : 0 }, uAlpha: { value: 1 } },
       vertexShader: decalVS, fragmentShader: decalFS, transparent: true, depthWrite: false,
     });
     let geo;
-    if (shape === 'circle') { geo = new THREE.PlaneGeometry(size * 2, size * 2); geo.rotateX(-Math.PI / 2); }
+    if (shape !== 'rect') { const radius = annulus ? size.outer : size; geo = new THREE.PlaneGeometry(radius * 2, radius * 2); geo.rotateX(-Math.PI / 2); }
     else { geo = new THREE.PlaneGeometry(size.w, size.l); geo.translate(0, size.l / 2, 0); geo.rotateX(-Math.PI / 2); geo.rotateY(Math.PI); }
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.set(x, 0.06, z); if (rot !== null && rot !== undefined) mesh.rotation.y = rot;
@@ -4163,10 +4173,10 @@ export class Game {
       const dirP = _dirP.set(rdx * invD, rdz * invD);
       let mvx = 0, mvz = 0;
       const spd = est.freeze > 0 ? 0 : e.spd * (e.slow > 0 ? 0.45 : 1);
-      const replicatedBoar = e.type === 'boar' && this.dungeon.followsEnemyAttack(e);
-      // Knockback moves a replicated boar on the leader's client.
+      const replicatedChargeEnemy = (e.type === 'boar' || e.type === 'stag') && this.dungeon.followsEnemyAttack(e);
+      // The leader applies knockback to enemies that share charge positions.
       if (e.knock.lengthSq() > 0.01) {
-        if (!replicatedBoar) this.moveEntity(e.pos, e.knock.x * dt, e.knock.z * dt, e.r);
+        if (!replicatedChargeEnemy) this.moveEntity(e.pos, e.knock.x * dt, e.knock.z * dt, e.r);
         e.knock.multiplyScalar(Math.exp(-dt * 9));
       }
       const follow = (s = 1) => {
@@ -4222,9 +4232,13 @@ export class Game {
       }
       if (e.stun > 0 || !playing || (this.field && dist > (e.tideAggro ? 32 : e.legendary ? 14 : 18))) {
         // idle
-      } else if (replicatedBoar) {
-        if (e.state === 'charge' && dist < e.r + 0.5) {
-          this.hurtPlayer(e.dmg * (e.brokenWeakens?.has('charge') ? 0.65 : 1), e.pos, null, 'boar', 'charge');
+      } else if (replicatedChargeEnemy) {
+        if (e.state === 'charge') {
+          if (e.type === 'stag' && dist < 1.8) this.hurtPlayer(e.dmg * 1.3, e.pos);
+          else if (e.type === 'boar' && dist < e.r + 0.5) this.hurtPlayer(e.dmg * (e.brokenWeakens?.has('charge') ? 0.65 : 1), e.pos, null, 'boar', 'charge');
+        }
+        if (e.type === 'stag') {
+          e.m.body.position.y = e.state === 'stomp' ? Math.min(1, e.t * 2) * 0.8 : 0;
         }
       } else if (e.type === 'slime') {
         if (!e.meadowPounce || e.state === 'move') {
@@ -4552,6 +4566,8 @@ export class Game {
         e.m.body.scale.set(1 + wind * 0.09, 1 - wind * 0.17, 1 + wind * 0.1);
       } else if (e.type === 'boar' && e.state === 'charge') {
         e.m.body.rotation.x = 0.22 * (1 - Math.min(1, e.t / 0.6));
+      } else if (e.type === 'stag' && (e.state === 'wind' || e.state === 'charge')) {
+        e.m.body.rotation.x = e.state === 'wind' || e.step === 1 && !replicatedChargeEnemy ? -0.28 : 0.18;
       } else if (e.type === 'golem' && e.state === 'slam') {
         e.m.body.rotation.x = -0.4 * Math.sin(Math.min(1, e.t / 0.85) * Math.PI * 2);
       }
@@ -4569,6 +4585,28 @@ export class Game {
     if (this.boss) this.ui.bossBar(!this.field || this.boss.pos.distanceTo(p.pos)<10, null, this.boss.hp / this.boss.maxHp, this.boss.parts);
   }
 
+  resolveBossGroundImpact(enemy, { shape, x, z, size, extra }) {
+    const ring = shape === 2;
+    const y = this.world.gh(x, z);
+    const origin = new V3(x, y, z);
+    this.enemyCue('enemyRelease', origin);
+    this.shake = Math.max(this.shake, ring ? 0.65 : 0.7);
+    if (ring) {
+      const radius = (size + extra) / 2;
+      for (let i = 0; i < 16; i++) {
+        const angle = i / 16 * Math.PI * 2;
+        const px = x + Math.cos(angle) * radius, pz = z + Math.sin(angle) * radius;
+        this.puffs.burst(px, this.world.gh(px, pz) + 0.25, pz, 3, { c: 0xff8a40, s: 0.35, speed: 3, up: 3, life: 0.5 });
+      }
+    } else {
+      this.puffs.burst(x, y + 0.2, z, 20, { c: 0xf4ecd8, s: 0.5, speed: 5, up: 1, g: -0.4, life: 0.7, grow: 1.4, drag: 3 });
+    }
+    const dist = Math.hypot(this.player.pos.x - x, this.player.pos.z - z);
+    if (ring ? !isInDonutSafeZone(dist, extra) && dist <= size : dist < size) {
+      this.hurtPlayer(enemy.dmg * (ring ? 1.35 : 1.4), origin);
+    }
+  }
+
   updateBoss(e, dt, dist, dirP, follow, setMv) {
     const p = this.player;
     e.cd -= dt;
@@ -4578,21 +4616,47 @@ export class Game {
       follow(0.8);
       e.m.body.position.y = Math.abs(Math.sin(e.t * 5)) * 0.1;
       if (e.cd <= 0) {
-        const moves = ['charge', 'burst', 'roots', dist < 4 ? 'stomp' : 'donut'];
+        const shared = this.dungeon.sharesEnemyAttack(e);
+        const moves = shared ? ['charge', 'stomp', 'donut'] : ['charge', 'burst', 'roots', dist < 4 ? 'stomp' : 'donut'];
         if (dist > 7.5) moves.push('donut', 'charge');
-        if (this.enemies.length < 4) moves.push('summon');
+        if (!shared && this.enemies.length < 4) moves.push('summon');
         e.state = pick(Math.random, moves); e.t = 0; e.step = 0;
       }
     } else if (e.state === 'charge') {
-      if (e.step === 0) { this.enemyCue('enemyWind', e.pos); e.cdir = dirP.clone(); this.addDecal('rect', e.pos.x, e.pos.z, { w: 2.4, l: 14 }, 0xff5040, 0.9 * fast, Math.atan2(e.cdir.x, e.cdir.y)); e.step = 1; e.facing = Math.atan2(e.cdir.x, e.cdir.y); }
-      if (e.step === 1 && e.t > 0.9 * fast) { this.enemyCue('enemyRelease', e.pos); e.step = 2; e.t = 0; }
+      if (e.step === 0) {
+        this.enemyCue('enemyWind', e.pos);
+        e.cdir = dirP.clone();
+        const angle = Math.atan2(e.cdir.x, e.cdir.y);
+        const duration = 0.9 * fast;
+        const width = 3.6;
+        const warning = this.addDecal('rect', e.pos.x, e.pos.z, { w: width, l: 14 }, 0xff5040, duration, angle);
+        warning.mesh.position.y = this.world.gh(e.pos.x, e.pos.z) + 0.16;
+        e.step = 1;
+        e.facing = angle;
+        this.dungeon.sendAttack(e, 'warn', [1, e.pos.x, e.pos.z, width, angle, duration], warning);
+      }
+      if (e.step === 1 && e.t > 0.9 * fast) {
+        this.enemyCue('enemyRelease', e.pos);
+        e.step = 2;
+        e.t = 0;
+        this.dungeon.sendAttack(e, 'release');
+      }
       if (e.step === 2) {
         const b = e.pos.clone();
         const chSpd = e.brokenWeakens?.has('charge') ? 11 : 16;
         this.moveEntity(e.pos, e.cdir.x * chSpd * dt, e.cdir.y * chSpd * dt, 1);
         if (Math.random() < 0.8) this.puffs.emit(e.pos.x + (Math.random() - 0.5), 0.1, e.pos.z, { c: 0xf4ecd8, s: 0.4, g: -0.3, life: 0.5, grow: 1 });
         if (dist < 1.8) this.hurtPlayer(e.dmg * 1.3, e.pos);
-        if (e.t > 0.85 || b.distanceTo(e.pos) < 0.01) { this.shake = 0.4; e.charges = (e.charges || 0) + 1; if (e.charges < (e.phase === 2 ? 3 : 2)) { e.step = 0; e.t = 0; } else { e.charges = 0; e.state = 'rest'; e.t = 0; e.chargeRecoveryS = 1.15; } }
+        if (e.t > 0.85 || b.distanceTo(e.pos) < 0.01) {
+          this.dungeon.sendAttack(e, 'end');
+          this.shake = 0.4;
+          e.charges = (e.charges || 0) + 1;
+          e.t = 0;
+          if (e.charges < (e.phase === 2 ? 3 : 2)) e.step = 0;
+          else {
+            e.charges = 0; e.state = 'rest'; e.chargeRecoveryS = 1.15;
+          }
+        }
       }
     } else if (e.state === 'burst') {
       e.flash = Math.max(e.flash, Math.sin(e.t * 30) > 0 ? 0.03 : 0);
@@ -4620,31 +4684,31 @@ export class Game {
         }
       }
       if (e.t > 1.6) { e.state = 'move'; e.cd = 1.2 * fast; }
-    } else if (e.state === 'stomp') {
-      if (e.step === 0) { this.enemyCue('enemyWind', e.pos); e.step = 1; this.addDecal('circle', e.pos.x, e.pos.z, 4, 0xff5040, 0.8 * fast); }
-      e.m.body.position.y = Math.min(1, e.t * 2) * 0.8;
-      if (e.t > 0.8 * fast && e.step === 1) {
-        e.step = 2; e.m.body.position.y = 0; this.shake = 0.7;
-        this.enemyCue('enemyRelease', e.pos);
-        this.puffs.burst(e.pos.x, 0.2, e.pos.z, 20, { c: 0xf4ecd8, s: 0.5, speed: 5, up: 1, g: -0.4, life: 0.7, grow: 1.4, drag: 3 });
-        if (dist < 4.2) this.hurtPlayer(e.dmg * 1.4, e.pos);
-      }
-      if (e.t > 1.4) { e.state = 'rest'; e.t = 0; e.chargeRecoveryS = 1.15; }
-    } else if (e.state === 'donut') {
+    } else if (e.state === 'stomp' || e.state === 'donut') {
+      const ring = e.state === 'donut';
+      const duration = (ring ? 0.95 : 0.8) * fast;
       if (e.step === 0) {
-        this.enemyCue('enemyWind', e.pos); e.step = 1;
-        this.addDecal('circle', e.pos.x, e.pos.z, 9.5, 0xff5a3a, 0.95 * fast);
-        this.addDecal('circle', e.pos.x, e.pos.z, 3.5, 0x6ae8ff, 0.95 * fast);
+        this.enemyCue('enemyWind', e.pos);
+        e.step = 1;
+        const { x, z } = e.pos;
+        const size = ring ? 9.5 : 4.2;
+        const extra = ring ? 3.5 : 0;
+        const shape = ring ? 2 : 3;
+        const warning = ring
+          ? this.addDecal('annulus', x, z, { outer: size, inner: extra }, 0xff5a3a, duration, null)
+          : this.addDecal('circle', x, z, size, 0xff5040, duration, null);
+        warning.mesh.position.y = this.world.gh(x, z) + 0.16;
+        e.groundAttack = { shape, x, z, size, extra };
+        this.dungeon.sendAttack(e, 'warn', [shape, x, z, size, extra, duration], warning);
       }
-      if (e.t > 0.95 * fast && e.step === 1) {
-        e.step = 2; this.shake = 0.65; this.enemyCue('enemyRelease', e.pos);
-        for (let i = 0; i < 16; i++) {
-          const a = (i / 16) * Math.PI * 2;
-          this.puffs.burst(e.pos.x + Math.cos(a) * 6.5, 0.25, e.pos.z + Math.sin(a) * 6.5, 3, { c: 0xff8a40, s: 0.35, speed: 3, up: 3, life: 0.5 });
-        }
-        if (!isInDonutSafeZone(dist, 3.5) && dist <= 9.5) this.hurtPlayer(e.dmg * 1.35, e.pos);
+      if (!ring) e.m.body.position.y = Math.min(1, e.t * 2) * 0.8;
+      if (e.t > duration && e.step === 1) {
+        e.step = 2;
+        e.m.body.position.y = 0;
+        this.dungeon.sendAttack(e, 'release');
+        this.resolveBossGroundImpact(e, e.groundAttack);
       }
-      if (e.t > 1.45) { e.state = 'rest'; e.t = 0; e.chargeRecoveryS = 1.1; }
+      if (e.t > (ring ? 1.45 : 1.4)) { e.state = 'rest'; e.t = 0; e.chargeRecoveryS = ring ? 1.1 : 1.15; }
     } else if (e.state === 'rest') {
       if (e.t >= (e.chargeRecoveryS ?? 1.15)) { e.state = 'move'; e.cd = 1.2 * fast; }
     } else if (e.state === 'summon') {

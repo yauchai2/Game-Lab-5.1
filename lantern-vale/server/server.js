@@ -249,7 +249,7 @@ wss.on('connection', ws => {
     }
     switch (m.t) {
       case 'hello': {
-        me.dungeonAttacks = m.dungeonAttacks === true;
+        me.dungeonAttacks = m.dungeonAttacks === 2 ? 2 : Number(m.dungeonAttacks === true);
         me.name = clean(m.name, 12) || '旅人';
         me.col = typeof m.color === 'number' ? Math.min(7, Math.max(0, m.color | 0)) : 0;
         if (!me.raid) joinZone(me, me.zone || 'town', clean(m.party, 12));

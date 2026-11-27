@@ -52,14 +52,17 @@ module.exports = function createDungeonLobbies(send, startRaid, announce = () =>
       if ((current && current.until > now) || !Array.isArray(hint) || hint.length !== 6
         || !hint.every(Number.isFinite)) return;
       const [shape, x, z, size, extra, duration] = hint;
-      if ((shape !== 0 && shape !== 1) || Math.abs(x) > 1024 || Math.abs(z) > 1024
-        || size <= 0 || size > 10 || duration < 0.2 || duration > 2
-        || (shape === 0 ? extra <= 0 || extra > 2 : Math.abs(extra) > Math.PI)) return;
+      if (Math.abs(x) > 1024 || Math.abs(z) > 1024 || size <= 0 || size > 10 || duration < 0.2 || duration > 2) return;
+      const validShape = room.spec.kind === 'cave'
+        ? (shape === 0 && extra > 0 && extra <= 2 || shape === 1 && Math.abs(extra) <= Math.PI)
+        : (shape === 1 && Math.abs(extra) <= Math.PI || shape === 2 && extra > 0 && extra < size
+          || shape === 3 && extra === 0);
+      if (!validShape) return;
       room.attacks.set(enemy, { shape, until: now + duration * 1000 + 1500, released: false });
     } else {
       if (!current || current.until <= now || (phase !== 'release' && phase !== 'end')) return;
       if (phase === 'release' && current.released) return;
-      if (phase === 'end' || current.shape === 0) room.attacks.delete(enemy);
+      if (phase === 'end' || current.shape !== 1) room.attacks.delete(enemy);
       else current.released = true;
     }
     const event = { t: 'dungeon_attack', id: room.id, wave, enemy, phase, hint: phase === 'warn' ? hint : undefined };
@@ -120,7 +123,8 @@ module.exports = function createDungeonLobbies(send, startRaid, announce = () =>
       if (room.spec.kind === 'raid') { startRaid(members, room.id, bots); return; }
       room.waves = new Map();
       room.exits = new Map();
-      room.attackSync = room.spec.kind === 'cave' && members.length > 1 && members.every(member => member.dungeonAttacks);
+      const minAttackVersion = room.spec.kind === 'cave' ? 1 : 2;
+      room.attackSync = members.length > 1 && members.every(member => member.dungeonAttacks >= minAttackVersion);
       room.attacks = new Map();
       for (const member of members) member.dungeonRun = room;
       const info = { t: 'dungeon_begin', id: room.id, leader: me.id, seed: Math.floor(Math.random() * 999999) + 1, bots, count: members.length, attackSync: room.attackSync };

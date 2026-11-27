@@ -154,7 +154,7 @@ export class DungeonLobby {
   sharesEnemyAttack(enemy) {
     const run = this.run;
     return run?.id != null && run.attackSync && run.count > 1 && run.wave
-      && run.enemies[enemy.dungeonIndex] === enemy;
+      && (this.g.caveRun || enemy.type === 'stag') && run.enemies[enemy.dungeonIndex] === enemy;
   }
 
   followsEnemyAttack(enemy) {
@@ -166,7 +166,10 @@ export class DungeonLobby {
     const run = this.run;
     if (phase === 'warn') enemy.sharedAttack = { state: enemy.state, charge: hint[0] === 1, decal };
     else if (!enemy.sharedAttack) return;
-    else if (phase === 'release' && enemy.sharedAttack.charge) enemy.sharedAttack.state = 'charge';
+    else if (phase === 'release' && enemy.sharedAttack.charge) {
+      enemy.sharedAttack.state = 'charge';
+      enemy.sharedAttack.released = true;
+    }
     else if (phase === 'end') this.clearAttack(enemy);
     else enemy.sharedAttack = null;
     this.g.net.send({ t: 'dungeon_attack', id: run.id, wave: run.wave, enemy: enemy.dungeonIndex, phase, hint });
@@ -178,7 +181,7 @@ export class DungeonLobby {
       attack.decal.onDone = null;
       attack.decal.t = attack.decal.dur;
     }
-    if (attack && !enemy.dead && (enemy.incomingAttack || enemy.state === attack.state)) {
+    if (attack && !enemy.dead && (enemy.incomingAttack || !attack.released && enemy.state === attack.state)) {
       enemy.state = 'move';
       enemy.t = 0;
       enemy.cd = Math.max(0.35, enemy.cd || 0);
@@ -198,17 +201,19 @@ export class DungeonLobby {
       this.clearAttack(enemy);
       const [shape, x, z, size, extra, duration] = info.hint;
       const charge = shape === 1;
+      const stag = enemy.type === 'stag';
       const decal = charge
-        ? g.addDecal('rect', x, z, { w: size, l: 6.4 }, 0xff5040, duration, extra)
-        : g.addDecal('circle', x, z, size, 0xff633b, duration, null);
+        ? g.addDecal('rect', x, z, { w: size, l: stag ? 14 : 6.4 }, 0xff5040, duration, extra)
+        : shape === 2
+          ? g.addDecal('annulus', x, z, { outer: size, inner: extra }, 0xff5a3a, duration, null)
+          : g.addDecal('circle', x, z, size, shape === 3 ? 0xff5040 : 0xff633b, duration, null);
       decal.mesh.position.y = g.world.gh(x, z) + 0.16;
-      enemy.incomingAttack = { charge, x, z, size, extra, decal, until: g.time + duration + 1 };
-      enemy.state = charge ? 'wind' : 'meadow-strike';
+      enemy.incomingAttack = { shape, charge, x, z, size, extra, decal, until: g.time + duration + 1 };
+      enemy.state = charge ? 'wind' : shape === 2 ? 'donut' : shape === 3 ? 'stomp' : 'meadow-strike';
       enemy.t = 0;
-      if (charge) {
-        enemy.facing = extra;
-      } else if (enemy.type === 'thorn') enemy.rootCastLast = true;
-      g.enemyCue(enemy.type === 'boar' ? 'enemyWind' : 'enemyCast', enemy.pos);
+      if (charge) enemy.facing = extra;
+      if (!charge && enemy.type === 'thorn') enemy.rootCastLast = true;
+      g.enemyCue(stag || enemy.type === 'boar' ? 'enemyWind' : 'enemyCast', enemy.pos);
     } else {
       const attack = enemy.incomingAttack;
       if (!attack) return;
@@ -219,10 +224,11 @@ export class DungeonLobby {
         if (attack.charge) {
           enemy.state = 'charge';
           enemy.t = 0;
-          attack.until = g.time + 0.9;
+          attack.until = g.time + 1.15;
           g.enemyCue('enemyRelease', enemy.pos);
         } else {
-          g.resolveMeadowImpact(enemy, attack.x, attack.z, attack.size, attack.extra);
+          if (attack.shape === 2 || attack.shape === 3) g.resolveBossGroundImpact(enemy, attack);
+          else g.resolveMeadowImpact(enemy, attack.x, attack.z, attack.size, attack.extra);
           this.clearAttack(enemy);
         }
       }
@@ -236,7 +242,7 @@ export class DungeonLobby {
       const incoming = enemy.incomingAttack;
       if (incoming && (enemy.dead || g.time > incoming.until)) this.clearAttack(enemy);
       if (enemy.sharedAttack && (enemy.dead || enemy.sharedAttack.state !== enemy.state
-        || enemy.sharedAttack.state !== 'charge' && (enemy.stun > 0 || enemy.statuses?.freeze > 0))) {
+        || !enemy.sharedAttack.released && (enemy.stun > 0 || enemy.statuses?.freeze > 0))) {
         this.sendAttack(enemy, 'end');
       }
     }
