@@ -28,7 +28,7 @@ const { chromium } = require('playwright');
         const p = __game.meta.p.puzzle;
         return [...p.bag, ...p.presets.flat()].map(gem => gem.uid).sort((a, b) => a - b);
       });
-      assert.equal(before.length, 130);
+      assert.equal(before.length, 132);
       await page.locator('#pzAuto').click();
       const first = await page.evaluate(() => __game.player.hotbar.map(skill => ({
         id: skill.id, supports: skill.mod.supports.map(support => support.id),

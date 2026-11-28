@@ -1540,11 +1540,42 @@ export class UI {
       if (rBtn) rBtn.onclick = () => { resetStatPoints(g.meta.p); g.meta.save(); g.recalc(); g.audio.sfx('ui'); this.renderInv(g, true); };
     }
   }
-  showBoons(g, choices, { heading = '選擇一份祝福', onPick = null } = {}) {
+  showBoons(g, choices, { heading = '選擇一份祝福', onPick = null, talentTree = null } = {}) {
     this.boonChoices = choices;
     this.boonPick = onPick;
     const el = $('boons'); el.classList.remove('hide');
     el.querySelector('h2').textContent = heading;
+    const tree = el.querySelector('#classTalentTree');
+    tree.hidden = !talentTree;
+    tree.replaceChildren();
+    if (talentTree) {
+      const root = document.createElement('b');
+      root.textContent = talentTree.root ? '燈芯扎根 · 已點亮' : '燈芯扎根 · 1 點';
+      tree.append(root);
+      const paths = document.createElement('div');
+      paths.className = 'talent-paths';
+      talentTree.branches.forEach(([name, description], index) => {
+        const branch = document.createElement('div');
+        const rank = talentTree.branch === index ? talentTree.rank : 0;
+        const title = document.createElement('strong');
+        title.textContent = name;
+        const copy = document.createElement('small');
+        copy.textContent = description;
+        const nodes = document.createElement('span');
+        nodes.setAttribute('aria-label', `${name}已點亮 ${rank} 級`);
+        for (let i = 1; i <= 4; i++) {
+          const node = document.createElement('i');
+          node.textContent = i <= rank ? '◆' : '◇';
+          node.classList.toggle('lit', i <= rank);
+          node.classList.toggle('locked', i > talentTree.limit);
+          node.title = i > talentTree.limit ? '二轉後解鎖' : `第 ${i} 級`;
+          nodes.append(node);
+        }
+        branch.append(title, nodes, copy);
+        paths.append(branch);
+      });
+      tree.append(paths);
+    }
     el.querySelector('.cards').innerHTML = choices.map((b, i) => `<button class="card" data-i="${i}"><div class="bicon">${b.icon}</div><div class="bname">${b.name}</div><div class="bdesc">${b.desc}</div><div class="key">${i + 1}</div></button>`).join('');
     el.querySelectorAll('.card').forEach(c => c.onclick = () => this.pickBoonIndex(+c.dataset.i));
   }

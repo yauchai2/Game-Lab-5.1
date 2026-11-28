@@ -72,6 +72,42 @@ const { chromium } = require('playwright');
         pulses: g.growthEffects.length, cores: profile.puzzle.bag.filter(entry => entry.id === core.id).length };
     });
     assert.deepEqual(sample, { early: 1, mid: 2, trigger: null, charged: true, blocked: false, pulses: 3, cores: 1 });
+    await page.evaluate(() => __game.openGrowthStation(__game.spots.find(spot => spot.kind === 'growthStation')));
+    await page.getByRole('button', { name: /根鬚精通 · 鹿王震線/ }).click();
+    const rootCore = await page.evaluate(() => {
+      const g = __game, trial = g.growthTrial, profile = g.meta.p;
+      g.player.hp = 1;
+      g.player.flask.charges = 3;
+      g.tryFlask();
+      g.tryFlask();
+      if (trial.flasksUsed !== 1 || g.player.flask.charges !== 2) throw new Error('Mastery flask limit failed');
+      while (g.growthTrial === trial) {
+        const foes = g.enemies.filter(enemy => enemy.growthTrial === trial && !enemy.dead);
+        if (!foes.length) throw new Error('Trial stalled');
+        for (const enemy of foes) {
+          trial.emberTargets.add(enemy);
+          g.hitEnemy(enemy, { dmg: 100000000, crit: false });
+        }
+      }
+      const core = profile.puzzle.bag.find(item => item.id === 'root_quake_core');
+      if (!core) return false;
+      profile.puzzle.presets[0] = [
+        { id: 'slam', uid: 200, x: 1, y: 1, rot: 0 }, { ...core, x: 3, y: 1, rot: 0 },
+        { id: 'bolt', uid: 201, x: 1, y: 4, rot: 0 },
+        { ...profile.puzzle.bag.find(item => item.id === 'ember_inferno_core'), x: 3, y: 3, rot: 0 },
+      ];
+      g.recalc();
+      g.growthEffects = [];
+      const p = g.player;
+      p.slamCharge = 4;
+      p.emberReadyAt = 0;
+      const slam = p.hotbar.find(skill => skill.id === 'slam');
+      const bolt = p.hotbar.find(skill => skill.id === 'bolt');
+      g.execPuzzleSkill('slam', slam.mod);
+      return g.meta.load().growthJourney.slamMastery && g.growthEffects.length === 3 &&
+        p.emberReadyAt > g.time && !bolt.mod.supports.some(s => s.id === 'ember_inferno_core');
+    });
+    assert.equal(rootCore, true);
     assert.deepEqual(errors, []);
     console.log('Ember evolution: level gate, mastery qualification, persisted core, manual-only fire tide and cooldown passed.');
   } finally {

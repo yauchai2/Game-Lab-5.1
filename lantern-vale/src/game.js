@@ -1,4 +1,5 @@
-import { EMBER_CORE, EMBER_MASTERY_TRIAL, canAttemptEmberMastery, emberStage } from './ember_evolution.js';
+import { CLASS_TALENTS, classTalentPoints, readClassTalent, chooseClassTalent } from './class_talents.js';
+import { EMBER_CORE, SLAM_CORE, EMBER_MASTERY_TRIAL, SLAM_MASTERY_TRIAL, canAttemptEmberMastery, emberStage } from './ember_evolution.js';
 import { WEAPON_CUES } from './action_audio.js';
 import { COMBAT_POSES, COMBAT_POSE_LIFETIME } from './combat_feedback.js';
 import { Weather } from './weather.js';
@@ -728,6 +729,7 @@ export class Game {
     }
   }
   openGrowthStation(spot) {
+    if (this.growthTrial?.practice) { this.finishBuildPractice(this.growthTrial); return; }
     if (this.growthTrial) {
       this.ui.toast(`試煉進行中 · 第 ${this.growthTrial.wave + 1} 波`, '#a4d5ff');
       return;
@@ -739,8 +741,13 @@ export class Game {
     const alternate = growthUsesAlternate(profile, job);
     const choices = [];
     const awakened = findSecondClass(profile.secondClass, job);
+    choices.push({ icon: '◎', name: '構築練習', desc: '用固定配置測命中、傷害與法力。', action: 'buildPractice' });
+    if (classTalentPoints(profile)) choices.push({ icon: '✦', name: '職業天賦', desc: '在試煉點分配或重置職業天賦。', action: 'classTalents' });
     if (this.field === 6 && !profile.growthJourney?.emberMastery && canAttemptEmberMastery(profile, awakened)) {
       choices.push({ icon: '✷', name: EMBER_MASTERY_TRIAL.name, desc: EMBER_MASTERY_TRIAL.hint, action: 'emberMastery' });
+    }
+    if (this.field === 6 && !profile.growthJourney?.slamMastery && canAttemptEmberMastery(profile, awakened)) {
+      choices.push({ icon: '✷', name: SLAM_MASTERY_TRIAL.name, desc: SLAM_MASTERY_TRIAL.hint, action: 'slamMastery' });
     }
     if (trial) choices.push({ icon: '旗', name: trial.name, desc: trial.hint, action: 'trial' });
     if (growthFieldCleared(profile, 2)) {
@@ -757,10 +764,12 @@ export class Game {
     this.state = 'boon';
     this.ui.showBoons(this, choices, { heading, onPick: option => {
       this.state = 'play';
-      if (option.action === 'trial' || option.action === 'emberMastery') {
-        const mastery = option.action === 'emberMastery';
+      if (option.action === 'buildPractice') { this.openBuildPractice(spot); return; }
+      if (option.action === 'classTalents') { this.openClassTalents(spot); return; }
+      if (['trial', 'emberMastery', 'slamMastery'].includes(option.action)) {
+        const mastery = option.action !== 'trial' ? option.action : null;
         if (mastery && !canAttemptEmberMastery(profile, findSecondClass(profile.secondClass, this.character.job))) return;
-        this.growthTrial = { ...(mastery ? EMBER_MASTERY_TRIAL : trial), emberTargets: mastery ? new Set() : null, x: spot.x, z: spot.z, heading: this.player.facing, wave: 0 };
+        this.growthTrial = { ...(mastery === 'slamMastery' ? SLAM_MASTERY_TRIAL : mastery ? EMBER_MASTERY_TRIAL : trial), mastery, emberTargets: mastery ? new Set() : null, flasksUsed: 0, x: spot.x, z: spot.z, heading: this.player.facing, wave: 0 };
         this.spawnGrowthWave();
       } else if (option.action === 'switch') {
         profile.growthJourney.loadouts ||= {};
@@ -769,6 +778,82 @@ export class Game {
         this.ui.toast(option.name, '#a4d5ff');
       }
     } });
+  }
+  openBuildPractice(spot) {
+    const choices = [
+      { icon: '◎', name: '單體木樁', desc: '一個固定單體，練習 12 秒。', offsets: [[5, 0]] },
+      { icon: '✦', name: '分散群怪', desc: '六個分散木樁，測試每招能覆蓋幾多個。', offsets: [[4,-3],[4,0],[4,3],[7,-3],[7,0],[7,3]] },
+      { icon: '◈', name: '首領收招', desc: '每四秒只開放第一秒命中。', offsets: [[5, 0]], window: true },
+      { icon: '↩', name: '返回', desc: '返回試煉選單。' },
+    ];
+    this.state = 'boon';
+    this.ui.showBoons(this, choices, { heading: '構築練習', onPick: choice => {
+      this.state = 'play';
+      if (!choice.offsets) { this.openGrowthStation(spot); return; }
+      const time = this.time;
+      const trial = { name: choice.name, practice: true, started: time, window: choice.window,
+        damage: 0, hitTargets: new Set(), manaSpent: 0 };
+      this.growthTrial = trial;
+      const facing = this.player.facing;
+      for (const [forward, side] of choice.offsets) {
+        const x = spot.x + Math.sin(facing) * forward + Math.cos(facing) * side;
+        const z = spot.z + Math.cos(facing) * forward - Math.sin(facing) * side;
+        if (!this.world.isLand(x, z)) continue;
+        const enemy = this.spawnEnemy('slime', { x, z }, false);
+        enemy.growthTrial = trial;
+        enemy.stun = 30;
+      }
+      this.ui.banner(trial.name, '練習 12 秒 · 可隨時回試煉點結算。');
+      this.growthEffects.push({ remaining: 12, release: () => this.finishBuildPractice(trial) });
+    } });
+  }
+  finishBuildPractice(trial) {
+    if (this.growthTrial !== trial) return;
+    this.growthTrial = null;
+    for (const enemy of this.enemies) {
+      if (enemy.growthTrial !== trial || enemy.dead) continue;
+      enemy.dead = true;
+      this.scene.remove(enemy.m.root);
+      disposeObj3D(enemy.m.root);
+    }
+    this.ui.banner(trial.name + ' · 結算', `命中 ${trial.hitTargets.size} 個目標 · 傷害 ${trial.damage} · 法力消耗 ${trial.manaSpent}`);
+  }
+  openClassTalents(spot) {
+    const profile = this.meta.p, job = this.character.job;
+    const awakened = findSecondClass(profile.secondClass, job);
+    const current = readClassTalent(profile, job, awakened);
+    const points = classTalentPoints(profile);
+    const choices = [];
+    if (!current.root) choices.push({ icon: '✦', name: '燈芯扎根', desc: '投入第一點，職業機制充滿時回復少量法力。', action: 'root' });
+    if (current.root && current.rank + 1 < points && current.rank < (awakened ? 4 : 2)) {
+      CLASS_TALENTS[job].forEach(([name, desc], branch) => {
+        if (current.branch === null || current.branch === branch) {
+          choices.push({ icon: '✦', name: name + ' · ' + (current.rank + 1), desc, action: String(branch) });
+        }
+      });
+    }
+    if (current.root) choices.push({ icon: '⟲', name: '免費重置', desc: '退回本職業所有天賦點。', action: 'reset' });
+    choices.push({ icon: '↩', name: '返回', desc: '返回試煉選單。', action: 'back' });
+    this.state = 'boon';
+    this.ui.showBoons(this, choices, {
+      heading: `職業天賦 · 餘下 ${points - Number(current.root) - current.rank} 點`,
+      talentTree: { ...current, limit: awakened ? 4 : 2, branches: CLASS_TALENTS[job] },
+      onPick: choice => {
+        this.state = 'play';
+        if (choice.action === 'back') { this.openGrowthStation(spot); return; }
+        if (chooseClassTalent(profile, job, awakened, choice.action)) {
+          this.player.talentCharge = 0;
+          this.player.talentWard = 0;
+          this.meta.save();
+        }
+        this.openClassTalents(spot);
+      },
+    });
+  }
+  classTalent() {
+    if (this.growthPrototype !== 'progression' || this.dueling) return {};
+    const job = this.character?.job ?? 0, profile = this.meta.p;
+    return readClassTalent(profile, job, findSecondClass(profile.secondClass, job));
   }
   spawnGrowthWave() {
     const trial = this.growthTrial;
@@ -798,14 +883,14 @@ export class Game {
     if (trial.emberTargets) {
       const profile = this.meta.p;
       if (trial.emberTargets.size >= 4 && canAttemptEmberMastery(profile, findSecondClass(profile.secondClass, this.character.job))) {
-        if (!profile.growthJourney.emberMastery) {
-          profile.growthJourney.emberMastery = true;
-          addGemToBag(profile, EMBER_CORE);
+        if (!profile.growthJourney[trial.mastery]) {
+          profile.growthJourney[trial.mastery] = true;
+          addGemToBag(profile, trial.mastery === 'slamMastery' ? SLAM_CORE : EMBER_CORE);
           this.meta.save();
         }
-        this.ui.banner('餘燼精通 · 完成', '把餘燼終局核心貼近餘燼飛彈，手動命中四次可準備火潮。');
+        this.ui.banner(trial.name + ' · 完成', '把專屬終局核心貼近對應技能，手動命中四次可蓄滿。');
       } else {
-        this.ui.banner('餘燼精通 · 未達條件', `餘燼飛彈命中 ${trial.emberTargets.size}/4 名試煉敵人，可以再挑戰。`);
+        this.ui.banner(trial.name + ' · 未達條件', `手動技能命中 ${trial.emberTargets.size}/4 名試煉敵人，可以再挑戰。`);
       }
       return;
     }
@@ -988,6 +1073,7 @@ export class Game {
     for (const e of this.enemies) dropObj(e.m.root);
     if (this.growthMarker) dropObj(this.growthMarker);
     this.growthMarker = this.growthTrial = null;
+    this.player.talentCharge = this.player.talentWard = this.player.partyWard = 0;
     for (const a of [...this.projs, ...this.eprojs, ...this.decals, ...this.slashes, ...this.rings]) dropObj(a.mesh);
     for (const d of this.drops) dropObj(d.g);
     for (const k of this.pickups) dropObj(k.g); this.pickups = [];
@@ -1349,6 +1435,16 @@ export class Game {
   hitEnemy(e, hit, kx = 0, kz = 0, opts = {}) {
     if (e.openingHidden) return;
     if (e.dead) return;
+    if (e.growthTrial?.practice) {
+      if (opts.dungeonBot) return;
+      const practice = e.growthTrial;
+      if (!practice.window || (this.time - practice.started) % 4 < 1) {
+        practice.damage += Math.max(0, Math.round(hit.dmg || 0));
+        practice.hitTargets.add(e);
+        this.ui.dmgNum(e.pos.x, e.pos.y + 1.2, e.pos.z, hit.dmg, hit.crit ? 'crit' : '');
+      }
+      return;
+    }
     const p = this.player;
     e.statuses = e.statuses || { poison: 0, freeze: 0, burn: 0, shock: 0 };
     let mult = 1;
@@ -1808,6 +1904,12 @@ export class Game {
         // 極限閃避：簡約小字＋銀白殘影與雙層流風閃避動畫（取代青藍光環）
         p.perfectDodgeCd = 3.2;
         p.perfectCritT = 1.5;
+        const talent = this.classTalent();
+        if (this.character?.job === 0 && talent.branch === 1 && talent.rank && p.talentCharge > this.time) {
+          p.talentCharge = 0;
+          this.shockRing(p.pos.x, p.pos.z, 2.2 + talent.rank * 0.15, this.rollDamage(0.7), 0xffcc74, 0,
+            { growthSecondary: true, isTrigger: true });
+        }
         this.hitstop = Math.max(this.hitstop || 0, 0.08);
         this.shake = Math.max(this.shake || 0, 0.2);
         if (this.tide) this.tide.ultCharge = Math.min(100, (this.tide.ultCharge || 0) + 12);
@@ -1865,6 +1967,16 @@ export class Game {
     const armorMit = effectiveArmorMitigation((p.stats.armor || 0) + (p.wickFx?.armor || 0));
     const afterArmor = rawDmg * (1 - armorMit);
     dmg = Math.max(1, Math.round(afterArmor * (1 - elemRes / 100)));
+    if (p.partyWard > 0 && p.partyWardUntil > this.time && !this.dueling) {
+      const absorbed = Math.min(dmg - 1, p.partyWard);
+      p.partyWard -= absorbed;
+      dmg -= absorbed;
+    }
+    if (p.talentWard > 0 && p.talentWardUntil > this.time && !this.dueling) {
+      const absorbed = Math.min(dmg - 1, p.talentWard);
+      p.talentWard -= absorbed;
+      dmg -= absorbed;
+    }
     if (this.runStats) this.runStats.dmgMitigated += Math.max(0, Math.round(rawDmg - dmg));
     this.ambushTrial?.playerHit(Math.min(dmg, p.hp), trialSource, trialAttack);
     p.hp -= dmg; p.iframes = 0.35;
@@ -2355,6 +2467,51 @@ export class Game {
       p.classRes = 0;
       p.classBuffT = 6.0;
       const dir = this.aimDir();
+      const talent = this.classTalent();
+      if (talent.root) p.mana = Math.min(p.stats.mana, p.mana + 2);
+      if (talent.rank) {
+        const forward = (mult, radius, color) => this.shockRing(p.pos.x + dir.x * 2, p.pos.z + dir.y * 2,
+          radius, this.rollDamage(mult), color, 0, { growthSecondary: true, isTrigger: true });
+        const rank = talent.rank;
+        if (cls.id === 0) {
+          p.talentWard = Math.round(p.stats.maxHp * (talent.branch === 0 ? 0.04 + rank * 0.018 : 0.025));
+          p.talentWardUntil = this.time + 6;
+          p.talentCharge = talent.branch === 1 ? this.time + 6 : 0;
+          if (talent.branch === 0 && p.talentWard >= 9 && this.party && this.net.shard && !this.growthTrial?.practice) {
+            this.net.send({ t: 'class_ward', zone: this.zone });
+          }
+        } else if (cls.id === 1) {
+          p.talentCharge = this.time + 6;
+        } else if (cls.id === 2) {
+          if (talent.branch === 0) {
+            const x = p.pos.x + dir.x * 2, z = p.pos.z + dir.y * 2;
+            this.spawnGroundZone('magma', x, z, 1.7 + rank * 0.1, 1.7, 0.25, { fire: true });
+          } else forward(1.5 + rank * 0.08, 2.2, 0xff7434);
+        } else if (cls.id === 3) {
+          if (talent.branch === 0) {
+            p.cds.roll = Math.max(0, p.cds.roll - 0.08 * rank);
+            this.heal(p.stats.maxHp * 0.035, true);
+          } else forward(1.15 + rank * 0.09, 2.3, 0xb381fa);
+        } else if (cls.id === 4) {
+          if (talent.branch === 0) {
+            const x = p.pos.x, z = p.pos.z;
+            this.growthEffects.push({ remaining: 0.8, release: () => {
+              if (!this.dueling && Math.hypot(p.pos.x - x, p.pos.z - z) <= 2.8) {
+                this.heal(p.stats.maxHp * (0.055 + rank * 0.012), true);
+              }
+            } });
+            this.vfx?.spawnSummon('lotus_burst', x, p.y, z, { theme: 'lotus' });
+          } else {
+            this.heal(p.stats.maxHp * 0.09, true);
+            forward(0.65 + rank * 0.08, 2.2, 0xffa5c7);
+          }
+        }
+        if (cls.id >= 2) {
+          this.ui.toast(CLASS_TALENTS[cls.id][talent.branch][0], '#ffd185');
+          this.audio.sfx('boon');
+          return;
+        }
+      }
       if (cls.id === 0) {
         this.vfx?.spawnDecal('holy_ring', p.pos.x, p.y, p.pos.z, { theme: 'holy', scaleStart: 1.2, scaleEnd: 4.2, dur: 1.0 });
         this.ui.toast('🛡️ 【堅壁戰意】滿層！展開聖光護盾 · 下招範圍 +30%', '#ffcf4a');
@@ -2412,7 +2569,7 @@ export class Game {
     this.beams.push({ mesh, t: 0.22, max: 0.22 });
   }
   resolveEmberHit(cast, enemy, power) {
-    enemy.growthTrial?.emberTargets?.add(enemy);
+    if (enemy.growthTrial?.mastery === (cast.mastery || 'emberMastery')) enemy.growthTrial.emberTargets?.add(enemy);
     if (cast.firstHit) return;
     cast.firstHit = true;
     const p = this.player;
@@ -2422,6 +2579,7 @@ export class Game {
     }
     if (cast.stage < 2) return;
     const { x, z } = enemy.pos;
+    if (cast.charged && !this.growthTrial?.practice) this.net.send({ t: 'evolution_fx', kind: 'ember', zone: this.zone, x, z });
     const pulses = cast.charged ? [[0.18, 3.0], [0.67, 5.0], [1.1, 6.6]]
       : cast.stage >= 3 ? [[0.18, 2.1], [0.49, 2.8]] : [[0.22, 2.1]];
     for (const [remaining, radius] of pulses) {
@@ -2488,6 +2646,7 @@ export class Game {
       if (!this._noManaT || this.time - this._noManaT > 1) { this.ui.toast('法力不足', '#7fb2ff'); this.ui.status?.noMana(); this._noManaT = this.time; }
       return;
     }
+    if (manaCost && this.growthTrial?.practice) this.growthTrial.manaSpent += manaCost;
     if (manaCost) { p.mana -= manaCost; this.ui.mpVial?.impulse((Math.random() - 0.5) * 1.4, 1.3); }
     // 連續施放 3 次技能觸發「魔力過載／狂暴」：液體瓶劇烈沸騰頂起瓶塞，技能傷害 +25%！
     p.castCombo = (p.castComboT > 0 ? p.castCombo : 0) + 1; p.castComboT = 4.2;
@@ -2500,7 +2659,22 @@ export class Game {
     const pace = this.combatPace();
     p.cds.action = pace.recovery;
     p.skillCds[slotIdx] = skillCooldown(def, mod, pace, p.stats.cdr, p.statuses?.overload > 0);
-    this.execPuzzleSkill(def.id, mod);
+    const talent = this.classTalent();
+    const rangerCharge = this.character?.job === 1 && talent.rank && p.talentCharge > this.time;
+    const moving = p.vel.x * p.vel.x + p.vel.z * p.vel.z >= 1;
+    const aimed = rangerCharge && talent.branch === 1 && !moving;
+    this.execPuzzleSkill(def.id, mod, aimed ? 1 + 0.035 * talent.rank : 1);
+    if (aimed || (rangerCharge && talent.branch === 0 && moving)) {
+      p.talentCharge = 0;
+      if (!aimed) {
+        const dir = this.aimDir(), volleyHits = new Set();
+        for (const angle of [-0.32, 0.32]) {
+          const d = dir.clone().rotateAround(new V2(), angle);
+          this.fireProj(p.pos, d, { speed: 17, life: 0.6, mult: 0.24 + talent.rank * 0.025,
+            color: 0x72e9a1, size: 0.1, volleyHits, noFold: true, isTrigger: true, growthSecondary: true });
+        }
+      }
+    }
     if (mod.echo) {
       const aim = this.aim.clone();
       this.growthEffects.push({ remaining: 0.32, release: () => {
@@ -2520,7 +2694,7 @@ export class Game {
       if ((this.character?.job ?? 0) !== 4) this.gainClassRes(this.character?.job === 0 ? 22 : this.character?.job === 2 ? 34 : 1);
     }
     const vfxTh = mod.vfxTheme || ({ fire: 'fire', frost: 'frost', shock: 'thunder' })[ALL_GEMS[id]?.element] || null;
-    if (!isTrigger && scale === 1) {
+    if (!isTrigger) {
       this.markCombatPose('cast');
       const theme = vfxTh || ['holy', 'wind', 'bluefire', 'death', 'lotus'][this.character?.job ?? 0];
       this.audio.castAccent(theme);
@@ -2574,7 +2748,7 @@ export class Game {
         if (i < 3) this.vfx?.spawnMagicMissile(p.pos.x, p.y, p.pos.z, d.x, d.y, vfxTh || 'fire');
         this.fireProj(p.pos, d, { speed, life: (1.1 + (mod.duration || 0)) * 17 / speed,
           pierce: evolving ? Number(piercing) : mod.pierce || 0, hitRadius: 0.25 * (evolving ? 1 : 1 + mod.area),
-          volleyHits, noFold: true, mult: 1.35 * dmgMul * mpScale, fire: true, color: 0xffb347, size: 0.18,
+          volleyHits, noFold: true, mult: 1.35 * dmgMul * mpScale * (core ? 0.88 : 1), fire: true, color: 0xffb347, size: 0.18,
           chain: evolving ? 0 : (this.has('chain') ? 1 : 0) + mod.chain,
           split: !evolving && !!(mod.split || p.specials.has('splitBolt')), orbit: !evolving && !!mod.orbit,
           slow, leech, emberCast, ...trigOpts });
@@ -2582,11 +2756,49 @@ export class Game {
       p.swing = 1; p.swingT = 0.15;
     } else if (id === 'slam') {
       this.audio.sfx('slam');
-      const R = 3.2 * areaMul * (this.has('quake') ? 1.35 : 1), cx = p.pos.x + dir.x * 1.2, cz = p.pos.z + dir.y * 1.2;
-      this.vfx?.spawnSummon('ground_slam', cx, this.world.gh(cx, cz), cz, dir.x, dir.y, { theme: vfxTh || 'earth' });
-      this.shockRing(cx, cz, R, this.rollDamage(2.2 * dmgMul, mod.fire), mod.fire ? 0xffa050 : 0xffe3a0, 1.1, { slow, leech, ...trigOpts });
-      pullVortex(cx, cz, R);
-      this.puffs.burst(cx, 0.2, cz, 16, { c: [this.biome.rock, this.biome.rockDark, this.biome.dirt], s: 0.25, speed: 5, up: 6, life: 0.8 });
+      const evolving = this.growthPrototype === 'progression' && !this.dueling;
+      const profile = this.meta.p;
+      const stage = evolving ? emberStage(profile, findSecondClass(profile.secondClass, this.character?.job), 'slamMastery') : 0;
+      const core = stage === 4 && mod.supports?.some(support => support.id === SLAM_CORE);
+      const charged = !isTrigger && core && (p.slamCharge || 0) >= 4 && this.time >= (p.emberReadyAt || 0);
+      const radius = evolving ? Math.min(3.2 * areaMul, stage >= 3 ? 4.3 : stage >= 2 ? 3.8 : 3.2)
+        : 3.2 * areaMul * (this.has('quake') ? 1.35 : 1);
+      const x = p.pos.x + dir.x * 1.2, z = p.pos.z + dir.y * 1.2;
+      const hits = new Set();
+      const trial = this.growthTrial;
+      if (!isTrigger && trial?.mastery === 'slamMastery') {
+        for (const enemy of this.enemies) {
+          if (!enemy.dead && enemy.growthTrial === trial && Math.hypot(enemy.pos.x - x, enemy.pos.z - z) < radius + enemy.r) {
+            trial.emberTargets.add(enemy);
+          }
+        }
+      }
+      this.vfx?.spawnSummon('ground_slam', x, this.world.gh(x, z), z, dir.x, dir.y, { theme: vfxTh || 'earth' });
+      this.shockRing(x, z, radius, this.rollDamage(2.2 * dmgMul * (core ? 0.88 : 1), mod.fire), 0xffe3a0, 1.1,
+        { slow, leech, recordHits: hits, ...trigOpts });
+      if (!isTrigger && core && !charged && hits.size && this.time >= (p.emberReadyAt || 0)) {
+        p.slamCharge = Math.min(4, (p.slamCharge || 0) + 1);
+        if (p.slamCharge === 4) this.ui.toast('地裂已蓄滿 · 下一次手動震擊釋放', '#ffe087');
+      }
+      if (charged) {
+        if (!this.growthTrial?.practice) this.net.send({ t: 'evolution_fx', kind: 'slam', zone: this.zone, x, z });
+        p.slamCharge = 0;
+        p.emberReadyAt = this.time + 20;
+        this.ui.toast('根鬚地裂', '#ffe087');
+      }
+      if (!isTrigger && (charged || stage >= 2)) {
+        const pulses = charged ? [[0.32, 6.3], [0.72, 8.0], [1.1, 9.4]]
+          : stage >= 3 ? [[0.42, 4.45]] : [[0.35, 3.9]];
+        for (const [remaining, outer] of pulses) {
+          this.growthEffects.push({ remaining, release: () => {
+            if (this.dueling) return;
+            this.shockRing(x, z, outer, this.rollDamage(dmgMul * 0.42), 0xc2b56d, 0,
+              { excludeHits: hits, recordHits: hits, growthSecondary: true, isTrigger: true });
+          } });
+        }
+      }
+      pullVortex(x, z, radius);
+      this.puffs.burst(x, 0.2, z, 16, { c: [this.biome.rock, this.biome.rockDark, this.biome.dirt], s: 0.25, speed: 5, up: 6, life: 0.8 });
       this.shake = 0.45; p.swing = 1; p.swingT = 0.28;
     } else if (id === 'wisp') {
       this.audio.sfx('wisp');
@@ -2602,6 +2814,18 @@ export class Game {
     } else if (id === 'rain') {
       this.audio.sfx('bolt');
       const tx = this.aim.x, tz = this.aim.z, waves = 2 + mod.multi, R = 2.8 * areaMul;
+      if (mod.rainLane) {
+        const hits = new Set(), radius = 1.45 * Math.min(areaMul, 1.22);
+        for (let step = 0; step < 3; step++) {
+          const distance = step * 2.4 - 1.2;
+          const x = tx + dir.x * distance, z = tz + dir.y * distance;
+          this.addDecal('circle', x, z, radius, 0x8bceff, 0.35 + step * 0.19, null, () => {
+            this.shockRing(x, z, radius, this.rollDamage(1.55 * dmgMul, mod.fire), 0x8bceff, 0,
+              { recordHits: hits, excludeHits: hits, groundedFx: true, slow, leech, ...trigOpts });
+          });
+        }
+        return;
+      }
       this.vfx?.spawnSummon('arrows_rain', tx, this.world.gh(tx, tz), tz, dir.x, dir.y, { theme: vfxTh || 'wind' });
       for (let w = 0; w < waves; w++) {
         this.addDecal('circle', tx + (Math.random() - 0.5) * 1.4, tz + (Math.random() - 0.5) * 1.4, R, mod.fire ? 0xff9a4a : 0x6cb8ff, 0.45 + w * 0.28, null, () => {
@@ -3017,6 +3241,12 @@ export class Game {
   }
   tryFlask() {
     const p = this.player; if (p.flask.charges <= 0 || p.hp >= p.stats.maxHp) return;
+    const trial = this.growthTrial;
+    if (trial?.mastery && trial.flasksUsed >= 1) {
+      this.ui.toast('精通挑戰只可使用一次藥瓶。', '#ffb899');
+      return;
+    }
+    if (trial?.mastery) trial.flasksUsed++;
     this.ambushTrial?.event('flask');
     p.flask.charges--; p.healOver = 1.0; this.audio.sfx('flask');
     p.heroRig?.play('buff', { once: true, force: true });
@@ -3753,6 +3983,33 @@ export class Game {
         && Number.isSafeInteger(line.number) && Number.isSafeInteger(line.count) && Number.isSafeInteger(line.capacity));
       n.shardListing = { ...m, lines };
       this.ui.refreshShardPanel?.();
+    });
+    const inCurrentShard = m => this.zone === m.zone && n.shard?.id === m.shard;
+    n.on('evolution_fx', m => {
+      if (!inCurrentShard(m) || !this.vfx || this.state !== 'play' || !Number.isFinite(m.x) || !Number.isFinite(m.z)) return;
+      const ember = m.kind === 'ember';
+      const pulses = ember ? [[0.18, 3], [0.67, 5], [1.1, 6.6]] : [[0.32, 6.3], [0.72, 8], [1.1, 9.4]];
+      const reduce = !!this.settings.coopVfx;
+      const pending = this.growthEffects.filter(effect => effect.remoteEvolutionFx).length;
+      if (pending >= (reduce ? 2 : 6)) return;
+      for (const [offset, radius] of (reduce ? pulses.slice(-1) : pulses)) {
+        this.growthEffects.push({ remaining: offset, remoteEvolutionFx: true, release: () => {
+          if (!inCurrentShard(m)) return;
+          this.vfx.spawnDecal('shock_ring', m.x, this.world.gh(m.x, m.z) + 0.1, m.z, {
+            theme: ember ? 'fire' : 'earth', scaleStart: 0.8, scaleEnd: radius, dur: 0.32,
+          });
+        } });
+      }
+    });
+    n.on('class_ward', m => {
+      if (!inCurrentShard(m) || this.dueling) return;
+      this.player.partyWard = 8;
+      this.player.partyWardUntil = this.time + 6;
+      this.ui.toast('獲得隊友護盾 · 8 點', '#ffd185');
+    });
+    n.on('class_ward_sent', m => {
+      if (!inCurrentShard(m) || this.player.talentWardUntil <= this.time) return;
+      this.player.talentWard = Math.max(0, this.player.talentWard - 8);
     });
     n.on('tide_sync', m => {
       if (n.zoneShards && (m.shard !== n.shard?.id || m.zone !== this.zone)) return;
@@ -4581,6 +4838,14 @@ export class Game {
         if (e._lodTick !== 0) continue;
         dt = Math.min(0.16, dt * 4);
       }
+      const practice = e.growthTrial;
+      if (practice?.practice && practice.window) {
+        const open = (this.time - practice.started) % 4 < 1;
+        if (e.practiceOpen !== open) {
+          e.practiceOpen = open;
+          this.ui.dmgNum(e.pos.x, e.pos.y + 1.6, e.pos.z, open ? '收招 · 可命中' : '格擋', open ? 'dodge' : 'comic');
+        }
+      }
       e.t += dt; e.flash = Math.max(0, e.flash - dt); e.stun = Math.max(0, e.stun - dt); e.hitCd = Math.max(0, e.hitCd - dt);
       e.slow = Math.max(0, e.slow - dt); e.vuln = Math.max(0, (e.vuln || 0) - dt);
       e.blinded = Math.max(0, (e.blinded || 0) - dt); e._slipCd = Math.max(0, (e._slipCd || 0) - dt);
@@ -5330,7 +5595,7 @@ export class Game {
             this.fx.burst(pr.mesh.position.x, pr.mesh.position.y, pr.mesh.position.z, 5, { c: [0x6ae8ff, 0xffffff], s: 0.1, speed: 3, up: 1.5, life: 0.28 });
             if (!this._proxHintT || this.time - this._proxHintT > 5) { this._proxHintT = this.time; this.ui.toast('🛡️ 外環風障偏折遠程投射！請貼近 4.5m 內破陣', '#6ae8ff'); }
           }
-          if (pr.emberCast) this.resolveEmberHit(pr.emberCast, e, pr.mult);
+          if (pr.emberCast) this.resolveEmberHit(pr.emberCast, e, pr.mult * shieldFactor);
           this.hitEnemy(e, this.rollDamage(pr.mult * shieldFactor, pr.fire, { allowOpeningCrit }), n.x * 3, n.y * 3, { hitPos: pr.mesh.position, hitstop: 0.02, slow: pr.slow, stun: pr.stun, leech: pr.leech, poison: pr.poison, shock: pr.shock, aerial: !!pr.airShot, triggerOnHit: pr.triggerOnHit, triggerOnCrit: pr.triggerOnCrit, openingFrost: pr.openingFrost, openingLeech: pr.openingLeech, isTrigger: pr.isTrigger, growthSecondary: pr.growthSecondary });
           if (pr.split) {
             for (const turn of [-0.62, 0, 0.62]) {

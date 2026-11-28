@@ -1,4 +1,4 @@
-import { EMBER_CORE } from './ember_evolution.js';
+import { EMBER_CORE, SLAM_CORE, EVOLUTION_CORES } from './ember_evolution.js';
 import { NEW_ACTIVE_GEMS, NEW_SUPPORT_GEMS } from './gem_catalog.js';
 
 // 原創職業系統與 6×6 技能拼圖（聚方塊相鄰連動，A Short Hike 奶油像素風格）
@@ -117,6 +117,13 @@ export const ACTIVE_GEMS = {
 };
 
 export const SUPPORT_GEMS = {
+  [SLAM_CORE]: { id: SLAM_CORE, type: 'support', name: '根鬚終局核心', short: '地裂', icon: '✷', color: '#77a456',
+    shape: [[0, 0], [1, 0], [1, 1], [2, 1]], level: 30, earned: true,
+    desc: '只連結根鬚震擊。手動命中四次蓄滿地裂，與其他終局核心共用 20 秒間隔。' },
+  rain_lane: { id: 'rain_lane', type: 'support', name: '箭雨列陣', short: '列陣', icon: '↦', color: '#8ec2ea', level: 8, price: 26,
+    shape: [[0, 0], [0, 1], [1, 1]], desc: '改為沿瞄準方向先後落下三段窄箭雨。每個目標只命中一次。' },
+  broad_link: { id: 'broad_link', type: 'support', name: '雙技擴域', short: '雙域', icon: '◈', color: '#7ebd9c', level: 9, price: 26,
+    shape: [[0, 0], [1, 0], [1, 1], [2, 1]], desc: '可同時擴大相鄰的兩招範圍技能，每招範圍 +16%，耗魔 +8%。' },
   [EMBER_CORE]: { id: EMBER_CORE, type: 'support', name: '餘燼終局核心', short: '火潮', icon: '✷', color: '#e25528',
     shape: [[0, 0], [1, 0], [0, 1], [0, 2]], level: 30, earned: true,
     desc: '只連結餘燼飛彈。手動命中四次充滿火潮，第五次手動施放釋放。火潮間隔至少 20 秒。' },
@@ -175,6 +182,9 @@ const LEGACY_TAGS = {
 
 function supportsSkill(support, skill) {
   if (support.id === EMBER_CORE) return skill.id === 'bolt';
+  if (support.id === SLAM_CORE) return skill.id === 'slam';
+  if (support.id === 'rain_lane') return skill.id === 'rain';
+  if (support.id === 'broad_link') return (skill.tags || LEGACY_TAGS[skill.id] || []).includes('area');
   const tags = skill.tags || LEGACY_TAGS[skill.id] || [];
   if (support.tag === 'impact') return skill.family === 'impact' || skill.family === 'pulse' || skill.family === 'trail';
   if (support.tag) return tags.includes(support.tag);
@@ -285,17 +295,26 @@ export function canPlace(placed, gemId, x, y, rot, level = 1, ignoreUid = null) 
 
 // 計算棋盤上所有主動技能與相鄰（上下左右邊相連）的輔助寶石加成與邏輯電路觸發鏈
 // Phase M4B：支援 partyGemId（小隊羈絆插座，自動共享給全盤主動技能與同隊隊友）
+function supportsSkillForItem(entry, skill) {
+  return !!SUPPORT_GEMS[entry?.id] && supportsSkill(SUPPORT_GEMS[entry.id], skill);
+}
+
 export function computeBoard(placed, partyGemId = null, level = 30) {
   const actives = new Set();
+  let coreEquipped = false;
   placed = placed.filter(item => {
     if (gemLevel(item.id) > level) return false;
+    if (EVOLUTION_CORES.has(item.id)) {
+      if (coreEquipped) return false;
+      coreEquipped = true;
+    }
     if (!ACTIVE_GEMS[item.id]) return true;
     if (actives.size >= activeLimit(level) || actives.has(item.id)) return false;
     actives.add(item.id);
     return true;
   });
   const occ = occupiedMap(placed);
-  const partySup = SUPPORT_GEMS[partyGemId] && partyGemId !== EMBER_CORE && !TRIGGER_IDS.has(partyGemId) && gemLevel(partyGemId) <= level
+  const partySup = SUPPORT_GEMS[partyGemId] && !EVOLUTION_CORES.has(partyGemId) && !TRIGGER_IDS.has(partyGemId) && gemLevel(partyGemId) <= level
     ? SUPPORT_GEMS[partyGemId] : null;
   const supportToActives = new Map();
   for (const item of placed) {
@@ -319,24 +338,42 @@ export function computeBoard(placed, partyGemId = null, level = 30) {
     const linkedDefs = [];
     const triggerOnHit = new Set();
     const triggerOnCrit = new Set();
+    const adjacent = new Map();
     for (const [dx, dy] of rotateCells(def.shape, item.rot)) {
       const cx = item.x + dx, cy = item.y + dy;
       for (const [nx, ny] of [[cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]]) {
-        const nb = occ.get(nx + ',' + ny);
-        const support = SUPPORT_GEMS[nb?.id];
-        if (!support || !supportsSkill(support, def)) continue;
-        const family = support.family || support.id;
-        if (linkedFamilies.has(family) || linkedDefs.length >= supportLimit(level)) continue;
-        if (TRIGGER_IDS.has(nb.id)) {
-          const receivers = (supportToActives.get(nb.uid) || []).filter(otherId => otherId !== def.id);
-          if (!receivers.length) continue;
-          const targets = nb.id === 'coh' ? triggerOnHit : triggerOnCrit;
-          for (const target of receivers) targets.add(target);
-        }
-        linkedFamilies.add(family);
-        linkedUids.push(nb.uid);
-        linkedDefs.push(support);
+        const neighbor = occ.get(nx + ',' + ny);
+        if (supportsSkillForItem(neighbor, def)) adjacent.set(neighbor.uid, neighbor);
       }
+    }
+    const priority = Array.isArray(item.supportPriority) ? item.supportPriority : [];
+    const order = new Map(priority.map((uid, index) => [uid, index]));
+    const candidates = [...adjacent.values()].sort((a, b) =>
+      (order.get(a.uid) ?? Infinity) - (order.get(b.uid) ?? Infinity));
+    const bridgeTargets = new Set();
+    for (const neighbor of candidates) {
+      if (!TRIGGER_IDS.has(neighbor.id)) continue;
+      for (const id of supportToActives.get(neighbor.uid) || []) if (id !== def.id) bridgeTargets.add(id);
+    }
+    for (const neighbor of candidates) {
+      const support = SUPPORT_GEMS[neighbor.id];
+      if (neighbor.id === 'broad_link') {
+        const connected = supportToActives.get(neighbor.uid) || [];
+        const strongest = placed.filter(piece => connected.includes(piece.id) && supportsSkill(support, ACTIVE_GEMS[piece.id])).slice(0, 2);
+        if (!strongest.some(piece => piece.uid === item.uid)) continue;
+      }
+      const family = support.family || support.id;
+      if (linkedFamilies.has(family) || linkedDefs.length >= supportLimit(level)) continue;
+      if (TRIGGER_IDS.has(neighbor.id)) {
+        const receivers = (supportToActives.get(neighbor.uid) || []).filter(id =>
+          id !== def.id && (!item.triggerTarget || id === item.triggerTarget));
+        if (!receivers.length) continue;
+        const output = neighbor.id === 'coh' ? triggerOnHit : triggerOnCrit;
+        for (const id of receivers) output.add(id);
+      }
+      linkedFamilies.add(family);
+      linkedUids.push(neighbor.uid);
+      linkedDefs.push(support);
     }
     const shared = partySup && linkedDefs.length < supportLimit(level) &&
       !linkedFamilies.has(partySup.family || partySup.id) && supportsSkill(partySup, def) ? partySup : null;
@@ -369,6 +406,8 @@ export function computeBoard(placed, partyGemId = null, level = 30) {
       if (s.id === 'storm') { mod.shock += 4.5; mod.chain += 1; }
       if (s.id === 'split') { mod.split = true; mod.dmgMult = +(mod.dmgMult - 0.10).toFixed(2); }
       if (s.id === 'orbit') mod.orbit = true;
+      if (s.id === 'rain_lane') mod.rainLane = true;
+      if (s.id === 'broad_link') { mod.area += 0.16; mod.mana += 0.08; }
       if (s.id === 'bluefire') { mod.bluefire = true; mod.dmgMult = +(mod.dmgMult + 0.05).toFixed(2); mod.fire = true; }
       if (s.id === 'vortex') { mod.vortex = true; mod.area += 0.15; }
     }
@@ -389,7 +428,7 @@ export function computeBoard(placed, partyGemId = null, level = 30) {
     for (const tid of mod.triggerOnHit) chainTags.push(`命中觸發→${ACTIVE_GEMS[tid]?.short || tid}`);
     for (const tid of mod.triggerOnCrit) chainTags.push(`暴擊觸發→${ACTIVE_GEMS[tid]?.short || tid}`);
     mod.circuitLabel = chainTags.length ? `${def.icon}${def.short} [${chainTags.join(' + ')}]` : `${def.icon}${def.short}`;
-    skills.push({ uid: item.uid, id: def.id, def, mod });
+    skills.push({ uid: item.uid, id: def.id, def, mod, adjacent: [...adjacent.values()], bridgeTargets: [...bridgeTargets] });
   }
   return skills;
 }
@@ -448,7 +487,14 @@ export function applySupportFit(profile, uid) {
 }
 
 // 一鍵推薦構築：自動將現有棋盤＋背包寶石以最高邏輯電路與輔助相鄰度排入解鎖格
-export function autoBuildBoard(placed = [], bag = [], level = 1) {
+const BUILD_PRIORITIES = {
+  routine: ['split', 'orbit', 'multi', 'chain', 'storm', 'ember', 'echo', 'area', 'vamp', 'haste', 'frost', 'leech'],
+  crowd: ['area', 'multi', 'split', 'chain', 'orbit', 'vortex', 'storm'],
+  boss: ['ember', 'echo', 'haste', 'bluefire', 'vamp'],
+  survival: ['leech', 'vamp', 'frost', 'haste', 'area'],
+};
+
+export function autoBuildBoard(placed = [], bag = [], level = 1, purpose = 'routine') {
   const pool = [...new Map([...placed, ...bag].map(item => [item.uid, item])).values()];
   const seenIds = new Set();
   const candidates = pool.filter(gem => {
@@ -456,21 +502,23 @@ export function autoBuildBoard(placed = [], bag = [], level = 1) {
     seenIds.add(gem.id);
     return true;
   });
-  const SUP_PRIO = ['split', 'orbit', 'multi', 'chain', 'storm', 'ember', 'echo', 'area', 'vamp', 'haste', 'frost', 'leech'];
+  const SUP_PRIO = BUILD_PRIORITIES[purpose] || BUILD_PRIORITIES.routine;
   const actives = candidates.filter(gem => ACTIVE_GEMS[gem.id]);
   const bridges = candidates.filter(g => TRIGGER_IDS.has(g.id)).slice(0, actives.length >= 2 ? 1 : 0);
   const supports = candidates.filter(g => SUPPORT_GEMS[g.id] && !TRIGGER_IDS.has(g.id))
     .sort((a, b) => (SUP_PRIO.indexOf(a.id) === -1 ? 99 : SUP_PRIO.indexOf(a.id)) - (SUP_PRIO.indexOf(b.id) === -1 ? 99 : SUP_PRIO.indexOf(b.id)));
-  const nextPlaced = [];
-  const used = new Set();
+  const nextPlaced = placed.filter(item => item.keepPosition).map(item => ({ ...item }));
+  const used = new Set(nextPlaced.map(item => item.uid));
 
   const placeBest = (gem, scoreFn) => {
+    if (used.has(gem.uid)) return true;
+    if (EVOLUTION_CORES.has(gem.id) && nextPlaced.some(piece => EVOLUTION_CORES.has(piece.id))) return false;
     let best = null, bestScore = -Infinity;
     for (let rot = 0; rot < 4; rot++) {
       for (let y = 0; y < GRID; y++) for (let x = 0; x < GRID; x++) {
         if (!canPlace(nextPlaced, gem.id, x, y, rot, level)) continue;
         const sc = scoreFn(x, y, rot);
-        if (sc > bestScore) { bestScore = sc; best = { uid: gem.uid, id: gem.id, x, y, rot }; }
+        if (sc > bestScore) { bestScore = sc; best = { ...gem, x, y, rot }; }
       }
     }
     if (best && Number.isFinite(bestScore)) { nextPlaced.push(best); used.add(gem.uid); return true; }
@@ -499,7 +547,7 @@ export function autoBuildBoard(placed = [], bag = [], level = 1) {
     placeBest(act, (x, y, rot) => adjCount(act.id, x, y, rot, nb => TRIGGER_IDS.has(nb.id)) * 15 - Math.hypot(x - 2, y - 2));
   }
   const activeLinks = computeBoard(nextPlaced, null, level);
-  if (bridges[0] && !activeLinks.some(skill => skill.mod.supportUids.includes(bridges[0].uid))) {
+  if (bridges[0] && !bridges[0].keepPosition && !activeLinks.some(skill => skill.mod.supportUids.includes(bridges[0].uid))) {
     const index = nextPlaced.findIndex(item => item.uid === bridges[0].uid);
     if (index >= 0) nextPlaced.splice(index, 1);
     used.delete(bridges[0].uid);
@@ -519,7 +567,7 @@ export function autoBuildBoard(placed = [], bag = [], level = 1) {
       if (skill.mod.supports.length >= supportLimit(level)) occupiedSlots.delete(skill.uid);
     }
   }
-  const leftover = pool.filter(g => !used.has(g.uid)).map(({ uid, id, rot }) => ({ uid, id, rot: rot || 0 }));
+  const leftover = pool.filter(g => !used.has(g.uid)).map(({ x, y, keepPosition, ...item }) => ({ ...item, rot: item.rot || 0 }));
   return { placed: nextPlaced, bag: leftover };
 }
 
@@ -607,11 +655,12 @@ export function bindPuzzleUI(g) {
 
   function allowedOnBoard(item, x, y) {
     return gemLevel(item.id) <= level() &&
+      (!EVOLUTION_CORES.has(item.id) || !board().some(piece => piece.uid !== item.uid && EVOLUTION_CORES.has(piece.id))) &&
       canPlace(board(), item.id, x, y, item.rot, level(), item.source === 'board' ? item.uid : null);
   }
 
   function allowedInParty(item) {
-    return !!SUPPORT_GEMS[item.id] && item.id !== EMBER_CORE && !TRIGGER_IDS.has(item.id) && gemLevel(item.id) <= level();
+    return !!SUPPORT_GEMS[item.id] && !EVOLUTION_CORES.has(item.id) && !TRIGGER_IDS.has(item.id) && gemLevel(item.id) <= level();
   }
 
   function preview(destination) {
@@ -627,7 +676,10 @@ export function bindPuzzleUI(g) {
       for (const [dx, dy] of rotateCells(ALL_GEMS[selected.id].shape, selected.rot)) {
         cells.get(`${x + dx},${y + dy}`)?.classList.add(works ? 'preview-ok' : 'preview-bad');
       }
-      if (pointer?.dragging) report(works ? '鬆開放入棋盤' : '此處放不下，鬆開會回到原位', works ? 'ok' : 'error');
+      if (pointer?.dragging) {
+        const previewText = works ? describeBoardDrop(selected, x, y) : '此處放不下，鬆開會回到原位';
+        report(previewText, works ? 'ok' : 'error');
+      }
     } else if (kind === 'party') {
       const works = allowedInParty(selected);
       party.classList.add(works ? 'preview-ok' : 'preview-bad');
@@ -635,6 +687,29 @@ export function bindPuzzleUI(g) {
     } else if (pointer?.dragging) {
       report('鬆開放回背包');
     }
+  }
+
+  function describeBoardDrop(item, x, y) {
+    const current = board();
+    const partyGem = item.source === 'party' ? null : puzzle().partyGem?.id;
+    const previous = current.find(piece => piece.uid === item.uid);
+    const moved = { ...previous, uid: item.uid, id: item.id, x, y, rot: item.rot };
+    const placement = previous ? current.map(piece => piece === previous ? moved : piece) : [...current, moved];
+    const before = new Map(computeBoard(current, puzzle().partyGem?.id, level()).map(skill => [skill.uid, skill]));
+    const changes = [];
+    for (const skill of computeBoard(placement, partyGem, level())) {
+      const old = before.get(skill.uid);
+      const oldIds = old?.mod.supports.map(support => support.id) || [];
+      const added = skill.mod.supports.filter(support => !oldIds.includes(support.id)).map(support => support.name);
+      const removed = old?.mod.supports.filter(support => !skill.mod.supports.some(next => next.id === support.id)).map(support => support.name) || [];
+      const mana = skillManaCost(skill.def, skill.mod);
+      const oldMana = old ? skillManaCost(old.def, old.mod) : mana;
+      if (added.length || removed.length || mana !== oldMana) {
+        changes.push([skill.def.short, added.length && `連上 ${added.join('、')}`, removed.length && `移除 ${removed.join('、')}`,
+          mana !== oldMana && `法力 ${oldMana}→${mana}`].filter(Boolean).join(' · '));
+      }
+    }
+    return changes.length ? changes.join(' ／ ') : '鬆開放入棋盤';
   }
 
   function select(origin, grabX = 0, grabY = 0) {
@@ -679,15 +754,16 @@ export function bindPuzzleUI(g) {
     // Commit only after the entire piece has a valid destination. Moving inside
     // the board keeps its array position because that is also the hotbar order.
     if (source === 'board' && kind === 'board') {
-      list[index] = { uid, id, x, y, rot };
+      list[index] = { ...list[index], x, y, rot };
     } else {
+      const moved = source === 'party' ? pz.partyGem : list[index];
       if (source === 'party') pz.partyGem = null;
       else list.splice(index, 1);
       if (kind === 'party') {
         if (pz.partyGem) pz.bag.push({ ...pz.partyGem, rot: pz.partyGem.rot || 0 });
         pz.partyGem = { uid, id, rot };
       } else if (kind === 'board') {
-        board().push({ uid, id, x, y, rot });
+        board().push({ ...moved, uid, id, x, y, rot });
       } else {
         pz.bag.push({ uid, id, rot });
       }
@@ -832,6 +908,53 @@ export function bindPuzzleUI(g) {
     event.preventDefault();
   }, true);
 
+  const settings = modal.querySelector('#pzBuildSettings');
+  function renderBuildSettings() {
+    const placed = board();
+    const selectPiece = settings.querySelector('#pzTunePiece');
+    const uid = Number(selectPiece.value);
+    selectPiece.replaceChildren(new Option('選擇棋盤上的寶石', ''));
+    for (const piece of placed) selectPiece.add(new Option(ALL_GEMS[piece.id].name, piece.uid));
+    const item = placed.find(piece => piece.uid === uid);
+    if (item) selectPiece.value = item.uid;
+    const controls = settings.querySelector('#pzTuneControls');
+    controls.replaceChildren();
+    if (!item) return;
+    const save = () => { g.meta.save(); g.recalc(); render(); };
+    const pin = document.createElement('button');
+    pin.type = 'button';
+    pin.className = 'btn small';
+    pin.textContent = item.keepPosition ? '解除位置鎖定' : '鎖定位置';
+    pin.onclick = () => { item.keepPosition = !item.keepPosition; save(); };
+    controls.append(pin);
+    const skill = computeBoard(placed, puzzle().partyGem?.id, level()).find(skill => skill.uid === item.uid);
+    if (!skill) return;
+    for (const support of skill.adjacent) {
+      const pinned = item.supportPriority?.includes(support.uid);
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'btn small';
+      button.textContent = `${pinned ? '解除優先' : '優先'} ${ALL_GEMS[support.id].name}`;
+      button.setAttribute('aria-pressed', String(!!pinned));
+      button.onclick = () => {
+        item.supportPriority = (item.supportPriority || []).filter(id => id !== support.uid);
+        if (!pinned) item.supportPriority.unshift(support.uid);
+        save();
+      };
+      controls.append(button);
+    }
+    if (skill.bridgeTargets.length) {
+      const target = document.createElement('select');
+      target.setAttribute('aria-label', '觸發方向');
+      target.add(new Option('觸發至第一個可用技能', ''));
+      for (const id of skill.bridgeTargets) target.add(new Option(`${skill.def.short} → ${ALL_GEMS[id].short}`, id));
+      target.value = skill.bridgeTargets.includes(item.triggerTarget) ? item.triggerTarget : '';
+      target.onchange = () => { item.triggerTarget = target.value; save(); };
+      controls.append(target);
+    }
+  }
+  settings.querySelector('#pzTunePiece').onchange = renderBuildSettings;
+
   function render() {
     const pz = puzzle();
     const placed = board();
@@ -855,7 +978,7 @@ export function bindPuzzleUI(g) {
     modal.querySelector('.pz-coins').textContent = `🪙 ${g.meta.p.coins}`;
 
     modal.querySelector('.pz-equipped').textContent = skills.length
-      ? skills.map((skill, slot) => `${skillKeys[slot]} ${skill.def.short}`).join('　·　')
+      ? skills.map((skill, slot) => `${skillKeys[slot]} ${skill.def.short}${skill.mod.triggerOnHit.length || skill.mod.triggerOnCrit.length ? ' → ' + [...new Set([...skill.mod.triggerOnHit, ...skill.mod.triggerOnCrit])].map(id => ACTIVE_GEMS[id].short).join('／') : ''}`).join('　·　')
       : '尚未配置主動技能';
 
     presets.replaceChildren();
@@ -985,6 +1108,7 @@ export function bindPuzzleUI(g) {
     bag.hidden = tab !== 'bag';
     shop.hidden = tab !== 'shop';
     renderInventory();
+    renderBuildSettings();
     pack.disabled = !placed.length && !pz.bag.length;
     clear.disabled = !placed.length;
   }
@@ -1123,10 +1247,8 @@ export function bindPuzzleUI(g) {
     report('棋盤上的寶石已全部放回背包。', 'ok');
     pack.focus({ preventScroll: true });
   };
-  pack.onclick = () => {
-    cancel();
+  function applyPack(result) {
     const pz = puzzle();
-    const result = autoBuildBoard(board(), pz.bag, level());
     pz.presets[pz.activePreset] = result.placed;
     pz.bag = result.bag;
     g.meta.save();
@@ -1136,6 +1258,30 @@ export function bindPuzzleUI(g) {
     const skills = computeBoard(result.placed, pz.partyGem?.id, level());
     const links = skills.reduce((sum, skill) => sum + skill.mod.supports.length, 0);
     report(skills.length ? `已排入 ${skills.length} 招，建立 ${links} 個輔助連結` : '背包沒有目前可用的主動寶石。', skills.length ? 'ok' : '');
+  }
+  pack.onclick = () => {
+    cancel();
+    const pz = puzzle();
+    const purpose = settings.querySelector('#pzBuildPurpose').value;
+    const result = autoBuildBoard(board(), pz.bag, level(), purpose);
+    if (purpose === 'routine') { applyPack(result); return; }
+    const confirm = settings.querySelector('#pzApplyPlan');
+    const snapshot = JSON.stringify([board(), pz.bag, pz.partyGem, level()]);
+    const activePreset = pz.activePreset;
+    const skills = computeBoard(result.placed, pz.partyGem?.id, level());
+    const summary = skills.map(skill => `${skill.def.short} · ${skill.mod.supports.map(s => s.short).join('、') || '無輔助'}`).join(' ／ ');
+    settings.open = true;
+    confirm.hidden = false;
+    report(summary || '目前沒有可用寶石。');
+    confirm.onclick = () => {
+      confirm.hidden = true;
+      if (puzzle() !== pz || pz.activePreset !== activePreset ||
+        snapshot !== JSON.stringify([board(), pz.bag, pz.partyGem, level()])) {
+        report('棋盤已更新，請重新預覽。', 'error');
+        return;
+      }
+      applyPack(result);
+    };
   };
 
   modal.querySelectorAll('[data-pztab]').forEach(button => button.onclick = () => {
