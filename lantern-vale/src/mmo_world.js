@@ -748,11 +748,12 @@ export function tickSimAdventurers(g, dt) {
   const cfg = getSimConfig(g);
   const nearSq = 32 * 32;
   const midSq = 55 * 55;
-  const wbActive = !!(g.worldBoss?.active && g.worldBoss.enemy && !g.worldBoss.enemy.dead);
   const evActive = !!(g.dynEvent?.active && g.dynEvent.pos);
 
   for (let idx = 0; idx < list.length; idx++) {
     const a = list[idx];
+    const boss = g.worldBoss?.active ? g.worldBoss.enemy : null;
+    const wbActive = !!(boss && !boss.dead && boss.pos);
     const pdx = p ? (p.pos.x - a.x) : 0;
     const pdz = p ? (p.pos.z - a.z) : 0;
     const distSq = pdx * pdx + pdz * pdz;
@@ -767,9 +768,9 @@ export function tickSimAdventurers(g, dt) {
       if (a._bgT < 0.5) continue;
       const bdt = a._bgT;
       a._bgT = 0;
-      if (wbActive && Math.hypot(g.worldBoss.enemy.pos.x - a.x, g.worldBoss.enemy.pos.z - a.z) < 85) {
-        a.tx = g.worldBoss.enemy.pos.x + (Math.random() - 0.5) * 6;
-        a.tz = g.worldBoss.enemy.pos.z + (Math.random() - 0.5) * 6;
+      if (wbActive && Math.hypot(boss.pos.x - a.x, boss.pos.z - a.z) < 85) {
+        a.tx = boss.pos.x + (Math.random() - 0.5) * 6;
+        a.tz = boss.pos.z + (Math.random() - 0.5) * 6;
         a.activity = '🐉 趕往討伐世界王';
       }
       const dx = a.tx - a.x, dz = a.tz - a.z, d = Math.hypot(dx, dz);
@@ -810,8 +811,8 @@ export function tickSimAdventurers(g, dt) {
 
     let target = null;
     if (g.field && g.enemies?.length && cfg.mode !== 'gather') {
-      if (wbActive && (cfg.mode === 'boss' || Math.hypot(g.worldBoss.enemy.pos.x - a.x, g.worldBoss.enemy.pos.z - a.z) < 85)) {
-        target = g.worldBoss.enemy;
+      if (wbActive && (cfg.mode === 'boss' || Math.hypot(boss.pos.x - a.x, boss.pos.z - a.z) < 85)) {
+        target = boss;
         a.activity = '🐉 圍毆世界王中';
       } else if (a.following || a.task?.id === 'hunt' || a.task?.id === 'elite_squad' || cfg.mode === 'boss') {
         let bestD = a.following ? 14 : 20;
