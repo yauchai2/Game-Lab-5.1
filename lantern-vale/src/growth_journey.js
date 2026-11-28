@@ -64,11 +64,18 @@ export function mergeGrowthJourney(profile, saved) {
   if (!saved?.growthJourney) return;
   const local = profile.growthJourney ||= {};
   if (saved.growthJourney.emberMastery === true) local.emberMastery = true;
+  if (saved.growthJourney.slamMastery === true) local.slamMastery = true;
   for (const field of [1, 2, 3, 4, 5, 6]) {
     if (growthFieldCleared(saved, field)) local.clears = { ...local.clears, [field]: true };
     const count = saved.growthJourney.repeats?.[field];
     if (Number.isSafeInteger(count) && count > (local.repeats?.[field] || 0)) {
       local.repeats = { ...local.repeats, [field]: count };
+    }
+  }
+  for (const job of [0, 1, 2, 3, 4]) {
+    const talent = saved.growthJourney.classTalents?.[job];
+    if (talent && talent.changed > (local.classTalents?.[job]?.changed || 0)) {
+      (local.classTalents ||= {})[job] = { ...talent };
     }
   }
   for (const job of [0, 1]) {

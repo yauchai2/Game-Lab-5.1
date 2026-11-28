@@ -8,6 +8,13 @@ const { chromium } = require('playwright');
   await page.click('#btnHeroNext');
   await page.click('#btnStart');
   await page.waitForFunction(() => __game.state === 'play' && __game.zone === 'town');
+  await page.waitForFunction(() => __game.player.heroRig?.animator?.clips.has('RunBack'));
+  const locomotion = await page.evaluate(() => {
+    const { clips } = __game.player.heroRig.animator;
+    return ['Walk', 'Run', 'RunBack', 'RunL', 'RunR'].map(name =>
+      clips.get(name)?.tracks.some(track => track.name.startsWith('Leg') && track.times.length > 1));
+  });
+  assert.deepEqual(locomotion, [true, true, true, true, true], 'five retargeted loops animate the hero legs');
   const st = () => page.evaluate(() => { const p=__game.player; return { roll: +p.roll.toFixed(2), air: p.air, y: +p.y.toFixed(2) }; });
   await page.evaluate(() => { __game.fade=0; });
   await page.keyboard.press('Space');
@@ -16,7 +23,7 @@ const { chromium } = require('playwright');
   await page.waitForTimeout(1200);
   await page.keyboard.press('Space');
   await page.keyboard.down('Space');
-  await page.waitForFunction(() => __game.player.air && __game.player.y > 0, null, { timeout: 3000 });
+  await page.waitForFunction(() => __game.player.air && __game.player.y > 0.08, null, { timeout: 3000 });
   const double = await st(); console.log('double', double);
   assert.ok(double.air && double.y > 0 && !double.roll, 'a double Space press jumps');
   await page.waitForFunction(() => __game.player.gliding && __game.audio.glideActive, null, { timeout: 6000 });

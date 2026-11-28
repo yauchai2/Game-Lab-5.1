@@ -143,6 +143,14 @@ dialog{font-family:var(--font-ui)}
 /* ---------- modals ---------- */
 .modal{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:rgba(26,20,38,.58);backdrop-filter:blur(2.5px);pointer-events:auto}
 .modal h2{margin:0;color:var(--paper);font-weight:400;font-size:clamp(28px,4vw,40px);text-shadow:0 4px 0 var(--ink)}
+#classTalentTree{text-align:center;background:#3e2829;color:#ffe7b6;border:1px solid #956440;padding:8px 11px;margin:0 12px 9px;max-width:min(560px,90vw)}
+.talent-paths{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:7px}
+.talent-paths>div{border-top:1px solid #a47852;padding:4px}
+.talent-paths :is(strong,span,small){display:block}
+.talent-paths i{font-style:normal;display:inline-block;padding:3px;color:#e0bd90}
+.talent-paths i.lit{color:#ffe288}
+.talent-paths i.locked{opacity:.52}
+.talent-paths small{line-height:1.25}
 .cards{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;padding:0 16px}
 .card{position:relative;font-family:inherit;width:210px;min-height:230px;padding:16px;background:var(--paper);border:3px solid var(--ink);border-radius:12px;box-shadow:0 5px 0 var(--ink);cursor:pointer;text-align:center;color:var(--ink)}
 .card:hover{transform:translateY(-6px);box-shadow:0 11px 0 var(--ink);background:#fffaf0}
@@ -2176,6 +2184,8 @@ body:has(#title:not(.hide)) #devPill{top:auto;bottom:10px;left:10px;transform:no
 .dungeon-lobby-fill input{width:20px;height:20px;accent-color:var(--cp-ok)}
 .dungeon-lobby-actions{display:flex;flex-wrap:wrap;gap:8px}
 
+#pzBuildSettings{margin-top:10px;font-size:13px;color:#4a2c1e}
+#pzTuneControls{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
 /* Skill puzzle workbench. The board uses real grid geometry for touch and pointer placement. */
 #puzzleM .pzp{
   --pz-cell:46px;--pz-gap:4px;--pz-wood:#38252a;--pz-dark:#211a20;--pz-paper:#f5e4bd;
@@ -2735,12 +2745,19 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
       <button type="button" id="pzPartySlot" class="pz-party-slot" title="可以拖入或點選後鑲嵌一顆一般輔助寶石"></button>
     </section>
   </div>
+  <details id="pzBuildSettings">
+    <summary>構築配置</summary>
+    <label>堆砌用途 <select id="pzBuildPurpose"><option value="routine">一般</option><option value="crowd">清群</option><option value="boss">首領</option><option value="survival">保命</option></select></label>
+    <button type="button" class="btn small" id="pzApplyPlan" hidden>套用預覽</button>
+    <label>寶石 <select id="pzTunePiece"></select></label>
+    <div id="pzTuneControls"></div>
+  </details>
   <div class="pz-summary">
     <div class="pz-equipped" aria-label="目前技能欄配置"></div>
     <div class="pz-info" aria-label="寶石詳情"></div>
   </div>
 </div><div class="pz-drag-ghost" aria-hidden="true" hidden></div></div>
-<div id="boons" class="modal hide"><h2>選擇一份祝福</h2><div class="cards"></div></div>
+<div id="boons" class="modal hide"><h2>選擇一份祝福</h2><div id="classTalentTree" aria-label="職業天賦兩條路線" hidden></div><div class="cards"></div></div>
 <div id="inv" class="modal hide" data-dialog-label="背包與裝備"><div class="panel">
   <div class="inv-tabs">
     <button type="button" data-invtab="bag" class="on">背包與裝備</button>

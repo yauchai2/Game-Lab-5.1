@@ -25,6 +25,7 @@ const ASSET_DIR = fs.realpathSync(path.join(GAME_DIR, 'assets'));
 const MIME = {
   '.png': 'image/png', '.webp': 'image/webp', '.svg': 'image/svg+xml',
   '.woff2': 'font/woff2',
+  '.mp3': 'audio/mpeg',
   '.glb': 'model/gltf-binary', '.gltf': 'model/gltf+json', '.bin': 'application/octet-stream',
 };
 const _htmlCache = new Map();
@@ -262,6 +263,8 @@ wss.on('connection', ws => {
         joinZone(me, zone, party);
         dungeonLobbies.position(me, zone);
         me.x = num(m.x); me.y = num(m.y); me.z = num(m.z); me.f = num(m.f);
+        me.job = Number.isInteger(m.job) && m.job >= 0 && m.job <= 4 ? m.job : null;
+        me.posAt = Date.now();
         me.a = Number.isInteger(m.a) && m.a >= 0 && m.a <= 5 ? m.a : 0;
         break;
       }
@@ -280,6 +283,37 @@ wss.on('connection', ws => {
         } else {
           me.lastShardSwitch = Date.now();
           sendShards(me, joinZone(me, me.zone, me.party, m.id) ? null : 'full');
+        }
+        break;
+      }
+      case 'evolution_fx': {
+        const now = Date.now();
+        if (!me.shard || m.zone !== me.zone || now - (me.posAt || 0) > 2000 ||
+          now - (me.lastEvolutionFX || 0) < 18_000 ||
+          !['ember', 'slam'].includes(m.kind) || !Number.isFinite(m.x) || !Number.isFinite(m.z) ||
+          Math.hypot(m.x - me.x, m.z - me.z) > 24) break;
+        me.lastEvolutionFX = now;
+        broadcast({ t: 'evolution_fx', id: now + ':' + me.id, kind: m.kind, zone: me.zone,
+          shard: me.shard, x: num(m.x), z: num(m.z) }, peer => peer !== me && peer.shard === me.shard &&
+          Math.hypot(peer.x - m.x, peer.z - m.z) <= 36);
+        break;
+      }
+      case 'class_ward': {
+        const now = Date.now();
+        if (!me.shard || !me.party || me.job !== 0 || m.zone !== me.zone ||
+          now - (me.posAt || 0) > 2000 || now - (me.lastWardCast || 0) < 12000) break;
+        let nearest = null;
+        let reach = 7;
+        for (const peer of players.values()) {
+          if (peer === me || peer.shard !== me.shard || peer.party !== me.party || now - (peer.posAt || 0) > 2000 ||
+            now - (peer.lastWardReceived || 0) < 6000) continue;
+          const distance = Math.hypot(peer.x - me.x, peer.z - me.z);
+          if (distance < reach) { nearest = peer; reach = distance; }
+        }
+        if (nearest) {
+          me.lastWardCast = nearest.lastWardReceived = now;
+          send(nearest, { t: 'class_ward', zone: me.zone, shard: me.shard });
+          send(me, { t: 'class_ward_sent', zone: me.zone, shard: me.shard });
         }
         break;
       }
