@@ -147,6 +147,8 @@ const num = value => typeof value === 'number' && Number.isFinite(value) ? Math.
 const send = (me, data) => {
   if (me.ws.readyState === 1 && me.ws.bufferedAmount < 256 * 1024) me.ws.send(JSON.stringify(data));
 };
+const growthWatch = process.env.LV_GROWTH_WORLD === '1'
+  ? require('./growth_watch.cjs')({ players, send }) : null;
 const dungeonLobbies = require('./dungeon_lobby.cjs')(send, (members, id, bots) => {
   guild.startDungeonRaid(members, id, bots);
   for (const member of members) enterRaidChannel(member);
@@ -196,8 +198,10 @@ function joinZone(me, zone, party = me.party, requested = null) {
   me.zone = zone;
   me.party = party;
   me.shard = next;
+  me.lastPosAt = undefined;
   send(me, { t: 'shard', zone, id: next, history: lineState.get(next)?.history || [] });
   if (zone.startsWith('field:')) send(me, { t: 'tide_sync', zone, shard: next, ...(lineState.get(next)?.tide || new ZoneTide(next)).snapshot() });
+  growthWatch?.sync(me);
   return true;
 }
 
@@ -233,7 +237,7 @@ function getLineState(me) {
 wss.on('connection', ws => {
   const me = { id: nextId++, ws, name: '旅人', col: 0, zone: null, shard: null, party: '', x: 0, y: 0, z: 0, f: 0, a: 0, chatT: [] };
   players.set(me.id, me);
-  send(me, { t: 'welcome', id: me.id, history: [], hotspots: pickHotspots(), features: FEATURE_FLAGS, zoneShards: true, dungeonLobbies: true });
+  send(me, { t: 'welcome', id: me.id, history: [], hotspots: pickHotspots(), features: FEATURE_FLAGS, zoneShards: true, dungeonLobbies: true, growthWorld: !!growthWatch });
   joinZone(me, 'town');
   broadcastOnline();
   ws.on('message', raw => {
@@ -246,6 +250,7 @@ wss.on('connection', ws => {
     }
     if (['guildHello', 'trade', 'raidJoin', 'raidLeave', 'raidInput'].includes(m.t)) {
       guild.message(me, m);
+      if (m.t === 'guildHello') growthWatch?.sync(me);
       enterRaidChannel(me);
       return;
     }
@@ -264,9 +269,17 @@ wss.on('connection', ws => {
         joinZone(me, zone, party);
         dungeonLobbies.position(me, zone);
         me.x = num(m.x); me.y = num(m.y); me.z = num(m.z); me.f = num(m.f);
+        me.lastPosAt = Date.now();
         me.a = Number.isInteger(m.a) && m.a >= 0 && m.a <= 5 ? m.a : 0;
         break;
       }
+      case 'growth_watch_sync':
+        growthWatch?.sync(me);
+        break;
+      case 'growth_watch_start':
+      case 'growth_watch_light':
+        growthWatch?.message(me, m);
+        break;
       case 'shard_list':
         if (me.lastListedShard !== me.shard || Date.now() - (me.lastShardList ?? 0) >= 300) {
           me.lastListedShard = me.shard;
@@ -335,6 +348,7 @@ wss.on('connection', ws => {
 
 setInterval(() => {
   guild.tick();
+  growthWatch?.tick();
   for (const line of lineState.values()) line.tide.tick(0.1);
   const rooms = new Map();
   for (const p of players.values()) {

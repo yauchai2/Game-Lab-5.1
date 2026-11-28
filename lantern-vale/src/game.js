@@ -57,6 +57,7 @@ import { completeMeadowObjective, syncMeadowExpedition, meadowExpedition, syncOp
 import { openingStep, recordOpeningEvent, recordOpeningSupportUse, commitCharacterReward } from './opening.js';
 import { availableGrowthLesson, GROWTH_JOBS, growthLessonRank, growthMeleeFollowup, growthSwitchChoice, mergeGrowthLessons } from './growth_lessons.js';
 import { creditGrowthField, growthFieldCleared, growthTrialFor, growthUsesAlternate, nextGrowthField, recordGrowthRepeat } from './growth_journey.js';
+import { clearGrowthWatch, interactGrowthWatch, syncGrowthWatch } from './growth_watch.js';
 
 function disposeObj3D(root) {
   if (!root || !root.traverse) return;
@@ -659,6 +660,9 @@ export class Game {
     spawnSimAdventurers(this);
     this.installGrowthStation();
     this.offerGrowthLesson();
+    if (id === 1 && this.growthPrototype === 'progression' && this.net.growthWorld && this.net.shard?.zone === this.zone) {
+      this.net.send({ t: 'growth_watch_sync' });
+    }
   }
   offerGrowthLesson() {
     if (this.growthPrototype !== 'progression' || this.field !== 1 || this.state !== 'play') return;
@@ -938,6 +942,7 @@ export class Game {
     const trial = this.ambushTrial?.active;
     const ambushRoom = trial || (title && this.ambushTrial);
     this.meadowLocations = null;
+    clearGrowthWatch(this);
     this.mapPin = null; this.checkpoints = []; this.updrafts = [];
     resetTide(this);
     clearSimAdventurers(this);
@@ -3282,6 +3287,7 @@ export class Game {
   }
   tryInteract() {
     const s = this.nearSpot(); if (!s) return false;
+    if (s.kind === 'growthWatch') { interactGrowthWatch(this, s); return true; }
     if (s.kind === 'growthStation') { this.openGrowthStation(s); return true; }
     if (s.kind === 'meadowCave') {
       this.ui.openPanel('meadowCave');
@@ -3577,6 +3583,7 @@ export class Game {
         this.bots = [];
         this.identifyGuild();
       } else {
+        clearGrowthWatch(this);
         this.dungeon.disconnected();
         this.wallet = null; this.exitRaid?.();
         for (const [id, remote] of this.remotes) if (!remote.bot && !remote.dungeonBot) this.removeRemote(id);
@@ -3599,6 +3606,7 @@ export class Game {
     n.on('shard', m => {
       if (m.id !== null && (typeof m.id !== 'string' || typeof m.zone !== 'string')) return;
       const previous = n.shard;
+      if (previous?.id !== m.id) clearGrowthWatch(this);
       n.shard = m.id ? { id: m.id, zone: m.zone, number: Number(m.id.split('#').at(-1)), count: null } : null;
       n.shardListing = null;
       for (const [id, remote] of this.remotes) if (!remote.bot && !remote.dungeonBot) this.removeRemote(id);
@@ -3615,6 +3623,7 @@ export class Game {
       n.shardListing = { ...m, lines };
       this.ui.refreshShardPanel?.();
     });
+    n.on('growth_watch', m => syncGrowthWatch(this, m));
     n.on('tide_sync', m => {
       if (n.zoneShards && (m.shard !== n.shard?.id || m.zone !== this.zone)) return;
       if (this.tide && typeof m.heat === 'number') {
