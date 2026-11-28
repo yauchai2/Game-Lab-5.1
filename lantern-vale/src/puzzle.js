@@ -1,3 +1,4 @@
+import { EMBER_CORE } from './ember_evolution.js';
 import { NEW_ACTIVE_GEMS, NEW_SUPPORT_GEMS } from './gem_catalog.js';
 
 // 原創職業系統與 6×6 技能拼圖（聚方塊相鄰連動，A Short Hike 奶油像素風格）
@@ -116,6 +117,9 @@ export const ACTIVE_GEMS = {
 };
 
 export const SUPPORT_GEMS = {
+  [EMBER_CORE]: { id: EMBER_CORE, type: 'support', name: '餘燼終局核心', short: '火潮', icon: '✷', color: '#e25528',
+    shape: [[0, 0], [1, 0], [0, 1], [0, 2]], level: 30, earned: true,
+    desc: '只連結餘燼飛彈。手動命中四次充滿火潮，第五次手動施放釋放。火潮間隔至少 20 秒。' },
   multi: { id: 'multi', type: 'support', name: '多重投射', short: '多重', icon: '⇶', color: '#c4843d', price: 15, shape: [[0,0],[0,1],[1,1]], desc: '適用投射物、螢火護衛或箭雨，增加一發或一波，傷害 -12%。' },
   echo:  { id: 'echo',  type: 'support', name: '連發迴響', short: '連發', icon: '⟳', color: '#7a5cc4', price: 18, shape: [[0,0],[1,0],[2,0]], desc: '相鄰攻擊技能延後重施一次（35% 傷害），耗魔 +22%。' },
   area:  { id: 'area',  type: 'support', name: '擴大範圍', short: '擴域', icon: '◎', color: '#3f9688', price: 14, shape: [[0,0],[1,0]], desc: '相鄰主動技能作用範圍 +35%。' },
@@ -139,6 +143,7 @@ export const SUPPORT_GEMS = {
 };
 
 export const ALL_GEMS = { ...ACTIVE_GEMS, ...SUPPORT_GEMS };
+export const AVAILABLE_GEM_IDS = Object.keys(ALL_GEMS).filter(id => !ALL_GEMS[id].earned);
 const LEGACY_LEVELS = {
   meteor: 5, nova: 5, prism: 6, phantom: 6, thunder: 6, quakeg: 8,
   fire_whale: 10, thunder_phoenix: 10, dark_wolf: 10, healing_tree: 7, black_hole: 10,
@@ -169,6 +174,7 @@ const LEGACY_TAGS = {
 };
 
 function supportsSkill(support, skill) {
+  if (support.id === EMBER_CORE) return skill.id === 'bolt';
   const tags = skill.tags || LEGACY_TAGS[skill.id] || [];
   if (support.tag === 'impact') return skill.family === 'impact' || skill.family === 'pulse' || skill.family === 'trail';
   if (support.tag) return tags.includes(support.tag);
@@ -182,7 +188,7 @@ function supportsSkill(support, skill) {
 
 export function pickGemDrop({ playerLevel = 1, enemyLevel = 1, boss = false, rng = Math.random } = {}) {
   const maxLevel = Math.min(playerLevel + (boss ? 3 : 1), enemyLevel + (boss ? 4 : 2));
-  const available = Object.keys(ALL_GEMS).filter(id => gemLevel(id) <= maxLevel);
+  const available = AVAILABLE_GEM_IDS.filter(id => gemLevel(id) <= maxLevel);
   const recent = available.filter(id => gemLevel(id) >= Math.max(1, maxLevel - 7));
   const pool = recent.length && rng() < 0.65 ? recent : available;
   return pool[Math.floor(rng() * pool.length)];
@@ -289,7 +295,7 @@ export function computeBoard(placed, partyGemId = null, level = 30) {
     return true;
   });
   const occ = occupiedMap(placed);
-  const partySup = SUPPORT_GEMS[partyGemId] && !TRIGGER_IDS.has(partyGemId) && gemLevel(partyGemId) <= level
+  const partySup = SUPPORT_GEMS[partyGemId] && partyGemId !== EMBER_CORE && !TRIGGER_IDS.has(partyGemId) && gemLevel(partyGemId) <= level
     ? SUPPORT_GEMS[partyGemId] : null;
   const supportToActives = new Map();
   for (const item of placed) {
@@ -605,7 +611,7 @@ export function bindPuzzleUI(g) {
   }
 
   function allowedInParty(item) {
-    return !!SUPPORT_GEMS[item.id] && !TRIGGER_IDS.has(item.id) && gemLevel(item.id) <= level();
+    return !!SUPPORT_GEMS[item.id] && item.id !== EMBER_CORE && !TRIGGER_IDS.has(item.id) && gemLevel(item.id) <= level();
   }
 
   function preview(destination) {
@@ -1025,7 +1031,7 @@ export function bindPuzzleUI(g) {
       }
     } else {
       for (const gem of Object.values(ALL_GEMS).sort((a, b) => gemLevel(a.id) - gemLevel(b.id))) {
-        if (!matches(gem)) continue;
+        if (!matches(gem) || gem.earned) continue;
         const card = document.createElement('div');
         card.className = 'pz-shop-item';
         const head = document.createElement('div');

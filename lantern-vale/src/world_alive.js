@@ -6,7 +6,7 @@ import { buildPlayer } from './models.js';
 import { mulberry32, clamp, lerp } from './util.js';
 import { GOODS, FIELDS } from './frontier.js';
 import { uvToWorld } from './field_blueprints.js';
-import { ALL_GEMS, addGemToBag } from './puzzle.js';
+import { ALL_GEMS, AVAILABLE_GEM_IDS, addGemToBag } from './puzzle.js';
 import { makeItem } from './loot.js';
 
 // ======================== 1. 超慢漸進晝夜系統（日頭長 70%、平滑色溫過渡） ========================
@@ -312,7 +312,7 @@ export function openHighChest(g, spot) {
   ch.opened = true; ch.mesh.visible = false;
   g.spots = g.spots.filter(s => s !== spot);
   g.meta.p.coins += 18;
-  const pool = Object.keys(ALL_GEMS);
+  const pool = AVAILABLE_GEM_IDS;
   const gemId = pool[Math.floor(Math.random() * pool.length)];
   addGemToBag(g.meta.p, gemId);
   g.meta.save();

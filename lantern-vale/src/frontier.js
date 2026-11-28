@@ -5,7 +5,7 @@ import { toonMat, part } from './world.js';
 import { attachLandmarkGlb, attachPalmovPoi } from './assets.js';
 import { FIELD_BLUEPRINTS, uvToWorld } from './field_blueprints.js';
 import { makeItem, deserializeItem, rememberGear } from './loot.js';
-import { ALL_GEMS, addGemToBag } from './puzzle.js';
+import { ALL_GEMS, AVAILABLE_GEM_IDS, addGemToBag } from './puzzle.js';
 import { spawnSkyFeatures, startGatherMini, openHighChest, FIELD_NPCS } from './world_alive.js';
 import { buildZoneLandmarks } from './harbor.js';
 import { addGearToBag } from './physbag.js';
@@ -738,7 +738,7 @@ export function useFieldSpot(g,s) {
     } else {
       g.shrineBuffs.gold = 25;
       p.coins += 18; p.shards += 12;
-      const pool = Object.keys(ALL_GEMS); const gid = pool[Math.floor(Math.random() * pool.length)];
+      const pool = AVAILABLE_GEM_IDS; const gid = pool[Math.floor(Math.random() * pool.length)];
       addGemToBag(p, gid); g.meta.save();
       g.audio.sfx('win');
       g.fx.burst(s.x, 1.6, s.z, 28, { c: [0xffd84a, 0xfff6c0, 0xc08cff], s: 0.14, speed: 6, up: 5, life: 0.75 });
@@ -778,7 +778,7 @@ export function useFieldSpot(g,s) {
       if (perfect) {
         p.coins += 5;
         if (s.kind === 'ore' && Math.random() < 0.5) {
-          const pool = Object.keys(ALL_GEMS); const gid = pool[Math.floor(Math.random() * pool.length)];
+          const pool = AVAILABLE_GEM_IDS; const gid = pool[Math.floor(Math.random() * pool.length)];
           addGemToBag(p, gid); g.ui.toast(`✨ 完美採集！${GOODS[s.kind]} +${yieldCount}${dblTxt} · 寶石「${ALL_GEMS[gid].name}」`, '#ffd85a');
         } else {
           g.ui.toast(`✨ 完美採集！${GOODS[s.kind]} +${yieldCount}${dblTxt} · 金幣 +5`, '#ffd85a');

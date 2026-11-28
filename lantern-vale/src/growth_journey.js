@@ -63,6 +63,7 @@ export function growthUsesAlternate(profile, job) {
 export function mergeGrowthJourney(profile, saved) {
   if (!saved?.growthJourney) return;
   const local = profile.growthJourney ||= {};
+  if (saved.growthJourney.emberMastery === true) local.emberMastery = true;
   for (const field of [1, 2, 3, 4, 5, 6]) {
     if (growthFieldCleared(saved, field)) local.clears = { ...local.clears, [field]: true };
     const count = saved.growthJourney.repeats?.[field];

@@ -6,7 +6,7 @@ import { RARITY, SLOTS, itemLines, FORGE, forgeItem, CORRUPT_COST, corruptItem }
 import { canCorruptGear, CORRUPT_UNLOCK_LV } from './progression.js';
 import { isFeatureEnabled } from './mmo_protocol.js';
 import { MODS, MOD_MAX } from './meta.js';
-import { CLASSES, ALL_GEMS, addGemToBag, applySupportFit, linkedSupportSkills, suggestSupportFit } from './puzzle.js';
+import { CLASSES, ALL_GEMS, AVAILABLE_GEM_IDS, addGemToBag, applySupportFit, linkedSupportSkills, suggestSupportFit } from './puzzle.js';
 import { stanceById, classWickByJob } from './wick.js';
 import { SECOND_CLASSES, ASCEND_REQ, findSecondClass, checkAscendEligibility, performAscend } from './world_alive.js';
 import { SANCTUARY_TALENTS, ensureTalents, talentCost, buyTalent, respecTalents, getBloodEclipseField } from './survivor.js';
@@ -791,7 +791,7 @@ export function buildPanels(g) {
       b.onclick = () => {
         st.done = true; M.p.fieldQuests[q.id] = st;
         M.p.coins += q.rewardCoins; M.p.xp += q.rewardXp;
-        const pool = Object.keys(ALL_GEMS); const gemId = pool[Math.floor(Math.random() * pool.length)];
+        const pool = AVAILABLE_GEM_IDS; const gemId = pool[Math.floor(Math.random() * pool.length)];
         addGemToBag(M.p, gemId);
         M.save(); g.audio.sfx('perfect');
         g.ui.toast(`野外委託完成！金幣 +${q.rewardCoins} · 寶石「${ALL_GEMS[gemId].name}」`, '#ffd85a');
