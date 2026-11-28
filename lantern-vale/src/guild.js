@@ -39,7 +39,7 @@ export function bindGuild(g) {
   n.on('raidFrame',m=>{
     if (!g.raid) return;
     const {allies,boss,warning}=g.raid;
-    warning.visible=m.warn;g.ui.bossBar(true,m.warn?'守護獸蓄力 · 離開紅圈':'共鳴守護獸',m.hp/144);
+    warning.visible=m.warn;g.ui.bossBar(true,m.warn?'守護獸蓄力 · 離開紅圈':'共鳴守護獸',m.hp/(m.maxHp || 144));
     boss.body.rotation.z=m.warn?.08:0;
     const present=new Set();
     for(const member of m.members) {

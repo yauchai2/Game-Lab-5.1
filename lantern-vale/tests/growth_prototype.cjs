@@ -91,6 +91,7 @@ const { chromium } = require('playwright');
             Math.random = random;
           }
           return { job, weapon: game.meta.p.weapon, hp: player.stats.maxHp, practiceHP,
+            echoCooldown: (player.growthEchoReadyAt || 0) - game.time,
             atkCd: Number(player.cds.atk.toFixed(3)), projectileCount, ringCount, ...result, beforeRelease, cooldownBlocked, queueAfterRoomChange };
         }, { mode, scenario });
         if (mode === 'advanced' && job === 0 && scenario === 'spread' && process.env.LV_GROWTH_SCREENSHOT) {
@@ -136,7 +137,7 @@ const { chromium } = require('playwright');
     assert.deepEqual(advancedGuard.events, [2, 1, 1]);
     assert.equal(advancedBow.queueAfterRoomChange, 0);
     assert.equal(advancedGuard.queueAfterRoomChange, 0);
-    const attacksPerEcho = Math.ceil(5.5 / advancedBow.atkCd);
+    const attacksPerEcho = Math.ceil(advancedBow.echoCooldown / advancedBow.atkCd);
     const fixedCycleGain = (advancedBow.damage[0] - bow.damage[0]) / (attacksPerEcho * bow.damage[0]);
     assert.ok(fixedCycleGain <= 0.05, 'Fixed single-target cadence stays within the 5% budget');
     if (process.env.LV_GROWTH_SCREENSHOT) await sample(0, 'advanced');

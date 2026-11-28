@@ -6,7 +6,7 @@ import { bindWorldMap } from './worldmap.js';
 import { bindCharacters } from './characters.js';
 import { buildPanels } from './panels.js';
 import { loadSettings, applySettings, buildSettingsUI, syncHotbarKeyLabels } from './settings.js';
-import { CLASSES, bindPuzzleUI } from './puzzle.js';
+import { CLASSES, bindPuzzleUI, skillCooldown, skillManaCost } from './puzzle.js';
 import { dayInfo, findSecondClass } from './world_alive.js';
 import { bindRegionMap } from './region_map.js';
 import { navigationTarget, describeMapTarget } from './map_navigation.js';
@@ -1087,8 +1087,8 @@ export class UI {
         const sc = sk.mod.supports.length;
         sup.hidden = !sc; if (sc) sup.textContent = '+' + sc;
         el.title = `${sk.def.name}：${sk.def.desc}${sc ? '（連動輔助：' + sk.mod.supports.map(s => s.name).join('、') + '）' : ''}`;
-        const maxCd = sk.def.cd * (1 - S.cdr / 100) * (1 - sk.mod.cdr);
-        cd('sk-s' + i, p.skillCds?.[i] || 0, Math.max(0.1, maxCd), false);
+        const maxCd = skillCooldown(sk.def, sk.mod, g.combatPace(), S.cdr, p.statuses?.overload > 0);
+        cd('sk-s' + i, p.skillCds?.[i] || 0, maxCd, p.mana < skillManaCost(sk.def, sk.mod));
       } else {
         ic.textContent = '+'; sn.textContent = t(lang, 'skEmpty'); sup.hidden = true; el.title = '點擊開啟技能拼圖 (K) 裝備技能';
         cd('sk-s' + i, 0, 1, true);

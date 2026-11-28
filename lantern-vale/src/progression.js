@@ -16,16 +16,43 @@ export const PROGRESSION_MILESTONES = [
 ];
 
 // Enemy scaling uses the encounter level; attack pacing follows the character.
-const LEGACY_PACE = { attacksPerSecond: 1.45, cooldown: 1, recovery: 0, damage: 1, manaRegen: 1, animation: 1, enemyHp: 1, enemyDamage: 1 };
-const EARLY_PACE = { attacksPerSecond: 0.94, cooldown: 1.55, recovery: 0.9, damage: 0.82, manaRegen: 0.66, animation: 0.75, enemyHp: 1.22, enemyDamage: 1.30 };
-const MID_PACE = { attacksPerSecond: 1.10, cooldown: 1.35, recovery: 0.72, damage: 0.90, manaRegen: 0.79, animation: 0.84, enemyHp: 1.16, enemyDamage: 1.22 };
-const LATE_PACE = { attacksPerSecond: 1.25, cooldown: 1.18, recovery: 0.55, damage: 0.97, manaRegen: 0.90, animation: 0.92, enemyHp: 1.12, enemyDamage: 1.16 };
+const LEGACY_PACE = { attacksPerSecond: 1.45, attackBonus: 1, cooldown: 1, recovery: 0, damage: 1, skillPower: 1, manaRegen: 1, animation: 1, enemyHp: 1, enemyDamage: 1 };
+const PACE_BY_LEVEL = [
+  [1, { attacksPerSecond: 0.64, attackBonus: 0.45, cooldown: 1.90, recovery: 1.04, damage: 0.82, skillPower: 0.61, manaRegen: 0.65, animation: 0.64, enemyHp: 1.22, enemyDamage: 1.30 }],
+  [5, { attacksPerSecond: 0.79, attackBonus: 0.55, cooldown: 1.73, recovery: 0.91, damage: 0.84, skillPower: 0.69, manaRegen: 0.71, animation: 0.74, enemyHp: 1.22, enemyDamage: 1.30 }],
+  [12, { attacksPerSecond: 1.02, attackBonus: 0.76, cooldown: 1.48, recovery: 0.76, damage: 0.91, skillPower: 0.81, manaRegen: 0.80, animation: 0.85, enemyHp: 1.15, enemyDamage: 1.21 }],
+  [25, { attacksPerSecond: 1.22, attackBonus: 1, cooldown: 1.20, recovery: 0.57, damage: 0.97, skillPower: 0.95, manaRegen: 0.90, animation: 0.92, enemyHp: 1.12, enemyDamage: 1.16 }],
+];
+
+const PLAYER_PACE = Array.from({ length: 31 }, (_, level) => {
+  const index = PACE_BY_LEVEL.findIndex(([lv]) => lv >= level);
+  if (index === 0) return PACE_BY_LEVEL[0][1];
+  if (index === -1) return PACE_BY_LEVEL.at(-1)[1];
+  const [lower, from] = PACE_BY_LEVEL[index - 1];
+  const [upper, to] = PACE_BY_LEVEL[index];
+  const t = (level - lower) / (upper - lower);
+  return Object.fromEntries(Object.keys(from).map(key => [key, from[key] + (to[key] - from[key]) * t]));
+});
 
 export function combatPace(level = 1, fixedBenchmark = false) {
   if (fixedBenchmark) return LEGACY_PACE;
-  if (level <= 5) return EARLY_PACE;
-  if (level <= 10) return MID_PACE;
-  return LATE_PACE;
+  return PLAYER_PACE[Math.min(30, Math.max(1, Math.floor(level) || 1))];
+}
+
+const ENEMY_PRESSURE = {
+  normal: { hp: 1.12, damage: 1.18, movement: 1.06, tempo: 1.12, mitigation: 0 },
+  elite: { hp: 1.20, damage: 1.28, movement: 1.10, tempo: 1.27, mitigation: 0.08 },
+  boss: { hp: 1.38, damage: 1.55, movement: 1.13, tempo: 1.55, mitigation: 0.24 },
+  baseline: { hp: 1, damage: 1, movement: 1, tempo: 1, mitigation: 0 },
+};
+
+export function enemyPressure({ boss = false, elite = false, benchmark = false } = {}) {
+  if (benchmark) return ENEMY_PRESSURE.baseline;
+  return ENEMY_PRESSURE[boss ? 'boss' : elite ? 'elite' : 'normal'];
+}
+
+export function bossWindup(seconds, phase = 1) {
+  return Math.max(0.46, seconds * (phase === 2 ? 0.62 : 0.73));
 }
 
 export function getFieldDanger(fieldLevel, playerLevel = 1) {
@@ -133,10 +160,10 @@ export function multiProjDamageScale(count = 1) {
   return (count || 1) > 1 ? 0.78 : 1;
 }
 
-/** P1 CoH/CoC 邏輯電路防架空：消耗原技能 40% 法力，獨立冷卻 MAX(0.45s, 原 CD × 35%) */
+/** 兩種觸發共用技能冷卻與全域觸發節流。 */
 export function triggerCircuitCostAndIcd(gemDef = {}) {
-  const manaCost = Math.round((gemDef?.mana || 0) * 0.4);
-  const icdMs = Math.round(Math.max(0.45, (gemDef?.cd || 0) * 0.35) * 1000);
+  const manaCost = Math.max(2, Math.ceil((gemDef?.mana || 0) * 0.65));
+  const icdMs = Math.round(Math.max(1.25, (gemDef?.cd || 0) * 0.72) * 1000);
   return { manaCost, icdMs };
 }
 

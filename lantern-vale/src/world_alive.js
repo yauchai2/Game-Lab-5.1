@@ -83,8 +83,9 @@ export const SECOND_CLASSES = {
   ],
 };
 
-export function findSecondClass(id) {
+export function findSecondClass(id, job) {
   if (!id) return null;
+  if (job !== undefined) return SECOND_CLASSES[job]?.find(sc => sc.id === id) || null;
   for (const list of Object.values(SECOND_CLASSES)) {
     const f = list.find(c => c.id === id);
     if (f) return f;
@@ -92,7 +93,7 @@ export function findSecondClass(id) {
   return null;
 }
 
-export function checkAscendEligibility(profile, sc, devOn = false) {
+export function checkAscendEligibility(profile, sc) {
   const p = profile || {};
   const lv = p.level || 1;
   const kills = p.kills || 0;
@@ -109,20 +110,19 @@ export function checkAscendEligibility(profile, sc, devOn = false) {
     { label: `覺醒星砂 💎${shards}/${ASCEND_REQ.shards}`, ok: shards >= ASCEND_REQ.shards },
   ];
   const passed = checks.filter(c => c.ok).length;
-  const eligible = devOn || passed === checks.length;
+  const eligible = passed === checks.length;
   return { eligible, checks, passed, total: checks.length, prog: passed / checks.length, cost: { coins: ASCEND_REQ.coins, shards: ASCEND_REQ.shards } };
 }
 
-export function performAscend(profile, scId, devOn = false) {
+export function performAscend(profile, scId, job) {
   const sc = findSecondClass(scId);
   if (!profile || !sc) return { ok: false, reason: '未知二轉職業' };
+  if (!SECOND_CLASSES[job]?.includes(sc)) return { ok: false, reason: '此誓言不屬於目前職業' };
   if (profile.secondClass === scId) return { ok: false, reason: '已覺醒此職業' };
-  const res = checkAscendEligibility(profile, sc, devOn);
+  const res = checkAscendEligibility(profile, sc);
   if (!res.eligible) return { ok: false, reason: '尚未達成全部二轉試煉與儀式費用', checks: res.checks };
-  if (!devOn) {
-    profile.coins = Math.max(0, (profile.coins || 0) - ASCEND_REQ.coins);
-    profile.shards = Math.max(0, (profile.shards || 0) - ASCEND_REQ.shards);
-  }
+  profile.coins -= ASCEND_REQ.coins;
+  profile.shards -= ASCEND_REQ.shards;
   profile.secondClass = sc.id;
   profile.vow = { sc: sc.id, at: Date.now() };       // Phase 4: the story choice made at the altar (optional field, schema v3 unchanged)
   if (sc.title) profile.activeTitle = sc.title;

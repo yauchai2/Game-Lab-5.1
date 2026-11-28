@@ -6,7 +6,7 @@ import { openTextDialog } from './ui_layers.js';
 import { FIELDS } from './frontier.js';
 import { FIELD_BLUEPRINTS } from './field_blueprints.js';
 import { getGlbCacheCount } from './assets.js';
-import { ALL_GEMS, addGemToBag } from './puzzle.js';
+import { ALL_GEMS, addGemToBag, ensurePuzzle } from './puzzle.js';
 import { makeItem } from './loot.js';
 import { MONSTER_SOULS, grantSoul } from './souls.js';
 import { MOUNTS } from './mounts.js';
@@ -519,9 +519,12 @@ export function installDebugger(game) {
     game.ui?.toast?.(`🎁 已掉落傳說裝備：${it.name}`, '#ffaa38');
   };
   $d('devAllGems').onclick = () => {
-    for (const gid of Object.keys(ALL_GEMS)) addGemToBag(game.meta.p, gid);
+    const puzzle = ensurePuzzle(game.meta.p, game.character?.job ?? 0);
+    const owned = new Set([...puzzle.bag, ...puzzle.presets.flat(), puzzle.partyGem].filter(Boolean).map(gem => gem.id));
+    const missing = Object.keys(ALL_GEMS).filter(id => !owned.has(id));
+    for (const id of missing) addGemToBag(game.meta.p, id);
     game.meta.save();
-    game.ui?.toast?.(`💎 已獲得全套 ${Object.keys(ALL_GEMS).length} 顆拼圖寶石（按 K 檢視）`, '#c08cff');
+    game.ui?.toast?.(missing.length ? `已補齊 ${missing.length} 種未持有的寶石（按 K 檢視）` : '已持有全套寶石', '#c08cff');
   };
   $d('devAllSouls').onclick = () => {
     for (const sid of Object.keys(MONSTER_SOULS)) grantSoul(game.meta.p, sid);

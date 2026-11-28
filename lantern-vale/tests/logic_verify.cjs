@@ -265,7 +265,7 @@ const createGuild = require('../server/guild.cjs');
   // Place 多重投射 & 極速詠唱 adjacent to verify puzzle adjacency linking still works
   pz.presets[0].push({ uid: 90, id: 'multi', x: 2, y: 3, rot: 0 }, { uid: 91, id: 'haste', x: 1, y: 3, rot: 0 });
   const boardLinked = puzzle.computeBoard(pz.presets[0]);
-  assert.equal(boardLinked[0].mod.multi, 2, 'Adjacent 多重投射 adds +2 projectiles/waves');
+  assert.equal(boardLinked[0].mod.multi, 1, 'Adjacent 多重投射 adds one projectile or wave');
   assert.ok(boardLinked[0].mod.cdr > 0, 'Adjacent 極速詠唱 reduces cooldown');
   // Verify Mystic CoH circuit works when manually assembled
   const mysticBoard = puzzle.computeBoard([
@@ -278,7 +278,7 @@ const createGuild = require('../server/guild.cjs');
   assert.equal(puzzle.canPlace(pz.presets[0], 'ember', 2, 1, 0, 1), true);
   pz.presets[0].push({ uid: 99, id: 'ember', x: 2, y: 1, rot: 0 });
   const board2 = puzzle.computeBoard(pz.presets[0]);
-  assert.equal(board2[0].mod.dmgMult, 1.24, 'P2: Adjacent multi (+8%) + 熾炎增幅 (+16%) boosts active skill damage to 1.24x');
+  assert.equal(board2[0].mod.dmgMult, 0.97, 'Extra coverage costs damage even with an adjacent ember');
   assert.equal(board2[0].mod.supports.length, 3, 'Three adjacent support gems linked simultaneously');
 
   // 8. World Alive expansion: Ultra-slow smooth Day/Night (long daytime ~70%), 8 Second Classes, 4 Flashy Skills, 6 Field NPCs
@@ -1138,8 +1138,24 @@ const createGuild = require('../server/guild.cjs');
   const vfxGlb = path.join(vfxDir, 'vfx_meshes.glb');
   assert.ok(fs.existsSync(vfxGlb) && fs.statSync(vfxGlb).size > 1500000, 'Packed 40-mesh vfx_meshes.glb exists & valid');
   assert.ok(fs.readdirSync(path.join(vfxDir, 'tex')).filter(f => f.endsWith('.webp') || f.endsWith('.png')).length >= 32, 'All 32 stylized VFX textures (22 WebP + 10 Wave 2 PNG) present');
-  assert.equal(Object.keys(puzzle.ACTIVE_GEMS).length, 24, 'Skill Puzzle 2.0 has 24 Active Gems (14 upgraded + 10 3D summons)');
-  assert.ok(Object.keys(puzzle.SUPPORT_GEMS).length >= 19, 'Skill Puzzle 2.0 has 19 Support Gems (incl. bluefire, vortex & 3 Survivor Synergy Gems)');
+  assert.equal(Object.keys(puzzle.ACTIVE_GEMS).length, 72, 'Skill Puzzle includes 72 active gems');
+  assert.ok(Object.keys(puzzle.SUPPORT_GEMS).length >= 57, 'Skill Puzzle has at least 57 supports');
+  const gearGrid = [
+    { uid: 1, id: 'bolt', x: 2, y: 2, rot: 0 },
+    { uid: 2, id: 'ember', x: 2, y: 1, rot: 0 },
+    { uid: 3, id: 'ember', x: 3, y: 1, rot: 0 },
+    { uid: 4, id: 'frost', x: 2, y: 3, rot: 0 },
+    { uid: 5, id: 'horizon', x: 3, y: 3, rot: 0 },
+    { uid: 6, id: 'fallen_cairn', x: 1, y: 4, rot: 0 },
+  ];
+  assert.deepEqual(puzzle.computeBoard(gearGrid, 'chain', 1).map(skill => skill.id), ['bolt']);
+  assert.deepEqual(puzzle.computeBoard(gearGrid, 'chain', 1)[0].mod.supportUids, [4]);
+  assert.deepEqual(puzzle.computeBoard(gearGrid, 'chain', 30)[0].mod.supports.map(gem => gem.id), ['frost', 'ember', 'chain']);
+  assert.equal(puzzle.gemLevel('fallen_cairn'), 21);
+  for (const rng of [() => 0, () => 0.99]) {
+    const drop = puzzle.pickGemDrop({ playerLevel: 2, enemyLevel: 2, rng });
+    assert.ok(puzzle.gemLevel(drop) <= 3);
+  }
   for (const cls of puzzle.CLASSES) {
     assert.ok(cls.classMech && cls.classMech.max > 0 && cls.classUlt, `Class ${cls.name} has signature classMech & classUlt`);
   }
@@ -1377,9 +1393,11 @@ const createGuild = require('../server/guild.cjs');
   const lv1Prof = { level: 1, kills: 0, totalElites: 0, coins: 0, shards: 0, deeds: {} };
   const bastionSc = alive.findSecondClass('bastion');
   assert.equal(alive.checkAscendEligibility(lv1Prof, bastionSc).eligible, false, 'Lv.1 player CANNOT ascend to 2nd class');
-  assert.equal(alive.performAscend(lv1Prof, 'bastion').ok, false, 'performAscend blocks unqualified Lv.1 player');
+  assert.equal(alive.checkAscendEligibility(lv1Prof, bastionSc, true).eligible, false, 'Dev mode still enforces every trial');
+  assert.equal(alive.performAscend(lv1Prof, 'bastion', 0).ok, false, 'performAscend blocks unqualified Lv.1 player');
   const readyAscProf = { level: 12, kills: 45, totalElites: 3, coins: 350, shards: 60, deeds: { perfectGather: 2 } };
-  const ascRes = alive.performAscend(readyAscProf, 'bastion');
+  assert.equal(alive.performAscend(readyAscProf, 'bastion', 3).ok, false, 'An unrelated job cannot claim the vow');
+  const ascRes = alive.performAscend(readyAscProf, 'bastion', 0);
   assert.ok(ascRes.ok && readyAscProf.secondClass === 'bastion' && readyAscProf.coins === 50 && readyAscProf.shards === 15, 'Qualified Lv.12 player completes 2nd-class trial, pays coins+shards & unlocks title');
 
   // Enhancement Failstack pity (+6% per fail) & Full-Body Resonance (+3/+5/+7/+9)
@@ -1658,8 +1676,8 @@ const createGuild = require('../server/guild.cjs');
   // 57. P1 Balance Overhaul: 8-slot uniques/resonance/sets, multiProj 0.78x, CoH/CoC 40% mana + scaled ICD
   assert.equal(p0Prog.multiProjDamageScale(1), 1, 'Single projectile deals 1.0x damage');
   assert.equal(p0Prog.multiProjDamageScale(2), 0.78, 'Multi-projectile applies 0.78x per-projectile scale');
-  assert.deepEqual(p0Prog.triggerCircuitCostAndIcd({ mana: 8, cd: 0.42 }), { manaCost: 3, icdMs: 450 }, 'Low-CD CoH/CoC enforces 40% mana and 450ms minimum ICD');
-  assert.deepEqual(p0Prog.triggerCircuitCostAndIcd({ mana: 16, cd: 7.2 }), { manaCost: 6, icdMs: 2520 }, 'High-CD ultimate CoH/CoC enforces 40% mana and 35% CD ICD');
+  assert.deepEqual(p0Prog.triggerCircuitCostAndIcd({ mana: 8, cd: 0.42 }), { manaCost: 6, icdMs: 1250 }, 'Low-CD CoH/CoC has a 1.25s floor and uses 65% mana');
+  assert.deepEqual(p0Prog.triggerCircuitCostAndIcd({ mana: 16, cd: 7.2 }), { manaCost: 11, icdMs: 5184 }, 'High-CD ultimate CoH/CoC uses 65% mana and 72% base cooldown');
   for (const sl of Object.keys(p0Loot.SLOTS)) {
     assert.ok(p0Loot.UNIQUES.some(u => u.slot === sl), `Slot ${sl} has at least one Legendary unique`);
   }
@@ -1684,15 +1702,15 @@ const createGuild = require('../server/guild.cjs');
 
   // 59. P2 Balance Overhaul: 1-cell support gems nerfed to 14-16%, 3-4 cell gems gain sub-affixes, high-diff AI companion cap = 1 & healer CD = 10s
   const p2Ember = puzzle.computeBoard([{ uid: 1, id: 'bolt', x: 1, y: 1, rot: 0 }, { uid: 2, id: 'ember', x: 1, y: 2, rot: 0 }])[0].mod;
-  assert.equal(p2Ember.dmgMult, 1.16, '1-cell ember grants +16% damage under P2');
+  assert.equal(p2Ember.dmgMult, 1.09, 'Ember provides modest added damage');
   const p2Blue = puzzle.computeBoard([{ uid: 1, id: 'bolt', x: 1, y: 1, rot: 0 }, { uid: 2, id: 'bluefire', x: 1, y: 2, rot: 0 }])[0].mod;
-  assert.equal(p2Blue.dmgMult, 1.14, '1-cell bluefire grants +14% damage under P2');
+  assert.equal(p2Blue.dmgMult, 1.05, 'Bluefire trades some power for efficiency');
   const p2Haste = puzzle.computeBoard([{ uid: 1, id: 'bolt', x: 1, y: 1, rot: 0 }, { uid: 2, id: 'haste', x: 1, y: 2, rot: 0 }])[0].mod;
-  assert.equal(p2Haste.cdr, 0.14, '1-cell haste grants 14% CDR under P2');
+  assert.equal(p2Haste.cdr, 0.08, 'Haste grants 8% cooldown reduction');
   const p2Chain = puzzle.computeBoard([{ uid: 1, id: 'bolt', x: 1, y: 1, rot: 0 }, { uid: 2, id: 'chain', x: 1, y: 2, rot: 0 }])[0].mod;
-  assert.ok(p2Chain.chain === 2 && p2Chain.dmgMult === 1.12 && p2Chain.shock === 2.5, '4-cell chain gains +12% damage & shock sub-affix');
+  assert.ok(p2Chain.chain === 2 && p2Chain.dmgMult === 0.92 && p2Chain.shock === 2.5, 'Chain gains coverage and shock in exchange for damage');
   const p2Echo = puzzle.computeBoard([{ uid: 1, id: 'bolt', x: 1, y: 1, rot: 0 }, { uid: 2, id: 'echo', x: 1, y: 2, rot: 0 }])[0].mod;
-  assert.ok(p2Echo.echo === 1 && p2Echo.cdr === 0.08, '3-cell echo gains 8% CDR sub-affix');
+  assert.ok(p2Echo.echo === 1 && p2Echo.mana === 0.22, 'Echo costs more mana');
   assert.equal(p0Mmo.HEALER_COMPANION_CD, 10, 'AI Healer companion cooldown set to 10s');
   assert.equal(p0Mmo.maxActiveCompanions({ depth: 0 }), 2, 'Normal field allows 2 AI companions');
   assert.equal(p0Mmo.maxActiveCompanions({ depth: 3 }), 1, 'High-difficulty dungeon (depth >= 3) caps AI companions at 1');
