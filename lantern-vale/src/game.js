@@ -1,3 +1,4 @@
+import { EMBER_CORE, EMBER_MASTERY_TRIAL, canAttemptEmberMastery, emberStage } from './ember_evolution.js';
 import { WEAPON_CUES } from './action_audio.js';
 import { COMBAT_POSES, COMBAT_POSE_LIFETIME } from './combat_feedback.js';
 import { Weather } from './weather.js';
@@ -737,6 +738,10 @@ export class Game {
     const trial = this.attackGrowthRank() > 0 ? growthTrialFor(profile, this.field) : null;
     const alternate = growthUsesAlternate(profile, job);
     const choices = [];
+    const awakened = findSecondClass(profile.secondClass, job);
+    if (this.field === 6 && !profile.growthJourney?.emberMastery && canAttemptEmberMastery(profile, awakened)) {
+      choices.push({ icon: '✷', name: EMBER_MASTERY_TRIAL.name, desc: EMBER_MASTERY_TRIAL.hint, action: 'emberMastery' });
+    }
     if (trial) choices.push({ icon: '旗', name: trial.name, desc: trial.hint, action: 'trial' });
     if (growthFieldCleared(profile, 2)) {
       const name = job === 1 ? (alternate ? '扇射' : '穿列') : (alternate ? '收尾震波' : '前推劍氣');
@@ -752,8 +757,10 @@ export class Game {
     this.state = 'boon';
     this.ui.showBoons(this, choices, { heading, onPick: option => {
       this.state = 'play';
-      if (option.action === 'trial') {
-        this.growthTrial = { ...trial, x: spot.x, z: spot.z, heading: this.player.facing, wave: 0 };
+      if (option.action === 'trial' || option.action === 'emberMastery') {
+        const mastery = option.action === 'emberMastery';
+        if (mastery && !canAttemptEmberMastery(profile, findSecondClass(profile.secondClass, this.character.job))) return;
+        this.growthTrial = { ...(mastery ? EMBER_MASTERY_TRIAL : trial), emberTargets: mastery ? new Set() : null, x: spot.x, z: spot.z, heading: this.player.facing, wave: 0 };
         this.spawnGrowthWave();
       } else if (option.action === 'switch') {
         profile.growthJourney.loadouts ||= {};
@@ -773,6 +780,10 @@ export class Game {
         : this.world.randomWalkable(this.rng, this.player.pos, forward);
       const enemy = this.spawnEnemy(type, point, false);
       enemy.growthTrial = trial;
+      if (trial.emberTargets) {
+        enemy.hp = enemy.maxHp *= 1.2;
+        enemy.dmg *= 1.15;
+      }
     }
     this.ui.banner(trial.name, `第 ${trial.wave + 1} / ${trial.waves.length} 波 · ${trial.hint}`);
   }
@@ -784,6 +795,20 @@ export class Game {
     }
     this.growthTrial = null;
     if (this.boss?.growthTrial === trial) { this.boss = null; this.ui.bossBar(false); }
+    if (trial.emberTargets) {
+      const profile = this.meta.p;
+      if (trial.emberTargets.size >= 4 && canAttemptEmberMastery(profile, findSecondClass(profile.secondClass, this.character.job))) {
+        if (!profile.growthJourney.emberMastery) {
+          profile.growthJourney.emberMastery = true;
+          addGemToBag(profile, EMBER_CORE);
+          this.meta.save();
+        }
+        this.ui.banner('餘燼精通 · 完成', '把餘燼終局核心貼近餘燼飛彈，手動命中四次可準備火潮。');
+      } else {
+        this.ui.banner('餘燼精通 · 未達條件', `餘燼飛彈命中 ${trial.emberTargets.size}/4 名試煉敵人，可以再挑戰。`);
+      }
+      return;
+    }
     if (creditGrowthField(this.meta.p, this.field)) {
       this.meta.save();
       const next = nextGrowthField(this.meta.p);
@@ -2386,6 +2411,35 @@ export class Game {
     this.scene.add(mesh);
     this.beams.push({ mesh, t: 0.22, max: 0.22 });
   }
+  resolveEmberHit(cast, enemy, power) {
+    enemy.growthTrial?.emberTargets?.add(enemy);
+    if (cast.firstHit) return;
+    cast.firstHit = true;
+    const p = this.player;
+    if (cast.core && !cast.charged && this.time >= (p.emberReadyAt || 0)) {
+      p.emberCharge = Math.min(4, (p.emberCharge || 0) + 1);
+      if (p.emberCharge === 4) this.ui.toast('火潮已蓄滿 · 下一發手動飛彈釋放', '#ffbc67');
+    }
+    if (cast.stage < 2) return;
+    const { x, z } = enemy.pos;
+    const pulses = cast.charged ? [[0.18, 3.0], [0.67, 5.0], [1.1, 6.6]]
+      : cast.stage >= 3 ? [[0.18, 2.1], [0.49, 2.8]] : [[0.22, 2.1]];
+    for (const [remaining, radius] of pulses) {
+      this.growthEffects.push({ remaining, release: () => {
+        if (this.dueling) return;
+        if (cast.charged) {
+          for (let i = 0; i < 12; i++) {
+            const angle = i * Math.PI / 6;
+            const bx = x + Math.cos(angle) * radius, bz = z + Math.sin(angle) * radius;
+            this.fx.burst(bx, this.world.gh(bx, bz) + 0.12, bz, 2,
+              { c: [0xffae51, 0xff632c], s: 0.18, speed: 2, up: 2, life: 0.32 });
+          }
+        }
+        this.shockRing(x, z, radius, this.rollDamage(power * (cast.charged ? 0.31 : 0.21)),
+          0xff8438, 0, { excludeHits: cast.hits, recordHits: cast.hits, isTrigger: true, growthSecondary: true });
+      } });
+    }
+  }
   shockRing(x, z, radius, hit, color, stun = 0, opts = {}) {
     const { minRadius } = opts;
     const geo = new THREE.RingGeometry(minRadius === undefined ? 0.85 : minRadius / radius, 1, 32);
@@ -2498,13 +2552,32 @@ export class Game {
       this.execCatalogGem(gem, { dir, mod, slow, areaMul, dmgMul, runeCol, trigOpts, pullVortex, isTrigger });
     } else if (id === 'bolt') {
       this.audio.sfx('bolt');
-      const n = Math.min(6, p.stats.proj + mod.multi), spread = Math.max(0.1, 0.18 + (mod.spread || 0));
+      const evolving = this.growthPrototype === 'progression' && !this.dueling;
+      const stage = evolving ? emberStage(this.meta.p, findSecondClass(this.meta.p.secondClass, this.character?.job)) : 0;
+      const core = stage === 4 && mod.supports?.some(support => support.id === EMBER_CORE);
+      const charged = !isTrigger && core && (p.emberCharge || 0) >= 4 && this.time >= (p.emberReadyAt || 0);
+      const piercing = evolving && stage > 0 && mod.pierce > 0;
+      const n = evolving ? (piercing ? 1 : Math.min(stage ? 3 : 1, Math.max(stage ? 2 : 1, p.stats.proj + mod.multi)))
+        : Math.min(6, p.stats.proj + mod.multi);
+      const spread = evolving ? 0.17 : Math.max(0.1, 0.18 + (mod.spread || 0));
       const mpScale = multiProjDamageScale(n), volleyHits = new Set();
       const speed = 17 * (1 + (mod.speed || 0));
+      // All primary shots share a hit set and one manual-cast record.
+      const emberCast = evolving && !isTrigger ? { stage, core, charged, firstHit: false, hits: volleyHits } : null;
+      if (charged) {
+        p.emberCharge = 0;
+        p.emberReadyAt = this.time + 20;
+        this.ui.toast('餘燼火潮', '#ffbc67');
+      }
       for (let i = 0; i < n; i++) {
         const a = (i - (n - 1) / 2) * spread, d = dir.clone().rotateAround(new V2(), a);
         if (i < 3) this.vfx?.spawnMagicMissile(p.pos.x, p.y, p.pos.z, d.x, d.y, vfxTh || 'fire');
-        this.fireProj(p.pos, d, { speed, life: (1.1 + (mod.duration || 0)) * 17 / speed, pierce: mod.pierce || 0, hitRadius: 0.25 * (1 + mod.area), volleyHits, noFold: true, mult: 1.35 * dmgMul * mpScale, fire: true, color: 0xffb347, size: 0.18, chain: (this.has('chain') ? 1 : 0) + mod.chain, split: !!(mod.split || p.specials.has('splitBolt')), orbit: !!mod.orbit, slow, leech, ...trigOpts });
+        this.fireProj(p.pos, d, { speed, life: (1.1 + (mod.duration || 0)) * 17 / speed,
+          pierce: evolving ? Number(piercing) : mod.pierce || 0, hitRadius: 0.25 * (evolving ? 1 : 1 + mod.area),
+          volleyHits, noFold: true, mult: 1.35 * dmgMul * mpScale, fire: true, color: 0xffb347, size: 0.18,
+          chain: evolving ? 0 : (this.has('chain') ? 1 : 0) + mod.chain,
+          split: !evolving && !!(mod.split || p.specials.has('splitBolt')), orbit: !evolving && !!mod.orbit,
+          slow, leech, emberCast, ...trigOpts });
       }
       p.swing = 1; p.swingT = 0.15;
     } else if (id === 'slam') {
@@ -5257,6 +5330,7 @@ export class Game {
             this.fx.burst(pr.mesh.position.x, pr.mesh.position.y, pr.mesh.position.z, 5, { c: [0x6ae8ff, 0xffffff], s: 0.1, speed: 3, up: 1.5, life: 0.28 });
             if (!this._proxHintT || this.time - this._proxHintT > 5) { this._proxHintT = this.time; this.ui.toast('🛡️ 外環風障偏折遠程投射！請貼近 4.5m 內破陣', '#6ae8ff'); }
           }
+          if (pr.emberCast) this.resolveEmberHit(pr.emberCast, e, pr.mult);
           this.hitEnemy(e, this.rollDamage(pr.mult * shieldFactor, pr.fire, { allowOpeningCrit }), n.x * 3, n.y * 3, { hitPos: pr.mesh.position, hitstop: 0.02, slow: pr.slow, stun: pr.stun, leech: pr.leech, poison: pr.poison, shock: pr.shock, aerial: !!pr.airShot, triggerOnHit: pr.triggerOnHit, triggerOnCrit: pr.triggerOnCrit, openingFrost: pr.openingFrost, openingLeech: pr.openingLeech, isTrigger: pr.isTrigger, growthSecondary: pr.growthSecondary });
           if (pr.split) {
             for (const turn of [-0.62, 0, 0.62]) {

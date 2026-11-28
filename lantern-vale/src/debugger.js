@@ -6,7 +6,7 @@ import { openTextDialog } from './ui_layers.js';
 import { FIELDS } from './frontier.js';
 import { FIELD_BLUEPRINTS } from './field_blueprints.js';
 import { getGlbCacheCount } from './assets.js';
-import { ALL_GEMS, addGemToBag, ensurePuzzle } from './puzzle.js';
+import { AVAILABLE_GEM_IDS, addGemToBag, ensurePuzzle } from './puzzle.js';
 import { makeItem } from './loot.js';
 import { MONSTER_SOULS, grantSoul } from './souls.js';
 import { MOUNTS } from './mounts.js';
@@ -521,7 +521,7 @@ export function installDebugger(game) {
   $d('devAllGems').onclick = () => {
     const puzzle = ensurePuzzle(game.meta.p, game.character?.job ?? 0);
     const owned = new Set([...puzzle.bag, ...puzzle.presets.flat(), puzzle.partyGem].filter(Boolean).map(gem => gem.id));
-    const missing = Object.keys(ALL_GEMS).filter(id => !owned.has(id));
+    const missing = AVAILABLE_GEM_IDS.filter(id => !owned.has(id));
     for (const id of missing) addGemToBag(game.meta.p, id);
     game.meta.save();
     game.ui?.toast?.(missing.length ? `已補齊 ${missing.length} 種未持有的寶石（按 K 檢視）` : '已持有全套寶石', '#c08cff');
