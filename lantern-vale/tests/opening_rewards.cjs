@@ -2,6 +2,8 @@ const assert = require('node:assert/strict');
 const { chromium } = require('playwright');
 
 (async () => {
+  const { MEADOW_TIERS } = await import('../src/expedition.js');
+  const { xpForNextLevel } = await import('../src/frontier.js');
   const url = process.env.LV_GAME_URL || 'http://localhost:8080/';
   const browser = await chromium.launch({
     channel: process.env.LV_CHROMIUM_CHANNEL || 'chrome',
@@ -36,9 +38,13 @@ const { chromium } = require('playwright');
     await first.waitForFunction(() => !!JSON.parse(localStorage.getItem(__game.meta.key)).meadowExpedition.cleared[1]);
     const claimed = await first.evaluate(() => {
       const p = JSON.parse(localStorage.getItem(__game.meta.key));
-      return [p.coins, p.keys, p.puzzle.bag.length, p.xp];
+      return { coins: p.coins, keys: p.keys, gems: p.puzzle.bag.length, level: p.level, xp: p.xp };
     });
-    assert.deepEqual(claimed, [100, 2, 1, 11]);
+    const reward = MEADOW_TIERS[1];
+    assert.deepEqual([claimed.coins, claimed.keys, claimed.gems], [15 + reward.coins, 1 + reward.keys, 1]);
+    let earnedXp = claimed.xp;
+    for (let level = 1; level < claimed.level; level++) earnedXp += xpForNextLevel(level);
+    assert.equal(earnedXp, reward.xp);
     await second.close();
 
     await first.evaluate(() => {
