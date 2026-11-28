@@ -174,7 +174,7 @@ export function syncOpeningEncounter(g) {
   lamp.label = '已點亮南門路燈';
   lamp.light.material.color.setHex(0xffdf81);
   if (g.enemies.some(enemy => enemy.openingPractice && !enemy.dead)) return;
-  const boar = g.spawnEnemy('boar', g.meadowLocations['opening-boar'], false);
+  const boar = g.spawnEnemy('boar', g.meadowLocations['opening-boar'], false, { benchmark: true });
   boar.openingPractice = true;
   boar.level = FIELDS[1].level;
   initParts(boar, []);

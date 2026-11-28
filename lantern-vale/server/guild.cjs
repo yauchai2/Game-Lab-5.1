@@ -12,6 +12,8 @@ module.exports = function createGuild(filename) {
     CREATE TABLE IF NOT EXISTS lots(id INTEGER PRIMARY KEY, seller TEXT NOT NULL, price INTEGER NOT NULL);
   `);
   const AUCTION_TAX_RATE = 0.08;
+  const RAID_HP = 204;
+  const RAID_CYCLE = 28, RAID_WINDUP = 7, RAID_IMPACT = 34;
   const rooms = new Map(), online = new Map();
   const send = (me, msg) => { if (me.ws.readyState===1) me.ws.send(JSON.stringify(msg)); };
   const fetchLots = () => db.prepare('SELECT id,price,seller FROM lots ORDER BY price,id LIMIT 50').all();
@@ -66,10 +68,10 @@ module.exports = function createGuild(filename) {
       }
     }
   }
-  function joinRaid(me, code, power = 8) {
+  function joinRaid(me, code, power = 8, maxHp = RAID_HP) {
     let room = rooms.get(code);
     if (!room) {
-      room = { code, members: new Map(), hp: 144, x: 0, z: 0, clock: 0, portalsLeft: 6 };
+      room = { code, members: new Map(), hp: maxHp, maxHp, x: 0, z: 0, clock: 0, portalsLeft: 6 };
       rooms.set(code, room);
     }
     if (room.members.size >= 4) { send(me, { t: 'guildNotice', text: '此組隊副本已滿。' }); return null; }
@@ -81,7 +83,8 @@ module.exports = function createGuild(filename) {
 
   function startDungeonRaid(members, id, bots) {
     let room;
-    for (const member of members) room = joinRaid(member, `lobby-${id}`) || room;
+    const maxHp = RAID_HP + 32 * Math.max(0, members.length - 1);
+    for (const member of members) room = joinRaid(member, `lobby-${id}`, 8, maxHp) || room;
     if (!room) return;
     for (let i = 0; i < bots; i++) {
       const actor = { id: `ai-${i}`, name: i === 0 ? '巡燈衛士（AI）' : '林風遊俠（AI）' };
@@ -124,12 +127,14 @@ module.exports = function createGuild(filename) {
     const now=Date.now();
     for (const room of rooms.values()) {
       room.clock++;
-      const impact=room.clock%40===0;
+      const phase = room.clock % RAID_CYCLE;
+      const impact = phase === 0;
+      const warning = phase >= RAID_CYCLE - RAID_WINDUP;
       for (const f of room.members.values()) {
         if (f.hp<=0) continue;
         if (f.bot) {
           const dx = room.x - f.x, dz = room.z - f.z, dist = Math.hypot(dx, dz) || 1;
-          const dodge = room.clock % 40 >= 30;
+          const dodge = warning || impact;
           const move = dodge ? (dist < 3.8 ? -1 : 0) : (dist > 2.6 ? 1 : 0);
           f.dx = dx / dist * move; f.dz = dz / dist * move;
           f.attack = !dodge && membersHaveFought(room);
@@ -139,15 +144,19 @@ module.exports = function createGuild(filename) {
         f.z=Math.max(-4.6,Math.min(4.6,f.z+f.dz/length*.45));
         f.cooldown=Math.max(0,f.cooldown-1);
         const dist=Math.hypot(f.x-room.x,f.z-room.z);
-        if (f.attack&&!f.cooldown&&dist<3) {room.hp-=f.power;f.damage+=f.power;f.cooldown=5;f.lastHit=room.clock;}
+        if (f.attack && !f.cooldown && dist < 3) {
+          // The guardian exposes its core just after the stomp.
+          const hit = phase > 0 && phase <= 7 ? f.power : Math.max(1, Math.round(f.power * 0.75));
+          room.hp -= hit; f.damage += hit; f.cooldown = 5; f.lastHit = room.clock;
+        }
         if (impact&&dist<3.4) {
-          f.hp=Math.max(0,f.hp-16);
-          f.mitigated+=16;
+          f.hp=Math.max(0,f.hp-RAID_IMPACT);
+          f.mitigated+=RAID_IMPACT;
           if (f.hp<=0 && room.portalsLeft>0) { room.portalsLeft--; }
         }
       }
       const members=[...room.members.values()];
-      const snapshot={t:'raidFrame',hp:Math.max(0,room.hp),portalsLeft:room.portalsLeft,warn:room.clock%40>=30,
+      const snapshot={t:'raidFrame',hp:Math.max(0,room.hp),maxHp:room.maxHp,portalsLeft:room.portalsLeft,warn:warning,
         members:members.map(f=>({id:f.me.id,name:f.me.name,hp:f.hp,x:f.x,z:f.z}))};
       const humans = members.filter(f => !f.bot);
       for(const f of humans) send(f.me,snapshot);

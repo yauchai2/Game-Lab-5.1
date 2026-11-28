@@ -1,6 +1,6 @@
 // Universal Hover & Inspect System (全境懸停反饋與互動系統)
 // 涵蓋 55+ 獨立 UI 元素（顆粒級資訊卡）、Tab 小地圖標記偵測、3D 世界全物件與微音效節流
-import { CLASSES, ACTIVE_GEMS, unlockedCount } from './puzzle.js';
+import { CLASSES, ACTIVE_GEMS, skillCooldown, skillManaCost, unlockedCount } from './puzzle.js';
 import { FIELDS, xpForNextLevel } from './frontier.js';
 import { flameSnapshot, FLAME_CFG } from './flame.js';
 import { FIELD_BLUEPRINTS } from './field_blueprints.js';
@@ -80,8 +80,8 @@ export function describeSkillSlot(g, idx) {
   }
   const { def, mod } = sk;
   const S = p.stats || {};
-  const effCd = Math.max(0.12, def.cd * (1 - (S.cdr || 0) / 100) * (1 - (mod.cdr || 0)));
-  const effMana = Math.round((def.mana || 0) * (mod.bluefire ? 0.75 : 1));
+  const effCd = skillCooldown(def, mod, g.combatPace(), S.cdr || 0, p.statuses?.overload > 0);
+  const effMana = skillManaCost(def, mod);
   const chips = [
     `⏱ 冷卻 ${effCd.toFixed(2)}s`,
     effMana > 0 ? `💧 法力 ${effMana}` : '💧 免耗魔',

@@ -164,7 +164,7 @@ const { pathToFileURL } = require('node:url');
     assert.equal(W.buildWick(0, old.secondClass).stanceId, 'bastion');
   }
   const prof = { level: 20, kills: 99, totalElites: 9, coins: 999, shards: 999, deeds: { perfectGather: 5, skyRing: 5, casts: 99, nightExplore: 1 }, visitedFields: [1, 2, 3, 4], bag: [], gemBag: [] };
-  const res = A.performAscend(prof, 'mistphantom', false);
+  const res = A.performAscend(prof, 'mistphantom', 3);
   assert.ok(res.ok, JSON.stringify(res));
   assert.equal(prof.secondClass, 'mistphantom'); assert.equal(prof.vow.sc, 'mistphantom');
   assert.equal(prof.coins, 999 - A.ASCEND_REQ.coins, 'still charged');

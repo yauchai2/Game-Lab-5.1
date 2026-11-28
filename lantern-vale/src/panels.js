@@ -694,7 +694,7 @@ export function buildPanels(g) {
     const row = document.createElement('div'); row.className = 'prow';
     const ok = document.createElement('button'); ok.className = 'btn small on'; ok.textContent = '✨ 立下誓言並覺醒';
     ok.onclick = () => {
-      const res = performAscend(M.p, sc.id, !!g.dev?.on);
+      const res = performAscend(M.p, sc.id, g.character?.job ?? 0);
       if (!res.ok) { g.ui.toast(res.reason || '尚未達成試煉條件', '#ff8a8a'); vowId = null; render(); return; }
       recordStoryEvent(M.p, 'ascend', 1);
       M.save(); g.recalc(); g.audio.sfx('classup');
@@ -710,7 +710,7 @@ export function buildPanels(g) {
 
   function renderAscend() {
     const cls = CLASSES[g.character?.job ?? 0] || CLASSES[0];
-    const cur2 = findSecondClass(M.p.secondClass);
+    const cur2 = findSecondClass(M.p.secondClass, cls.id);
     const vowSc = vowId && (SECOND_CLASSES[cls.id] || []).find(c => c.id === vowId);
     if (vowSc) { renderVow(cls, vowSc); return; }
     title.textContent = `星燈覺醒祭壇 · ${cls.icon} ${cls.name}二轉試煉`;
@@ -723,14 +723,14 @@ export function buildPanels(g) {
     body.append(info);
     for (const sc of SECOND_CLASSES[cls.id] || []) {
       const isCur = M.p.secondClass === sc.id;
-      const elig = checkAscendEligibility(M.p, sc, !!g.dev?.on);
+      const elig = checkAscendEligibility(M.p, sc);
       const d = document.createElement('div'); d.className = 'prow';
       const chkHtml = elig.checks.map(c => `<span style="display:inline-block;margin:2px 6px 2px 0;font-size:11.5px;color:${c.ok ? '#267346' : '#a83434'};font-weight:${c.ok ? '700' : '600'}">${c.ok ? '✔' : '✖'} ${esc(c.label)}</span>`).join('');
       d.innerHTML = `<div class="pl"><b>${sc.icon} ${sc.name}</b> <small>（稱號：${esc(sc.title || '')}）</small><br><small>${esc(sc.desc)}</small>${stanceHtml(stanceById(sc.id))}<div class="pbar" style="margin:4px 0"><i style="width:${Math.round(elig.prog * 100)}%"></i></div><div>${chkHtml}</div></div>`;
       const b = document.createElement('button'); b.className = 'btn small' + (isCur || elig.eligible ? ' on' : '');
       b.textContent = isCur ? '已覺醒 ✔' : elig.eligible ? '🕯️ 面對誓言' : `🔒 試煉 ${elig.passed}/${elig.total}`;
       b.disabled = isCur || !elig.eligible;
-      b.onclick = () => { vowId = sc.id; render(); };
+      b.onclick = () => { if (!isCur && checkAscendEligibility(M.p, sc).eligible) { vowId = sc.id; render(); } };
       d.append(b); body.append(d);
     }
 

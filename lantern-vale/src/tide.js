@@ -403,7 +403,7 @@ function spawnTideBoss(g) {
     let bx = p.pos.x + Math.cos(ang) * 11.5, bz = p.pos.z + Math.sin(ang) * 11.5;
     if (!g.world.isLand(bx, bz)) { const q = g.world.randomWalkable(Math.random, p.pos, 9); bx = q.x; bz = q.z; }
     const isSlimeKing = bIdx === 0 ? Math.random() < 0.55 : false;
-    const e = g.spawnEnemy(isSlimeKing ? 'slime' : (bIdx === 1 ? 'moth' : 'boar'), { x: bx, z: bz }, true);
+    const e = g.spawnEnemy(isSlimeKing ? 'slime' : (bIdx === 1 ? 'moth' : 'boar'), { x: bx, z: bz }, true, { boss: true });
     if (!e) continue;
     e.isTideBoss = true;
     e.tideAggro = true;

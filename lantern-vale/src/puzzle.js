@@ -1,10 +1,12 @@
+import { NEW_ACTIVE_GEMS, NEW_SUPPORT_GEMS } from './gem_catalog.js';
+
 // 原創職業系統與 6×6 技能拼圖（聚方塊相鄰連動，A Short Hike 奶油像素風格）
 export const GRID = 6;
 
 export const CLASSES = [
   {
     id: 0, key: 'warden', name: '守燈衛士', icon: '🛡', weapon: 'shield',
-    summary: '減傷 +15% · 生命 +25',
+    summary: '護甲 +8～15 · 生命 +25',
     desc: '持盾鎮守谷口，累積【堅壁戰意】自動展開聖光護盾，開局配備聖劍天降與裂地重擊。',
     classMech: { id: 'resolve', name: '堅壁戰意', icon: '🛡️', max: 100, color: '#ffcf4a', desc: '普攻／受擊累積戰意，滿 100 自動展開聖光護盾並強化下招範圍 +30%。' },
     classUlt: 'dragon',
@@ -91,7 +93,7 @@ export const ACTIVE_GEMS = {
   rain:  { id: 'rain',  type: 'active', name: '星羽箭雨', short: '箭雨', icon: '🏹', color: '#4c94d8', price: 18, cd: 5.0,  mana: 12, shape: [[0,0],[0,1],[1,1]], desc: '在瞄準區域降下多波星羽流星造成範圍傷害。' },
   trap:  { id: 'trap',  type: 'active', name: '苔霧陷阱', short: '陷阱', icon: '🪤', color: '#8d6cc8', price: 16, cd: 4.0,  mana: 8,  shape: [[0,0],[1,0],[0,1],[1,1]], desc: '在目標地點投出燈苔陷阱，引爆並減速敵人。' },
   whirl:   { id: 'whirl',   type: 'active', name: '旋風燈舞', short: '燈舞', icon: '🌀', color: '#d85a7a', price: 18, cd: 4.2,  mana: 10, shape: [[0,0],[1,0],[2,0],[1,1]], desc: '以自身為中心釋放旋轉熾焰燈環斬擊周圍敵人。' },
-  mark:    { id: 'mark',    type: 'active', name: '微弱印記', short: '印記', icon: '🎯', color: '#a84ec8', price: 12, cd: 6.0,  mana: 6,  shape: [[0,0]], desc: '詛咒目標區域，使敵人 6 秒內受到傷害 +30%。' },
+  mark:    { id: 'mark',    type: 'active', name: '微弱印記', short: '印記', icon: '🎯', color: '#a84ec8', price: 12, cd: 6.0,  mana: 6,  shape: [[0,0]], desc: '詛咒目標區域，使敵人 6 秒內受到傷害 +16%。' },
   meteor:  { id: 'meteor',  type: 'active', name: '星隕天降', short: '星隕', icon: '☄',  color: '#e04f2c', price: 28, cd: 6.5,  mana: 14, shape: [[0,0],[1,0],[0,1],[1,1]], desc: '召喚燃燒隕石轟擊目標區域並留下烈焰震波。' },
   nova:    { id: 'nova',    type: 'active', name: '極光新星', short: '極光', icon: '❄',  color: '#46b0e8', price: 26, cd: 5.8,  mana: 12, shape: [[1,0],[0,1],[1,1],[2,1]], desc: '爆發雙層冰晶極光環，重創並深度冰緩周圍敵人。' },
   prism:   { id: 'prism',   type: 'active', name: '折光棱鏡', short: '棱鏡', icon: '💎', color: '#38b5a0', price: 26, cd: 7.0,  mana: 12, shape: [[0,0],[0,1],[1,1]], desc: '立起旋轉折光水晶，自動向周圍敵人折射光束。' },
@@ -110,31 +112,81 @@ export const ACTIVE_GEMS = {
   spear_cage:      { id: 'spear_cage',      type: 'active', name: '雷槍聖牢', short: '雷牢', icon: '🔱', color: '#4c88e0', price: 30, cd: 6.5, mana: 13, shape: [[0,0],[1,0],[0,1],[1,1]], desc: '召喚 8 根 3D 騎士雷槍環形插地困住敵群並持續感電傷害！' },
   sword_beams:     { id: 'sword_beams',     type: 'active', name: '附魔劍氣', short: '劍氣', icon: '🌙', color: '#d85898', price: 24, cd: 3.8, mana: 9,  shape: [[0,0],[1,0],[2,0]], desc: '揮出三道穿透 3D 月牙附魔劍氣波，專精高速直線清掃怪海。' },
   candle_ward:     { id: 'candle_ward',     type: 'active', name: '魂火燭陣', short: '燭陣', icon: '🕯️', color: '#38b8d8', price: 26, cd: 8.5, mana: 10, shape: [[0,0],[1,0]], desc: '展開 6 支 3D 幽藍蠟燭法陣 6 秒，站於陣內持續回血回魔並灼燒踏入敵人！' },
+  ...NEW_ACTIVE_GEMS,
 };
 
 export const SUPPORT_GEMS = {
-  multi: { id: 'multi', type: 'support', name: '多重投射', short: '多重', icon: '⇶', color: '#c4843d', price: 15, shape: [[0,0],[0,1],[1,1]], desc: '相鄰主動技能額外增加 +2 投射物或箭雨波數，並附加傷害 +8%。' },
-  echo:  { id: 'echo',  type: 'support', name: '連發迴響', short: '連發', icon: '⟳', color: '#7a5cc4', price: 18, shape: [[0,0],[1,0],[2,0]], desc: '相鄰主動技能額外觸發 1 次（65% 傷害），並附加冷卻縮減 8%。' },
+  multi: { id: 'multi', type: 'support', name: '多重投射', short: '多重', icon: '⇶', color: '#c4843d', price: 15, shape: [[0,0],[0,1],[1,1]], desc: '適用投射物、螢火護衛或箭雨，增加一發或一波，傷害 -12%。' },
+  echo:  { id: 'echo',  type: 'support', name: '連發迴響', short: '連發', icon: '⟳', color: '#7a5cc4', price: 18, shape: [[0,0],[1,0],[2,0]], desc: '相鄰攻擊技能延後重施一次（35% 傷害），耗魔 +22%。' },
   area:  { id: 'area',  type: 'support', name: '擴大範圍', short: '擴域', icon: '◎', color: '#3f9688', price: 14, shape: [[0,0],[1,0]], desc: '相鄰主動技能作用範圍 +35%。' },
-  ember: { id: 'ember', type: 'support', name: '熾炎增幅', short: '熾炎', icon: '✴', color: '#d9543a', price: 14, shape: [[0,0]], desc: '相鄰主動技能傷害 +16% 並附加火焰傷害。' },
-  chain: { id: 'chain', type: 'support', name: '連鎖跳躍', short: '連鎖', icon: '⚡', color: '#4f7ed6', price: 16, shape: [[0,0],[1,0],[1,1],[2,1]], desc: '相鄰投射物命中後額外彈跳 +2 個目標，並附加傷害 +12% 與短暫感電。' },
-  haste: { id: 'haste', type: 'support', name: '極速詠唱', short: '極速', icon: '⏩', color: '#58a858', price: 13, shape: [[0,0]], desc: '相鄰主動技能冷卻時間縮減 14%。' },
+  ember: { id: 'ember', type: 'support', name: '熾炎增幅', short: '熾炎', icon: '✴', color: '#d9543a', price: 14, shape: [[0,0]], desc: '相鄰技能傷害 +9%，並附加火焰。' },
+  chain: { id: 'chain', type: 'support', name: '連鎖跳躍', short: '連鎖', icon: '⚡', color: '#4f7ed6', price: 16, shape: [[0,0],[1,0],[1,1],[2,1]], desc: '相鄰投射物命中後額外彈跳 +2 個目標，附短暫感電，傷害 -8%。' },
+  haste: { id: 'haste', type: 'support', name: '極速詠唱', short: '極速', icon: '⏩', color: '#58a858', price: 13, shape: [[0,0]], desc: '相鄰主動技能冷卻時間縮減 8%。' },
   frost: { id: 'frost', type: 'support', name: '霜緩附魔', short: '霜緩', icon: '❄', color: '#5aa0e0', price: 14, shape: [[0,0],[1,0]], desc: '相鄰主動技能命中時緩速敵人 45%。' },
-  leech: { id: 'leech', type: 'support', name: '生命汲取', short: '汲血', icon: '♥', color: '#c84862', price: 14, shape: [[0,0]], desc: '相鄰主動技能命中回復 8 點生命，並賦予 3.5 秒汲血光環（普攻每次命中回復 3 點生命）。' },
-  vamp:  { id: 'vamp',  type: 'support', name: '血月汲取', short: '血月', icon: '🩸', color: '#a8324c', price: 20, shape: [[0,0],[0,1]], desc: '相鄰主動技能傷害 +15%、命中回復 10 點生命並賦予 3.5 秒汲血光環。' },
+  leech: { id: 'leech', type: 'support', name: '生命汲取', short: '汲血', icon: '♥', color: '#c84862', price: 14, shape: [[0,0]], desc: '相鄰主動技能命中回復 4 點生命，汲血每秒最多觸發一次。' },
+  vamp:  { id: 'vamp',  type: 'support', name: '血月汲取', short: '血月', icon: '🩸', color: '#a8324c', price: 20, shape: [[0,0],[0,1]], desc: '相鄰主動技能傷害 +6%，命中回復 5 點生命，汲血每秒最多觸發一次。' },
   storm: { id: 'storm', type: 'support', name: '雷鳴連鎖', short: '雷鳴', icon: '🌩', color: '#4a6cd8', price: 20, shape: [[0,0],[1,0]], desc: '相鄰主動技能附加感電（+25% 易傷）且額外連鎖 +1 目標。' },
-  split: { id: 'split', type: 'support', name: '分裂稜鏡', short: '分裂', icon: '⑂',  color: '#e88c38', price: 22, shape: [[0,0],[1,0],[0,1]], desc: '相鄰投射物命中目標時向四周分裂出 3 枚次級火花，並附加傷害 +10%！' },
-  coh:   { id: 'coh',   type: 'support', name: '命中觸發器', short: '命中觸發', icon: '🔗', color: '#b85cf0', price: 26, shape: [[0,0],[1,0]], desc: '【邏輯電路】橋接兩顆主動技能：前招命中時自動觸發相鄰另一招（消耗 40% 法力，獨立冷卻 MAX(0.45 秒, 原 CD × 35%)）。' },
-  coc:   { id: 'coc',   type: 'support', name: '暴擊觸發器', short: '暴擊觸發', icon: '💥', color: '#f04878', price: 28, shape: [[0,0],[0,1]], desc: '【邏輯電路】橋接兩顆主動技能：暴擊時自動觸發相鄰另一招（消耗 40% 法力，獨立冷卻 MAX(0.45 秒, 原 CD × 35%)）。' },
+  split: { id: 'split', type: 'support', name: '分裂稜鏡', short: '分裂', icon: '⑂',  color: '#e88c38', price: 22, shape: [[0,0],[1,0],[0,1]], desc: '相鄰投射物命中目標時向四周分裂出 3 枚低傷次級火花，技能傷害 -10%。' },
+  coh:   { id: 'coh',   type: 'support', name: '命中觸發器', short: '命中觸發', icon: '🔗', color: '#b85cf0', price: 26, shape: [[0,0],[1,0]], desc: '【邏輯電路】橋接兩顆主動技能：前招命中時自動觸發相鄰另一招（消耗 65% 法力，與其他觸發共用間隔，技能本身至少冷卻 1.25 秒）。' },
+  coc:   { id: 'coc',   type: 'support', name: '暴擊觸發器', short: '暴擊觸發', icon: '💥', color: '#f04878', price: 28, shape: [[0,0],[0,1]], desc: '【邏輯電路】橋接兩顆主動技能：暴擊時自動觸發相鄰另一招（消耗 65% 法力，與其他觸發共用間隔，技能本身至少冷卻 1.25 秒）。' },
   orbit:    { id: 'orbit',    type: 'support', name: '環繞軌道核',   short: '軌道', icon: '🪐', color: '#3ec6d8', price: 24, shape: [[0,0],[1,0]], desc: '【魔杖改造】相鄰投射物改為環繞角色高速旋轉的軌道切割彈幕！' },
-  bluefire: { id: 'bluefire', type: 'support', name: '幽藍魂火轉化', short: '藍火', icon: '🔵', color: '#2a98f0', price: 22, shape: [[0,0]], desc: '【視覺演化】將相鄰主動技能轉化為幽藍魂火特效，耗魔 -25% 且傷害 +14%！' },
+  bluefire: { id: 'bluefire', type: 'support', name: '幽藍魂火轉化', short: '藍火', icon: '🔵', color: '#2a98f0', price: 22, shape: [[0,0]], desc: '【視覺演化】將相鄰主動技能轉化為幽藍魂火特效，耗魔 -12% 且傷害 +5%！' },
   vortex:   { id: 'vortex',   type: 'support', name: '聚能引力核',   short: '聚怪', icon: '🌀', color: '#8a5cf0', price: 24, shape: [[0,0],[0,1]], desc: '【視覺演化】相鄰範圍技能命中時產生向心引力，將周圍怪海拉向中心！' },
   sv_ember_core:  { id: 'sv_ember_core',  type: 'support', name: '餘燼火種核', short: '火種核', icon: '☄️', color: '#ff6a30', price: 32, shape: [[0,0],[1,0]], desc: '【倖存者聯動】裝備於拼盤時，狂潮開局自帶 Lv.2 餘燼飛彈且超武傷害 +25%！' },
   sv_resonance:   { id: 'sv_resonance',   type: 'support', name: '超武共鳴核', short: '共鳴核', icon: '🌟', color: '#ffd85a', price: 36, shape: [[0,0],[0,1]], desc: '【倖存者聯動】裝備於拼盤時，擁有至少 2 把超武時觸發星穹共鳴（暴傷 +40%、冷卻 -15%）！' },
   sv_magnet_core: { id: 'sv_magnet_core', type: 'support', name: '貪婪星磁核', short: '星磁核', icon: '🧲', color: '#c87aff', price: 34, shape: [[0,0]], desc: '【倖存者聯動】裝備於拼盤時，狂潮開局自帶 Lv.1 貪婪金杯與星磁懷錶！' },
+  ...NEW_SUPPORT_GEMS,
 };
 
 export const ALL_GEMS = { ...ACTIVE_GEMS, ...SUPPORT_GEMS };
+const LEGACY_LEVELS = {
+  meteor: 5, nova: 5, prism: 6, phantom: 6, thunder: 6, quakeg: 8,
+  fire_whale: 10, thunder_phoenix: 10, dark_wolf: 10, healing_tree: 7, black_hole: 10,
+  blue_tornado: 7, spear_cage: 8, sword_beams: 6, candle_ward: 7,
+  echo: 6, split: 6, orbit: 6, vortex: 7, coh: 8, coc: 12,
+};
+
+export function gemLevel(id) {
+  return ALL_GEMS[id]?.level ?? LEGACY_LEVELS[id] ?? 1;
+}
+
+export function supportLimit(level) {
+  return level >= 20 ? 4 : level >= 12 ? 3 : level >= 6 ? 2 : 1;
+}
+
+function activeLimit(level) {
+  return level >= 12 ? 4 : level >= 6 ? 3 : 2;
+}
+
+const TRIGGER_IDS = new Set(['coh', 'coc']);
+const LEGACY_TAGS = {
+  bolt: ['projectile'], sword_beams: ['projectile'],
+  slam: ['area'], rain: ['area'], trap: ['area'], whirl: ['area'], mark: ['area'],
+  meteor: ['area'], nova: ['area'], prism: ['area'], phantom: ['area'], sakura: ['area'],
+  thunder: ['area'], quakeg: ['area'], paladin_sword: ['area'], fire_whale: ['area'],
+  thunder_phoenix: ['area'], dark_wolf: ['area'], healing_tree: ['area'],
+  black_hole: ['area'], blue_tornado: ['area'], spear_cage: ['area'], candle_ward: ['area'],
+};
+
+function supportsSkill(support, skill) {
+  const tags = skill.tags || LEGACY_TAGS[skill.id] || [];
+  if (support.tag === 'impact') return skill.family === 'impact' || skill.family === 'pulse' || skill.family === 'trail';
+  if (support.tag) return tags.includes(support.tag);
+  if (support.id === 'multi') return tags.includes('projectile') || ['rain', 'wisp'].includes(skill.id);
+  if (['chain', 'split', 'orbit'].includes(support.id)) return tags.includes('projectile');
+  if (support.id === 'area') return tags.includes('area') || tags.includes('projectile');
+  if (support.id === 'vortex') return tags.includes('area');
+  if (support.id === 'echo') return !['dash', 'ward'].includes(skill.family) && !['healing_tree', 'candle_ward'].includes(skill.id);
+  return !support.id.startsWith('sv_');
+}
+
+export function pickGemDrop({ playerLevel = 1, enemyLevel = 1, boss = false, rng = Math.random } = {}) {
+  const maxLevel = Math.min(playerLevel + (boss ? 3 : 1), enemyLevel + (boss ? 4 : 2));
+  const available = Object.keys(ALL_GEMS).filter(id => gemLevel(id) <= maxLevel);
+  const recent = available.filter(id => gemLevel(id) >= Math.max(1, maxLevel - 7));
+  const pool = recent.length && rng() < 0.65 ? recent : available;
+  return pool[Math.floor(rng() * pool.length)];
+}
 
 // 6×6 棋盤由中央 4×4（16 格）螺旋向外解鎖至全 36 格
 export const SPIRAL_ORDER = [
@@ -221,9 +273,18 @@ export function canPlace(placed, gemId, x, y, rot, level = 1, ignoreUid = null) 
 
 // 計算棋盤上所有主動技能與相鄰（上下左右邊相連）的輔助寶石加成與邏輯電路觸發鏈
 // Phase M4B：支援 partyGemId（小隊羈絆插座，自動共享給全盤主動技能與同隊隊友）
-export function computeBoard(placed, partyGemId = null) {
+export function computeBoard(placed, partyGemId = null, level = 30) {
+  const actives = new Set();
+  placed = placed.filter(item => {
+    if (gemLevel(item.id) > level) return false;
+    if (!ACTIVE_GEMS[item.id]) return true;
+    if (actives.size >= activeLimit(level) || actives.has(item.id)) return false;
+    actives.add(item.id);
+    return true;
+  });
   const occ = occupiedMap(placed);
-  const partySup = (partyGemId && SUPPORT_GEMS[partyGemId] && partyGemId !== 'coh' && partyGemId !== 'coc') ? SUPPORT_GEMS[partyGemId] : null;
+  const partySup = SUPPORT_GEMS[partyGemId] && !TRIGGER_IDS.has(partyGemId) && gemLevel(partyGemId) <= level
+    ? SUPPORT_GEMS[partyGemId] : null;
   const supportToActives = new Map();
   for (const item of placed) {
     if (!SUPPORT_GEMS[item.id]) continue;
@@ -241,7 +302,8 @@ export function computeBoard(placed, partyGemId = null) {
   for (const item of placed) {
     const def = ACTIVE_GEMS[item.id];
     if (!def) continue;
-    const linkedUids = new Set();
+    const linkedFamilies = new Set();
+    const linkedUids = [];
     const linkedDefs = [];
     const triggerOnHit = new Set();
     const triggerOnCrit = new Set();
@@ -249,50 +311,64 @@ export function computeBoard(placed, partyGemId = null) {
       const cx = item.x + dx, cy = item.y + dy;
       for (const [nx, ny] of [[cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]]) {
         const nb = occ.get(nx + ',' + ny);
-        if (nb && nb.uid !== item.uid && SUPPORT_GEMS[nb.id] && !linkedUids.has(nb.uid)) {
-          linkedUids.add(nb.uid);
-          linkedDefs.push(SUPPORT_GEMS[nb.id]);
-          if (nb.id === 'coh' || nb.id === 'coc') {
-            for (const otherId of supportToActives.get(nb.uid) || []) {
-              if (otherId !== def.id) {
-                if (nb.id === 'coh') triggerOnHit.add(otherId);
-                if (nb.id === 'coc') triggerOnCrit.add(otherId);
-              }
-            }
-          }
+        const support = SUPPORT_GEMS[nb?.id];
+        if (!support || !supportsSkill(support, def)) continue;
+        const family = support.family || support.id;
+        if (linkedFamilies.has(family) || linkedDefs.length >= supportLimit(level)) continue;
+        if (TRIGGER_IDS.has(nb.id)) {
+          const receivers = (supportToActives.get(nb.uid) || []).filter(otherId => otherId !== def.id);
+          if (!receivers.length) continue;
+          const targets = nb.id === 'coh' ? triggerOnHit : triggerOnCrit;
+          for (const target of receivers) targets.add(target);
         }
+        linkedFamilies.add(family);
+        linkedUids.push(nb.uid);
+        linkedDefs.push(support);
       }
     }
-    if (partySup && !linkedDefs.some(s => s.id === partySup.id)) {
-      linkedDefs.push(partySup);
-    }
+    const shared = partySup && linkedDefs.length < supportLimit(level) &&
+      !linkedFamilies.has(partySup.family || partySup.id) && supportsSkill(partySup, def) ? partySup : null;
+    if (shared) linkedDefs.push(shared);
     const mod = {
       multi: 0, echo: 0, area: 0, dmgMult: 1, fire: def.id === 'bolt', chain: 0, cdr: 0, frost: 0, leech: 0, shock: 0,
       split: false, orbit: false, bluefire: false, vortex: false, vfxTheme: null,
-      partyShared: partySup ? partySup.id : null,
+      partyShared: shared?.id || null, mana: 0, reach: 0, spread: 0, speed: 0, duration: 0, pierce: 0, slow: 0, heal: 0, stun: 0,
       triggerOnHit: [...triggerOnHit], triggerOnCrit: [...triggerOnCrit],
-      supports: linkedDefs,
+      supports: linkedDefs, supportUids: linkedUids,
     };
     for (const s of linkedDefs) {
-      if (s.id === 'multi') { mod.multi += 2; mod.dmgMult = +(mod.dmgMult + 0.08).toFixed(2); }
-      if (s.id === 'echo') { mod.echo += 1; mod.cdr = Math.min(0.6, +(mod.cdr + 0.08).toFixed(2)); }
+      if (s.effects) {
+        const { power = 0, radius = 0, extra = 0, ...effects } = s.effects;
+        mod.dmgMult += power;
+        mod.area += radius;
+        mod.multi += extra;
+        for (const [key, value] of Object.entries(effects)) mod[key] += value;
+        continue;
+      }
+      if (s.id === 'multi') { mod.multi += 1; mod.dmgMult -= 0.12; }
+      if (s.id === 'echo') { mod.echo = 1; mod.mana += 0.22; }
       if (s.id === 'area') mod.area += 0.35;
-      if (s.id === 'ember') { mod.dmgMult = +(mod.dmgMult + 0.16).toFixed(2); mod.fire = true; }
-      if (s.id === 'chain') { mod.chain += 2; mod.dmgMult = +(mod.dmgMult + 0.12).toFixed(2); mod.shock += 2.5; }
-      if (s.id === 'haste') mod.cdr = Math.min(0.6, +(mod.cdr + 0.14).toFixed(2));
+      if (s.id === 'ember') { mod.dmgMult = +(mod.dmgMult + 0.09).toFixed(2); mod.fire = true; }
+      if (s.id === 'chain') { mod.chain += 2; mod.dmgMult = +(mod.dmgMult - 0.08).toFixed(2); mod.shock += 2.5; }
+      if (s.id === 'haste') mod.cdr = Math.min(0.6, +(mod.cdr + 0.08).toFixed(2));
       if (s.id === 'frost') mod.frost += 1;
-      if (s.id === 'leech') mod.leech += 8;
-      if (s.id === 'vamp') { mod.dmgMult = +(mod.dmgMult + 0.15).toFixed(2); mod.leech += 10; }
+      if (s.id === 'leech') mod.leech += 4;
+      if (s.id === 'vamp') { mod.dmgMult = +(mod.dmgMult + 0.06).toFixed(2); mod.leech += 5; }
       if (s.id === 'storm') { mod.shock += 4.5; mod.chain += 1; }
-      if (s.id === 'split') { mod.split = true; mod.dmgMult = +(mod.dmgMult + 0.10).toFixed(2); }
+      if (s.id === 'split') { mod.split = true; mod.dmgMult = +(mod.dmgMult - 0.10).toFixed(2); }
       if (s.id === 'orbit') mod.orbit = true;
-      if (s.id === 'bluefire') { mod.bluefire = true; mod.dmgMult = +(mod.dmgMult + 0.14).toFixed(2); mod.fire = true; }
+      if (s.id === 'bluefire') { mod.bluefire = true; mod.dmgMult = +(mod.dmgMult + 0.05).toFixed(2); mod.fire = true; }
       if (s.id === 'vortex') { mod.vortex = true; mod.area += 0.15; }
     }
+    mod.dmgMult = +Math.min(1.30, Math.max(0.45, mod.dmgMult)).toFixed(3);
+    mod.cdr = Math.min(0.24, mod.cdr);
+    mod.leech = Math.min(6, mod.leech);
+    mod.chain = Math.min(2, mod.chain);
+    mod.multi = Math.min(2, mod.multi);
     // 輔助寶石視覺變異主題（優先序：幽藍魂火 > 雷鳴 > 霜緩 > 熾炎）
     mod.vfxTheme = mod.bluefire ? 'bluefire' : mod.shock > 0 ? 'thunder' : mod.frost > 0 ? 'frost' : (mod.fire && def.id !== 'bolt') ? 'fire' : null;
     const chainTags = [];
-    if (partySup) chainTags.push(`🤝羈絆:${partySup.short}`);
+    if (shared) chainTags.push(`🤝羈絆:${shared.short}`);
     if (mod.bluefire) chainTags.push('🔵藍火');
     if (mod.vortex) chainTags.push('🌀聚怪');
     if (mod.split) chainTags.push('分裂');
@@ -310,11 +386,12 @@ export function computeBoard(placed, partyGemId = null) {
 export function suggestSupportFit(profile, gemId) {
   const puzzle = profile.puzzle;
   const placed = puzzle?.presets[puzzle.activePreset];
-  if (!placed?.length || !SUPPORT_GEMS[gemId]) return null;
+  if (!placed?.length || !SUPPORT_GEMS[gemId] || gemLevel(gemId) > (profile.level || 1)) return null;
   const occupied = occupiedMap(placed);
   const level = profile.level || 1;
-  const alreadyLinked = new Set(computeBoard(placed, puzzle.partyGem?.id)
-    .filter(skill => skill.mod.supports.some(support => support.id === gemId))
+  const current = computeBoard(placed, puzzle.partyGem?.id, level);
+  const eligible = new Set(current.filter(skill => skill.mod.supports.length < supportLimit(level) &&
+    !skill.mod.supports.some(support => (support.family || support.id) === (SUPPORT_GEMS[gemId].family || gemId)))
     .map(skill => skill.uid));
   let best = null;
   for (let rot = 0; rot < 4; rot++) {
@@ -326,7 +403,7 @@ export function suggestSupportFit(profile, gemId) {
         const cx = x + dx, cy = y + dy;
         for (const [nx, ny] of [[cx - 1, cy], [cx + 1, cy], [cx, cy - 1], [cx, cy + 1]]) {
           const item = occupied.get(nx + ',' + ny);
-          if (item && ACTIVE_GEMS[item.id] && !alreadyLinked.has(item.uid)) linked.set(item.uid, ACTIVE_GEMS[item.id].name);
+          if (item && ACTIVE_GEMS[item.id] && eligible.has(item.uid) && supportsSkill(SUPPORT_GEMS[gemId], ACTIVE_GEMS[item.id])) linked.set(item.uid, ACTIVE_GEMS[item.id].name);
         }
       }
       if (linked.size && linked.size > (best?.skills.length || 0)) best = { x, y, rot, skills: [...linked.values()] };
@@ -341,16 +418,8 @@ export function linkedSupportSkills(profile, uid) {
   const support = placed?.find(item => item.uid === uid);
   const def = SUPPORT_GEMS[support?.id];
   if (!def) return [];
-  const occupied = occupiedMap(placed);
-  const linked = new Map();
-  for (const [dx, dy] of rotateCells(def.shape, support.rot)) {
-    const x = support.x + dx, y = support.y + dy;
-    for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
-      const item = occupied.get(nx + ',' + ny);
-      if (item && ACTIVE_GEMS[item.id]) linked.set(item.uid, ACTIVE_GEMS[item.id].name);
-    }
-  }
-  return [...linked.values()];
+  return computeBoard(placed, puzzle.partyGem?.id, profile.level || 1)
+    .filter(skill => skill.mod.supportUids.includes(uid)).map(skill => skill.def.name);
 }
 
 export function applySupportFit(profile, uid) {
@@ -368,12 +437,17 @@ export function applySupportFit(profile, uid) {
 
 // 一鍵推薦構築：自動將現有棋盤＋背包寶石以最高邏輯電路與輔助相鄰度排入解鎖格
 export function autoBuildBoard(placed = [], bag = [], level = 1) {
-  const pool = [...placed, ...bag].map(g => ({ uid: g.uid, id: g.id, rot: 0 })).filter(g => ALL_GEMS[g.id]);
-  const BRIDGE_IDS = new Set(['coh', 'coc']);
+  const pool = [...new Map([...placed, ...bag].map(item => [item.uid, item])).values()];
+  const seenIds = new Set();
+  const candidates = pool.filter(gem => {
+    if (!ALL_GEMS[gem.id] || gemLevel(gem.id) > level || seenIds.has(gem.id)) return false;
+    seenIds.add(gem.id);
+    return true;
+  });
   const SUP_PRIO = ['split', 'orbit', 'multi', 'chain', 'storm', 'ember', 'echo', 'area', 'vamp', 'haste', 'frost', 'leech'];
-  const actives = pool.filter(g => ACTIVE_GEMS[g.id]);
-  const bridges = pool.filter(g => BRIDGE_IDS.has(g.id));
-  const supports = pool.filter(g => SUPPORT_GEMS[g.id] && !BRIDGE_IDS.has(g.id))
+  const actives = candidates.filter(gem => ACTIVE_GEMS[gem.id]);
+  const bridges = candidates.filter(g => TRIGGER_IDS.has(g.id)).slice(0, actives.length >= 2 ? 1 : 0);
+  const supports = candidates.filter(g => SUPPORT_GEMS[g.id] && !TRIGGER_IDS.has(g.id))
     .sort((a, b) => (SUP_PRIO.indexOf(a.id) === -1 ? 99 : SUP_PRIO.indexOf(a.id)) - (SUP_PRIO.indexOf(b.id) === -1 ? 99 : SUP_PRIO.indexOf(b.id)));
   const nextPlaced = [];
   const used = new Set();
@@ -387,7 +461,7 @@ export function autoBuildBoard(placed = [], bag = [], level = 1) {
         if (sc > bestScore) { bestScore = sc; best = { uid: gem.uid, id: gem.id, x, y, rot }; }
       }
     }
-    if (best) { nextPlaced.push(best); used.add(gem.uid); return true; }
+    if (best && Number.isFinite(bestScore)) { nextPlaced.push(best); used.add(gem.uid); return true; }
     return false;
   };
 
@@ -403,26 +477,46 @@ export function autoBuildBoard(placed = [], bag = [], level = 1) {
     return seen.size;
   };
 
-  const distinctActives = [];
-  const seenActIds = new Set();
-  for (const a of actives) { if (!seenActIds.has(a.id)) { seenActIds.add(a.id); distinctActives.push(a); } }
-  if (distinctActives[0]) {
-    placeBest(distinctActives[0], (x, y) => -Math.hypot(x - 2, y - 2));
+  if (actives[0]) {
+    placeBest(actives[0], (x, y) => -Math.hypot(x - 2, y - 2));
   }
   for (const br of bridges) {
     placeBest(br, (x, y, rot) => adjCount(br.id, x, y, rot, nb => !!ACTIVE_GEMS[nb.id]) * 10 - Math.hypot(x - 2, y - 2));
   }
-  for (const act of distinctActives.slice(1, 4)) {
-    placeBest(act, (x, y, rot) => adjCount(act.id, x, y, rot, nb => BRIDGE_IDS.has(nb.id)) * 15 - Math.hypot(x - 2, y - 2));
+  for (const act of actives.slice(1, activeLimit(level))) {
+    placeBest(act, (x, y, rot) => adjCount(act.id, x, y, rot, nb => TRIGGER_IDS.has(nb.id)) * 15 - Math.hypot(x - 2, y - 2));
   }
+  const activeLinks = computeBoard(nextPlaced, null, level);
+  if (bridges[0] && !activeLinks.some(skill => skill.mod.supportUids.includes(bridges[0].uid))) {
+    const index = nextPlaced.findIndex(item => item.uid === bridges[0].uid);
+    if (index >= 0) nextPlaced.splice(index, 1);
+    used.delete(bridges[0].uid);
+  }
+  const occupiedSlots = new Set(activeLinks.filter(skill => skill.mod.supports.length < supportLimit(level)).map(skill => skill.uid));
   for (const sup of supports) {
+    if (!occupiedSlots.size) break;
     placeBest(sup, (x, y, rot) => {
-      const a = adjCount(sup.id, x, y, rot, nb => !!ACTIVE_GEMS[nb.id]);
-      return a > 0 ? a * 12 - Math.hypot(x - 2.5, y - 2.5) : -100 - Math.hypot(x - 2.5, y - 2.5);
+      const a = adjCount(sup.id, x, y, rot, nb => occupiedSlots.has(nb.uid) && supportsSkill(SUPPORT_GEMS[sup.id], ACTIVE_GEMS[nb.id]));
+      if (!a) return -Infinity;
+      const proposal = [...nextPlaced, { ...sup, x, y, rot }];
+      const links = computeBoard(proposal, null, level).filter(skill =>
+        skill.mod.supports.some(support => support.id === sup.id)).length;
+      return links ? links * 12 - Math.hypot(x - 2.5, y - 2.5) : -Infinity;
     });
+    for (const skill of computeBoard(nextPlaced, null, level)) {
+      if (skill.mod.supports.length >= supportLimit(level)) occupiedSlots.delete(skill.uid);
+    }
   }
-  const leftover = pool.filter(g => !used.has(g.uid));
+  const leftover = pool.filter(g => !used.has(g.uid)).map(({ uid, id, rot }) => ({ uid, id, rot: rot || 0 }));
   return { placed: nextPlaced, bag: leftover };
+}
+
+export function skillManaCost(def, mod) {
+  return Math.round((def.mana || 0) * Math.max(0.60, 1 + mod.mana - (mod.bluefire ? 0.12 : 0)));
+}
+
+export function skillCooldown(def, mod, pace, cdr, overload = false) {
+  return Math.max(0.12, def.cd * pace.cooldown * (1 - cdr / 100) * (1 - mod.cdr) * (overload ? 0.92 : 1));
 }
 
 export function bindPuzzleUI(g) {
@@ -431,6 +525,7 @@ export function bindPuzzleUI(g) {
   const gridEl = modal.querySelector('.pz-grid');
   const bagEl = modal.querySelector('.pz-bag');
   const shopEl = modal.querySelector('.pz-shop');
+  const search = modal.querySelector('#pzSearch');
   const presetsEl = modal.querySelector('.pz-presets');
   const infoEl = modal.querySelector('.pz-info');
   const unlockEl = modal.querySelector('.pz-unlock');
@@ -440,6 +535,8 @@ export function bindPuzzleUI(g) {
   let gemFilter = 'all'; // 'all' | 'active' | 'support'
 
   const getPz = () => ensurePuzzle(g.meta.p, g.character?.job ?? 0);
+  const matchesFilter = def => (gemFilter === 'all' || def.type === gemFilter) &&
+    (def.name + ' ' + def.desc + ' ' + def.id).toLowerCase().includes(search.value.trim().toLowerCase());
   const currentPlaced = () => {
     const pz = getPz();
     return pz.presets[pz.activePreset] || (pz.presets[pz.activePreset] = []);
@@ -449,9 +546,10 @@ export function bindPuzzleUI(g) {
     document.body.classList.toggle('holding-gem', !!h);
   };
   const returnHolding = () => {
-    if (!holding) return;
+    if (!holding) return false;
     const pz = getPz();
-    if (holding.source === 'board') {
+    const restitute = holding.source === 'board';
+    if (restitute) {
       const placed = currentPlaced();
       if (canPlace(placed, holding.id, holding.origX, holding.origY, holding.origRot, g.meta.p.level)) {
         placed.push({ uid: holding.uid, id: holding.id, x: holding.origX, y: holding.origY, rot: holding.origRot });
@@ -460,6 +558,7 @@ export function bindPuzzleUI(g) {
       }
     }
     setHolding(null);
+    return restitute;
   };
 
   function renderShapePreview(shape, rot, color) {
@@ -485,7 +584,7 @@ export function bindPuzzleUI(g) {
     const placed = currentPlaced();
     const open = unlockedSet(level);
     const occ = occupiedMap(placed);
-    const computed = computeBoard(placed, pz.partyGem?.id || null);
+    const computed = computeBoard(placed, pz.partyGem?.id || null, level);
     const partySlotEl = modal.querySelector('#pzPartySlot');
     if (partySlotEl) {
       const pg = pz.partyGem && SUPPORT_GEMS[pz.partyGem.id] ? SUPPORT_GEMS[pz.partyGem.id] : null;
@@ -495,6 +594,7 @@ export function bindPuzzleUI(g) {
         : `<span>🤝 小隊羈絆插座（空位）</span><small>手持輔助寶石點擊鑲嵌</small>`;
       partySlotEl.onclick = () => {
         if (holding) {
+          if (gemLevel(holding.id) > level) { g.ui.toast(`需 Lv.${gemLevel(holding.id)} 才能鑲嵌`, '#ffb08a'); return; }
           if (!SUPPORT_GEMS[holding.id] || holding.id === 'coh' || holding.id === 'coc') {
             g.ui.toast('小隊羈絆插座僅可鑲嵌一般輔助寶石（不含觸發橋接）', '#ffb08a');
             return;
@@ -515,7 +615,7 @@ export function bindPuzzleUI(g) {
         }
       };
     }
-    const linkCount = new Map(computed.map(s => [s.uid, s.mod.supports.length]));
+    const linkedBySkill = new Map(computed.map(s => [s.uid, s.mod]));
     const linkedUids = new Set();
     for (const s of computed) {
       if (s.mod.supports.length > 0) linkedUids.add(s.uid);
@@ -526,12 +626,12 @@ export function bindPuzzleUI(g) {
         const cx = item.x + dx, cy = item.y + dy;
         for (const [nx, ny] of [[cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]]) {
           const nb = occ.get(nx + ',' + ny);
-          if (nb && ACTIVE_GEMS[nb.id]) linkedUids.add(item.uid);
+          if (linkedBySkill.get(nb?.uid)?.supportUids.includes(item.uid)) linkedUids.add(item.uid);
         }
       }
     }
 
-    unlockEl.textContent = `已解鎖 ${unlockedCount(level)}/36 格（升級自動擴充）· 棋盤上主動技能會自動裝備至下方技能欄`;
+    unlockEl.textContent = `已解鎖 ${unlockedCount(level)}/36 格 · 最多 ${activeLimit(level)} 招 · 每招可連 ${supportLimit(level)} 顆輔助`;
     coinsEl.textContent = `🪙 金幣 ${g.meta.p.coins}`;
 
     // Presets
@@ -553,7 +653,8 @@ export function bindPuzzleUI(g) {
       const def = ALL_GEMS[holding.id];
       infoEl.innerHTML = `<b>手持：${def.icon} ${def.name}</b>（${def.type === 'active' ? '主動' : '輔助'}）— ${def.desc} <small>點棋盤放下 · 右鍵或按 R 旋轉</small>`;
     } else {
-      const activeNames = computed.slice(0, 4).map((s, idx) => `${['右鍵','Q','E','C'][idx]} ${s.mod.circuitLabel}`);
+      const activeNames = computed.map(({ def, mod }, index) =>
+        `${['右鍵', 'Q', 'E', 'C'][index]} ${def.icon}${def.short}${mod.supports.length ? ` +${mod.supports.length}` : ''}`);
       infoEl.textContent = activeNames.length
         ? '⚡ 邏輯電路：' + activeNames.join('　|　')
         : '點選下方寶石放入 6×6 棋盤；用「命中觸發器／暴擊觸發器」橋接兩招主動技能即可打造自動連招電路！';
@@ -600,7 +701,7 @@ export function bindPuzzleUI(g) {
           cell.title = `${def.name}（${def.type === 'active' ? '主動' : '輔助'}）：${def.desc}`;
           if (!anchorSeen.has(item.uid)) {
             anchorSeen.add(item.uid);
-            const lc = linkCount.get(item.uid) || 0;
+            const lc = linkedBySkill.get(item.uid)?.supports.length || 0;
             cell.innerHTML = `<span class="pz-ic">${def.icon}</span><span class="pz-lb">${def.short}${lc ? '+' + lc : ''}</span>`;
           } else {
             cell.innerHTML = `<span class="pz-dot"></span>`;
@@ -611,13 +712,14 @@ export function bindPuzzleUI(g) {
             if (idx >= 0) {
               const [removed] = placed.splice(idx, 1);
               setHolding({ source: 'board', uid: removed.uid, id: removed.id, rot: removed.rot, origX: removed.x, origY: removed.y, origRot: removed.rot });
-              g.audio.sfx('ui'); g.meta.save(); g.recalc(); render();
+              g.audio.sfx('ui'); render();
             }
           };
         } else {
-          if (holding && canPlace(placed, holding.id, x, y, holding.rot, level)) cell.classList.add('can');
+          if (holding && gemLevel(holding.id) <= level && canPlace(placed, holding.id, x, y, holding.rot, level)) cell.classList.add('can');
           cell.onclick = () => {
             if (!holding) return;
+            if (gemLevel(holding.id) > level) { g.ui.toast(`需 Lv.${gemLevel(holding.id)} 才能放入棋盤`, '#ffb08a'); return; }
             if (!canPlace(placed, holding.id, x, y, holding.rot, level)) { g.ui.toast('此位置無法放入該形狀', '#ff9a8a'); return; }
             if (holding.source === 'bag') {
               const bi = pz.bag.findIndex(b => b.uid === holding.uid);
@@ -663,6 +765,8 @@ export function bindPuzzleUI(g) {
           if (!b || b.uid === a.uid) continue;
           const bAct = !!ACTIVE_GEMS[b.id], bSup = !!SUPPORT_GEMS[b.id];
           if (!((aAct && bSup) || (aSup && bAct))) continue;
+          const active = aAct ? a : b, support = aSup ? a : b;
+          if (!linkedBySkill.get(active.uid)?.supportUids.includes(support.uid)) continue;
           const edgeKey = `${x},${y}-${nx},${ny}`;
           if (seenEdges.has(edgeKey)) continue;
           seenEdges.add(edgeKey);
@@ -701,11 +805,11 @@ export function bindPuzzleUI(g) {
 
     // Bag
     bagEl.replaceChildren();
-    const filteredBag = pz.bag.filter(b => {
+    const filteredBag = (modeTab === 'bag' ? pz.bag : []).filter(b => {
       const def = ALL_GEMS[b.id];
-      return def && (gemFilter === 'all' || def.type === gemFilter);
+      return def && matchesFilter(def);
     });
-    if (!filteredBag.length) {
+    if (!filteredBag.length && modeTab === 'bag') {
       const empty = document.createElement('div');
       empty.className = 'psmall';
       empty.textContent = '目前背包沒有未放置的寶石，可切換至「寶石商人」購買或擊敗精英怪取得！';
@@ -717,9 +821,10 @@ export function bindPuzzleUI(g) {
       card.type = 'button';
       card.className = 'pz-gem' + (holding?.uid === item.uid ? ' on' : '');
       card.title = def.desc;
+      card.disabled = level < gemLevel(def.id);
       card.append(renderShapePreview(def.shape, 0, def.color));
       const txt = document.createElement('span');
-      txt.innerHTML = `<b>${def.icon} ${def.name}</b><small>${def.type === 'active' ? '主動' : '輔助'}</small>`;
+      txt.innerHTML = `<b>${def.icon} ${def.name}</b><small>${def.type === 'active' ? '主動' : '輔助'} · Lv.${gemLevel(def.id)}</small>`;
       card.append(txt);
       card.onclick = () => {
         if (holding?.uid === item.uid) { setHolding(null); render(); return; }
@@ -732,22 +837,23 @@ export function bindPuzzleUI(g) {
 
     // Shop
     shopEl.replaceChildren();
-    for (const def of Object.values(ALL_GEMS)) {
-      if (gemFilter !== 'all' && def.type !== gemFilter) continue;
+    if (modeTab !== 'shop') return;
+    for (const def of Object.values(ALL_GEMS).sort((a, b) => gemLevel(a.id) - gemLevel(b.id))) {
+      if (!matchesFilter(def)) continue;
       const card = document.createElement('div');
       card.className = 'pz-shop-item';
       const head = document.createElement('div');
       head.className = 'pz-shop-head';
       head.append(renderShapePreview(def.shape, 0, def.color));
       const meta = document.createElement('div');
-      meta.innerHTML = `<b>${def.icon} ${def.name}</b> <small>${def.type === 'active' ? '主動' : '輔助'}</small><br><small>${def.desc}</small>`;
+      meta.innerHTML = `<b>${def.icon} ${def.name}</b> <small>${def.type === 'active' ? '主動' : '輔助'} · Lv.${gemLevel(def.id)}</small><br><small>${def.desc}</small>`;
       head.append(meta);
       const buy = document.createElement('button');
       buy.className = 'btn small';
       buy.textContent = `🪙 ${def.price}`;
-      buy.disabled = g.meta.p.coins < def.price;
+      buy.disabled = level < gemLevel(def.id) || g.meta.p.coins < def.price;
       buy.onclick = () => {
-        if (g.meta.p.coins < def.price) return;
+        if ((g.meta.p.level || 1) < gemLevel(def.id) || g.meta.p.coins < def.price) return;
         g.meta.p.coins -= def.price;
         addGemToBag(g.meta.p, def.id);
         g.meta.save(); g.audio.sfx('pickup');
@@ -767,9 +873,14 @@ export function bindPuzzleUI(g) {
     pz.presets[pz.activePreset] = res.placed;
     pz.bag = res.bag;
     g.meta.save(); g.recalc(); g.audio.sfx('classup');
-    const comp = computeBoard(res.placed);
-    g.ui.toast(`⚡ 已套用推薦構築（${comp.map(s => s.mod.circuitLabel).join(' | ') || '完成'}）`, '#ffd85a');
+    const comp = computeBoard(res.placed, pz.partyGem?.id, g.meta.p.level || 1);
+    const links = comp.reduce((sum, skill) => sum + skill.mod.supports.length, 0);
+    g.ui.toast(comp.length ? `已排入 ${comp.length} 招，建立 ${links} 個輔助連結` : '背包沒有目前可用的主動寶石。', '#ffd85a');
     render();
+  };
+  search.oninput = render;
+  search.onkeydown = event => {
+    if (event.key === 'Escape') { event.preventDefault(); search.blur(); }
   };
   modal.querySelector('#pzRotate').onclick = () => { if (holding) { holding.rot = (holding.rot + 1) % 4; g.audio.sfx('ui'); render(); } };
   modal.querySelector('#pzTake').onclick = () => {
@@ -799,7 +910,7 @@ export function bindPuzzleUI(g) {
     g.ui.puzzleOpen = true; modal.classList.remove('hide'); render();
   };
   g.ui.closePuzzle = () => {
-    returnHolding();
+    if (returnHolding()) { g.meta.save(); g.recalc(); }
     g.ui.puzzleOpen = false; modal.classList.add('hide');
   };
   g.ui.rotateHeldGem = () => {
