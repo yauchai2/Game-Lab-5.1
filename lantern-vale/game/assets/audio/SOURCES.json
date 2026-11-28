@@ -1,0 +1,662 @@
+{
+  "effects": {
+    "leaf1": {
+      "pack": "steps",
+      "source": "leaves01.ogg",
+      "sourceSha256": "93b3bbcd06380eec54335d1869924db6ff2cc6c1cb103502133d78484c5ca836",
+      "offset": 0
+    },
+    "leaf2": {
+      "pack": "steps",
+      "source": "leaves02.ogg",
+      "sourceSha256": "477c35bfd3f740915b24f93cb66364523217692d2749057f9b8be162eb8209f4",
+      "offset": 0
+    },
+    "stone1": {
+      "pack": "steps",
+      "source": "stone01.ogg",
+      "sourceSha256": "99b04d784eb6b531777a64fb0e319f104eb7cdd6b625c1fac68f511605930a2c",
+      "offset": 0
+    },
+    "wood1": {
+      "pack": "steps",
+      "source": "wood01.ogg",
+      "sourceSha256": "482d97c5e1e6eb7b239be46f25d093ebebb94cefb56eedb04807b6a5dc68e972",
+      "offset": 0
+    },
+    "wood2": {
+      "pack": "steps",
+      "source": "wood02.ogg",
+      "sourceSha256": "588bb121bd3db005b4c2a5b55c1cf39b8ec620f820c2123ac1f62748d132dac2",
+      "offset": 0
+    },
+    "wood3": {
+      "pack": "steps",
+      "source": "wood03.ogg",
+      "sourceSha256": "9b677c284389163f132b94e1323ea713a4c7ac9d5fba849cf7cbf8b53a1627e2",
+      "offset": 0
+    },
+    "gravel": {
+      "pack": "steps",
+      "source": "gravel.ogg",
+      "sourceSha256": "34e6057ec1581b5cb8802e4942952b00b1dac235bfcb0ed8cff0ceb15a3ebbbf",
+      "offset": 0
+    },
+    "mud": {
+      "pack": "steps",
+      "source": "mud02.ogg",
+      "sourceSha256": "354682c2cb340cd787d892d31beb87c45dda94ca6e8363b16828ab2f1d129b82",
+      "offset": 0
+    },
+    "sand": {
+      "pack": "steps",
+      "source": "gravel.ogg",
+      "sourceSha256": "34e6057ec1581b5cb8802e4942952b00b1dac235bfcb0ed8cff0ceb15a3ebbbf",
+      "offset": 0
+    },
+    "bow": {
+      "pack": "bow",
+      "source": "arrow.mp3",
+      "sourceSha256": "7b64b04286def241f12679f3633c0e20c37d2b28419c624d72f238b773a17e40",
+      "offset": 0
+    },
+    "windLoop": {
+      "pack": "wind",
+      "source": "windloop-wind-01_0.ogg",
+      "sourceSha256": "46fb46bd4b4a89ae523a2f4de781e9a1552fc8febaa2b2b6f039990648240121",
+      "offset": 3
+    },
+    "hoof1": {
+      "pack": "hoof",
+      "source": "hoof-Trot.ogg",
+      "sourceSha256": "0fd1a787f3ebb2c0213de8a807566a4879b659bdf2643c8720d6e1720bb436b9",
+      "offset": 0.16
+    },
+    "hoof2": {
+      "pack": "hoof",
+      "source": "hoof-Trot.ogg",
+      "sourceSha256": "0fd1a787f3ebb2c0213de8a807566a4879b659bdf2643c8720d6e1720bb436b9",
+      "offset": 1.84
+    },
+    "ice1": {
+      "pack": "snow",
+      "source": "snow1.flac",
+      "sourceSha256": "d635d9bed8a5d69d4b95638bae51914717e69eece5982550a52c14cf23a10b00",
+      "offset": 0
+    },
+    "ice2": {
+      "pack": "snow",
+      "source": "snow2.flac",
+      "sourceSha256": "799c07881c8a49f618401b66403938966c73b2374a19f41dfe6117e89589e7ea",
+      "offset": 0
+    },
+    "horn": {
+      "pack": "horn",
+      "source": "ship.ogg",
+      "sourceSha256": "63f21ca4f80d37e9503f7568d92f32593bba306eef084513ae1250304cd16198",
+      "offset": 0.82
+    },
+    "fire": {
+      "pack": "fire",
+      "source": "fire__fire-1.wav",
+      "sourceSha256": "26702de8a195bcbafeae72034861d875a1b7917168a25106f4e1957ecdddf7e5",
+      "offset": 0
+    },
+    "fire2": {
+      "pack": "fire",
+      "source": "fire__fire-1.wav",
+      "sourceSha256": "26702de8a195bcbafeae72034861d875a1b7917168a25106f4e1957ecdddf7e5",
+      "offset": 0.72
+    },
+    "thunder": {
+      "pack": "thunder",
+      "source": "thunder__rain_thunder_loop.wav",
+      "sourceSha256": "a4246483a6f17a63042374212e670cda4ab1f7d7c7fbe6820c520673d99ccbc7",
+      "offset": 6.4
+    },
+    "bell": {
+      "pack": "bell",
+      "source": "bell__doorbell-old-tring.ogg",
+      "sourceSha256": "14085ce49b3e745ff3811bfa9924cb4afbbd71cc09ceeeac52052b32131c8466",
+      "offset": 0
+    },
+    "cloth1": {
+      "pack": "cloth",
+      "source": "cloth.ogg",
+      "sourceSha256": "897c0937041afdf3581427b80a7546f99d219d0008e12ff5500c2afdfa4b7a1e",
+      "offset": 0.66
+    },
+    "cloth2": {
+      "pack": "cloth",
+      "source": "cloth.ogg",
+      "sourceSha256": "897c0937041afdf3581427b80a7546f99d219d0008e12ff5500c2afdfa4b7a1e",
+      "offset": 4.95
+    },
+    "equip": {
+      "pack": "cloth",
+      "source": "cloth.ogg",
+      "sourceSha256": "897c0937041afdf3581427b80a7546f99d219d0008e12ff5500c2afdfa4b7a1e",
+      "offset": 6.52
+    },
+    "coin": {
+      "pack": "gold",
+      "source": "gold.wav",
+      "sourceSha256": "f3f8aaafefa1db77b69a584abd16355f2a04c5c3b24d6551f32a3e042370f958",
+      "offset": 0
+    },
+    "swing1": {
+      "pack": "swish",
+      "source": "swosh-01.flac",
+      "sourceSha256": "6bacb655b1b6e6669f5b1eb44e7eaea1219b185539486c08e11240193391ebd5",
+      "offset": 0
+    },
+    "swing2": {
+      "pack": "swish",
+      "source": "swosh-04.flac",
+      "sourceSha256": "651afe743f1713c01b46a43a8fe099e5f866b46c22a98682c7d05728cfa4f5ae",
+      "offset": 0
+    },
+    "windCast": {
+      "pack": "swish",
+      "source": "swosh-16.flac",
+      "sourceSha256": "0e882f9cef2ca536fae1efa9fadcfc5f8f1fc6a1dafc55d8c2ee62a95cd71b16",
+      "offset": 0
+    },
+    "blade1": {
+      "pack": "metal",
+      "source": "metal_interactions/metal_swing1.wav",
+      "sourceSha256": "abc0c5545d8a65d14b47a9a51d313957d7fcd684fa49a3192aa64b43b2d9914d",
+      "offset": 0
+    },
+    "blade2": {
+      "pack": "metal",
+      "source": "metal_interactions/metal_interaction1.wav",
+      "sourceSha256": "3a377d30dc270d63e4663261e86ab24fcd178138f561455fae026ab2314fa46f",
+      "offset": 0
+    },
+    "crit": {
+      "pack": "metal",
+      "source": "metal_interactions/metal_button_press1.wav",
+      "sourceSha256": "9cea1c55978a30a2c676a216c1715646c775b869c4677288fecb5d0f1c2b1cc5",
+      "offset": 0
+    },
+    "hammer": {
+      "pack": "metal",
+      "source": "metal_interactions/metal_interaction2.wav",
+      "sourceSha256": "f133cafa39a058f8741b53c66b15af505c0c67344e05af4ef9ed4a28f0b9688f",
+      "offset": 0
+    },
+    "shield": {
+      "pack": "wood",
+      "source": "wood_impact/impactwood03.mp3.flac",
+      "sourceSha256": "11cec5f3cfb9d35a1fe55d2dcc162f50495b6b497c845e723b8e01060e914859",
+      "offset": 0
+    },
+    "hit": {
+      "pack": "wood",
+      "source": "wood_impact/impactwood04.mp3.flac",
+      "sourceSha256": "5ad763b424e5e32f40784cdc42a88e5e62d3240485e55522e97cc6d12442437e",
+      "offset": 0
+    },
+    "hit2": {
+      "pack": "wood",
+      "source": "wood_impact/impactwood06.mp3.flac",
+      "sourceSha256": "548c493419a19db91eb994580a753465d1b7040862b2cd542b40ec5c8d2c19b9",
+      "offset": 0
+    },
+    "impact": {
+      "pack": "wood",
+      "source": "wood_impact/impactwood14.mp3.flac",
+      "sourceSha256": "ffae48900db232721134b7255a88c71febb1f423264e646ed5cbc9e1c35ef218",
+      "offset": 0
+    },
+    "chop": {
+      "pack": "wood",
+      "source": "wood_impact/crack03.mp3.flac",
+      "sourceSha256": "7175b9c70b7d25f81d70b5dccd3b584d797ca00a1e3d1da2f671e907daa488cf",
+      "offset": 0
+    },
+    "break": {
+      "pack": "wood",
+      "source": "wood_impact/crack07.mp3.flac",
+      "sourceSha256": "9efa670daaedf79e101fd3463ea6f585ccc1079dc7e23785947e68886b276a44",
+      "offset": 0
+    },
+    "mine": {
+      "pack": "crunch",
+      "source": "impcrunch/impactcrunch01.mp3.flac",
+      "sourceSha256": "61425b18d41687bbb3d245416bf763fdf69a5907f15236e01493ad7ea01909eb",
+      "offset": 0
+    },
+    "stone2": {
+      "pack": "crunch",
+      "source": "impcrunch/impactcrunch03.mp3.flac",
+      "sourceSha256": "ecbe1d2f3e2347ef2ce8b251f7972f50d764e5156f92a01e6085d261f7f15ee6",
+      "offset": 0
+    },
+    "land": {
+      "pack": "crunch",
+      "source": "impcrunch/impactcrunch05.mp3.flac",
+      "sourceSha256": "adc15673d1767a9ca3e73268e2950653722e620dcbe08c6b9582279b9a069cf3",
+      "offset": 0
+    },
+    "hurt": {
+      "pack": "voice",
+      "source": "slightscream-02.flac",
+      "sourceSha256": "ee61bcf8103174a14720f365ef5e701c79f7b4c942ef0df25e5ba6709f3f01f6",
+      "offset": 0
+    },
+    "death": {
+      "pack": "voice",
+      "source": "slightscream-11.flac",
+      "sourceSha256": "4d58e441ddf1aa372ceac29943446d3628c5432d00a10d4a190140f277e98f38",
+      "offset": 0
+    },
+    "jump": {
+      "pack": "voice",
+      "source": "slightscream-04.flac",
+      "sourceSha256": "63e100536d4821d6b7c13593c8e74732d47ac39dce1ce7078371f19dda5c392e",
+      "offset": 0
+    },
+    "growl": {
+      "pack": "dog",
+      "source": "dog/dog-growl.flac",
+      "sourceSha256": "84a4ecc14152ad1523e62800223def75b92fe7b16c6b78943b8bd236ab82cd29",
+      "offset": 0
+    },
+    "shadow": {
+      "pack": "dog",
+      "source": "dog/dog-grumble.flac",
+      "sourceSha256": "932580aca34cae6c9e8e54736a765e2688e15e4a949d1b039ff59f0465dcaed8",
+      "offset": 0
+    },
+    "roar": {
+      "pack": "bear",
+      "source": "flac/bear_02.flac",
+      "sourceSha256": "fd0bbf205b1e18e4ce612c39417019b8f06aadf7dc7886ec84ea1d765792eeca",
+      "offset": 0
+    },
+    "water1": {
+      "pack": "water",
+      "source": "ezwa-water_splash/water_splash-01.flac",
+      "sourceSha256": "9bdc7921e76e22753368a5d239bd3f5e6a204ef8eae33d469c8c8bac426d9fd8",
+      "offset": 0
+    },
+    "water2": {
+      "pack": "water",
+      "source": "ezwa-water_splash/water_splash-03.flac",
+      "sourceSha256": "a22c5cac675fa60aaff8d907acf7627f1e9dcc337798ff4eb34f2f8e7a4c9e2e",
+      "offset": 0
+    },
+    "splash": {
+      "pack": "water",
+      "source": "ezwa-water_splash/water_splash-04.flac",
+      "sourceSha256": "73c04d73e3068b1ee9369941bad69370d0713df75725e0f6ab23334c4f319f95",
+      "offset": 0
+    },
+    "ferry": {
+      "pack": "water",
+      "source": "ezwa-water_splash/water_splash-06.flac",
+      "sourceSha256": "c6a464efeb0e1df6405165939f020c5031825e376a1e09045c130ad157bbd62e",
+      "offset": 0
+    },
+    "mud2": {
+      "pack": "mud",
+      "source": "impsplat/impactsplat03.mp3.flac",
+      "sourceSha256": "036e610ddbf8767232b3bf084e134dd2d162d913fd3d0880305acbfd9df2ba8e",
+      "offset": 0
+    },
+    "flask": {
+      "pack": "bottle",
+      "source": "qubodup-bottle-and-drink-sounds/swallow-02.flac",
+      "sourceSha256": "14420b7483ae41ec55852598bacc02640b3c3ceca056ad8009ae8383afbfd418",
+      "offset": 0
+    },
+    "ui": {
+      "pack": "clicks",
+      "source": "buttons_and_clicks/Clic03.mp3.flac",
+      "sourceSha256": "841ab8f3c5f58629e6a59347966cd9b0f8e5141a27b4041ec44d90ca42f52156",
+      "offset": 0
+    },
+    "hover": {
+      "pack": "clicks",
+      "source": "buttons_and_clicks/clic02.mp3.flac",
+      "sourceSha256": "e1e4f4d5c150db9037bbc1ef1458a6ccf9294812fa5e11735ac270bd6ca35235",
+      "offset": 0
+    },
+    "switchOff": {
+      "pack": "clicks",
+      "source": "buttons_and_clicks/button03.mp3.flac",
+      "sourceSha256": "15ed43f07472d5dad5957bf97fdf853a58c993b28b957cc0bb319e7500d2e2fd",
+      "offset": 0
+    },
+    "click": {
+      "pack": "clicks",
+      "source": "buttons_and_clicks/Clic04.mp3.flac",
+      "sourceSha256": "fb44ff2f9d6c0530919131284061f935c173023b3fa7a89a957e9f609dec0ed6",
+      "offset": 0
+    },
+    "interact": {
+      "pack": "clicks",
+      "source": "buttons_and_clicks/button02.mp3.flac",
+      "sourceSha256": "0d03f2f84414bb99ddd27cf4d4bdff317d9dab46745844fbdb6340005b2f8a85",
+      "offset": 0
+    },
+    "shutter": {
+      "pack": "clicks",
+      "source": "buttons_and_clicks/Clic06.mp3.flac",
+      "sourceSha256": "6cdcfdd03cd2640142dad8305588fe9fd455b21aeff7e03c8ae1c177830d94e0",
+      "offset": 0
+    },
+    "warn": {
+      "pack": "clicks",
+      "source": "buttons_and_clicks/button06.mp3.flac",
+      "sourceSha256": "f0eef4cfe9a605b781f7b8803a00b98a6ec086f5c4224189bd31b2a68e6e7c73",
+      "offset": 0
+    },
+    "door": {
+      "pack": "door",
+      "source": "door/door-06.flac",
+      "sourceSha256": "8928059eac36380648462a32f5442e076f91608f51f0ccafff64c2a5745d9852",
+      "offset": 0
+    },
+    "gem": {
+      "pack": "instrument",
+      "source": "ui_ogg/Ding.ogg",
+      "sourceSha256": "bc69b15effae9314e8afb86229bb83acdab6afd79d552b786f53a4812d902980",
+      "offset": 0
+    },
+    "prism": {
+      "pack": "instrument",
+      "source": "ui_ogg/chimes.ogg",
+      "sourceSha256": "bb9c1826553beb87e47a534f9608a7dcd236614bb6194f4323d4661df81e895e",
+      "offset": 0
+    },
+    "magic": {
+      "pack": "instrument",
+      "source": "ui_ogg/ding_deep.ogg",
+      "sourceSha256": "7e61202079948a5bb7bb6bb37f22d3d367abdcfb9afd73a52e6f883a93de24be",
+      "offset": 0
+    },
+    "light": {
+      "pack": "instrument",
+      "source": "ui_ogg/Ding.ogg",
+      "sourceSha256": "bc69b15effae9314e8afb86229bb83acdab6afd79d552b786f53a4812d902980",
+      "offset": 0
+    },
+    "iceCast": {
+      "pack": "instrument",
+      "source": "ui_ogg/chimes.ogg",
+      "sourceSha256": "bb9c1826553beb87e47a534f9608a7dcd236614bb6194f4323d4661df81e895e",
+      "offset": 0
+    },
+    "reward": {
+      "pack": "instrument",
+      "source": "ui_ogg/chimes.ogg",
+      "sourceSha256": "bb9c1826553beb87e47a534f9608a7dcd236614bb6194f4323d4661df81e895e",
+      "offset": 0
+    },
+    "victory": {
+      "pack": "instrument",
+      "source": "ui_ogg/alarm2.ogg",
+      "sourceSha256": "7c2f7fcee34574818d97426cf669621a41ad399dbc12213fdf8458f8b9138464",
+      "offset": 0
+    },
+    "defeat": {
+      "pack": "instrument",
+      "source": "ui_ogg/negative_sound2.ogg",
+      "sourceSha256": "a068c1a2a375149da67bb8e547079987800b1ce21debb7f51ca556eeeaabd56a",
+      "offset": 0
+    },
+    "treasure": {
+      "pack": "instrument",
+      "source": "ui_ogg/ding_deep.ogg",
+      "sourceSha256": "7e61202079948a5bb7bb6bb37f22d3d367abdcfb9afd73a52e6f883a93de24be",
+      "offset": 0
+    },
+    "heal": {
+      "pack": "instrument",
+      "source": "ui_ogg/Ding.ogg",
+      "sourceSha256": "bc69b15effae9314e8afb86229bb83acdab6afd79d552b786f53a4812d902980",
+      "offset": 0
+    },
+    "mount": {
+      "pack": "instrument",
+      "source": "ui_ogg/dum.ogg",
+      "sourceSha256": "5a6db933faefdde2572a23f41ab5f64912ef1c60cd5f8c4ab1ee5d03b04ea009",
+      "offset": 0
+    }
+  },
+  "sources": {
+    "steps": [
+      "TinyWorlds",
+      "https://opengameart.org/content/different-steps-on-wood-stone-leaves-gravel-and-mud",
+      "https://creativecommons.org/publicdomain/zero/1.0/"
+    ],
+    "snow": [
+      "Corsica S, submitted by qubodup",
+      "https://opengameart.org/content/42-snow-and-gravel-footsteps",
+      "https://creativecommons.org/publicdomain/zero/1.0/"
+    ],
+    "hoof": [
+      "EZduzziteh",
+      "https://opengameart.org/content/horse-trotting",
+      "https://creativecommons.org/publicdomain/zero/1.0/"
+    ],
+    "wind": [
+      "Jonathan Shaw (InspectorJ), loop by AntumDeluge",
+      "https://opengameart.org/content/wind-loop",
+      "https://creativecommons.org/licenses/by/3.0/"
+    ],
+    "fire": [
+      "AntumDeluge",
+      "https://opengameart.org/content/fire-crackling",
+      "https://creativecommons.org/publicdomain/zero/1.0/"
+    ],
+    "bear": [
+      "U.S. Fish & Wildlife Service, submitted by AntumDeluge",
+      "https://opengameart.org/content/bear-growls",
+      "https://creativecommons.org/publicdomain/zero/1.0/"
+    ],
+    "water": [
+      "ezwa, submitted by qubodup",
+      "https://opengameart.org/content/6-short-water-splashes",
+      "https://creativecommons.org/publicdomain/zero/1.0/"
+    ],
+    "mud": [
+      "Independent.nu, submitted by qubodup",
+      "https://opengameart.org/content/8-wet-squish-slurp-impacts",
+      "https://creativecommons.org/publicdomain/zero/1.0/"
+    ],
+    "bottle": [
+      "Iwan Gabovitch (qubodup)",
+      "https://opengameart.org/content/liquid-bottle-drink-set",
+      "https://creativecommons.org/publicdomain/zero/1.0/"
+    ],
+    "swish": [
+      "Iwan Gabovitch (qubodup)",
+      "https://opengameart.org/content/swish-bamboo-stick-weapon-swhoshes",
+      "https://creativecommons.org/publicdomain/zero/1.0/"
+    ],
+    "metal": [
+      "Iwan Gabovitch (qubodup)",
+      "https://opengameart.org/content/metal-interactions",
+      "https://creativecommons.org/publicdomain/zero/1.0/"
+    ],
+    "wood": [
+      "Independent.nu, submitted by qubodup",
+      "https://opengameart.org/content/35-wooden-crackshitsdestructions",
+      "https://creativecommons.org/publicdomain/zero/1.0/"
+    ],
+    "crunch": [
+      "Independent.nu, submitted by qubodup",
+      "https://opengameart.org/content/5-break-crunch-impacts",
+      "https://creativecommons.org/publicdomain/zero/1.0/"
+    ],
+    "clicks": [
+      "Independent.nu, submitted by qubodup",
+      "https://opengameart.org/content/16-button-clicks",
+      "https://creativecommons.org/publicdomain/zero/1.0/"
+    ],
+    "voice": [
+      "Iwan Gabovitch (qubodup)",
+      "https://opengameart.org/content/15-vocal-male-strainhurtpainjump-sounds",
+      "https://creativecommons.org/publicdomain/zero/1.0/"
+    ],
+    "dog": [
+      "Iwan Gabovitch (qubodup)",
+      "https://opengameart.org/content/dog-snarl-grunt-grumble",
+      "https://creativecommons.org/publicdomain/zero/1.0/"
+    ],
+    "bell": [
+      "Dub, submitted by qubodup",
+      "https://opengameart.org/content/doorbell-ring",
+      "https://creativecommons.org/publicdomain/zero/1.0/"
+    ],
+    "thunder": [
+      "DoKashiteru",
+      "https://opengameart.org/content/rain-and-thunder-loop",
+      "https://creativecommons.org/licenses/by/3.0/"
+    ],
+    "cloth": [
+      "Iochi Glaucus",
+      "https://opengameart.org/content/fabric-rustling",
+      "https://creativecommons.org/publicdomain/zero/1.0/"
+    ],
+    "gold": [
+      "Amarikah and pennomi",
+      "https://opengameart.org/content/sack-of-gold",
+      "https://creativecommons.org/publicdomain/zero/1.0/"
+    ],
+    "door": [
+      "Iwan Gabovitch (qubodup)",
+      "https://opengameart.org/content/door-open-door-close",
+      "https://creativecommons.org/publicdomain/zero/1.0/"
+    ],
+    "instrument": [
+      "Robin Lamb, from VCSL and VSCO 2 Community Edition",
+      "https://opengameart.org/content/ui-sound-effects-button-clicks-user-feedback-notifications",
+      "https://creativecommons.org/publicdomain/zero/1.0/"
+    ],
+    "bow": [
+      "saturdaysoundguy",
+      "https://freesound.org/people/saturdaysoundguy/sounds/394185/",
+      "https://creativecommons.org/publicdomain/zero/1.0/"
+    ],
+    "horn": [
+      "Tvabutzku1234",
+      "https://commons.wikimedia.org/wiki/File:Cruise_ship_Albatros_ship_horn.ogg",
+      "https://creativecommons.org/publicdomain/zero/1.0/"
+    ]
+  },
+  "music": {
+    "title": {
+      "title": "Mozart — Flute Quartet No. 1, Rondeau",
+      "artist": "Felix Skowronek and the Philadelphia String Quartet",
+      "source": "https://commons.wikimedia.org/wiki/File:Wolfgang_Amadeus_Mozart_-_Flute_Quartet_No._1_in_D_Major_-_3._Rondeau_-_Allegro.ogg",
+      "license": "https://creativecommons.org/licenses/by-sa/2.0/",
+      "sourceSha256": "1623ca85c315cd1729053ce21826a79f28daf8d20e5d432e3417e5106c356522",
+      "offset": 0,
+      "length": 150
+    },
+    "town": {
+      "title": "Bach — Partita BWV 1006, Preludio (guitar)",
+      "artist": "Musopen, guitarist credited as Gordon Rowland",
+      "source": "https://commons.wikimedia.org/wiki/File:Johann_Sebastian_Bach_-_partita_no._3_in_e_major%2C_bwv_1006_-_1._preludio.ogg",
+      "license": "https://creativecommons.org/publicdomain/mark/1.0/",
+      "sourceSha256": "89bb66c50ad8f0b0f6a66ee528d1b5d5ec7c4430c23479d0b94cd8bfb9fc55fd",
+      "offset": 0,
+      "length": 150
+    },
+    "meadow": {
+      "title": "Mozart — Flute Quartet No. 1, Adagio",
+      "artist": "Felix Skowronek and the Philadelphia String Quartet",
+      "source": "https://commons.wikimedia.org/wiki/File:Wolfgang_Amadeus_Mozart_-_Flute_Quartet_No._1_in_D_Major_-_2._Adagio.ogg",
+      "license": "https://creativecommons.org/licenses/by-sa/2.0/",
+      "sourceSha256": "c8985c984a41f5277f69616f9d9fd6c70e33930f38e4110e2ec5311d843f0ae9",
+      "offset": 0,
+      "length": 149.24
+    },
+    "woodland": {
+      "title": "Bach — BWV 1030, Largo e Dolce (wooden flute and keyboard lute)",
+      "artist": "Felix Skowronek and Martha Goldstein",
+      "source": "https://commons.wikimedia.org/wiki/File:Bach_Flute_Sonata_Bmin_2._Largo_e_Dolce.ogg",
+      "license": "https://creativecommons.org/licenses/by-sa/2.0/",
+      "sourceSha256": "273b60467fa6ea13a435a16db83a4553b303770eb7bb8e51613e750433001a7e",
+      "offset": 0,
+      "length": 150
+    },
+    "cave": {
+      "title": "Bach — Cello Suite No. 1, Prelude",
+      "artist": "Chris (uploader and performer)",
+      "source": "https://commons.wikimedia.org/wiki/File:Bach_Cello_Suite_1_Prelude_%28BWV_1007%29_Played_by_Chris.ogg",
+      "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "sourceSha256": "1e50d9e513c37725e8d8f378787a87330b040505ec679f9e919b01f2f4eae25f",
+      "offset": 0,
+      "length": 150
+    },
+    "snow": {
+      "title": "Vivaldi — Winter, Largo",
+      "artist": "John Harrison, Robert Turizziani and Wichita State University Chamber Players",
+      "source": "https://commons.wikimedia.org/wiki/File:11_-_Vivaldi_Winter_mvt_2_Largo_-_John_Harrison_violin.ogg",
+      "license": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "sourceSha256": "864cc8659495369ede90be6e82966a88419450c81853ce7e096c6727e6b75907",
+      "offset": 0,
+      "length": 132.333
+    },
+    "night": {
+      "title": "Satie — Gymnopédie No. 1 (classical guitar)",
+      "artist": "Michael Laucke",
+      "source": "https://commons.wikimedia.org/wiki/File:Satie_Gymnopedie_No_1_performed_by_Michael_Laucke.flac",
+      "license": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "sourceSha256": "b284038a8bc0d7c6faf36f430cfbca965da3334f0cd2532560d864b0859c85a0",
+      "offset": 0,
+      "length": 150
+    },
+    "battle": {
+      "title": "Vivaldi — Winter, Allegro non molto",
+      "artist": "John Harrison, Robert Turizziani and Wichita State University Chamber Players",
+      "source": "https://commons.wikimedia.org/wiki/File:Vivaldi_-_Four_Seasons_4_Winter_mvt_1_Allegro_non_molto_-_John_Harrison_violin.oga",
+      "license": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "sourceSha256": "e7d4c67c6466860d591b13978199674ce008983f56b0bf05906525dc0da0b7d4",
+      "offset": 0,
+      "length": 150
+    },
+    "boss": {
+      "title": "Vivaldi — Summer, Presto",
+      "artist": "John Harrison, Robert Turizziani and Wichita State University Chamber Players",
+      "source": "https://commons.wikimedia.org/wiki/File:Vivaldi_-_Four_Seasons_2_Summer_mvt_3_Presto_-_John_Harrison_violin.oga",
+      "license": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "sourceSha256": "93017216c1967d288f4840861d300e3ff3047ff5df67d97e56ca82c1f24aadc8",
+      "offset": 0,
+      "length": 150
+    },
+    "port": {
+      "title": "Traditional Irish session in Galway",
+      "artist": "Gaillimhcommon",
+      "source": "https://commons.wikimedia.org/wiki/File:GalwaySession1.ogg",
+      "license": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "sourceSha256": "b9293d219415e1fc229e2867b69a03c55eec39e5b10f604fe7a1029414578cfe",
+      "offset": 5,
+      "length": 145
+    },
+    "marsh": {
+      "title": "Vaka vanha Väinämöinen (five-string kantele)",
+      "artist": "Olli Niemitalo",
+      "source": "https://commons.wikimedia.org/wiki/File:DIY_kantele_sample_raw.ogg",
+      "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "sourceSha256": "ebc211af3ef9144fa4cf3b5d1548a0b62390502f0087b2453ed863c90f42b588",
+      "offset": 0,
+      "length": 43
+    },
+    "interior": {
+      "title": "Bach — Well-Tempered Clavier, BWV 854 Prelude (piano)",
+      "artist": "Kimiko Ishizaka",
+      "source": "https://commons.wikimedia.org/wiki/File:Kimiko_Ishizaka_-_Bach_-_Well-Tempered_Clavier%2C_Book_1_-_17_Prelude_No._9_in_E_major%2C_BWV_854.ogg",
+      "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "sourceSha256": "e4b2999f155a97f6ff6c52cad9c5ea7fba175151603ae47d77b7e447b4b1565c",
+      "offset": 0,
+      "length": 104.6
+    }
+  }
+}

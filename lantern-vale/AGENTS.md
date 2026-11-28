@@ -51,7 +51,7 @@ node build.mjs              # 產生 dist/index.html、dist/lantern-vale.html、
 | `panels.js` | 城鎮互動面板（按 F） |
 | `settings.js` | 設定頁，存 `lv_settings` |
 | `ui.js`, `index.html` | HUD、面板、CSS（A Short Hike 奶油色像素面板） |
-| `audio.js` | WebAudio 合成音樂與音效（無外部檔案） |
+| `audio.js` | 現成音檔播放、區域配樂與混音。來源見 `game/assets/audio/CREDITS.md` |
 | `net.js`, `server/server.js` | WebSocket 多人；離線時用鎮民 NPC bot |
 | `util.js` | 隨機數、群系 `BIOMES`、數學工具 |
 

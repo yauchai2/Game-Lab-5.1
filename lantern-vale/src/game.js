@@ -1190,7 +1190,7 @@ export class Game {
     }
     p.y = 0; p.vy = 0; p.air = false; p.climbing = false; p.stamina = 100; p.lastLow.set(p.pos.x, 0, p.pos.z);
     this.world.computeFlow(p.pos.x, p.pos.z);
-    this.musicKey = themeKeyFor({ title, town: anyTown, boss, field: this.field, biomeKey: B.key }); this.audio.setMusic(this.musicKey, 0);
+    this.musicKey = themeKeyFor({ title, town, harbor, boss, cave, field: this.field, biomeKey: B.key }); this.audio.setMusic(this.musicKey, 0);
   }
 
   makeExit(e, type) {
@@ -3423,10 +3423,8 @@ export class Game {
       const gravMul = p.realmRule?.gravityMult || 1;
       p.vy -= 24 * gravMul * dt;
       if (glide) {
-        if (!p.gliding0) this.audio.sfx('glide');
         p.vy = Math.max(p.vy, -1.6 * gravMul); p.stamina -= 10 * dt * this.meta.staminaK; p.gliding = true;
       }
-      p.gliding0 = glide;
       // 雲翼飛鰩之魂（移動槽）：滯空時每 0.45 秒自動發射追蹤雷光羽翼
       if (p.souls?.mobility?.id === 'skyray' && (this._skyrayCd || 0) <= this.time) {
         let best = null, bd = 11;
@@ -3440,7 +3438,7 @@ export class Game {
       const vyBefore = p.vy;
       p.y += p.vy * dt;
       if (p.y <= g) {
-        p.y = g; p.air = false; p.vy = 0; p.gliding0 = false;
+        p.y = g; p.air = false; p.vy = 0; p.gliding = false;
         if (p.plunge) {
           p.plunge = false; p.landPose = 1.38; p.stepT = 0;
           this.audio.sfx('slam');
@@ -3460,6 +3458,7 @@ export class Game {
         }
       }
     }
+    this.audio.setGlide(p.gliding);
     p.pos.y = p.y;
     if (p.y < -0.1 && !W.isLand(p.pos.x, p.pos.z)) { p.pos.x = p.lastLow.x; p.pos.z = p.lastLow.z; p.y = W.gh(p.pos.x, p.pos.z); }
   }

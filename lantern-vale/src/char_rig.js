@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { CharAnimator } from './char_anim.js';
+import locomotionData from '../game/assets/char/locomotion.json' with { type: 'json' };
 
 export const JOB_ARCHETYPES = ['fighter', 'archer', 'mage', 'necromancer', 'monk'];
 
@@ -128,6 +129,23 @@ let _baseScene = null;
 const _animPromises = new Map();
 const _animClips = new Map();
 const _texCache = new Map();
+const locomotion = locomotionData.map(clip => THREE.AnimationClip.parse(clip));
+
+function applyLocomotion(clips) {
+  const walk = clips.find(clip => clip.name === 'Walk');
+  const run = clips.find(clip => clip.name === 'Run') || walk;
+  const result = clips.filter(clip => clip !== walk && clip !== run);
+  for (const legs of locomotion) {
+    const base = legs.name === 'Walk' ? walk || run : run;
+    if (!base || base.duration <= 0) continue;
+    // Keep each class's weapon posture and use the imported in-place leg cycle.
+    const upperBody = base.tracks
+      .filter(track => !track.name.startsWith('Leg'))
+      .map(track => track.clone().scale(legs.duration / base.duration));
+    result.push(new THREE.AnimationClip(legs.name, legs.duration, [...upperBody, ...legs.tracks]));
+  }
+  return result;
+}
 
 function canLoadAssets() {
   return typeof window !== 'undefined' && typeof fetch !== 'undefined' && location.protocol !== 'file:';
@@ -185,7 +203,7 @@ export function loadArchetypeAnims(archetype = 'fighter') {
     loader.load(
       `assets/char/anim_${key}.glb`,
       gltf => {
-        const clips = gltf.animations || [];
+        const clips = applyLocomotion(gltf.animations || []);
         _animClips.set(key, clips);
         resolve(clips);
       },
