@@ -232,6 +232,12 @@ export function ensurePuzzle(profile, classId = 0) {
   if (!profile.puzzle || !Array.isArray(profile.puzzle.presets)) {
     profile.puzzle = defaultPuzzle(classId);
   }
+  const puzzle = profile.puzzle;
+  for (let i = 0; i < 3; i++) if (!Array.isArray(puzzle.presets[i])) puzzle.presets[i] = [];
+  if (!Number.isInteger(puzzle.activePreset) || !Array.isArray(puzzle.presets[puzzle.activePreset])) {
+    puzzle.activePreset = 0;
+  }
+  if (!Array.isArray(puzzle.bag)) puzzle.bag = [];
   if (!profile.puzzle.nextUid) profile.puzzle.nextUid = 100;
   if (!('partyGem' in profile.puzzle)) profile.puzzle.partyGem = null;
   return profile.puzzle;
@@ -522,399 +528,644 @@ export function skillCooldown(def, mod, pace, cdr, overload = false) {
 export function bindPuzzleUI(g) {
   const modal = document.getElementById('puzzleM');
   if (!modal) return;
-  const gridEl = modal.querySelector('.pz-grid');
-  const bagEl = modal.querySelector('.pz-bag');
-  const shopEl = modal.querySelector('.pz-shop');
+  const panel = modal.querySelector('.pzp');
+  const grid = modal.querySelector('.pz-grid');
+  const bag = modal.querySelector('.pz-bag');
+  const shop = modal.querySelector('.pz-shop');
   const search = modal.querySelector('#pzSearch');
-  const presetsEl = modal.querySelector('.pz-presets');
-  const infoEl = modal.querySelector('.pz-info');
-  const unlockEl = modal.querySelector('.pz-unlock');
-  const coinsEl = modal.querySelector('.pz-coins');
-  let holding = null; // { source:'bag'|'board', uid, id, rot, origX?, origY? }
-  let modeTab = 'bag'; // 'bag' | 'shop'
-  let gemFilter = 'all'; // 'all' | 'active' | 'support'
+  const clearSearch = modal.querySelector('#pzSearchClear');
+  const presets = modal.querySelector('.pz-presets');
+  const detail = modal.querySelector('.pz-info');
+  const feedback = modal.querySelector('.pz-feedback');
+  const party = modal.querySelector('#pzPartySlot');
+  const rotate = modal.querySelector('#pzRotate');
+  const take = modal.querySelector('#pzTake');
+  const pack = modal.querySelector('#pzAuto');
+  const clear = modal.querySelector('#pzClear');
+  const ghost = modal.querySelector('.pz-drag-ghost');
+  const level = () => g.meta.p.level || 1;
+  const puzzle = () => ensurePuzzle(g.meta.p, g.character?.job ?? 0);
+  const board = () => puzzle().presets[puzzle().activePreset];
+  const cells = new Map();
+  const origins = new WeakMap();
+  let selected = null;
+  let pointer = null;
+  let suppressClick = false;
+  let tab = 'bag';
+  let filter = 'all';
+  let previewKey = '';
+  let hoverCell = null;
+  let inspected = null;
+  let composing = false;
+  let scrollFrame = 0;
 
-  const getPz = () => ensurePuzzle(g.meta.p, g.character?.job ?? 0);
-  const matchesFilter = def => (gemFilter === 'all' || def.type === gemFilter) &&
-    (def.name + ' ' + def.desc + ' ' + def.id).toLowerCase().includes(search.value.trim().toLowerCase());
-  const currentPlaced = () => {
-    const pz = getPz();
-    return pz.presets[pz.activePreset] || (pz.presets[pz.activePreset] = []);
-  };
-  const setHolding = h => {
-    holding = h;
-    document.body.classList.toggle('holding-gem', !!h);
-  };
-  const returnHolding = () => {
-    if (!holding) return false;
-    const pz = getPz();
-    const restitute = holding.source === 'board';
-    if (restitute) {
-      const placed = currentPlaced();
-      if (canPlace(placed, holding.id, holding.origX, holding.origY, holding.origRot, g.meta.p.level)) {
-        placed.push({ uid: holding.uid, id: holding.id, x: holding.origX, y: holding.origY, rot: holding.origRot });
+  function report(message, tone = '') {
+    if (feedback.textContent !== message) feedback.textContent = message;
+    feedback.dataset.tone = tone;
+  }
+
+  function inspect(item, links = []) {
+    const gem = ALL_GEMS[item?.id];
+    detail.replaceChildren();
+    if (!gem) {
+      detail.textContent = '拖曳寶石形狀，或點選寶石後點棋盤。';
+      return;
+    }
+    const name = document.createElement('strong');
+    name.textContent = `${gem.icon} ${gem.name} · ${gem.type === 'active' ? '主動' : '輔助'} · Lv.${gemLevel(gem.id)}`;
+    const note = document.createElement('span');
+    note.textContent = links.length ? `${gem.desc}　連動 ${links.join('、')}` : gem.desc;
+    detail.append(name, note);
+  }
+
+  function updateSelection() {
+    document.body.classList.toggle('holding-gem', !!selected);
+    rotate.disabled = !selected;
+    take.disabled = !selected;
+    grid.classList.toggle('holding', !!selected);
+    for (const element of modal.querySelectorAll('[data-gem-uid]')) {
+      const picked = origins.get(element)?.uid === selected?.uid &&
+        origins.get(element)?.source === selected?.source;
+      element.classList.toggle('pz-picked', picked);
+      if (element.classList.contains('pz-gem') || element === party) element.setAttribute('aria-pressed', String(picked));
+    }
+    inspect(selected || inspected, selected ? [] : inspected?.links);
+  }
+
+  function clearPreview() {
+    for (const cell of grid.querySelectorAll('.preview-ok,.preview-bad')) cell.classList.remove('preview-ok', 'preview-bad');
+    grid.classList.remove('invalid-drop');
+    party.classList.remove('preview-ok', 'preview-bad');
+    previewKey = '';
+  }
+
+  function allowedOnBoard(item, x, y) {
+    return gemLevel(item.id) <= level() &&
+      canPlace(board(), item.id, x, y, item.rot, level(), item.source === 'board' ? item.uid : null);
+  }
+
+  function allowedInParty(item) {
+    return !!SUPPORT_GEMS[item.id] && !TRIGGER_IDS.has(item.id) && gemLevel(item.id) <= level();
+  }
+
+  function preview(destination) {
+    if (!selected || !destination) { clearPreview(); return; }
+    const { kind, x, y } = destination;
+    const key = `${kind}:${x},${y}:${selected.rot}`;
+    if (key === previewKey) return;
+    clearPreview();
+    previewKey = key;
+    if (kind === 'board') {
+      const works = allowedOnBoard(selected, x, y);
+      grid.classList.toggle('invalid-drop', !works);
+      for (const [dx, dy] of rotateCells(ALL_GEMS[selected.id].shape, selected.rot)) {
+        cells.get(`${x + dx},${y + dy}`)?.classList.add(works ? 'preview-ok' : 'preview-bad');
+      }
+      if (pointer?.dragging) report(works ? '鬆開放入棋盤' : '此處放不下，鬆開會回到原位', works ? 'ok' : 'error');
+    } else if (kind === 'party') {
+      const works = allowedInParty(selected);
+      party.classList.add(works ? 'preview-ok' : 'preview-bad');
+      if (pointer?.dragging) report(works ? '鬆開鑲嵌到小隊羈絆' : '這顆寶石無法鑲嵌到小隊羈絆', works ? 'ok' : 'error');
+    } else if (pointer?.dragging) {
+      report('鬆開放回背包');
+    }
+  }
+
+  function select(origin, grabX = 0, grabY = 0) {
+    selected = { ...origin, grabX, grabY };
+    inspected = null;
+    clearPreview();
+    updateSelection();
+    report(`拿起 ${ALL_GEMS[selected.id].name}。選擇落點、旋轉或放回背包。`);
+  }
+
+  function cancel(message = '') {
+    selected = null;
+    clearPreview();
+    ghost.hidden = true;
+    updateSelection();
+    if (message) report(message);
+  }
+
+  function place(destination, { fromDrag = false, keyboard = false } = {}) {
+    if (!selected) return false;
+    const { id, uid, source, rot, owner, preset } = selected;
+    const name = ALL_GEMS[id].name;
+    const pz = puzzle();
+    if (owner !== pz || preset !== pz.activePreset) { cancel('構築已切換，已取消移動。'); return false; }
+    const list = source === 'board' ? board() : pz.bag;
+    const index = source === 'party' ? -1 : list.findIndex(item => item.uid === uid && item.id === id);
+    if (source === 'party' ? pz.partyGem?.uid !== uid : index === -1) {
+      cancel('這顆寶石的位置已更新，請重新選擇。');
+      render();
+      return false;
+    }
+    const { kind, x, y } = destination;
+    if ((kind === 'board' && !allowedOnBoard(selected, x, y)) || (kind === 'party' && !allowedInParty(selected))) {
+      if (fromDrag) cancel();
+      report(kind === 'board' ? '此處無法放置，請試其他位置或旋轉寶石。' : '小隊羈絆只接受可用的一般輔助寶石。', 'error');
+      return false;
+    }
+    if ((source === 'bag' && kind === 'bag') || (source === 'party' && kind === 'party')) {
+      cancel(source === 'bag' ? `${name} 已在背包` : `${name} 已在小隊羈絆`);
+      return true;
+    }
+    // Commit only after the entire piece has a valid destination. Moving inside
+    // the board keeps its array position because that is also the hotbar order.
+    if (source === 'board' && kind === 'board') {
+      list[index] = { uid, id, x, y, rot };
+    } else {
+      if (source === 'party') pz.partyGem = null;
+      else list.splice(index, 1);
+      if (kind === 'party') {
+        if (pz.partyGem) pz.bag.push({ ...pz.partyGem, rot: pz.partyGem.rot || 0 });
+        pz.partyGem = { uid, id, rot };
+      } else if (kind === 'board') {
+        board().push({ uid, id, x, y, rot });
       } else {
-        pz.bag.push({ uid: holding.uid, id: holding.id, rot: 0 });
+        pz.bag.push({ uid, id, rot });
       }
     }
-    setHolding(null);
-    return restitute;
-  };
-
-  function renderShapePreview(shape, rot, color) {
-    const cells = rotateCells(shape, rot);
-    const w = Math.max(...cells.map(c => c[0])) + 1;
-    const h = Math.max(...cells.map(c => c[1])) + 1;
-    const box = document.createElement('span');
-    box.className = 'pz-mini';
-    box.style.gridTemplateColumns = `repeat(${w}, 9px)`;
-    box.style.gridTemplateRows = `repeat(${h}, 9px)`;
-    const set = new Set(cells.map(c => c[0] + ',' + c[1]));
-    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-      const d = document.createElement('i');
-      if (set.has(x + ',' + y)) d.style.background = color;
-      else d.style.opacity = '0';
-      box.append(d);
+    selected = null;
+    ghost.hidden = true;
+    g.meta.save();
+    g.recalc();
+    g.audio.sfx(kind === 'bag' ? 'ui' : 'pickup');
+    render();
+    const destName = kind === 'board' ? `棋盤第 ${y + 1} 列、第 ${x + 1} 欄` : kind === 'party' ? '小隊羈絆' : '背包';
+    report(`${name} 已放入${destName}`, 'ok');
+    if (keyboard) {
+      const cell = kind === 'board' ? grid.querySelector(`[data-gem-uid="${uid}"]`) : null;
+      (cell || (kind === 'party' ? party : bag.querySelector(`[data-gem-uid="${uid}"]`)) || pack).focus({ preventScroll: true });
     }
-    return box;
+    return true;
   }
+
+  function makeShape(gem, rot = 0) {
+    const offsets = rotateCells(gem.shape, rot);
+    const shape = document.createElement('span');
+    shape.className = `pz-mini ${gem.type}`;
+    shape.setAttribute('aria-hidden', 'true');
+    shape.style.setProperty('--gem-color', gem.color);
+    shape.style.setProperty('--shape-columns', Math.max(...offsets.map(([x]) => x)) + 1);
+    for (const [x, y] of offsets) {
+      const tile = document.createElement('i');
+      tile.style.gridArea = `${y + 1}/${x + 1}`;
+      shape.append(tile);
+    }
+    return shape;
+  }
+
+  function destinationAt(x, y) {
+    const target = document.elementFromPoint(x, y);
+    const cell = target?.closest('.pz-cell');
+    if (grid.contains(target)) {
+      const first = cells.get('0,0').getBoundingClientRect();
+      const step = cells.get('1,0').getBoundingClientRect().left - first.left;
+      const snap = relative => Math.max(0, Math.min(GRID - 1, Math.round(relative / step)));
+      const col = cell ? Number(cell.dataset.x) : snap(x - first.left - first.width / 2);
+      const row = cell ? Number(cell.dataset.y) : snap(y - first.top - first.height / 2);
+      return { kind: 'board', x: col - selected.grabX, y: row - selected.grabY };
+    }
+    if (target?.closest('#pzPartySlot') === party) return { kind: 'party' };
+    return { kind: 'bag' };
+  }
+
+  function drawDrag({ clientX, clientY }) {
+    const x = Math.min(clientX + 13, innerWidth - ghost.offsetWidth - 8);
+    const y = Math.max(5, Math.min(clientY - ghost.offsetHeight - 10, innerHeight - ghost.offsetHeight - 8));
+    ghost.style.transform = `translate3d(${x}px,${y}px,0)`;
+    const destination = destinationAt(clientX, clientY);
+    ghost.dataset.target = destination.kind;
+    preview(destination);
+  }
+
+  function scrollDuringDrag() {
+    scrollFrame = 0;
+    if (!pointer?.dragging || !selected) return;
+    const { clientX, clientY } = pointer.last;
+    const { left, right, top, bottom } = panel.getBoundingClientRect();
+    if (clientX >= left && clientX <= right) {
+      const band = 35;
+      const delta = clientY < top + band ? -7 : clientY > bottom - band ? 7 : 0;
+      const previous = panel.scrollTop;
+      if (delta) panel.scrollTop += delta;
+      if (panel.scrollTop !== previous) drawDrag(pointer.last);
+    }
+    scrollFrame = requestAnimationFrame(scrollDuringDrag);
+  }
+
+  modal.addEventListener('pointerdown', event => {
+    if (!g.ui.puzzleOpen || pointer || !event.isPrimary || event.button !== 0) return;
+    const source = event.target.closest('[data-gem-uid]');
+    const origin = origins.get(source);
+    if (!origin || source.disabled) return;
+    // On touch, the shape is the drag handle. The rest of the card can scroll.
+    if (event.pointerType === 'touch' && origin.source === 'bag' && !event.target.closest('.pz-grip')) return;
+    pointer = {
+      id: event.pointerId, x: event.clientX, y: event.clientY, origin,
+      grabX: origin.source === 'board' ? Number(source.dataset.x) - origin.x : 0,
+      grabY: origin.source === 'board' ? Number(source.dataset.y) - origin.y : 0,
+      dragging: false,
+    };
+  });
+
+  window.addEventListener('pointermove', event => {
+    if (pointer?.id !== event.pointerId) return;
+    pointer.last = { clientX: event.clientX, clientY: event.clientY };
+    if (!pointer.dragging) {
+      if (Math.hypot(event.clientX - pointer.x, event.clientY - pointer.y) < 6) return;
+      pointer.dragging = true;
+      modal.setPointerCapture(event.pointerId);
+      select(pointer.origin, pointer.grabX, pointer.grabY);
+      ghost.replaceChildren(makeShape(ALL_GEMS[selected.id], selected.rot));
+      ghost.hidden = false;
+      scrollFrame = requestAnimationFrame(scrollDuringDrag);
+    }
+    if (event.cancelable) event.preventDefault();
+    drawDrag(event);
+  }, { passive: false });
+
+  window.addEventListener('pointerup', event => {
+    if (pointer?.id !== event.pointerId) return;
+    const dragging = pointer.dragging;
+    pointer = null;
+    if (!dragging || !selected) return;
+    suppressClick = true;
+    setTimeout(() => { suppressClick = false; }, 0);
+    if (modal.hasPointerCapture(event.pointerId)) modal.releasePointerCapture(event.pointerId);
+    cancelAnimationFrame(scrollFrame);
+    place(destinationAt(event.clientX, event.clientY), { fromDrag: true });
+  });
+
+  function abortPointer(event) {
+    if (pointer?.id !== event.pointerId) return;
+    const dragging = pointer.dragging;
+    pointer = null;
+    if (dragging) {
+      cancelAnimationFrame(scrollFrame);
+      cancel('已取消拖曳，寶石留在原位。');
+    }
+  }
+
+  window.addEventListener('pointercancel', abortPointer);
+  modal.addEventListener('lostpointercapture', event => {
+    // Touch first has implicit capture on the handle. Its bubbling loss during
+    // transfer to the modal is normal; only losing the modal's capture cancels.
+    if (event.target === modal) abortPointer(event);
+  });
+  window.addEventListener('blur', () => {
+    if (!pointer) return;
+    const id = pointer.id;
+    abortPointer({ pointerId: id });
+    if (modal.hasPointerCapture(id)) modal.releasePointerCapture(id);
+  });
+  modal.addEventListener('click', event => {
+    if (!suppressClick || event.detail === 0) return;
+    event.stopImmediatePropagation();
+    event.preventDefault();
+  }, true);
 
   function render() {
-    const pz = getPz(), level = g.meta.p.level || 1;
-    const placed = currentPlaced();
-    const open = unlockedSet(level);
+    const pz = puzzle();
+    const placed = board();
+    const open = unlockedSet(level());
     const occ = occupiedMap(placed);
-    const computed = computeBoard(placed, pz.partyGem?.id || null, level);
-    const partySlotEl = modal.querySelector('#pzPartySlot');
-    if (partySlotEl) {
-      const pg = pz.partyGem && SUPPORT_GEMS[pz.partyGem.id] ? SUPPORT_GEMS[pz.partyGem.id] : null;
-      partySlotEl.classList.toggle('filled', !!pg);
-      partySlotEl.innerHTML = pg
-        ? `<span>🤝 小隊羈絆共享：<b>${pg.icon} ${pg.name}</b>（全技能＋同隊隊友共享）</span><small>點擊卸下</small>`
-        : `<span>🤝 小隊羈絆插座（空位）</span><small>手持輔助寶石點擊鑲嵌</small>`;
-      partySlotEl.onclick = () => {
-        if (holding) {
-          if (gemLevel(holding.id) > level) { g.ui.toast(`需 Lv.${gemLevel(holding.id)} 才能鑲嵌`, '#ffb08a'); return; }
-          if (!SUPPORT_GEMS[holding.id] || holding.id === 'coh' || holding.id === 'coc') {
-            g.ui.toast('小隊羈絆插座僅可鑲嵌一般輔助寶石（不含觸發橋接）', '#ffb08a');
-            return;
-          }
-          if (pz.partyGem) pz.bag.push({ uid: pz.partyGem.uid, id: pz.partyGem.id, rot: 0 });
-          if (holding.source === 'bag') {
-            const bi = pz.bag.findIndex(b => b.uid === holding.uid);
-            if (bi >= 0) pz.bag.splice(bi, 1);
-          }
-          pz.partyGem = { uid: holding.uid, id: holding.id };
-          setHolding(null);
-          g.audio.sfx('pickup'); g.meta.save(); g.recalc(); render();
-          g.ui.toast(`🤝 已鑲嵌小隊羈絆寶石：${SUPPORT_GEMS[pz.partyGem.id].name}！`, '#7fe08a');
-        } else if (pz.partyGem) {
-          pz.bag.push({ uid: pz.partyGem.uid, id: pz.partyGem.id, rot: 0 });
-          pz.partyGem = null;
-          g.audio.sfx('ui'); g.meta.save(); g.recalc(); render();
-        }
-      };
+    const skills = computeBoard(placed, pz.partyGem?.id, level());
+    const linkedBySkill = new Map(skills.map((skill, slot) => [skill.uid, { ...skill.mod, slot }]));
+    const linkedSupports = new Set(skills.flatMap(skill => skill.mod.supportUids));
+    const skillKeys = ['右鍵', 'Q', 'E', 'C'];
+    const effectiveNames = new Map(skills.map(skill => [skill.uid, skill.mod.supports.map(support => support.name)]));
+    for (const skill of skills) for (const uid of skill.mod.supportUids) {
+      const links = effectiveNames.get(uid) || [];
+      links.push(skill.def.name);
+      effectiveNames.set(uid, links);
     }
-    const linkedBySkill = new Map(computed.map(s => [s.uid, s.mod]));
-    const linkedUids = new Set();
-    for (const s of computed) {
-      if (s.mod.supports.length > 0) linkedUids.add(s.uid);
-    }
-    for (const item of placed) {
-      if (!SUPPORT_GEMS[item.id]) continue;
-      for (const [dx, dy] of rotateCells(SUPPORT_GEMS[item.id].shape, item.rot)) {
-        const cx = item.x + dx, cy = item.y + dy;
-        for (const [nx, ny] of [[cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]]) {
-          const nb = occ.get(nx + ',' + ny);
-          if (linkedBySkill.get(nb?.uid)?.supportUids.includes(item.uid)) linkedUids.add(item.uid);
-        }
-      }
-    }
+    const origin = (item, source) => ({ ...item, source, owner: pz, preset: pz.activePreset });
+    inspected = null;
+    hoverCell = null;
+    clearPreview();
+    modal.querySelector('.pz-unlock').textContent = `${unlockedCount(level())}/36 格 · ${skills.length}/${activeLimit(level())} 招 · 每招最多 ${supportLimit(level())} 輔助`;
+    modal.querySelector('.pz-coins').textContent = `🪙 ${g.meta.p.coins}`;
 
-    unlockEl.textContent = `已解鎖 ${unlockedCount(level)}/36 格 · 最多 ${activeLimit(level)} 招 · 每招可連 ${supportLimit(level)} 顆輔助`;
-    coinsEl.textContent = `🪙 金幣 ${g.meta.p.coins}`;
+    modal.querySelector('.pz-equipped').textContent = skills.length
+      ? skills.map((skill, slot) => `${skillKeys[slot]} ${skill.def.short}`).join('　·　')
+      : '尚未配置主動技能';
 
-    // Presets
-    presetsEl.replaceChildren();
-    for (let i = 0; i < 3; i++) {
-      const b = document.createElement('button');
-      b.className = 'btn small' + (pz.activePreset === i ? ' on' : '');
-      b.textContent = `構築 ${i + 1}`;
-      b.onclick = () => {
-        returnHolding();
+    presets.replaceChildren();
+    for (let i = 0; i < pz.presets.length; i++) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'btn small' + (i === pz.activePreset ? ' on' : '');
+      button.setAttribute('aria-pressed', String(i === pz.activePreset));
+      button.textContent = `構築 ${i + 1}`;
+      button.onclick = () => {
+        cancel();
         pz.activePreset = i;
-        g.meta.save(); g.recalc(); render();
-      };
-      presetsEl.append(b);
-    }
-
-    // Info bar（即時顯示邏輯電路串聯預覽）
-    if (holding) {
-      const def = ALL_GEMS[holding.id];
-      infoEl.innerHTML = `<b>手持：${def.icon} ${def.name}</b>（${def.type === 'active' ? '主動' : '輔助'}）— ${def.desc} <small>點棋盤放下 · 右鍵或按 R 旋轉</small>`;
-    } else {
-      const activeNames = computed.map(({ def, mod }, index) =>
-        `${['右鍵', 'Q', 'E', 'C'][index]} ${def.icon}${def.short}${mod.supports.length ? ` +${mod.supports.length}` : ''}`);
-      infoEl.textContent = activeNames.length
-        ? '⚡ 邏輯電路：' + activeNames.join('　|　')
-        : '點選下方寶石放入 6×6 棋盤；用「命中觸發器／暴擊觸發器」橋接兩招主動技能即可打造自動連招電路！';
-    }
-
-    // 6x6 Grid（含電路金色邊框高亮＋手持方塊懸停落點預覽）
-    gridEl.replaceChildren();
-    const anchorSeen = new Set();
-    const cellEls = new Map();
-    const clearPreview = () => {
-      for (const el of cellEls.values()) el.classList.remove('preview-ok', 'preview-bad', 'pz-hover-hl');
-    };
-    const showPreview = (ax, ay) => {
-      clearPreview();
-      if (!holding) return;
-      const def = ALL_GEMS[holding.id];
-      if (!def) return;
-      const ok = canPlace(placed, holding.id, ax, ay, holding.rot, level);
-      for (const [dx, dy] of rotateCells(def.shape, holding.rot)) {
-        const el = cellEls.get((ax + dx) + ',' + (ay + dy));
-        if (el) el.classList.add(ok ? 'preview-ok' : 'preview-bad');
-      }
-    };
-    gridEl.onmouseleave = clearPreview;
-
-    for (let y = 0; y < GRID; y++) {
-      for (let x = 0; x < GRID; x++) {
-        const cell = document.createElement('button');
-        cell.type = 'button';
-        cell.className = 'pz-cell';
-        const key = x + ',' + y;
-        cellEls.set(key, cell);
-        const isOpen = open.has(key);
-        const item = occ.get(key);
-        if (!isOpen) {
-          cell.classList.add('locked');
-          cell.disabled = true;
-          cell.textContent = '🔒';
-        } else if (item) {
-          const def = ALL_GEMS[item.id];
-          cell.classList.add('filled', def.type);
-          if (linkedUids.has(item.uid)) cell.classList.add('linked');
-          cell.style.background = def.color;
-          cell.title = `${def.name}（${def.type === 'active' ? '主動' : '輔助'}）：${def.desc}`;
-          if (!anchorSeen.has(item.uid)) {
-            anchorSeen.add(item.uid);
-            const lc = linkedBySkill.get(item.uid)?.supports.length || 0;
-            cell.innerHTML = `<span class="pz-ic">${def.icon}</span><span class="pz-lb">${def.short}${lc ? '+' + lc : ''}</span>`;
-          } else {
-            cell.innerHTML = `<span class="pz-dot"></span>`;
-          }
-          cell.onclick = () => {
-            if (holding) return;
-            const idx = placed.findIndex(p => p.uid === item.uid);
-            if (idx >= 0) {
-              const [removed] = placed.splice(idx, 1);
-              setHolding({ source: 'board', uid: removed.uid, id: removed.id, rot: removed.rot, origX: removed.x, origY: removed.y, origRot: removed.rot });
-              g.audio.sfx('ui'); render();
-            }
-          };
-        } else {
-          if (holding && gemLevel(holding.id) <= level && canPlace(placed, holding.id, x, y, holding.rot, level)) cell.classList.add('can');
-          cell.onclick = () => {
-            if (!holding) return;
-            if (gemLevel(holding.id) > level) { g.ui.toast(`需 Lv.${gemLevel(holding.id)} 才能放入棋盤`, '#ffb08a'); return; }
-            if (!canPlace(placed, holding.id, x, y, holding.rot, level)) { g.ui.toast('此位置無法放入該形狀', '#ff9a8a'); return; }
-            if (holding.source === 'bag') {
-              const bi = pz.bag.findIndex(b => b.uid === holding.uid);
-              if (bi >= 0) pz.bag.splice(bi, 1);
-            }
-            placed.push({ uid: holding.uid, id: holding.id, x, y, rot: holding.rot });
-            setHolding(null);
-            g.audio.sfx('pickup'); g.meta.save(); g.recalc(); render();
-          };
-        }
-        cell.onmouseenter = () => {
-          showPreview(x, y);
-          if (!holding && item) {
-            for (const c of gridEl.querySelectorAll('.pz-hover-hl')) c.classList.remove('pz-hover-hl');
-            for (const [k2, el2] of cellEls.entries()) {
-              const o2 = occ.get(k2);
-              if (o2 && o2.uid === item.uid) el2.classList.add('pz-hover-hl');
-            }
-          }
-        };
-        cell.oncontextmenu = e => {
-          e.preventDefault();
-          if (holding) { holding.rot = (holding.rot + 1) % 4; g.audio.sfx('ui'); render(); }
-        };
-        gridEl.append(cell);
-      }
-    }
-
-    // Phase U2：SVG 發光邏輯電路連線（主動 ↔ 輔助／觸發橋接）
-    const svgNS = 'http://www.w3.org/2000/svg';
-    const svg = document.createElementNS(svgNS, 'svg');
-    svg.setAttribute('class', 'pz-svg');
-    svg.setAttribute('viewBox', '0 0 291 291');
-    const seenEdges = new Set();
-    for (let y = 0; y < GRID; y++) {
-      for (let x = 0; x < GRID; x++) {
-        const a = occ.get(x + ',' + y);
-        if (!a) continue;
-        const aAct = !!ACTIVE_GEMS[a.id], aSup = !!SUPPORT_GEMS[a.id];
-        for (const [nx, ny] of [[x + 1, y], [x, y + 1]]) {
-          if (nx >= GRID || ny >= GRID) continue;
-          const b = occ.get(nx + ',' + ny);
-          if (!b || b.uid === a.uid) continue;
-          const bAct = !!ACTIVE_GEMS[b.id], bSup = !!SUPPORT_GEMS[b.id];
-          if (!((aAct && bSup) || (aSup && bAct))) continue;
-          const active = aAct ? a : b, support = aSup ? a : b;
-          if (!linkedBySkill.get(active.uid)?.supportUids.includes(support.uid)) continue;
-          const edgeKey = `${x},${y}-${nx},${ny}`;
-          if (seenEdges.has(edgeKey)) continue;
-          seenEdges.add(edgeKey);
-          const supId = aSup ? a.id : b.id;
-          const stroke = supId === 'coh' ? '#62e8ff' : supId === 'coc' ? '#ff7ad8' : '#ffd85a';
-          const x1 = 6 + x * 47 + 22, y1 = 6 + y * 47 + 22;
-          const x2 = 6 + nx * 47 + 22, y2 = 6 + ny * 47 + 22;
-          const glow = document.createElementNS(svgNS, 'line');
-          glow.setAttribute('x1', x1); glow.setAttribute('y1', y1);
-          glow.setAttribute('x2', x2); glow.setAttribute('y2', y2);
-          glow.setAttribute('stroke', stroke); glow.setAttribute('stroke-width', '7');
-          glow.setAttribute('stroke-linecap', 'round'); glow.setAttribute('opacity', '0.32');
-          svg.append(glow);
-          const line = document.createElementNS(svgNS, 'line');
-          line.setAttribute('x1', x1); line.setAttribute('y1', y1);
-          line.setAttribute('x2', x2); line.setAttribute('y2', y2);
-          line.setAttribute('stroke', stroke); line.setAttribute('stroke-width', '3');
-          line.setAttribute('stroke-linecap', 'round');
-          svg.append(line);
-          for (const [px, py] of [[x1, y1], [x2, y2]]) {
-            const dot = document.createElementNS(svgNS, 'circle');
-            dot.setAttribute('cx', px); dot.setAttribute('cy', py); dot.setAttribute('r', '3.5');
-            dot.setAttribute('fill', '#fff8e6'); dot.setAttribute('stroke', stroke); dot.setAttribute('stroke-width', '1.8');
-            svg.append(dot);
-          }
-        }
-      }
-    }
-    gridEl.append(svg);
-
-    // Tabs visibility
-    modal.querySelectorAll('[data-pztab]').forEach(b => b.classList.toggle('on', b.dataset.pztab === modeTab));
-    modal.querySelectorAll('[data-pzflt]').forEach(b => b.classList.toggle('on', b.dataset.pzflt === gemFilter));
-    bagEl.hidden = modeTab !== 'bag';
-    shopEl.hidden = modeTab !== 'shop';
-
-    // Bag
-    bagEl.replaceChildren();
-    const filteredBag = (modeTab === 'bag' ? pz.bag : []).filter(b => {
-      const def = ALL_GEMS[b.id];
-      return def && matchesFilter(def);
-    });
-    if (!filteredBag.length && modeTab === 'bag') {
-      const empty = document.createElement('div');
-      empty.className = 'psmall';
-      empty.textContent = '目前背包沒有未放置的寶石，可切換至「寶石商人」購買或擊敗精英怪取得！';
-      bagEl.append(empty);
-    }
-    for (const item of filteredBag) {
-      const def = ALL_GEMS[item.id];
-      const card = document.createElement('button');
-      card.type = 'button';
-      card.className = 'pz-gem' + (holding?.uid === item.uid ? ' on' : '');
-      card.title = def.desc;
-      card.disabled = level < gemLevel(def.id);
-      card.append(renderShapePreview(def.shape, 0, def.color));
-      const txt = document.createElement('span');
-      txt.innerHTML = `<b>${def.icon} ${def.name}</b><small>${def.type === 'active' ? '主動' : '輔助'} · Lv.${gemLevel(def.id)}</small>`;
-      card.append(txt);
-      card.onclick = () => {
-        if (holding?.uid === item.uid) { setHolding(null); render(); return; }
-        returnHolding();
-        setHolding({ source: 'bag', uid: item.uid, id: item.id, rot: item.rot || 0 });
-        g.audio.sfx('ui'); render();
-      };
-      bagEl.append(card);
-    }
-
-    // Shop
-    shopEl.replaceChildren();
-    if (modeTab !== 'shop') return;
-    for (const def of Object.values(ALL_GEMS).sort((a, b) => gemLevel(a.id) - gemLevel(b.id))) {
-      if (!matchesFilter(def)) continue;
-      const card = document.createElement('div');
-      card.className = 'pz-shop-item';
-      const head = document.createElement('div');
-      head.className = 'pz-shop-head';
-      head.append(renderShapePreview(def.shape, 0, def.color));
-      const meta = document.createElement('div');
-      meta.innerHTML = `<b>${def.icon} ${def.name}</b> <small>${def.type === 'active' ? '主動' : '輔助'} · Lv.${gemLevel(def.id)}</small><br><small>${def.desc}</small>`;
-      head.append(meta);
-      const buy = document.createElement('button');
-      buy.className = 'btn small';
-      buy.textContent = `🪙 ${def.price}`;
-      buy.disabled = level < gemLevel(def.id) || g.meta.p.coins < def.price;
-      buy.onclick = () => {
-        if ((g.meta.p.level || 1) < gemLevel(def.id) || g.meta.p.coins < def.price) return;
-        g.meta.p.coins -= def.price;
-        addGemToBag(g.meta.p, def.id);
-        g.meta.save(); g.audio.sfx('pickup');
-        g.ui.toast(`購得寶石：${def.name}`, '#ffd85a');
+        g.meta.save();
+        g.recalc();
         render();
+        presets.children[i].focus({ preventScroll: true });
+        report(`已切換至構築 ${i + 1}`);
       };
-      card.append(head, buy);
-      shopEl.append(card);
+      presets.append(button);
     }
+
+    const partyGem = ALL_GEMS[pz.partyGem?.id];
+    party.classList.toggle('filled', !!partyGem);
+    party.innerHTML = partyGem
+      ? `<small>小隊羈絆</small><b>${partyGem.icon} ${partyGem.name}</b>`
+      : '<small>小隊羈絆</small><b>＋ 放入輔助寶石</b>';
+    party.style.setProperty('--gem-color', partyGem?.color || '#8aac9d');
+    delete party.dataset.gemUid;
+    if (partyGem) {
+      party.dataset.gemUid = pz.partyGem.uid;
+      origins.set(party, origin(pz.partyGem, 'party'));
+    } else {
+      origins.delete(party);
+    }
+    party.onclick = event => {
+      if (selected && selected.source !== 'party') place({ kind: 'party' }, { keyboard: event.detail === 0 });
+      else if (partyGem && !selected) select(origins.get(party));
+      else if (selected) cancel('已取消移動。');
+    };
+
+    grid.replaceChildren();
+    cells.clear();
+    let firstFocus = true;
+    const anchors = new Set();
+    for (let y = 0; y < GRID; y++) for (let x = 0; x < GRID; x++) {
+      const key = `${x},${y}`;
+      const cell = document.createElement('button');
+      cell.type = 'button';
+      cell.className = 'pz-cell';
+      cell.dataset.x = x;
+      cell.dataset.y = y;
+      cells.set(key, cell);
+      const item = occ.get(key);
+      const coords = `第 ${y + 1} 列、第 ${x + 1} 欄`;
+      if (!open.has(key) && !item) {
+        cell.classList.add('locked');
+        cell.disabled = true;
+        cell.setAttribute('aria-label', `${coords}，未解鎖`);
+      } else if (item) {
+        const gem = ALL_GEMS[item.id];
+        const link = linkedBySkill.get(item.uid);
+        const isAnchor = !anchors.has(item.uid);
+        anchors.add(item.uid);
+        cell.classList.add('filled', gem.type);
+        cell.dataset.gemUid = item.uid;
+        origins.set(cell, origin(item, 'board'));
+        cell.style.setProperty('--gem-color', gem.color);
+        cell.setAttribute('aria-label', `${coords}，${gem.name}，${gem.type === 'active' ? '主動' : '輔助'}`);
+        if (isAnchor) {
+          cell.innerHTML = `<span class="pz-glyph">${gem.icon}</span><span class="pz-gem-label">${gem.short}</span><span class="pz-type">${gem.type === 'active' ? (skillKeys[link?.slot] || '主') : linkedSupports.has(item.uid) ? '輔' : '◇'}</span>`;
+        } else {
+          cell.innerHTML = '<span class="pz-facet"></span>';
+        }
+        for (const [dx, dy, side] of [[1, 0, 'east'], [0, 1, 'south']]) {
+          const next = occ.get(`${x + dx},${y + dy}`);
+          if (!next) continue;
+          if (next.uid === item.uid) {
+            cell.classList.add(`join-${side}`);
+            continue;
+          }
+          const active = ACTIVE_GEMS[item.id] ? item : next;
+          const support = active === item ? next : item;
+          if (!linkedBySkill.get(active.uid)?.supportUids.includes(support.uid)) continue;
+          const edge = document.createElement('span');
+          edge.className = `pz-link ${side}`;
+          edge.dataset.support = support.id;
+          cell.append(edge);
+        }
+      } else {
+        cell.setAttribute('aria-label', `${coords}，空格`);
+      }
+      cell.tabIndex = !cell.disabled && firstFocus ? 0 : -1;
+      if (!cell.disabled) firstFocus = false;
+      cell.onclick = () => {
+        if (selected) {
+          place({ kind: 'board', x, y }, { keyboard: document.activeElement === cell });
+        } else if (item) {
+          select(origins.get(cell));
+        }
+      };
+      const inspectCell = () => {
+        hoverCell = { kind: 'board', x, y };
+        if (selected && !pointer?.dragging) preview(hoverCell);
+        if (!selected) {
+          inspected = item ? { ...item, links: effectiveNames.get(item.uid) } : null;
+          inspect(inspected, inspected?.links);
+        }
+      };
+      cell.addEventListener('pointerenter', inspectCell);
+      cell.addEventListener('focus', () => {
+        const previous = grid.querySelector('.pz-cell[tabindex="0"]');
+        if (previous && previous !== cell) previous.tabIndex = -1;
+        cell.tabIndex = 0;
+        inspectCell();
+      });
+      grid.append(cell);
+    }
+
+    modal.querySelectorAll('[data-pztab]').forEach(button => {
+      button.classList.toggle('on', button.dataset.pztab === tab);
+      button.setAttribute('aria-pressed', String(button.dataset.pztab === tab));
+    });
+    modal.querySelectorAll('[data-pzflt]').forEach(button => {
+      button.classList.toggle('on', button.dataset.pzflt === filter);
+      button.setAttribute('aria-pressed', String(button.dataset.pzflt === filter));
+    });
+    bag.hidden = tab !== 'bag';
+    shop.hidden = tab !== 'shop';
+    renderInventory();
+    pack.disabled = !placed.length && !pz.bag.length;
+    clear.disabled = !placed.length;
   }
 
-  const autoBtn = modal.querySelector('#pzAuto');
-  if (autoBtn) autoBtn.onclick = () => {
-    returnHolding();
-    const pz = getPz(), placed = currentPlaced();
-    const res = autoBuildBoard(placed, pz.bag, g.meta.p.level || 1);
-    pz.presets[pz.activePreset] = res.placed;
-    pz.bag = res.bag;
-    g.meta.save(); g.recalc(); g.audio.sfx('classup');
-    const comp = computeBoard(res.placed, pz.partyGem?.id, g.meta.p.level || 1);
-    const links = comp.reduce((sum, skill) => sum + skill.mod.supports.length, 0);
-    g.ui.toast(comp.length ? `已排入 ${comp.length} 招，建立 ${links} 個輔助連結` : '背包沒有目前可用的主動寶石。', '#ffd85a');
-    render();
-  };
-  search.oninput = render;
-  search.onkeydown = event => {
-    if (event.key === 'Escape') { event.preventDefault(); search.blur(); }
-  };
-  modal.querySelector('#pzRotate').onclick = () => { if (holding) { holding.rot = (holding.rot + 1) % 4; g.audio.sfx('ui'); render(); } };
-  modal.querySelector('#pzTake').onclick = () => {
-    if (!holding) return;
-    if (holding.source === 'board') {
-      getPz().bag.push({ uid: holding.uid, id: holding.id, rot: 0 });
-      setHolding(null); g.meta.save(); g.recalc(); g.audio.sfx('ui'); render();
+  function renderInventory() {
+    const pz = puzzle();
+    const q = search.value.trim().toLowerCase();
+    const matches = gem => gem && (filter === 'all' || gem.type === filter) &&
+      (gem.name + ' ' + gem.desc + ' ' + gem.id).toLowerCase().includes(q);
+    const content = tab === 'bag' ? bag : shop;
+    clearSearch.hidden = clearSearch.disabled = !search.value;
+    const scroll = content.scrollTop;
+    content.replaceChildren();
+    if (tab === 'bag') {
+      for (const item of pz.bag) {
+        const gem = ALL_GEMS[item.id];
+        if (!matches(gem)) continue;
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.className = 'pz-gem';
+        card.dataset.gemUid = item.uid;
+        card.style.setProperty('--gem-color', gem.color);
+        card.disabled = gemLevel(item.id) > level();
+        origins.set(card, { ...item, source: 'bag', preset: pz.activePreset, owner: pz });
+        const grip = document.createElement('span');
+        grip.className = 'pz-grip';
+        grip.append(makeShape(gem, item.rot));
+        const label = document.createElement('span');
+        label.className = 'pz-gem-name';
+        label.innerHTML = `<b>${gem.name}</b><small>${gem.type === 'active' ? '主動' : '輔助'} · Lv.${gemLevel(item.id)}</small>`;
+        card.append(grip, label);
+        card.onclick = event => {
+          if (selected?.uid === item.uid && selected.source === 'bag') cancel('已取消選取。');
+          else {
+            select(origins.get(card));
+            if (event.detail === 0) [...cells.values()].find(cell => !cell.disabled &&
+              allowedOnBoard(selected, Number(cell.dataset.x), Number(cell.dataset.y)))?.focus();
+          }
+        };
+        const peek = () => { if (!selected) { inspected = item; inspect(item); } };
+        card.addEventListener('pointerenter', peek);
+        card.addEventListener('focus', peek);
+        content.append(card);
+      }
     } else {
-      setHolding(null); render();
+      for (const gem of Object.values(ALL_GEMS).sort((a, b) => gemLevel(a.id) - gemLevel(b.id))) {
+        if (!matches(gem)) continue;
+        const card = document.createElement('div');
+        card.className = 'pz-shop-item';
+        const head = document.createElement('div');
+        head.className = 'pz-shop-head';
+        head.append(makeShape(gem));
+        const label = document.createElement('span');
+        label.innerHTML = `<b>${gem.name}</b> <small>${gem.type === 'active' ? '主動' : '輔助'} · Lv.${gemLevel(gem.id)}</small><br><small>${gem.desc}</small>`;
+        head.append(label);
+        const buy = document.createElement('button');
+        buy.type = 'button';
+        buy.className = 'btn small';
+        buy.textContent = `🪙 ${gem.price}`;
+        buy.setAttribute('aria-label', `購買${gem.name}，${gem.price} 金幣`);
+        buy.disabled = level() < gemLevel(gem.id) || g.meta.p.coins < gem.price;
+        buy.onclick = () => {
+          if (level() < gemLevel(gem.id) || g.meta.p.coins < gem.price) return;
+          g.meta.p.coins -= gem.price;
+          addGemToBag(g.meta.p, gem.id);
+          g.meta.save();
+          g.audio.sfx('pickup');
+          render();
+          search.focus({ preventScroll: true });
+          report(`${gem.name} 已放入背包`, 'ok');
+        };
+        card.append(head, buy);
+        content.append(card);
+      }
     }
-  };
-  modal.querySelector('#pzClear').onclick = () => {
-    returnHolding();
-    const pz = getPz(), placed = currentPlaced();
-    while (placed.length) {
-      const it = placed.pop();
-      pz.bag.push({ uid: it.uid, id: it.id, rot: 0 });
+    if (!content.childElementCount) {
+      const empty = document.createElement('p');
+      empty.className = 'pz-empty';
+      empty.textContent = q || filter !== 'all' ? '沒有符合的寶石。試試其他關鍵字或類型。' : '背包沒有未放置的寶石。';
+      content.append(empty);
     }
-    g.meta.save(); g.recalc(); g.audio.sfx('ui'); render();
+    content.scrollTop = scroll;
+    updateSelection();
+  }
+
+  grid.addEventListener('pointerleave', () => {
+    hoverCell = null;
+    if (!pointer?.dragging) clearPreview();
+  });
+
+  grid.addEventListener('keydown', event => {
+    const cell = event.target.closest('.pz-cell');
+    const direction = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[event.key];
+    if (!cell || !direction) return;
+    event.preventDefault();
+    const [dx, dy] = direction;
+    let x = Number(cell.dataset.x) + dx;
+    let y = Number(cell.dataset.y) + dy;
+    while (x >= 0 && x < GRID && y >= 0 && y < GRID) {
+      const next = cells.get(`${x},${y}`);
+      if (!next.disabled) { next.focus(); break; }
+      x += dx;
+      y += dy;
+    }
+  });
+
+  g.ui.rotateHeldGem = () => {
+    if (!g.ui.puzzleOpen || !selected) return false;
+    const offsets = rotateCells(ALL_GEMS[selected.id].shape, selected.rot);
+    const height = Math.max(...offsets.map(([, y]) => y)) + 1;
+    [selected.grabX, selected.grabY] = [height - 1 - selected.grabY, selected.grabX];
+    selected.rot = (selected.rot + 1) % 4;
+    if (pointer?.dragging) {
+      ghost.replaceChildren(makeShape(ALL_GEMS[selected.id], selected.rot));
+      drawDrag(pointer.last);
+    } else {
+      preview(hoverCell);
+    }
+    g.audio.sfx('ui');
+    report(`已旋轉 ${ALL_GEMS[selected.id].name}`);
+    return true;
   };
-  modal.querySelectorAll('[data-pztab]').forEach(b => b.onclick = () => { modeTab = b.dataset.pztab; g.audio.sfx('ui'); render(); });
-  modal.querySelectorAll('[data-pzflt]').forEach(b => b.onclick = () => { gemFilter = b.dataset.pzflt; g.audio.sfx('ui'); render(); });
+  grid.addEventListener('contextmenu', event => {
+    if (g.ui.rotateHeldGem()) event.preventDefault();
+  });
+  rotate.onclick = () => g.ui.rotateHeldGem();
+  take.onclick = () => place({ kind: 'bag' }, { keyboard: true });
+  clear.onclick = () => {
+    const pz = puzzle();
+    cancel();
+    for (const { uid, id, rot } of board().splice(0)) pz.bag.push({ uid, id, rot });
+    g.meta.save();
+    g.recalc();
+    g.audio.sfx('ui');
+    render();
+    report('棋盤上的寶石已全部放回背包。', 'ok');
+    pack.focus({ preventScroll: true });
+  };
+  pack.onclick = () => {
+    cancel();
+    const pz = puzzle();
+    const result = autoBuildBoard(board(), pz.bag, level());
+    pz.presets[pz.activePreset] = result.placed;
+    pz.bag = result.bag;
+    g.meta.save();
+    g.recalc();
+    g.audio.sfx('classup');
+    render();
+    const skills = computeBoard(result.placed, pz.partyGem?.id, level());
+    const links = skills.reduce((sum, skill) => sum + skill.mod.supports.length, 0);
+    report(skills.length ? `已排入 ${skills.length} 招，建立 ${links} 個輔助連結` : '背包沒有目前可用的主動寶石。', skills.length ? 'ok' : '');
+  };
+
+  modal.querySelectorAll('[data-pztab]').forEach(button => button.onclick = () => {
+    tab = button.dataset.pztab;
+    cancel();
+    render();
+  });
+  modal.querySelectorAll('[data-pzflt]').forEach(button => button.onclick = () => {
+    filter = button.dataset.pzflt;
+    render();
+  });
+  search.oncompositionstart = () => { composing = true; };
+  search.oncompositionend = () => { composing = false; renderInventory(); };
+  search.oninput = () => { if (!composing) renderInventory(); };
+  clearSearch.onclick = () => {
+    search.value = '';
+    renderInventory();
+    search.focus();
+  };
 
   g.ui.openPuzzle = () => {
     if (g.state !== 'play') return;
-    g.keys = {}; g.mouse.l = g.mouse.r = false;
-    g.ui.puzzleOpen = true; modal.classList.remove('hide'); render();
+    g.keys = {};
+    g.mouse.l = g.mouse.r = false;
+    g.ui.puzzleOpen = true;
+    modal.classList.remove('hide');
+    render();
+    report('拖寶石形狀入棋盤，拖離棋盤可放回背包。');
   };
   g.ui.closePuzzle = () => {
-    if (returnHolding()) { g.meta.save(); g.recalc(); }
-    g.ui.puzzleOpen = false; modal.classList.add('hide');
-  };
-  g.ui.rotateHeldGem = () => {
-    if (!g.ui.puzzleOpen || !holding) return false;
-    holding.rot = (holding.rot + 1) % 4; g.audio.sfx('ui'); render(); return true;
+    const id = pointer?.id;
+    pointer = null;
+    cancelAnimationFrame(scrollFrame);
+    if (id !== undefined && modal.hasPointerCapture(id)) modal.releasePointerCapture(id);
+    cancel();
+    g.ui.puzzleOpen = false;
+    modal.classList.add('hide');
   };
 }

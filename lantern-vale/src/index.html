@@ -556,8 +556,6 @@ body.holding-gem,body.holding-gem *{cursor:grabbing!important}
 .pz-layout{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:start}
 @media(max-width:640px){.pz-layout{grid-template-columns:1fr}}
 .pz-grid{position:relative;display:grid;grid-template-columns:repeat(6,44px);grid-template-rows:repeat(6,44px);gap:3px;padding:6px;background:#3b2a2a;box-shadow:var(--box);width:max-content}
-.pz-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:4;overflow:visible}
-.pz-party-bar{margin:8px 0 4px}
 .pz-party-slot{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;border:2px dashed #4e8a7e;background:rgba(78,138,126,.12);color:var(--ink);font:inherit;font-size:12px;font-weight:700;border-radius:4px;cursor:pointer;text-align:left}
 .pz-party-slot.filled{border-style:solid;border-color:#d99a26;background:linear-gradient(90deg,rgba(255,216,90,.24),rgba(78,138,126,.18))}
 .corrupt-bar{display:flex;height:18px;border-radius:3px;overflow:hidden;border:2px solid var(--ink);margin:6px 0 4px;font-size:10px;font-weight:700;color:#fff;text-shadow:0 1px 0 rgba(0,0,0,.6)}
@@ -660,14 +658,6 @@ body.holding-gem,body.holding-gem *{cursor:grabbing!important}
   .cr-book,.du-panel{top:auto;left:12px;right:12px;bottom:12px;width:auto;max-height:48vh}
   .cr-stage-bar{left:50%;bottom:50vh}
 }
-.pz-cell{position:relative;border:0;background:#f3e3c3;color:#fff;font-family:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0;line-height:1;font-size:11px}
-.pz-cell.locked{background:#58453c;color:#f1dfb8;font-size:13px}
-.pz-cell.can{background:#ffe9a0;outline:2px solid #e8734a}
-.pz-cell.filled{color:#fff;text-shadow:0 1px 0 #2b1d33;box-shadow:inset 0 0 0 2px rgba(255,255,255,.35)}
-.pz-cell.linked{box-shadow:inset 0 0 0 2.5px #ffd85a,0 0 7px rgba(255,216,90,.65)}
-.pz-cell.preview-ok{background:#9be66a!important;outline:2px solid #2f8a4e!important;color:#2b1d22}
-.pz-cell.preview-bad{background:#e05555!important;outline:2px solid #7a1c1c!important;color:#fff}
-.pz-cell .pz-ic{font-size:15px}.pz-cell .pz-lb{font-size:10px;white-space:nowrap;padding:0 2px;color:#fff3db;background:var(--cp-ink)}.pz-cell .pz-dot{width:8px;height:8px;background:rgba(255,255,255,.55);display:block}
 .pz-info{background:#f3e3c3;padding:6px 10px;font-size:13px;line-height:1.5;border-left:4px solid #e8734a;margin:6px 0}
 .pz-bag{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;max-height:270px;overflow:auto;padding:2px}
 .pz-gem{display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--paper2);border:2px solid #7a5a46;font-family:inherit;text-align:left;color:var(--ink)}
@@ -999,7 +989,6 @@ html,body{image-rendering:auto;-webkit-font-smoothing:antialiased;color:var(--ui
 #tideHud .td-head,#tideHud .td-track,#tideHud .td-spoils{cursor:pointer}
 #questTracker:hover{border-color:#ffd85a;transform:translateX(-2px);filter:brightness(1.06)}
 #view.hover-npc{cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Crect x='4' y='5' width='20' height='14' rx='3' fill='%23fff8e4' stroke='%233b2a2a' stroke-width='2.2'/%3E%3Cpath d='M10 19l-2 5 6-5z' fill='%23fff8e4' stroke='%233b2a2a' stroke-width='2'/%3E%3Ccircle cx='10' cy='12' r='1.6' fill='%233b2a2a'/%3E%3Ccircle cx='14' cy='12' r='1.6' fill='%233b2a2a'/%3E%3Ccircle cx='18' cy='12' r='1.6' fill='%233b2a2a'/%3E%3C/svg%3E") 14 14, pointer}
-.pz-cell.pz-hover-hl{outline:3px solid #fff8e4!important;filter:brightness(1.22);z-index:3}
 
 /* ==========================================================================
    Phase U5：CrispPixel_Sampler 設計系統全面重構（9-Slice 像素木框 × 金屬鉚釘 × 羊皮紙）
@@ -1463,7 +1452,6 @@ button,select,a,summary,.sk,.pz-cell,.pz-gem,.atlas button,.du-card,.sb-slot,.so
   grid-template-columns:repeat(6,40px)!important;grid-template-rows:repeat(6,40px)!important;
   border-width:8px!important;border-image-width:8px!important;padding:4px!important;
 }
-.pz-party-bar{margin:5px 0 3px!important}
 .pz-party-slot{padding:4px 8px!important;font-size:11.5px!important}
 .pz-tools{margin:4px 0!important}
 .pz-tools .btn.small{height:34px!important;font-size:12px!important}
@@ -2187,6 +2175,229 @@ body:has(#title:not(.hide)) #devPill{top:auto;bottom:10px;left:10px;transform:no
 .dungeon-lobby-fill{display:flex;align-items:center;gap:8px;min-height:44px}
 .dungeon-lobby-fill input{width:20px;height:20px;accent-color:var(--cp-ok)}
 .dungeon-lobby-actions{display:flex;flex-wrap:wrap;gap:8px}
+
+/* Skill puzzle workbench. The board uses real grid geometry for touch and pointer placement. */
+#puzzleM .pzp{
+  --pz-cell:46px;--pz-gap:4px;--pz-wood:#38252a;--pz-dark:#211a20;--pz-paper:#f5e4bd;
+  width:min(804px,calc(100vw - 24px));max-height:calc(100dvh - 20px);
+  padding:14px 16px!important;overscroll-behavior:contain;color:var(--cp-ink);
+}
+#puzzleM .pz-head{padding-bottom:8px;margin-bottom:0!important;border-bottom:1px solid #9c754d}
+#puzzleM .pz-head h3{margin:0;font-size:21px;letter-spacing:.06em}
+.pz-head-actions{display:flex;align-items:center;gap:14px}
+.pz-coins{font-size:14px;font-variant-numeric:tabular-nums}
+.pz-preset-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:2px 10px;margin:4px 0 9px}
+#puzzleM .pz-presets{margin:0}
+#puzzleM .pz-unlock{margin:0;font-size:12px}
+
+#puzzleM .pz-layout{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:14px}
+.pz-workbench,.pz-library{min-width:0}
+.pz-board-head{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:0 0 6px}
+.pz-board-head b{font-size:15px}
+.pz-legend{display:flex;gap:8px;font-size:11px;color:#513328;white-space:nowrap}
+.pz-legend span:first-child{color:#672c38}
+.pz-legend span:nth-child(2){color:#155d53}
+.pz-legend span:last-child{color:#86510f}
+
+.pz-board-frame{
+  display:grid;place-items:center;padding:9px 7px;background:#684238;
+  border:2px solid var(--pz-dark);
+  box-shadow:inset 0 2px #ad7956,inset 0 -3px #432b2c,0 3px 0 #3b262b;
+}
+#puzzleM .pz-grid{
+  position:relative;display:grid;gap:var(--pz-gap);padding:4px;
+  grid-template-columns:repeat(6,var(--pz-cell))!important;
+  grid-template-rows:repeat(6,var(--pz-cell))!important;
+  margin:0;background:var(--pz-dark)!important;border:0!important;
+  box-shadow:0 0 0 1px #160f14,0 0 0 3px #795246!important;
+  user-select:none;-webkit-user-select:none;
+}
+.pz-grid .pz-cell{
+  position:relative;isolation:isolate;display:grid;place-content:center;justify-items:center;gap:1px;
+  appearance:none;padding:0;border:1px solid #6c4b44;background:#4f3a39;
+  box-shadow:inset 0 2px 2px #281f24,inset 0 -1px #806052;
+  color:#fff3dc;font:inherit;line-height:1;min-width:0;min-height:0;
+}
+.pz-grid .pz-cell.locked{
+  border-color:#524045;background:repeating-linear-gradient(135deg,#382e32 0 3px,#30262c 3px 7px);
+  box-shadow:inset 0 2px 2px #261c22;
+}
+.pz-grid .pz-cell.locked::after{content:'×';font-size:14px;color:#a89081}
+.pz-grid .pz-cell.filled{
+  --gem-color:#bc8b55;
+  background:linear-gradient(145deg,color-mix(in srgb,var(--gem-color),#fff3d0 32%),var(--gem-color) 54%,color-mix(in srgb,var(--gem-color),#30223b 23%));
+  border-color:color-mix(in srgb,var(--gem-color),#221823 65%);
+  border-radius:4px!important;
+  box-shadow:inset 0 2px color-mix(in srgb,var(--gem-color),#fffbe7 58%),inset 1px 0 #fff4d44d,
+    inset -2px -4px color-mix(in srgb,var(--gem-color),#271d2a 46%),0 3px 0 #18111a;
+  touch-action:none;
+}
+.pz-grid .pz-cell.filled::before{
+  content:'';position:absolute;inset:4px 4px 6px;z-index:-1;pointer-events:none;
+  background:linear-gradient(138deg,#fff6d57d 0%,#fff6d51c 32%,transparent 54%,#25192738 55%,#fff1d316 88%);
+  clip-path:polygon(0 21%,21% 0,79% 0,100% 21%,100% 79%,79% 100%,21% 100%,0 79%);
+}
+.pz-grid .pz-cell.support::before{
+  inset:4px 3px 6px;background:conic-gradient(from 22deg,#fff7d881,#ffffff14,#32204765,#fff7d881);
+  clip-path:polygon(50% 0,96% 25%,96% 75%,50% 100%,4% 75%,4% 25%);
+}
+.pz-grid .pz-cell.filled:hover{filter:brightness(1.11)}
+.pz-grid .pz-cell.filled:active{transform:translateY(1px)}
+.pz-glyph{font-size:clamp(12px,calc(var(--pz-cell) * .36),19px);line-height:1;text-shadow:0 1px #271520}
+.pz-gem-label{
+  color:#fff8e8;background:#271a25;padding:2px 3px;line-height:1;
+  font-size:clamp(8px,calc(var(--pz-cell) * .21),10px);white-space:nowrap;max-width:calc(var(--pz-cell) - 3px);overflow:hidden;text-overflow:ellipsis;
+}
+.pz-type{
+  position:absolute;top:1px;right:1px;padding:1px 2px;color:#fff4dc;background:#4a2428;
+  font-size:8px;line-height:1.05;white-space:nowrap;border-radius:2px;
+}
+.pz-cell.support .pz-type{background:#194e47}
+.pz-facet{display:block;width:35%;aspect-ratio:1;background:#fff3dc52;clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}
+.pz-cell.support .pz-facet{border-radius:50%;clip-path:none;width:30%}
+.pz-cell.join-east::after,.pz-cell.join-south::after{
+  content:'';position:absolute;pointer-events:none;background:color-mix(in srgb,var(--gem-color),#342239 16%);border-radius:1px;
+}
+.pz-cell.join-east::after{width:calc(var(--pz-gap) + 2px);height:44%;right:calc(-1 * var(--pz-gap) - 2px);top:25%}
+.pz-cell.join-south::after{height:calc(var(--pz-gap) + 3px);width:44%;bottom:calc(-1 * var(--pz-gap) - 3px);left:26%}
+.pz-cell.join-east.join-south::before{
+  filter:brightness(1.07);
+}
+.pz-link{
+  pointer-events:none;position:absolute;z-index:2;background:#ffe6a4;box-shadow:0 0 4px #f9c649,0 0 0 1px #39202a;border-radius:3px;
+}
+.pz-link.east{right:calc(-1 * var(--pz-gap) - 4px);width:calc(var(--pz-gap) + 9px);height:3px;top:48%}
+.pz-link.south{bottom:calc(-1 * var(--pz-gap) - 4px);height:calc(var(--pz-gap) + 9px);width:3px;left:48%}
+.pz-link[data-support="coh"]{background:#c3f4ff;box-shadow:0 0 4px #54d4ed,0 0 0 1px #39202a}
+.pz-link[data-support="coc"]{background:#ffc6ec;box-shadow:0 0 4px #ef73b8,0 0 0 1px #39202a}
+
+#puzzleM .pz-cell.pz-picked{opacity:.48}
+#puzzleM .pz-cell.preview-ok,#puzzleM .pz-cell.preview-bad{
+  opacity:1;outline-offset:-2px;outline:2px solid #b4fbd0;z-index:3;
+  background:repeating-linear-gradient(135deg,#256e57 0 5px,#267760 5px 10px);color:#fff9e8;
+}
+#puzzleM .pz-cell.preview-bad{outline-color:#ffc2a7;background:repeating-linear-gradient(135deg,#7f3d46 0 5px,#8e4752 5px 10px)}
+#puzzleM .pz-grid.invalid-drop{outline:1px solid #f3a289}
+#puzzleM .pz-cell.preview-ok::after,#puzzleM .pz-cell.preview-bad::after{
+  content:'＋';position:absolute;display:grid;place-items:center;inset:0;width:auto;height:auto;
+  background:transparent;font-size:19px;color:#e1ffe9;text-shadow:0 1px #193928;
+}
+#puzzleM .pz-cell.preview-bad::after{content:'×';color:#ffe1d2;text-shadow:0 1px #49252b}
+#puzzleM :is(.pz-cell,.pz-gem,.pz-party-slot,.pz-search-row button):focus-visible{outline:3px solid #ffdc83!important;outline-offset:1px;z-index:5}
+#puzzleM :is(.pz-cell.filled,.pz-grip,.pz-party-slot.filled){cursor:grab!important}
+#puzzleM .pz-picked{outline:2px solid #b87632;outline-offset:-2px}
+#puzzleM .pz-cell:disabled{cursor:default!important}
+#puzzleM .pz-feedback{
+  font-size:12px;line-height:1.3;min-height:2.15em;margin-top:8px;padding:3px 5px;
+  color:#4b302a;
+}
+#puzzleM .pz-feedback[data-tone="ok"]{color:#15533f}
+#puzzleM .pz-feedback[data-tone="error"]{color:#842f2a;font-weight:bold}
+#puzzleM .pz-tools{position:static!important;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;margin:0!important;padding:0}
+#puzzleM .pz-tools .btn.small{height:auto!important;min-height:36px!important;margin:0;white-space:nowrap}
+#puzzleM .pz-tools .btn:disabled{opacity:.52}
+#puzzleM .pz-tools kbd{margin-left:5px;font:inherit;font-size:10px;opacity:.8}
+#puzzleM #pzClear:enabled{color:#742d28!important;background:#edd0a0!important;border-image:none!important;border:1px solid #966445!important;box-shadow:0 2px #714232!important}
+
+#puzzleM .pz-library{
+  display:flex;flex-direction:column;gap:7px;padding:8px;
+  background:#b4865a34;border:1px solid #916943;box-shadow:inset 0 1px #ffedc699;
+}
+#puzzleM .pz-tab-row,#puzzleM .pz-flt-row{gap:4px;margin:0}
+#puzzleM .pz-tab-row .btn,#puzzleM .pz-flt-row .btn{margin:0}
+.pz-search-row{position:relative;display:flex}
+#puzzleM #pzSearch{
+  margin:0;min-width:0;min-height:35px;padding:4px 35px 4px 8px;background:#fff2d6;
+  border-radius:3px;border:1px solid #805b42;font-size:16px;color:#3a2226;
+}
+#pzSearch::-webkit-search-cancel-button{display:none}
+#pzSearchClear{
+  position:absolute;right:2px;top:2px;bottom:2px;width:30px;
+  color:#592c2d;background:transparent;border:0;font:inherit;
+}
+#puzzleM .pz-bag,#puzzleM .pz-shop{
+  min-width:0;height:226px;max-height:none;overflow:auto;overscroll-behavior:contain;
+  scrollbar-gutter:stable;align-content:start;gap:5px;padding:4px;background:#eed7a8;
+  border:1px solid #916945;
+}
+#puzzleM :is(.pz-bag,.pz-shop,.pz-drag-ghost,#pzSearchClear)[hidden]{display:none!important}
+#puzzleM .pz-bag{grid-template-columns:repeat(2,minmax(0,1fr))}
+#puzzleM .pz-gem{
+  --gem-color:#c88e5a;min-width:0;min-height:48px;
+  gap:3px;padding:2px!important;background:#fbedd0!important;border:1px solid #a27a51!important;
+  border-image:none!important;box-shadow:inset 3px 0 var(--gem-color),0 1px #9b724b55!important;
+  color:#3f2526!important;touch-action:pan-y;
+}
+#puzzleM .pz-gem:hover{background:#fff4da!important}
+#puzzleM .pz-gem.pz-picked{background:#ffe6a8!important;border-color:#99621d!important}
+#puzzleM .pz-gem:disabled{opacity:.54;cursor:default!important}
+.pz-gem-name{min-width:0}
+#puzzleM .pz-gem-name b{line-height:1.22;font-size:12px;overflow-wrap:anywhere}
+#puzzleM .pz-gem-name small{display:block;margin-top:3px;font-size:10px;line-height:1.15}
+.pz-grip{display:grid;place-items:center;flex:none;width:44px;min-height:44px;touch-action:none;user-select:none}
+#puzzleM .pz-mini{
+  --mini-cell:8px;display:inline-grid;grid-template-columns:repeat(var(--shape-columns),var(--mini-cell));gap:2px;
+  padding:2px;background:transparent;pointer-events:none;
+}
+#puzzleM .pz-mini i{
+  width:var(--mini-cell);height:var(--mini-cell);display:block;
+  background:linear-gradient(140deg,color-mix(in srgb,var(--gem-color),#fff4d4 37%),var(--gem-color));
+  border:1px solid color-mix(in srgb,var(--gem-color),#291c28 55%);border-radius:2px;
+  box-sizing:border-box;box-shadow:inset 0 1px #fff3cd9c,0 1px #3a2735a3;
+}
+#puzzleM .pz-mini.support i{border-radius:50%;box-shadow:inset 1px 1px #fff3cd9c,0 1px #3a2735a3}
+#puzzleM .pz-shop-item{min-width:0;padding:5px!important;background:#fbedd0!important;border-bottom:1px solid #a27a51!important}
+#puzzleM .pz-empty{grid-column:1/-1;margin:8px;font-size:13px;color:#56362b}
+#puzzleM .pz-party-slot{
+  margin:0;min-height:41px;justify-content:space-between;background:#e5d7ae!important;
+  border:1px dashed #6e5e42!important;touch-action:none;color:#462d2a;
+}
+#puzzleM .pz-party-slot.filled{background:color-mix(in srgb,var(--gem-color),#f9e7bc 70%)!important;border-style:solid!important}
+#puzzleM .pz-party-slot.preview-ok{outline:2px solid #367a56;outline-offset:1px;background:#cce9be!important}
+#puzzleM .pz-party-slot.preview-bad{outline:2px solid #a34c49;outline-offset:1px;background:#efc4b3!important}
+
+.pz-summary{border-top:1px solid #9c754d;margin-top:9px;padding-top:5px;min-height:64px}
+.pz-equipped{font-size:11px;color:#58372d;line-height:1.4}
+#puzzleM .pz-info{
+  display:flex;gap:4px 9px;flex-wrap:wrap;align-items:baseline;margin:3px 0 0!important;
+  padding:3px 0!important;background:transparent!important;box-shadow:none!important;border:0!important;border-image:none!important;
+  color:#4b302a;font-size:12px!important;line-height:1.4;
+}
+.pz-info strong{color:#48272a}
+.pz-info span{flex:1 1 220px}
+#puzzleM .pz-drag-ghost{position:fixed;top:0;left:0;pointer-events:none;z-index:10;opacity:.96;filter:drop-shadow(0 4px 2px #1e101bc7)}
+#puzzleM .pz-drag-ghost[data-target="board"]{opacity:.55}
+#puzzleM .pz-drag-ghost .pz-mini{--mini-cell:15px;gap:3px;padding:5px;background:#2d222ace;border:1px solid #f0c87c;border-radius:5px}
+#puzzleM .pz-drag-ghost .pz-mini i{box-shadow:inset 0 2px #fff3cd9c,0 2px #1b1019}
+@media(max-width:680px){
+  #puzzleM .pzp{--pz-cell:clamp(32px,calc((100vw - 96px) / 6),43px);padding:8px 9px!important}
+  #puzzleM .pz-layout{grid-template-columns:minmax(0,1fr);gap:8px}
+  #puzzleM .pz-head{padding-bottom:4px}
+  #puzzleM .pz-head h3{font-size:18px}
+  #puzzleM .pz-preset-row{margin:3px 0 6px}
+  #puzzleM .pz-board-head{padding-bottom:4px}
+  .pz-board-frame{padding:6px 5px}
+  #puzzleM .pz-feedback{margin-top:5px;min-height:1.8em}
+  #puzzleM .pz-tools{grid-template-columns:repeat(4,minmax(0,1fr))}
+  #puzzleM .pz-tools .btn.small{padding:0 2px!important;min-height:44px!important;font-size:11px!important}
+  #puzzleM .pz-tools kbd{display:none}
+  #puzzleM .pz-library{gap:4px;padding:5px}
+  #puzzleM .pz-tab-row .btn{min-height:42px}
+  #puzzleM .pz-flt-row .btn{min-height:30px}
+  #puzzleM .pz-bag,#puzzleM .pz-shop{height:153px}
+  #puzzleM .pz-party-slot{min-height:44px}
+}
+@media(min-width:681px) and (max-height:560px){
+  #puzzleM .pzp{--pz-cell:33px;padding:7px 10px!important}
+  #puzzleM .pz-layout{gap:9px}
+  #puzzleM .pz-library{gap:4px;padding:5px}
+  #puzzleM .pz-bag,#puzzleM .pz-shop{height:164px}
+  #puzzleM .pz-tools .btn.small{min-height:35px!important}
+}
+@media (prefers-reduced-motion:reduce){
+  #puzzleM *{transition:none!important;animation:none!important}
+}
+
 </style>
 </head>
 <body>
@@ -2482,39 +2693,53 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   <div class="sfoot"><button class="btn small" id="btnClose">繼續遊戲</button><button type="button" class="btn small" id="btnSwitchChar" style="background:#5a463a">👤 切換角色／帳號</button><span class="hint">Esc 開關設定</span></div>
 </div></div>
 <div id="panelM" class="modal hide"><div class="panel setp"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px"><h3 style="margin:0"></h3><button type="button" class="modal-x" id="btnPanelX" aria-label="關閉">✕</button></div><div class="pshards"></div><div class="quest-guide-controls" hidden><button type="button" class="btn small on" data-quest-guide-follow>✦ 跟隨燈火</button><button type="button" class="btn small" data-quest-guide-toggle>關閉光路</button></div><div class="pbody"></div></div></div>
-<div id="puzzleM" class="modal hide"><div class="panel pzp">
-  <div class="pz-head"><h3>💎 技能拼圖</h3><div style="display:flex;align-items:center;gap:10px"><span class="pz-coins"></span><button type="button" class="modal-x" id="btnPuzzleX" aria-label="關閉技能拼圖">✕</button></div></div>
-  <div class="pz-presets"></div>
-  <div class="pz-unlock"></div>
-  <div class="pz-info"></div>
+<div id="puzzleM" class="modal hide" aria-labelledby="pzTitle"><div class="panel pzp">
+  <header class="pz-head">
+    <h3 id="pzTitle">技能拼圖</h3>
+    <div class="pz-head-actions"><span class="pz-coins" aria-label="金幣"></span><button type="button" class="modal-x" id="btnPuzzleX" aria-label="關閉技能拼圖">✕</button></div>
+  </header>
+  <div class="pz-preset-row">
+    <div class="pz-presets" role="group" aria-label="切換構築"></div>
+    <div class="pz-unlock"></div>
+  </div>
   <div class="pz-layout">
-    <div>
-      <div class="pz-grid"></div>
-      <div class="pz-party-bar"><button type="button" id="pzPartySlot" class="pz-party-slot" title="放入 1 顆輔助寶石，自動串連全盤主動技能並共享給同隊隊友！"></button></div>
-      <div class="pz-tools">
-        <button type="button" class="btn small" id="pzAuto" style="background:#7a4ac0">⚡ 一鍵堆砌</button>
-        <button type="button" class="btn small" id="pzRotate">旋轉 (R)</button>
+    <section class="pz-workbench" aria-label="寶石棋盤">
+      <div class="pz-board-head"><b>棋盤</b><div class="pz-legend"><span>◆ 主動</span><span>◇ 輔助</span><span>━ 連動</span></div></div>
+      <div class="pz-board-frame">
+        <div class="pz-grid" role="group" aria-label="六乘六技能棋盤"></div>
+      </div>
+      <div class="pz-feedback" role="status" aria-live="polite"></div>
+      <div class="pz-tools" role="group" aria-label="棋盤工具">
+        <button type="button" class="btn small" id="pzAuto">⚡ 一鍵堆砌</button>
+        <button type="button" class="btn small" id="pzRotate">旋轉 <kbd>R</kbd></button>
         <button type="button" class="btn small" id="pzTake">放回背包</button>
-        <button type="button" class="btn small" id="pzClear">清空</button>
+        <button type="button" class="btn small" id="pzClear">清空棋盤</button>
       </div>
-    </div>
-    <div>
-      <div class="pz-tab-row">
-        <button type="button" class="btn small on" data-pztab="bag">🎒 未放置寶石</button>
-        <button type="button" class="btn small" data-pztab="shop">🪙 寶石商人</button>
+    </section>
+    <section class="pz-library" aria-label="寶石背包與商人">
+      <div class="pz-tab-row" role="group" aria-label="寶石來源">
+        <button type="button" class="btn small on" data-pztab="bag">寶石背包</button>
+        <button type="button" class="btn small" data-pztab="shop">寶石商人</button>
       </div>
-      <div class="pz-flt-row">
+      <div class="pz-search-row">
+        <input id="pzSearch" type="search" placeholder="搜尋寶石或效果" aria-label="搜尋寶石或效果">
+        <button type="button" id="pzSearchClear" aria-label="清除寶石搜尋" hidden disabled>✕</button>
+      </div>
+      <div class="pz-flt-row" role="group" aria-label="篩選寶石種類">
         <button type="button" class="btn small on" data-pzflt="all">全部</button>
         <button type="button" class="btn small" data-pzflt="active">主動</button>
         <button type="button" class="btn small" data-pzflt="support">輔助</button>
       </div>
-      <input id="pzSearch" type="search" placeholder="搜尋寶石或效果" aria-label="搜尋寶石或效果">
-      <div class="pz-bag"></div>
-      <div class="pz-shop" hidden></div>
-    </div>
+      <div class="pz-bag" aria-label="未放置的寶石"></div>
+      <div class="pz-shop" aria-label="可購買的寶石" hidden></div>
+      <button type="button" id="pzPartySlot" class="pz-party-slot" title="可以拖入或點選後鑲嵌一顆一般輔助寶石"></button>
+    </section>
   </div>
-
-</div></div>
+  <div class="pz-summary">
+    <div class="pz-equipped" aria-label="目前技能欄配置"></div>
+    <div class="pz-info" aria-label="寶石詳情"></div>
+  </div>
+</div><div class="pz-drag-ghost" aria-hidden="true" hidden></div></div>
 <div id="boons" class="modal hide"><h2>選擇一份祝福</h2><div class="cards"></div></div>
 <div id="inv" class="modal hide" data-dialog-label="背包與裝備"><div class="panel">
   <div class="inv-tabs">
