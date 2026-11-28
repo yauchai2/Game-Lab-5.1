@@ -4,7 +4,7 @@ const { createHash } = require('node:crypto');
 const { mkdirSync } = require('node:fs');
 const path = require('node:path');
 
-module.exports = function createGuild(filename) {
+module.exports = function createGuild(filename, { scaleRaidPopulation = false } = {}) {
   if (filename !== ':memory:') mkdirSync(path.dirname(filename), { recursive:true });
   const db = new DatabaseSync(filename);
   db.exec(`PRAGMA journal_mode=WAL;
@@ -22,10 +22,16 @@ module.exports = function createGuild(filename) {
     const lots = rawLots.map(l => ({ id: l.id, price: l.price, mine: l.seller === me.member ? 1 : 0 }));
     send(me,{t:'wallet',...balance,lots});
   }
+  function scaleUnstartedRaid(room) {
+    if (!scaleRaidPopulation || room.started) return;
+    const players = [...room.members.values()].filter(fighter => !fighter.bot).length;
+    room.hp = room.maxHp = 112 + 32 * (Math.max(1, players) - 1);
+  }
   function leave(me) {
     const room = me.raid; if (!room) return;
     room.members.delete(me.id); me.raid=null;
     if (![...room.members.values()].some(fighter => !fighter.bot)) rooms.delete(room.code);
+    else scaleUnstartedRaid(room);
     send(me,{t:'raidExit'});
   }
   function disconnect(me) { leave(me); if (online.get(me.member)===me) online.delete(me.member); }
@@ -69,12 +75,13 @@ module.exports = function createGuild(filename) {
   function joinRaid(me, code, power = 8) {
     let room = rooms.get(code);
     if (!room) {
-      room = { code, members: new Map(), hp: 144, x: 0, z: 0, clock: 0, portalsLeft: 6 };
+      room = { code, members: new Map(), hp: 144, maxHp: 144, started: false, x: 0, z: 0, clock: 0, portalsLeft: 6 };
       rooms.set(code, room);
     }
     if (room.members.size >= 4) { send(me, { t: 'guildNotice', text: '此組隊副本已滿。' }); return null; }
     room.members.set(me.id, { me, x: 0, z: 4, dx: 0, dz: 0, hp: 100, attack: false, cooldown: 0, damage: 0, power, mitigated: 0 });
     me.raid = room;
+    scaleUnstartedRaid(room);
     send(me, { t: 'raidStart', code, portalsLeft: room.portalsLeft });
     return room;
   }
@@ -139,7 +146,7 @@ module.exports = function createGuild(filename) {
         f.z=Math.max(-4.6,Math.min(4.6,f.z+f.dz/length*.45));
         f.cooldown=Math.max(0,f.cooldown-1);
         const dist=Math.hypot(f.x-room.x,f.z-room.z);
-        if (f.attack&&!f.cooldown&&dist<3) {room.hp-=f.power;f.damage+=f.power;f.cooldown=5;f.lastHit=room.clock;}
+        if (f.attack&&!f.cooldown&&dist<3) {room.started=true;room.hp-=f.power;f.damage+=f.power;f.cooldown=5;f.lastHit=room.clock;}
         if (impact&&dist<3.4) {
           f.hp=Math.max(0,f.hp-16);
           f.mitigated+=16;
@@ -147,7 +154,7 @@ module.exports = function createGuild(filename) {
         }
       }
       const members=[...room.members.values()];
-      const snapshot={t:'raidFrame',hp:Math.max(0,room.hp),portalsLeft:room.portalsLeft,warn:room.clock%40>=30,
+      const snapshot={t:'raidFrame',hp:Math.max(0,room.hp),maxHp:room.maxHp,portalsLeft:room.portalsLeft,warn:room.clock%40>=30,
         members:members.map(f=>({id:f.me.id,name:f.me.name,hp:f.hp,x:f.x,z:f.z}))};
       const humans = members.filter(f => !f.bot);
       for(const f of humans) send(f.me,snapshot);
@@ -165,7 +172,13 @@ module.exports = function createGuild(filename) {
         db.exec('COMMIT');
       } catch(e) {db.exec('ROLLBACK');throw e;}
       const mvpTxt = mvps.length ? ' ｜ 高光：' + mvps.map(x=>`${x.badge} ${x.name}`).join(' · ') : '';
-      for(const f of humans) {leave(f.me);wallet(f.me);send(f.me,{t:'guildNotice',mvps,text:(won && f.damage>0?'守護獸已平息 · 公會幣 +12、琥珀 +1':won?'隊友已平息守護獸':'隊伍已返回燈谷鎮')+mvpTxt});}
+      for (const f of humans) {
+        send(f.me, { t: 'raidResult', won, contributed: f.damage > 0 });
+        leave(f.me); wallet(f.me);
+        send(f.me, { t: 'guildNotice', mvps,
+          text: (won && f.damage > 0 ? '守護獸已平息 · 公會幣 +12、琥珀 +1'
+            : won ? '隊友已平息守護獸' : '隊伍已返回燈谷鎮') + mvpTxt });
+      }
     }
   }
   return {message,disconnect,tick,startDungeonRaid};
